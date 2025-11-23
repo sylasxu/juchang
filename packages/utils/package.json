@@ -1,0 +1,6 @@
+{
+    "name": "@juchang/utils",
+    "private": true,
+    "main": "./src/index.ts",
+    "exports": { ".": "./src/index.ts" }
+  }

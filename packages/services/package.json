@@ -1,0 +1,20 @@
+{
+  "name": "@juchang/services",
+  "version": "1.0.0",
+  "description": "Business logic services for Juchang",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@juchang/db": "workspace:*",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@juchang/ts-config": "workspace:*",
+    "@types/node": "^20.11.17",
+    "typescript": "^5.9.3"
+  }
+}

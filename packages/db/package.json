@@ -1,0 +1,27 @@
+{
+  "name": "@juchang/db",
+  "version": "1.0.0",
+  "description": "Database layer for Juchang with Drizzle ORM",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:drop": "drizzle-kit drop",
+    "db:check": "drizzle-kit check"
+  },
+  "dependencies": {
+    "@types/pg": "^8.10.9",
+    "drizzle-orm": "^0.29.0",
+    "drizzle-zod": "^0.8.3",
+    "postgres": "^3.4.3"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.20.0",
+    "typescript": "^5.9.3",
+    "@juchang/ts-config": "workspace:^"
+  }
+}

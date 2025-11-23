@@ -1,0 +1,37 @@
+{
+  "name": "juchang",
+  "version": "1.0.0",
+  "description": "聚场 - AI碎片化社交找搭子平台",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:db": "docker-compose -f docker/docker-compose.yml up -d",
+    "dev:api": "turbo run dev --filter=@juchang/api",
+    "dev:web": "turbo run dev --filter=@juchang/web",
+    "dev:miniprogram": "turbo run dev --filter=@juchang/miniprogram",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate",
+    "db:push": "turbo run db:push",
+    "db:studio": "turbo run db:studio",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && rm -rf node_modules **/*/node_modules",
+    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.yml down",
+    "docker:logs": "docker-compose -f docker/docker-compose.yml logs -f"
+  },
+  "keywords": ["社交", "找搭子", "LBS", "小程序", "Next.js"],
+  "author": "Juchang Team",
+  "license": "MIT",
+  "packageManager": "pnpm@10.10.0",
+  "devDependencies": {
+    "tsx": "^4.20.6",
+    "turbo": "^2.6.1",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=10.0.0"
+  }
+}
