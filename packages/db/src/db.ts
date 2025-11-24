@@ -1,25 +1,22 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import * as usersSchema from './schema/users';
+import * as schema from './schema'; // 👈 核心修改：导入所有 schema
 
-// Connection string from environment variable
 const connectionString = process.env.DATABASE_URL!;
 
-// Create postgres client
+// 创建客户端
 const client = postgres(connectionString, {
   prepare: false,
-  max: 20, // Maximum number of connections
+  max: 20, 
   idle_timeout: 20,
   connect_timeout: 10,
 });
 
-// Create drizzle instance
-export const db = drizzle(client, { schema: { users: usersSchema } });
+// 👈 核心修改：把 schema 传进去
+export const db = drizzle(client, { schema });
 
-// Export types
 export type Database = typeof db;
 
-// Helper function to close connection
 export async function closeConnection() {
   await client.end();
 }

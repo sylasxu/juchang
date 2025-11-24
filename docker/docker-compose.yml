@@ -6,48 +6,21 @@ services:
       context: ./postgres
       dockerfile: Dockerfile
     container_name: juchang-postgres
+    container_name: juchang-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-juchang}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-app}
-      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-app_password}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_DB: juchang
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password  # 开发环境简单点，生产环境走 .env
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backups:/backups
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-juchang}",
-        ]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d juchang"]
+      interval: 5s
       timeout: 5s
       retries: 5
-      start_period: 30s
-    networks:
-      - juchang-network
-    command: >
-      postgres
-      -c shared_preload_libraries=pg_stat_statements
-      -c pg_stat_statements.track=all
-      -c max_connections=200
-      -c shared_buffers=256MB
-      -c effective_cache_size=1GB
-      -c maintenance_work_mem=64MB
-      -c checkpoint_completion_target=0.9
-      -c wal_buffers=16MB
-      -c default_statistics_target=100
-      -c random_page_cost=1.1
-      -c effective_io_concurrency=200
-      -c work_mem=4MB
-      -c min_wal_size=1GB
-      -c max_wal_size=4GB
 
   redis:
     image: redis:8-alpine
@@ -56,21 +29,7 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - juchang-network
 
 volumes:
   postgres_data:
-    driver: local
   redis_data:
-    driver: local
-
-networks:
-  juchang-network:
-    driver: bridge
-    name: juchang-network

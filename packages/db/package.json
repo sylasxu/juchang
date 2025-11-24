@@ -21,7 +21,8 @@
   },
   "devDependencies": {
     "@juchang/ts-config": "workspace:^",
-    "drizzle-kit": "^0.20.0",
+    "@types/node": "^24.10.1",
+    "drizzle-kit": "^0.20.18",
     "typescript": "^5.9.3"
   }
 }
