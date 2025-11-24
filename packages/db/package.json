@@ -7,21 +7,21 @@
   "types": "./src/index.ts",
   "scripts": {
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "tsx src/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:drop": "drizzle-kit drop",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "db:reset": "drizzle-kit drop && pnpm db:push"
   },
   "dependencies": {
-    "@types/pg": "^8.10.9",
-    "drizzle-orm": "^0.29.0",
+    "drizzle-orm": "^0.44.7",
     "drizzle-zod": "^0.8.3",
     "postgres": "^3.4.3"
   },
   "devDependencies": {
+    "@juchang/ts-config": "workspace:^",
     "drizzle-kit": "^0.20.0",
-    "typescript": "^5.9.3",
-    "@juchang/ts-config": "workspace:^"
+    "typescript": "^5.9.3"
   }
 }
