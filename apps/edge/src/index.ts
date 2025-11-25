@@ -13,7 +13,7 @@ app.get('/', (c) => {
 app.get('/users/:id', async (c) => {
   const id = c.req.param('id')
   try {
-    const user = await userService.getUserById(id)
+    const user = await userService.findById(id)
     if (user) {
       return c.json({ user })
     } else {

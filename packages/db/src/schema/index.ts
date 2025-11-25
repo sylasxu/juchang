@@ -3,6 +3,7 @@ export * from "./enums";
 
 // 2. 导出 Tables
 export * from "./users";
+export * from "./user_auths";
 export * from "./activities";
 export * from "./participants";
 export * from "./orders"; 

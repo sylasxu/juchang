@@ -7,6 +7,15 @@ export const genderEnum = pgEnum("gender", ["unknown", "male", "female"]);
 /** 会员等级：决定AI服务折扣率（月度8折/年度7折）及每月赠送资产数量 */
 export const membershipEnum = pgEnum("membership_type", ["none", "monthly", "yearly"]);
 
+/** 登录身份类型：统一管理 user_auths.identity_type 的可选值 */
+export const authIdentityEnum = pgEnum("auth_identity_type", [
+  "wechat_miniprogram",
+  "phone_sms",
+  "wechat_open_platform",
+  "apple_signin",
+  "email_password",
+]);
+
 // ================= 资产与道具 (Inventory Domain) =================
 /** 资产大类：用于前端背包页面的分类展示 (钱包 vs 道具包) */
 export const assetCategoryEnum = pgEnum("asset_category", ["currency", "consumable", "badge"]);

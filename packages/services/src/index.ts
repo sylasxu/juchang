@@ -1,3 +1,3 @@
 // Services exports
-export { UserService, userService } from './users/index.js';
-
+export { UserService } from './users/users.service';
+export { WechatService } from './auth/wechat.service';

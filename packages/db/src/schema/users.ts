@@ -7,49 +7,48 @@ import { orders } from "./orders";
 import { payments } from "./payments";
 import { userAssets } from "./user_assets";
 import { assetRecords } from "./asset_records";
+import { userAuths } from "./user_auths"; // 引入新表
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   
-  /** 微信OpenID：唯一身份标识 */
+  /** 微信OpenID：作为查询索引，虽然 Auth 表也有，但这里保留用于快速关联 */
   wxOpenId: varchar("wx_openid", { length: 128 }).notNull().unique(),
+  
+  /** 手机号：从微信解密后存储，属于资料而非凭证 */
   phoneNumber: varchar("phone_number", { length: 20 }),
   
   nickname: varchar("nickname", { length: 50 }),
-  avatarUrl: varchar("avatar_url", { length: 255 }),
+  avatarUrl: varchar("avatar_url", { length: 500 }),
   bio: varchar("bio", { length: 200 }),
   
-  /** 性别：用于资料展示及她模式判断 */
   gender: genderEnum("gender").default("unknown").notNull(),
 
   // --- 权益与信用 ---
-  /** 信用分：影响活动报名通过率 */
   creditScore: integer("credit_score").default(100).notNull(),
-  
-  /** 会员类型：决定折扣逻辑 */
   membershipType: membershipEnum("membership_type").default("none").notNull(),
-  /** 会员过期时间：NULL或过去时间为失效 */
   membershipExpiresAt: timestamp("membership_expires_at"),
 
   // --- LBS ---
-  /** 最后位置：用于推荐"附近的人" */
   lastLocation: geometry("last_location", { type: "point", mode: "xy", srid: 4326 }),
   lastActiveAt: timestamp("last_active_at"),
 
-  // --- 扩展 ---
+  // --- 状态与标记 ---
   interestTags: jsonb("interest_tags").$type<string[]>(),
+  /** 冷启动标记：false=仅授权了微信，未完善资料；true=可正常发起活动 */
+  isRegistered: boolean("is_registered").default(false).notNull(),
   isRealNameVerified: boolean("is_real_name_verified").default(false),
   isBlocked: boolean("is_blocked").default(false),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
-  // 空间索引：查找附近的用户
   index("users_location_idx").using("gist", t.lastLocation),
-  index("users_phone_idx").on(t.phoneNumber),
+  index("users_wx_openid_idx").on(t.wxOpenId),
 ]);
 
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ many, one }) => ({
+  auths: many(userAuths), // 一个用户可能有多种登录方式（未来扩展）
   activitiesHosted: many(activities),
   orders: many(orders),
   payments: many(payments),
