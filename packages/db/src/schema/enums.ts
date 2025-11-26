@@ -84,14 +84,33 @@ export const paymentGatewayEnum = pgEnum("payment_gateway", ["wechat_pay", "alip
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed", "cancelled", "refunded"]);
 
 // ================= 活动与风控 =================
-/** 活动类型：决定地图图标和推荐策略 */
-export const activityTypeEnum = pgEnum("activity_type", ["food", "sports", "entertainment", "culture", "travel", "study"]);
-
-/** 活动生命周期状态 */
-export const activityStatusEnum = pgEnum("activity_status", ["published", "full", "cancelled", "completed"]);
-
-/** 参与者状态：报名审核流 */
-export const participantStatusEnum = pgEnum("participant_status", ["pending", "approved", "rejected", "quit", "checked_in"]);
 
 /** 风险等级：高风险会自动拦截或人工审核 */
 export const riskLevelEnum = pgEnum("risk_level", ["low", "medium", "high"]);
+
+// 活动类型：语义化，方便 AI 归类
+export const activityTypeEnum = pgEnum("activity_type", [
+  "food",           // 美食
+  "sports",         // 运动
+  "entertainment",  // 娱乐 (KTV/剧本杀)
+  "culture",        // 文化 (展/书)
+  "travel",         // 旅行
+  "study"           // 学习
+]);
+
+// 活动状态
+export const activityStatusEnum = pgEnum("activity_status", [
+  "published", // 报名中
+  "full",      // 满员
+  "cancelled", // 已取消
+  "completed"  // 已结束
+]);
+
+// 参与者状态
+export const participantStatusEnum = pgEnum("participant_status", [
+  "pending",   // 申请中 (待审核)
+  "approved",  // 已同意 (报名成功)
+  "rejected",  // 已拒绝
+  "quit",      // 主动退出
+  "checked_in" // 已签到
+]);
