@@ -12,8 +12,8 @@ export const participants = pgTable("participants", {
   
   status: participantStatusEnum("status").default("pending").notNull(),
   
-  // 申请理由 (AI 可以分析这个来辅助 Host 审核)
-  message: text("message"), 
+  // 申请理由：用户申请加入活动时的说明（仅当 joinMode=approval 时使用）
+  applicationMsg: text("application_msg"), 
   
   joinedAt: timestamp("joined_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

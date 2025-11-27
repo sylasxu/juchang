@@ -3,13 +3,13 @@ import { relations, sql } from "drizzle-orm";
 import { geometry } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { participants } from "./participants";
-import { activityTypeEnum, activityStatusEnum } from "./enums";
+import { activityTypeEnum, activityStatusEnum, joinModeEnum, riskLevelEnum } from "./enums";
 
 export const activities = pgTable("activities", {
   id: uuid("id").primaryKey().defaultRandom(),
   
-  // 发起人 (Host)
-  hostId: uuid("host_id").notNull().references(() => users.id),
+  // 发起人 (Creator) - P2P模式：创建者即第一个参与者，无特殊权限
+  creatorId: uuid("creator_id").notNull().references(() => users.id),
 
   // 核心内容
   title: varchar("title", { length: 100 }).notNull(),
@@ -28,8 +28,16 @@ export const activities = pgTable("activities", {
   // 规则与限制
   type: activityTypeEnum("type").notNull(),
   maxParticipants: integer("max_participants").default(4).notNull(),
-  // 费用 (0为免费，大于0为付费活动)，后续 Order 模块会用到
-  price: integer("price").default(0).notNull(), 
+  // 费用类型：仅作信息展示，用户需在线下自行结算（free=免费, aa=AA制, treat=我请）
+  feeType: varchar("fee_type", { length: 20 }).default("free").notNull(), // free, aa, treat
+  // 预估费用（仅信息展示，单位：元）：用于信息展示，不涉及交易
+  estimatedCost: integer("estimated_cost").default(0), // 预估费用，仅作参考
+  // 加入模式：instant=即时加入，approval=需要创建者审核
+  joinMode: joinModeEnum("join_mode").default("instant").notNull(),
+  // 风险分（RiskScore）：0-100分，基于时间/地点、发起者资料质量、发起者历史综合计算
+  riskScore: integer("risk_score").default(0).notNull(), // 风险分，>60分为高风险
+  // 风险等级：基于riskScore自动计算（low/medium/high），用于快速筛选
+  riskLevel: riskLevelEnum("risk_level").default("low").notNull(), 
   
   // AI 匹配字段 (预留)
   tags: jsonb("tags").$type<string[]>(), // 如 ["羽毛球", "新手友好"]
@@ -48,9 +56,10 @@ export const activities = pgTable("activities", {
 ]);
 
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
-  host: one(users, {
-    fields: [activities.hostId],
+  creator: one(users, {
+    fields: [activities.creatorId],
     references: [users.id],
+    relationName: "creator",
   }),
   participants: many(participants),
 }));

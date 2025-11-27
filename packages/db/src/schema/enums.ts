@@ -88,6 +88,12 @@ export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success",
 /** 风险等级：高风险会自动拦截或人工审核 */
 export const riskLevelEnum = pgEnum("risk_level", ["low", "medium", "high"]);
 
+/** 加入模式：决定用户如何参与活动 */
+export const joinModeEnum = pgEnum("join_mode", [
+  "instant",   // 即时加入：先到先得，无需审核
+  "approval"   // 审核加入：需要创建者批准
+]);
+
 // 活动类型：语义化，方便 AI 归类
 export const activityTypeEnum = pgEnum("activity_type", [
   "food",           // 美食

@@ -29,6 +29,14 @@ export const users = pgTable("users", {
   membershipType: membershipEnum("membership_type").default("none").notNull(),
   membershipExpiresAt: timestamp("membership_expires_at"),
 
+  // --- 皮肤资产（会员权益） ---
+  /** 地图图标皮肤：会员活动显示为动态/3D/金色图标 */
+  skinMapPin: varchar("skin_map_pin", { length: 50 }), // 如 "golden", "dynamic", "3d"
+  /** 头像框皮肤：专属头像框 */
+  skinFrame: varchar("skin_frame", { length: 50 }), // 如 "member_gold", "member_silver"
+  /** 访客历史：记录谁浏览了用户的活动卡片（JSON数组，存储访客ID和时间戳） */
+  visitorHistory: jsonb("visitor_history").$type<Array<{ userId: string; activityId: string; viewedAt: string }>>(),
+
   // --- LBS ---
   lastLocation: geometry("last_location", { type: "point", mode: "xy", srid: 4326 }),
   lastActiveAt: timestamp("last_active_at"),
@@ -39,6 +47,8 @@ export const users = pgTable("users", {
   isRegistered: boolean("is_registered").default(false).notNull(),
   isRealNameVerified: boolean("is_real_name_verified").default(false),
   isBlocked: boolean("is_blocked").default(false),
+  /** 她模式开关：true=启用她模式过滤（隐藏风险分>60的活动），所有用户均可开启/关闭，默认女性为true */
+  isHerModeEnabled: boolean("is_her_mode_enabled").default(false).notNull(),
   
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -49,7 +59,7 @@ export const users = pgTable("users", {
 
 export const usersRelations = relations(users, ({ many, one }) => ({
   auths: many(userAuths), // 一个用户可能有多种登录方式（未来扩展）
-  activitiesHosted: many(activities),
+  activitiesCreated: many(activities, { relationName: "creator" }), // 用户创建的活动（P2P模式：创建者即第一个参与者）
   orders: many(orders),
   payments: many(payments),
   assets: many(userAssets),

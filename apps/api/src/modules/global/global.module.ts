@@ -1,11 +1,13 @@
 import { Global, Module } from '@nestjs/common';
 import { UserServiceProvider } from './factories/users.factory';
+import { ActivityServiceProvider } from './factories/activities.factory';
 
-// 暂时只注册 UserService，后续有其他的再加
+// 注册所有从 packages/services 引入的服务
 const providers = [
-  UserServiceProvider, 
-  // WechatServiceProvider, 
-  // ... 
+  UserServiceProvider,
+  ActivityServiceProvider,
+  // WechatServiceProvider,
+  // ...
 ];
 
 @Global()

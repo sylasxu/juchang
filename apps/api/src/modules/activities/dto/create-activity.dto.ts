@@ -12,11 +12,14 @@ export const createActivitySchema = z.object({
   location: z.object({
     lat: z.number(),
     lng: z.number(),
-    name: z.string(),
-    address: z.string(),
+    name: z.string().optional(),
+    address: z.string().optional(),
   }),
   maxParticipants: z.number().min(2).max(20),
-  price: z.number().optional(),
+  feeType: z.enum(['free', 'aa', 'treat']).default('free'), // 费用类型：仅作信息展示，用户需在线下自行结算
+  estimatedCost: z.number().min(0).optional(), // 预估费用（仅信息展示，单位：元），不涉及交易
+  joinMode: z.enum(['instant', 'approval']).default('instant'), // 加入模式：instant=即时加入，approval=需要审核
+  riskScore: z.number().min(0).max(100).optional(), // 风险分：0-100分，系统自动计算，>60分为高风险
 });
 
 export type CreateActivityDto = z.infer<typeof createActivitySchema>;
