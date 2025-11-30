@@ -6,7 +6,6 @@ services:
       context: ./postgres
       dockerfile: Dockerfile
     container_name: juchang-postgres
-    container_name: juchang-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: juchang
