@@ -1,78 +1,61 @@
-import { db, users, userAuths } from '@juchang/db'; // 假设这是你 db 包的导出
-import { eq, and } from 'drizzle-orm';
+import { db, users, type NewUser } from '@juchang/db';
+import { eq } from 'drizzle-orm';
+import { desc, count } from 'drizzle-orm';
+import type { PaginationDto } from '../common/pagination';
 
-export class UserService {
-  constructor(private readonly database = db) {}
-
-  /**
-   * 核心逻辑：登录或注册 (Login or Register)
-   * 原子操作：同时处理 users 和 user_auths 表
-   */
-  async loginOrCreateByWechat(
-    openId: string, 
-    sessionKey: string, 
-    clientIp?: string
-  ) {
-    return await this.database.transaction(async (tx) => {
-      // 1. 在 user_auths 表中查找凭证
-      // 逻辑：通过 (类型 + 唯一标识) 查找
-      const existingAuth = await tx.query.userAuths.findFirst({
-        where: and(
-          eq(userAuths.identityType, 'wechat_miniprogram'),
-          eq(userAuths.identifier, openId)
-        ),
-        with: {
-          user: true, // 连带查出 User 信息
-        }
-      });
-
-      if (existingAuth) {
-        // --- 场景 A：老用户登录 ---
-        // 1.1 更新凭证信息 (SessionKey 会变，IP 会变)
-        await tx.update(userAuths)
-          .set({
-            credential: sessionKey, // 更新 session_key
-            lastLoginAt: new Date(),
-            lastLoginIp: clientIp,
-          })
-          .where(eq(userAuths.id, existingAuth.id));
-
-        // 1.2 更新用户活跃状态 (LBS 依赖)
-        await tx.update(users)
-          .set({ lastActiveAt: new Date() })
-          .where(eq(users.id, existingAuth.userId));
-
-        return existingAuth.user;
-      } else {
-        // --- 场景 B：新用户注册 ---
-        // 2.1 创建基础用户画像
-        const [newUser] = await tx.insert(users).values({
-          wxOpenId: openId, // 冗余一份用于快速索引
-          nickname: `用户${openId.slice(-4)}`, // 默认昵称
-          gender: 'unknown',
-          isRegistered: false, // 标记为未完成冷启动
-        }).returning();
-
-        // 2.2 创建登录凭证
-        await tx.insert(userAuths).values({
-          userId: newUser.id,
-          identityType: 'wechat_miniprogram', // 枚举值
-          identifier: openId,
-          credential: sessionKey,
-          lastLoginIp: clientIp,
-        });
-
-        return newUser;
-      }
-    });
+class UserService {
+  // 1. Create
+  async create(data: NewUser) {
+    const [user] = await db.insert(users).values(data).returning();
+    return user;
   }
 
-  /**
-   * 根据 ID 查找用户 (用于 JWT Strategy)
-   */
-  async findById(userId: string) {
-    return this.database.query.users.findFirst({
-      where: eq(users.id, userId),
-    });
+  // 2. Read (List with Pagination)
+  async list(params: PaginationDto) {
+    const { page, limit } = params;
+    const offset = (page - 1) * limit;
+
+    // 并行查询：数据 + 总数
+    const [data, [totalRecord]] = await Promise.all([
+      db.select()
+        .from(users)
+        .limit(limit)
+        .offset(offset)
+        .orderBy(desc(users.createdAt)),
+      db.select({ count: count() }).from(users),
+    ]);
+
+    return {
+      data,
+      total: totalRecord?.count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((totalRecord?.count || 0) / limit),
+    };
+  }
+
+  // 2.1 Read (Get One)
+  async getById(id: string) {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || null;
+  }
+
+  // 3. Update
+  async update(id: string, data: Partial<NewUser>) {
+    const [updatedUser] = await db.update(users)
+      .set({ ...data, updatedAt: new Date() }) // 假设表里有 updatedAt
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser || null;
+  }
+
+  // 4. Delete
+  async delete(id: string) {
+    const [deletedUser] = await db.delete(users)
+      .where(eq(users.id, id))
+      .returning();
+    return deletedUser || null;
   }
 }
+
+export const userService = new UserService();

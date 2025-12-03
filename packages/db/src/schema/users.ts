@@ -8,6 +8,7 @@ import { payments } from "./payments";
 import { userAssets } from "./user_assets";
 import { assetRecords } from "./asset_records";
 import { userAuths } from "./user_auths"; // 引入新表
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -67,3 +68,13 @@ export const usersRelations = relations(users, ({ many, one }) => ({
   assets: many(userAssets),
   assetRecords: many(assetRecords),
 }));
+
+
+
+// 🔥 自动化 Zod 生成
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users); // 用于 API 响应
+
+// 导出类型
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
