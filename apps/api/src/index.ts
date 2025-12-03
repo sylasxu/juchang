@@ -1,25 +1,26 @@
 // App Entry + Scalar 挂载
-import { OpenAPIHono } from '@hono/zod-openapi';
+import { extendZodWithOpenApi, OpenAPIHono } from '@hono/zod-openapi';
 import { Scalar } from '@scalar/hono-api-reference';
 import { serve } from '@hono/node-server'
 import type { Context } from 'hono'
-import { z } from 'zod';
-import { extendZodWithOpenApi } from '@hono/zod-openapi';
 
-// ⚡️ 全局激活：这会让 db schema, service dto, api schema 全都拥有 OpenAPI 能力
-extendZodWithOpenApi(z);
-import * as users from './modules/users/users.routes';
 import { initSchedules } from './schedules'
+import * as users from './modules/users/users.route';
 
-const app = new OpenAPIHono()
+import { z } from 'zod';
 
-// 1. 挂载子模块
-app.route('/users', users);
+// ✅ 这一步至关重要！
+// 它把 .openapi() 方法注入到了原生 Zod 的原型链上
+// 这样 @juchang/db 里的原生 schema 也就变成了 Hono 能识别的 schema
+extendZodWithOpenApi(z); 
 
+const app = new OpenAPIHono();
 
-// Use the middleware to serve the Scalar API Reference at /scalar
-app.get('/scalar', Scalar({ url: '/doc' }))
-
+app.openapi(users.list, users.listHandler);
+app.doc('/doc', {
+  openapi: '3.0.0',
+  info: { title: 'API Document', version: '1.0.0' },
+});
 // Or with dynamic configuration
 app.get(
   '/scalar',

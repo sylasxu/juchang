@@ -9,9 +9,9 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.7",
     "@juchang/db": "workspace:*",
-    "zod": "^3.22.0"
+    "drizzle-orm": "^0.44.7",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@juchang/ts-config": "workspace:*",

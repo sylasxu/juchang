@@ -15,7 +15,7 @@
     "@scalar/hono-api-reference": "^0.9.25",
     "hono": "^4.10.7",
     "node-cron": "^4.2.1",
-    "zod": "^3.25.76"
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@juchang/ts-config": "workspace:*",

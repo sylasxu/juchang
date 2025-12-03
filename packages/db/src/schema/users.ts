@@ -9,6 +9,7 @@ import { userAssets } from "./user_assets";
 import { assetRecords } from "./asset_records";
 import { userAuths } from "./user_auths"; // 引入新表
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import z from "zod";
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),

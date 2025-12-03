@@ -17,7 +17,8 @@
   "dependencies": {
     "drizzle-orm": "^0.44.7",
     "drizzle-zod": "^0.8.3",
-    "postgres": "^3.4.3"
+    "postgres": "^3.4.3",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@juchang/ts-config": "workspace:^",
