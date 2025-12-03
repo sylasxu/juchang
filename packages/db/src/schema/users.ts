@@ -43,6 +43,8 @@ export const users = pgTable("users", {
 
   // --- 状态与标记 ---
   interestTags: jsonb("interest_tags").$type<string[]>(),
+  // 系统自动计算的 Vibe Tags (如 "夜猫子", "AA党")
+  vibeTags: jsonb("vibe_tags").$type<string[]>(), 
   /** 冷启动标记：false=仅授权了微信，未完善资料；true=可正常发起活动 */
   isRegistered: boolean("is_registered").default(false).notNull(),
   isRealNameVerified: boolean("is_real_name_verified").default(false),
