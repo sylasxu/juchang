@@ -1,122 +1,164 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
-// ================= 用户相关 =================
-/** 用户性别：用于"她模式"筛选和资料展示 */
+// ==========================================
+// 1. 👤 用户与身份 (User & Identity)
+// ==========================================
+
 export const genderEnum = pgEnum("gender", ["unknown", "male", "female"]);
 
-/** 会员等级：决定AI服务折扣率（月度8折/年度7折）及每月赠送资产数量 */
-export const membershipEnum = pgEnum("membership_type", ["none", "monthly", "yearly"]);
-
-/** 登录身份类型：统一管理 user_auths.identity_type 的可选值 */
-export const authIdentityEnum = pgEnum("auth_identity_type", [
-  "wechat_miniprogram",
-  "phone_sms",
-  "wechat_open_platform",
-  "apple_signin",
-  "email_password",
+/** 
+ * 订阅/会员层级
+ * 对应 users.membership_tier
+ */
+export const membershipTierEnum = pgEnum("membership_tier", [
+  "none",           // 普通用户
+  "plus_monthly",   // 月卡会员
+  "plus_yearly",    // 年卡会员
+  "plus_permanent"  // 终身会员
 ]);
 
-// ================= 资产与道具 (Inventory Domain) =================
-/** 资产大类：用于前端背包页面的分类展示 (钱包 vs 道具包) */
-export const assetCategoryEnum = pgEnum("asset_category", ["currency", "consumable", "badge"]);
-
-/** 资产唯一标识 (SKU Code)：系统中所有"可拥有"的物品定义 */
-export const assetIdEnum = pgEnum("asset_id", [
-  // 货币类
-  "coin",            // 基础金币 (充值获得，通用货币)
-  "point",           // 活跃积分 (行为获得，兑换商城)
-  
-  // 道具类
-  "speed_match_card", // 加速匹配卡 (提升推荐权重)
-  "super_like",       // 超级喜欢 (强提醒)
-  "activity_top_card",// 活动置顶卡 (增加曝光)
-  "rename_card",      // 改名卡
-  
-  // 权益类
-  "early_bird_badge", // 早鸟徽章 (绝版)
-  "verified_badge"    // 认证标识
+/** 
+ * 认证提供商
+ * 对应 user_auths.provider
+ */
+export const authProviderEnum = pgEnum("auth_provider", [
+  "wechat_miniprogram", // 微信小程序
+  "phone_sms",          // 手机验证码
+  "apple_signin",       // Apple ID
+  "wechat_open"         // 微信开放平台(App)
 ]);
 
-/** 资产变动原因：用于财务对账和用户账单展示 */
-export const assetChangeReasonEnum = pgEnum("asset_change_reason", [
-  // --- 获取 (+) ---
-  "recharge",            // 充值购买
-  "activity_reward",     // 活动掉落/奖励
-  "check_in",            // 每日签到
-  "system_grant",        // 系统/客服发放
-  "exchange_in",         // 兑换获得
-  "gift_received",       // 收到礼物
-  "refund",              // 退款返还
+// ==========================================
+// 2. 🎒 资产与经济 (Assets & Economy)
+// ==========================================
 
-  // --- 消耗 (-) ---
-  "payment_use",         // 支付消耗 (如金币买服务)
-  "feature_consume",     // 功能消耗 (如使用加速卡)
-  "gift_sent",           // 送礼消耗
-  "expired",             // 过期销毁
-  "exchange_out"         // 兑换消耗
+/**
+ * 资产类型 (大类)
+ * 对应 user_assets.type
+ * 决定了该资产在前端哪个 Tab 展示，以及具备什么基础属性
+ */
+export const assetTypeEnum = pgEnum("asset_type", [
+  "currency",     // 货币 (如 Pal 币) -> 存金额
+  "prop",         // 道具 (如 置顶卡) -> 存数量，可消耗
+  "skin",         // 外观 (如 地图Pin、头像框) -> 存拥有状态(1/0)
+  "badge"         // 徽章 (如 认证标识) -> 存拥有状态(1/0)
 ]);
 
-// ================= 商业化 =================
-/** 商品类型：决定购买成功后系统执行什么逻辑 */
+/**
+ * 账本/流水类型
+ * 对应 asset_records.entry_type
+ * 记录"钱/物"是因为什么变动的
+ */
+export const ledgerEntryTypeEnum = pgEnum("ledger_entry_type", [
+  // --- Income (增加) ---
+  "deposit_recharge",      // 充值存入
+  "award_activity",        // 活动/任务奖励
+  "award_system",          // 系统/客服补发
+  "refund_return",         // 退款退回
+  "gift_received",         // 收到礼物
+
+  // --- Outflow (减少) ---
+  "payment_purchase",      // 购买商品/服务
+  "fee_service",           // AI服务费/手续费
+  "deposit_freeze",        // 支付押金 (冻结)
+  "penalty_deduction",     // 违约扣除/罚没
+  "gift_sent",             // 送出礼物
+  "consume_prop"           // 使用道具 (消耗库存)
+]);
+
+// ==========================================
+// 3. 🛍️ 商业化 (Commerce & Products)
+// ==========================================
+
+/**
+ * 商品类型
+ * 对应 products.type
+ * 决定系统如何"发货"
+ */
 export const productTypeEnum = pgEnum("product_type", [
-  "coin_bundle",    // 金币包 -> 加余额
-  "membership",     // 会员卡 -> 延期会员时间
-  "ai_service",     // AI服务 -> 消耗/放行
-  "virtual_gift",   // 虚拟礼物 -> 触发赠送逻辑
-  "activity_ticket" // 活动门票 -> 触发报名逻辑
+  "coin_bundle",    // 金币包 (发货：加 currency余额)
+  "asset_bundle",   // 资产包 (发货：按 config 列表往 assets 表塞东西)
+  "subscription"    // 订阅制 (发货：修改 users.membership_tier & expires_at)
 ]);
 
-/** 订单状态：业务层面的最终结果 */
-export const orderStatusEnum = pgEnum("order_status", ["pending", "paid", "failed", "cancelled", "refunded"]);
+/** 订单状态 */
+export const orderStatusEnum = pgEnum("order_status", [
+  "pending",    // 待支付
+  "paid",       // 已支付 (待发货)
+  "delivered",  // 已发货 (完成)
+  "failed",     // 支付失败
+  "cancelled",  // 取消
+  "refunded"    // 已退款
+]);
 
-/** 支付方式：用户是用什么"钱"买的 */
+/** 支付方式 */
 export const paymentMethodEnum = pgEnum("payment_method", [
-  "wechat", // 微信支付 (RMB)
-  "asset",  // 站内资产 (如金币支付)
-  "free",   // 0元购/系统赠送
-  "hybrid"  // 混合支付 (预留)
+  "wechat_pay",   // 微信支付 (RMB)
+  "pal_coin",     // 站内 Pal 币 (余额)
+  "free_grant"    // 系统赠送/0元购
 ]);
 
-/** 外部支付网关渠道 */
-export const paymentGatewayEnum = pgEnum("payment_gateway", ["wechat_pay", "alipay", "apple_iap"]);
+// ==========================================
+// 4. 📍 活动业务 (Activity Domain)
+// ==========================================
 
-/** 网关交互状态 */
-export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed", "cancelled", "refunded"]);
-
-// ================= 活动与风控 =================
-
-/** 风险等级：高风险会自动拦截或人工审核 */
-export const riskLevelEnum = pgEnum("risk_level", ["low", "medium", "high"]);
-
-/** 加入模式：决定用户如何参与活动 */
-export const joinModeEnum = pgEnum("join_mode", [
-  "instant",   // 即时加入：先到先得，无需审核
-  "approval"   // 审核加入：需要创建者批准
+/** 活动垂直分类 (UI颜色区分) */
+export const activityCategoryEnum = pgEnum("activity_category", [
+  "eat",            // 吃 (Yellow)
+  "sport",          // 动 (Green)
+  "play",           // 玩 (Red)
+  "learn",          // 学 (Blue)
+  "travel",         // 旅 (Purple)
+  "official"        // 官方 (Ghost Anchor)
 ]);
 
-// 活动类型：语义化，方便 AI 归类
-export const activityTypeEnum = pgEnum("activity_type", [
-  "food",           // 美食
-  "sports",         // 运动
-  "entertainment",  // 娱乐 (KTV/剧本杀)
-  "culture",        // 文化 (展/书)
-  "travel",         // 旅行
-  "study"           // 学习
-]);
+/** 加入模式 */
+export const joinModeEnum = pgEnum("join_mode", ["instant", "approval"]);
 
-// 活动状态
+/** 活动状态 */
 export const activityStatusEnum = pgEnum("activity_status", [
   "published", // 报名中
   "full",      // 满员
-  "cancelled", // 已取消
-  "completed"  // 已结束
+  "expired",   // 报名截止
+  "cancelled", // 发起人取消
+  "finished"   // 活动结束
 ]);
 
-// 参与者状态
+/** 
+ * 参与者状态 (State Machine)
+ * 核心逻辑：pending -> approved -> checked_in
+ */
 export const participantStatusEnum = pgEnum("participant_status", [
-  "pending",   // 申请中 (待审核)
-  "approved",  // 已同意 (报名成功)
-  "rejected",  // 已拒绝
-  "quit",      // 主动退出
-  "checked_in" // 已签到
+  "pending",    // 申请中
+  "approved",   // 已通过 (待履约)
+  "rejected",   // 已拒绝
+  "checked_in", // ✅ 已签到 (履约完成 - 信用分+1)
+  "quit",       // 主动退出
+  "absent"      // ❌ 爽约/未签到 (信用分-20)
 ]);
+
+/** 风控等级 */
+export const riskLevelEnum = pgEnum("risk_level", ["pass", "review", "reject"]);
+
+// ==========================================
+// ⚡️ TypeScript Constants (非数据库 Enum)
+// 用于代码中引用系统核心 Asset ID，避免 Magic Strings
+// ==========================================
+
+export const SYSTEM_ASSETS = {
+  // 货币
+  COIN: "pal_coin",
+  
+  // 道具 (对应 user_assets.asset_id)
+  PROP: {
+    TOP_CARD: "prop_top_card",     // 置顶卡
+    NOTIFY_CARD: "prop_notify_card", // 强提醒
+    AI_TOKEN: "prop_ai_token"      // AI 次数
+  },
+
+  // 徽章/特殊标识
+  BADGE: {
+    VERIFIED: "badge_verified",    // 实名/官方认证
+    EARLY_BIRD: "badge_early_bird" // 早鸟
+  }
+} as const;
