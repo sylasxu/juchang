@@ -1,5 +1,5 @@
 {
-  "name": "api",
+  "name": "@juchang/api",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -9,8 +9,8 @@
   "dependencies": {
     "@hono/node-server": "^1.19.6",
     "@hono/zod-openapi": "^1.1.5",
-    "@juchang/services": "workspace:*",
     "@juchang/db": "workspace:*",
+    "@juchang/services": "workspace:*",
     "@juchang/utils": "workspace:*",
     "@scalar/hono-api-reference": "^0.9.25",
     "hono": "^4.10.7",
@@ -20,6 +20,7 @@
   "devDependencies": {
     "@juchang/ts-config": "workspace:*",
     "@types/node": "^20.11.17",
+    "orval": "^7.17.0",
     "tsx": "^4.7.1",
     "typescript": "^5.8.3"
   }

@@ -15,6 +15,7 @@
     "db:reset": "drizzle-kit drop && pnpm db:push"
   },
   "dependencies": {
+    "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
     "drizzle-zod": "^0.8.3",
     "postgres": "^3.4.3",
@@ -23,7 +24,7 @@
   "devDependencies": {
     "@juchang/ts-config": "workspace:^",
     "@types/node": "^24.10.1",
-    "drizzle-kit": "^0.20.18",
+    "drizzle-kit": "^0.31.7",
     "typescript": "^5.9.3"
   }
 }
