@@ -3,6 +3,7 @@ import { relations } from "drizzle-orm";
 import { users } from "./users";
 import { activities } from "./activities";
 import { participantStatusEnum } from "./enums";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const participants = pgTable("participants", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -33,3 +34,10 @@ export const participantsRelations = relations(participants, ({ one }) => ({
     references: [activities.id],
   }),
 }));
+
+// Zod Schemas
+export const insertParticipantSchema = createInsertSchema(participants);
+export const selectParticipantSchema = createSelectSchema(participants);
+
+export type Participant = typeof participants.$inferSelect;
+export type NewParticipant = typeof participants.$inferInsert;
