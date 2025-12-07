@@ -6,6 +6,7 @@ import type { Context } from 'hono'
 
 import { initSchedules } from './schedules'
 import * as users from './modules/users/users.route';
+import * as activities from './modules/activities/activities.route';
 
 import { z } from 'zod';
 
@@ -17,6 +18,7 @@ extendZodWithOpenApi(z);
 const app = new OpenAPIHono();
 
 app.openapi(users.list, users.listHandler);
+app.openapi(activities.getById, activities.getByIdHandler);
 app.doc('/doc', {
   openapi: '3.0.0',
   info: { title: 'API Document', version: '1.0.0' },

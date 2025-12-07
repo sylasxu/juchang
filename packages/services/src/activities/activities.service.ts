@@ -57,6 +57,86 @@ export class ActivityService {
   }
 
   /**
+   * 根据ID获取活动详情（用于扫码查看）
+   * @param activityId 活动ID
+   */
+  async getById(activityId: string) {
+    // 使用 SQL 查询以提取 geometry 坐标
+    const result = await this.database
+      .select({
+        id: activities.id,
+        creatorId: activities.creatorId,
+        title: activities.title,
+        description: activities.description,
+        images: activities.images,
+        locationName: activities.locationName,
+        address: activities.address,
+        startAt: activities.startAt,
+        endAt: activities.endAt,
+        type: activities.type,
+        maxParticipants: activities.maxParticipants,
+        feeType: activities.feeType,
+        estimatedCost: activities.estimatedCost,
+        joinMode: activities.joinMode,
+        riskScore: activities.riskScore,
+        riskLevel: activities.riskLevel,
+        tags: activities.tags,
+        genderRequirement: activities.genderRequirement,
+        status: activities.status,
+        isFemaleFriendly: activities.isFemaleFriendly,
+        createdAt: activities.createdAt,
+        updatedAt: activities.updatedAt,
+        // 使用 PostGIS 函数提取坐标：ST_X 和 ST_Y
+        lng: sql<number>`ST_X(${activities.location})`,
+        lat: sql<number>`ST_Y(${activities.location})`,
+      })
+      .from(activities)
+      .where(eq(activities.id, activityId))
+      .limit(1);
+
+    if (result.length === 0) {
+      throw new Error('活动不存在');
+    }
+
+    const activityData = result[0];
+
+    // 查询创建者信息
+    const creator = await this.database.query.users.findFirst({
+      where: eq(users.id, activityData.creatorId),
+      columns: {
+        id: true,
+        nickname: true,
+        avatarUrl: true,
+        creditScore: true,
+        gender: true,
+        vibeTags: true,
+      },
+    });
+
+    // 查询参与者信息
+    const participantsList = await this.database.query.participants.findMany({
+      where: eq(participants.activityId, activityId),
+      with: {
+        user: {
+          columns: {
+            id: true,
+            nickname: true,
+            avatarUrl: true,
+            creditScore: true,
+          },
+        },
+      },
+    });
+
+    return {
+      ...activityData,
+      location: [activityData.lng, activityData.lat] as [number, number],
+      creator: creator || null,
+      participants: participantsList,
+    };
+  }
+
+  /**
    * [LBS Core] 查找附近活动
    * @param radiusKm 搜索半径 (默认 5km)
    */

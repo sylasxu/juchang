@@ -4,6 +4,7 @@ import { geometry } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { participants } from "./participants";
 import { activityTypeEnum, activityStatusEnum, joinModeEnum, riskLevelEnum } from "./enums";
+import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 
 export const activities = pgTable("activities", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -63,3 +64,10 @@ export const activitiesRelations = relations(activities, ({ one, many }) => ({
   }),
   participants: many(participants),
 }));
+
+// Zod Schemas
+export const insertActivitySchema = createInsertSchema(activities);
+export const selectActivitySchema = createSelectSchema(activities);
+
+export type Activity = typeof activities.$inferSelect;
+export type NewActivity = typeof activities.$inferInsert;

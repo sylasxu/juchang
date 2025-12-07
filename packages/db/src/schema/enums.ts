@@ -102,15 +102,16 @@ export const paymentMethodEnum = pgEnum("payment_method", [
 // 4. 📍 活动业务 (Activity Domain)
 // ==========================================
 
-/** 活动垂直分类 (UI颜色区分) */
-export const activityCategoryEnum = pgEnum("activity_category", [
-  "eat",            // 吃 (Yellow)
-  "sport",          // 动 (Green)
-  "play",           // 玩 (Red)
-  "learn",          // 学 (Blue)
-  "travel",         // 旅 (Purple)
-  "official"        // 官方 (Ghost Anchor)
+/** 活动类型 */
+export const activityTypeEnum = pgEnum("activity_type", [
+  "sports",         // 运动
+  "food",           // 美食
+  "entertainment",  // 娱乐
+  "culture",        // 文化
+  "travel",         // 旅行
+  "study"           // 学习
 ]);
+
 
 /** 加入模式 */
 export const joinModeEnum = pgEnum("join_mode", ["instant", "approval"]);
@@ -138,7 +139,7 @@ export const participantStatusEnum = pgEnum("participant_status", [
 ]);
 
 /** 风控等级 */
-export const riskLevelEnum = pgEnum("risk_level", ["pass", "review", "reject"]);
+export const riskLevelEnum = pgEnum("risk_level", ["low", "medium", "high"]);
 
 // ==========================================
 // ⚡️ TypeScript Constants (非数据库 Enum)
