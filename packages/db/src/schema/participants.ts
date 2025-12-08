@@ -39,11 +39,13 @@ export const participantsRelations = relations(participants, ({ one }) => ({
 // TypeBox Schemas (使用 drizzle-typebox)
 // 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
 // 解决 TypeScript Monorepo 的 TS2742 错误
-const _insertParticipantSchema = createInsertSchema(participants);
-export const insertParticipantSchema = Type.Object(_insertParticipantSchema.properties as any);
+export const insertParticipantSchema = Type.Object({
+  ...createInsertSchema(participants).properties
+});
 
-const _selectParticipantSchema = createSelectSchema(participants);
-export const selectParticipantSchema = Type.Object(_selectParticipantSchema.properties as any);
+export const selectParticipantSchema = Type.Object({
+  ...createSelectSchema(participants).properties
+});
 
 export type Participant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;

@@ -1,11 +1,11 @@
 // User Service - 纯业务逻辑，无 HTTP 依赖
 import { db, users, eq } from '@juchang/db';
-import type { UserModel } from './user.model';
+import type { PaginationQuery, ListResponse } from './user.model';
 
 /**
  * 获取用户列表（分页）
  */
-export async function getUserList(query: UserModel.paginationQuery) {
+export async function getUserList(query: PaginationQuery) {
   const { page = 1, limit = 20 } = query;
   const offset = (page - 1) * limit;
 
@@ -29,7 +29,7 @@ export async function getUserList(query: UserModel.paginationQuery) {
     total,
     page,
     totalPages,
-  } satisfies UserModel.listResponse;
+  } satisfies ListResponse;
 }
 
 /**

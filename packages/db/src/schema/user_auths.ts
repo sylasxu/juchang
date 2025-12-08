@@ -2,6 +2,8 @@ import { pgTable, uuid, varchar, timestamp, index, text } from "drizzle-orm/pg-c
 import { relations } from "drizzle-orm";
 import { users } from "./users";
 import { authProviderEnum } from "./enums";
+import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
+import { Type } from "@sinclair/typebox";
 
 export const userAuths = pgTable("user_auths", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -38,3 +40,17 @@ export const userAuthsRelations = relations(userAuths, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// TypeBox Schemas (使用 drizzle-typebox)
+// 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
+// 解决 TypeScript Monorepo 的 TS2742 错误
+export const insertUserAuthSchema = Type.Object({
+  ...createInsertSchema(userAuths).properties
+});
+
+export const selectUserAuthSchema = Type.Object({
+  ...createSelectSchema(userAuths).properties
+});
+
+export type UserAuth = typeof userAuths.$inferSelect;
+export type NewUserAuth = typeof userAuths.$inferInsert;

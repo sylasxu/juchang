@@ -2,7 +2,9 @@ import { pgTable, uuid, varchar, integer, timestamp, primaryKey, index, jsonb } 
 import { relations } from "drizzle-orm";
 import { users } from "./users";
 // 注意：assetTypeEnum 替代了原来的 category/id enum，只定义大类
-import { assetTypeEnum } from "./enums"; 
+import { assetTypeEnum } from "./enums";
+import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
+import { Type } from "@sinclair/typebox"; 
 
 export const userAssets = pgTable("user_assets", {
   /** 关联用户ID */
@@ -54,3 +56,17 @@ export const userAssetsRelations = relations(userAssets, ({ one }) => ({
     references: [users.id],
   }),
 }));
+
+// TypeBox Schemas (使用 drizzle-typebox)
+// 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
+// 解决 TypeScript Monorepo 的 TS2742 错误
+export const insertUserAssetSchema = Type.Object({
+  ...createInsertSchema(userAssets).properties
+});
+
+export const selectUserAssetSchema = Type.Object({
+  ...createSelectSchema(userAssets).properties
+});
+
+export type UserAsset = typeof userAssets.$inferSelect;
+export type NewUserAsset = typeof userAssets.$inferInsert;
