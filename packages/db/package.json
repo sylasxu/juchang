@@ -12,14 +12,14 @@
     "db:studio": "drizzle-kit studio",
     "db:drop": "drizzle-kit drop",
     "db:check": "drizzle-kit check",
-    "db:reset": "drizzle-kit drop && pnpm db:push"
+    "db:reset": "drizzle-kit drop && bun run db:push"
   },
   "dependencies": {
+    "@sinclair/typebox": "^0.34.8",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.44.7",
-    "drizzle-zod": "^0.8.3",
-    "postgres": "^3.4.3",
-    "zod": "^4.1.13"
+    "drizzle-typebox": "^0.3.3",
+    "postgres": "^3.4.3"
   },
   "devDependencies": {
     "@juchang/ts-config": "workspace:^",

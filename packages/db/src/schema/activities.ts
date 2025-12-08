@@ -4,7 +4,8 @@ import { geometry } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { participants } from "./participants";
 import { activityTypeEnum, activityStatusEnum, joinModeEnum, riskLevelEnum } from "./enums";
-import { createInsertSchema, createSelectSchema } from "drizzle-zod";
+import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
+import { Type } from "@sinclair/typebox";
 
 export const activities = pgTable("activities", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -65,9 +66,14 @@ export const activitiesRelations = relations(activities, ({ one, many }) => ({
   participants: many(participants),
 }));
 
-// Zod Schemas
-export const insertActivitySchema = createInsertSchema(activities);
-export const selectActivitySchema = createSelectSchema(activities);
+// TypeBox Schemas (使用 drizzle-typebox)
+// 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
+// 解决 TypeScript Monorepo 的 TS2742 错误
+const _insertActivitySchema = createInsertSchema(activities);
+export const insertActivitySchema = Type.Object(_insertActivitySchema.properties as any);
+
+const _selectActivitySchema = createSelectSchema(activities);
+export const selectActivitySchema = Type.Object(_selectActivitySchema.properties as any);
 
 export type Activity = typeof activities.$inferSelect;
 export type NewActivity = typeof activities.$inferInsert;

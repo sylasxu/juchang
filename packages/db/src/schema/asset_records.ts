@@ -2,7 +2,7 @@ import { pgTable, bigint, uuid, integer, text, timestamp, index, jsonb } from "d
 import { relations } from "drizzle-orm";
 import { users } from "./users";
 import { orders } from "./orders";
-import { assetIdEnum, assetChangeReasonEnum } from "./enums";
+import { assetTypeEnum } from "./enums";
 
 export const assetRecords = pgTable("asset_records", {
   /** 流水ID：使用 BigInt 防止长期运行后溢出 */
@@ -12,16 +12,13 @@ export const assetRecords = pgTable("asset_records", {
   userId: uuid("user_id").notNull().references(() => users.id),
   
   /** 变动资产类型 */
-  assetId: assetIdEnum("asset_id").notNull(),
+  assetId: assetTypeEnum("asset_id").notNull(),
   
   /** 变动数量：正数为获取，负数为消耗 */
   amount: integer("amount").notNull(),
   
   /** [审计核心] 余额快照：记录变动后的 user_assets.balance，用于财务核对 */
   balanceSnapshot: integer("balance_snapshot").notNull(),
-  
-  /** 变动原因：系统层面的分类 (e.g. recharge) */
-  reason: assetChangeReasonEnum("reason").notNull(),
   
   /** 关联订单：如果是购买或支付产生的变动，指向 Order (签到等行为可为空) */
   relatedOrderId: uuid("related_order_id").references(() => orders.id),

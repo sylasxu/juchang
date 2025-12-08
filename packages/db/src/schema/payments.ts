@@ -2,7 +2,7 @@ import { pgTable, uuid, integer, varchar, timestamp, jsonb, index } from "drizzl
 import { relations } from "drizzle-orm";
 import { orders } from "./orders";
 import { users } from "./users";
-import { paymentGatewayEnum, paymentStatusEnum } from "./enums";
+import { paymentMethodEnum, paymentStatusEnum } from "./enums";
 
 export const payments = pgTable("payments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -15,7 +15,7 @@ export const payments = pgTable("payments", {
   amount: integer("amount").notNull(),
   
   /** 支付渠道 (微信/支付宝) */
-  gateway: paymentGatewayEnum("gateway").default("wechat_pay").notNull(),
+  gateway: paymentMethodEnum("gateway").default("wechat_pay").notNull(),
   
   /** 支付状态 */
   status: paymentStatusEnum("status").default("pending").notNull(),

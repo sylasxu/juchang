@@ -113,6 +113,24 @@ export const activityTypeEnum = pgEnum("activity_type", [
 ]);
 
 
+// ==========================================
+// 💸 支付网关 (Payment Gateway Domain)
+// ==========================================
+
+/**
+ * 支付流水状态 (Transaction Status)
+ * 对应表: payments.status
+ * 这里的状态仅代表"钱"有没有到账，不代表"货"有没有发
+ */
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "pending",    // 待支付 (已调起微信收银台)
+  "success",    // 支付成功 (收到微信回调: SUCCESS)
+  "failed",     // 支付失败 (余额不足/风控拦截)
+  "cancelled",  // 用户取消 (手动关闭收银台)
+  "refunded",   // 已退款 (全额或部分)
+  "error"       // 系统异常 (如回调签名验证失败)
+]);
+
 /** 加入模式 */
 export const joinModeEnum = pgEnum("join_mode", ["instant", "approval"]);
 

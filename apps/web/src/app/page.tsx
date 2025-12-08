@@ -1,7 +1,8 @@
-import { getProductInfo } from "@juchang/services";
-
 export default function Home() {
-  const productInfo = getProductInfo();
+  const productInfo = {
+    title: "周末羽毛球局",
+    priceStr: "免费"
+  };
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">

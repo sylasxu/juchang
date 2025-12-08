@@ -1,7 +1,7 @@
 import { pgTable, uuid, varchar, timestamp, index, text } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { users } from "./users";
-import { authIdentityEnum } from "./enums";
+import { authProviderEnum } from "./enums";
 
 export const userAuths = pgTable("user_auths", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -10,7 +10,7 @@ export const userAuths = pgTable("user_auths", {
   userId: uuid("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   
   /** 登录类型：枚举定义在 enums.authIdentityEnum */
-  identityType: authIdentityEnum("identity_type").default("wechat_miniprogram").notNull(),
+  identityType: authProviderEnum("identity_type").default("wechat_miniprogram").notNull(),
   
   /** 标识符：对于微信是 OpenID，对于手机是 Phone */
   identifier: varchar("identifier", { length: 128 }).notNull(),

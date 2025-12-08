@@ -11,6 +11,16 @@
       "cache": false,
       "persistent": true
     },
+    "start": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["build"]
+    },
+    "gen:api": {
+      "cache": false,
+      "dependsOn": ["^build"],
+      "outputs": ["**/generated.ts", "**/generated/**"]
+    },
     "db:generate": {
       "cache": false,
       "outputs": ["drizzle/**"]
@@ -29,6 +39,9 @@
     },
     "lint": {
       "dependsOn": ["^build"]
+    },
+    "format": {
+      "cache": false
     },
     "type-check": {
       "dependsOn": ["^build"]

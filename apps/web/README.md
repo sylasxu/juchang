@@ -1,17 +1,15 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 聚场 Admin Web
 
-## Getting Started
+基于 Next.js 16 的管理后台，使用 Eden Treaty 实现类型安全的 API 调用。
 
-First, run the development server:
+## 开发
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# 安装依赖（在根目录执行）
+bun install
+
+# 启动开发服务器
+bun run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
