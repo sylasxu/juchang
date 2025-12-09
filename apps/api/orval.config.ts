@@ -3,7 +3,7 @@ import { defineConfig } from 'orval';
 export default defineConfig({
   api: {
     input: {
-      target: 'http://localhost:3000/doc/json', // Elysia Swagger JSON 端点
+      target: 'http://localhost:3000/openapi/json', // Elysia Swagger JSON 端点
     },
     output: {
       target: '../miniprogram/src/api/generated.ts', // 生成到小程序目录

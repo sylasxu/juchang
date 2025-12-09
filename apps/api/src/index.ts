@@ -32,6 +32,7 @@ if (process.env.NODE_ENV !== 'test') {
 const port = Number(process.env.API_PORT || 3000);
 app.listen(port, () => {
   console.log(`🚀 API Server is running on http://localhost:${port}`);
+  console.log(`🚀 API doc on http://localhost:${port}/openapi`);
   console.log(`📚 OpenAPI JSON: http://localhost:${port}/openapi/json`);
 });
 
