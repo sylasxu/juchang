@@ -4,7 +4,6 @@ import { orders } from "./orders";
 import { users } from "./users";
 import { paymentMethodEnum, paymentStatusEnum } from "./enums";
 import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
-import { Type } from "@sinclair/typebox";
 
 export const payments = pgTable("payments", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -48,15 +47,8 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
 }));
 
 // TypeBox Schemas (使用 drizzle-typebox)
-// 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
-// 解决 TypeScript Monorepo 的 TS2742 错误
-export const insertPaymentSchema = Type.Object({
-  ...createInsertSchema(payments).properties
-});
-
-export const selectPaymentSchema = Type.Object({
-  ...createSelectSchema(payments).properties
-});
+export const insertPaymentSchema = createInsertSchema(payments);
+export const selectPaymentSchema = createSelectSchema(payments);
 
 export type Payment = typeof payments.$inferSelect;
 export type NewPayment = typeof payments.$inferInsert;

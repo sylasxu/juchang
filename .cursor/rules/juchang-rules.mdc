@@ -20,21 +20,12 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   - **IMMEDIATELY export TypeBox Schemas** (`insert...Schema`, `select...Schema`) using `createInsertSchema` and `createSelectSchema` from `drizzle-typebox`.
   - **Refine Logic Here**: Add validation (min/max/regex) inside `createInsertSchema`.
   - **LBS Note**: For `geometry` types, ensure TypeBox schemas allow array `[lon, lat]` input but handle the output format correctly.
-  - **Schema Export Pattern (CRITICAL)**: MUST use the "spread 大法" pattern to wrap schemas in `Type.Object()` to avoid TypeScript Monorepo TS2742 errors:
+  - **Schema Export Pattern**: Directly use `createInsertSchema` and `createSelectSchema`:
     ```typescript
-    // ✅ REQUIRED: Use spread pattern
-    export const insertUserSchema = Type.Object({
-      ...createInsertSchema(users).properties
-    });
-    
-    export const selectUserSchema = Type.Object({
-      ...createSelectSchema(users).properties
-    });
-    
-    // ❌ FORBIDDEN: Direct usage without Type.Object wrapper
+    // ✅ CORRECT: Direct usage
     export const insertUserSchema = createInsertSchema(users);
+    export const selectUserSchema = createSelectSchema(users);
     ```
-    This pattern cuts the dependency on drizzle-typebox internal files and solves TypeScript Monorepo compatibility issues.
 
 ## 2. @juchang/services (The Logic)
 - **Tech**: Pure TypeScript Functions (No Classes, No Frameworks).
@@ -87,7 +78,6 @@ Every schema file in `packages/db/src/schema/*.ts` MUST follow this pattern:
 ```typescript
 import { pgTable, ... } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
-import { Type } from "@sinclair/typebox";
 
 // 1. Define the table
 export const users = pgTable("users", {
@@ -100,28 +90,14 @@ export const usersRelations = relations(users, ({ many }) => ({
   // ... relations
 }));
 
-// 3. Export TypeBox Schemas using spread pattern (REQUIRED)
-// TypeBox Schemas (使用 drizzle-typebox)
-// 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
-// 解决 TypeScript Monorepo 的 TS2742 错误
-export const insertUserSchema = Type.Object({
-  ...createInsertSchema(users).properties
-});
-
-export const selectUserSchema = Type.Object({
-  ...createSelectSchema(users).properties
-});
+// 3. Export TypeBox Schemas (使用 drizzle-typebox)
+export const insertUserSchema = createInsertSchema(users);
+export const selectUserSchema = createSelectSchema(users);
 
 // 4. Export TypeScript types (optional but recommended)
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 ```
-
-## Why Use Spread Pattern?
-
-1. **TypeScript Monorepo Compatibility**: Direct usage of `createInsertSchema()` can cause TS2742 errors in monorepo setups.
-2. **Dependency Isolation**: Wrapping in `Type.Object()` cuts dependency on drizzle-typebox internal files.
-3. **Consistency**: All schemas follow the same pattern, making the codebase predictable.
 
 ## Naming Convention
 

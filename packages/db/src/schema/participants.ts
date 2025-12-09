@@ -4,7 +4,6 @@ import { users } from "./users";
 import { activities } from "./activities";
 import { participantStatusEnum } from "./enums";
 import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
-import { Type } from "@sinclair/typebox";
 
 export const participants = pgTable("participants", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -37,15 +36,8 @@ export const participantsRelations = relations(participants, ({ one }) => ({
 }));
 
 // TypeBox Schemas (使用 drizzle-typebox)
-// 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
-// 解决 TypeScript Monorepo 的 TS2742 错误
-export const insertParticipantSchema = Type.Object({
-  ...createInsertSchema(participants).properties
-});
-
-export const selectParticipantSchema = Type.Object({
-  ...createSelectSchema(participants).properties
-});
+export const insertParticipantSchema = createInsertSchema(participants);
+export const selectParticipantSchema = createSelectSchema(participants);
 
 export type Participant = typeof participants.$inferSelect;
 export type NewParticipant = typeof participants.$inferInsert;

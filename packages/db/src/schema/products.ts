@@ -1,7 +1,6 @@
 import { pgTable, uuid, varchar, integer, boolean, jsonb, timestamp, index } from "drizzle-orm/pg-core";
 import { productTypeEnum } from "./enums";
 import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
-import { Type } from "@sinclair/typebox";
 
 export const products = pgTable("products", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -44,15 +43,8 @@ export const products = pgTable("products", {
 ]);
 
 // TypeBox Schemas (使用 drizzle-typebox)
-// 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
-// 解决 TypeScript Monorepo 的 TS2742 错误
-export const insertProductSchema = Type.Object({
-  ...createInsertSchema(products).properties
-});
-
-export const selectProductSchema = Type.Object({
-  ...createSelectSchema(products).properties
-});
+export const insertProductSchema = createInsertSchema(products);
+export const selectProductSchema = createSelectSchema(products);
 
 export type Product = typeof products.$inferSelect;
 export type NewProduct = typeof products.$inferInsert;

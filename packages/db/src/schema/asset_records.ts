@@ -4,7 +4,6 @@ import { users } from "./users";
 import { orders } from "./orders";
 import { assetTypeEnum } from "./enums";
 import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
-import { Type } from "@sinclair/typebox";
 
 export const assetRecords = pgTable("asset_records", {
   /** 流水ID：使用 BigInt 防止长期运行后溢出 */
@@ -47,15 +46,8 @@ export const assetRecordsRelations = relations(assetRecords, ({ one }) => ({
 }));
 
 // TypeBox Schemas (使用 drizzle-typebox)
-// 使用 Type.Object 重新包装，切断对 drizzle-typebox 内部文件的依赖
-// 解决 TypeScript Monorepo 的 TS2742 错误
-export const insertAssetRecordSchema = Type.Object({
-  ...createInsertSchema(assetRecords).properties
-});
-
-export const selectAssetRecordSchema = Type.Object({
-  ...createSelectSchema(assetRecords).properties
-});
+export const insertAssetRecordSchema = createInsertSchema(assetRecords);
+export const selectAssetRecordSchema = createSelectSchema(assetRecords);
 
 export type AssetRecord = typeof assetRecords.$inferSelect;
 export type NewAssetRecord = typeof assetRecords.$inferInsert;
