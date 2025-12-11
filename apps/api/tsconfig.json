@@ -14,8 +14,7 @@
     "types": [
       "node"
     ],
-    "jsx": "react-jsx",
-    "jsxImportSource": "hono/jsx",
+    "jsx": "preserve",
     "outDir": "./dist"
   },
   "exclude": ["node_modules"]

@@ -1,57 +1,42 @@
-// 全局配置：CORS, OpenAPI, JWT
-import { Elysia, t } from 'elysia';
+// 全局配置：分离关注点
+import { Elysia } from 'elysia';
 import { cors } from '@elysiajs/cors';
-import { openapi } from '@elysiajs/openapi';
 import { jwt } from '@elysiajs/jwt';
 
 /**
- * 基础应用配置
- * 包含 CORS、OpenAPI、JWT 等全局插件
+ * 基础插件配置（CORS + JWT）
+ * 只在主应用中使用一次
  */
-export const setup = new Elysia({ name: 'setup' })
-  .use(cors())
-  
+export const basePlugins = new Elysia({ name: 'basePlugins' })
+  .use(cors({
+    origin: true, // 开发环境允许所有来源，生产环境应该配置具体域名
+    credentials: true,
+  }))
   .use(
     jwt({
       name: 'jwt',
-      secret: process.env.JWT_SECRET || 'dev-secret', // 生产环境请用 .env
-      exp: '7d', // Token 有效期
+      secret: process.env.JWT_SECRET || 'dev-secret-key-change-in-production',
+      exp: '7d', // Token 有效期 7 天
     })
   );
 
 /**
- * 鉴权中间件 (Guard/Middleware)
- * 任何使用 .use(authenticated) 的路由，都会强制校验 Token
- * 通过 derive 将 user 注入到 Context 中
+ * JWT 认证辅助函数
  */
-export const authenticated = new Elysia({ name: 'authenticated' })
-  .use(setup) // 继承上面的配置
-  .derive(async ({ jwt, headers, set }) => {
-    const authHeader = headers['authorization'] || headers['Authorization'];
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      set.status = 401;
-      throw {
-        code: 401,
-        msg: '未授权或 Token 缺失',
-      };
-    }
+export async function verifyAuth(jwt: any, headers: Record<string, string | undefined>): Promise<{ id: string; role: string } | null> {
+  const authHeader = headers['authorization'] || headers['Authorization'];
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null;
+  }
 
-    const token = authHeader.slice(7);
-    const profile = await jwt.verify(token);
+  const token = authHeader.slice(7);
+  const profile = await jwt.verify(token);
+  
+  return profile as { id: string; role: string } | null;
+}
 
-    if (!profile) {
-      // 如果 Token 无效，直接在这里抛出 401
-      set.status = 401;
-      throw {
-        code: 401,
-        msg: '未授权或 Token 过期',
-      };
-    }
 
-    // 🔥 注入 user 到 Context
-    return {
-      user: profile as { id: string; role: string },
-    };
-  });
+
+
 

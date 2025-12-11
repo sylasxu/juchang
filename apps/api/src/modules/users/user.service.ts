@@ -5,7 +5,7 @@ import type { PaginationQuery, ListResponse } from './user.model';
 /**
  * 获取用户列表（分页）
  */
-export async function getUserList(query: PaginationQuery) {
+export async function getUserList(query: PaginationQuery): Promise<ListResponse> {
   const { page = 1, limit = 20 } = query;
   const offset = (page - 1) * limit;
 
@@ -29,7 +29,7 @@ export async function getUserList(query: PaginationQuery) {
     total,
     page,
     totalPages,
-  } satisfies ListResponse;
+  };
 }
 
 /**
@@ -44,4 +44,3 @@ export async function getUserById(id: string) {
 
   return user || null;
 }
-

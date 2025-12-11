@@ -1,24 +1,41 @@
 // Elysia API Server Entry
 import { Elysia } from 'elysia';
-import { setup } from './setup';
+import { basePlugins } from './setup';
 import { openapi } from '@elysiajs/openapi';
 
 // 导入路由模块（Controller）
 import { authController } from './modules/auth/auth.controller';
 import { userController } from './modules/users/user.controller';
 import { activityController } from './modules/activities/activity.controller';
+import { aiController } from './modules/ai/ai.controller';
+import { participantController } from './modules/participants/participant.controller';
 
 // 创建 Elysia 应用
 const app = new Elysia()
-.use(
-  openapi()
-)
-  // 使用全局配置（CORS, OpenAPI, JWT）
-  .use(setup)
+  // 全局插件：CORS + JWT + OpenAPI（只在这里使用一次）
+  .use(basePlugins)
+  .use(openapi({
+    documentation: {
+      info: {
+        title: '聚场 API',
+        version: '1.0.0',
+        description: 'LBS-based P2P social platform API',
+      },
+      tags: [
+        { name: 'Auth', description: '认证相关' },
+        { name: 'Users', description: '用户管理' },
+        { name: 'Activities', description: '活动管理' },
+        { name: 'AI', description: 'AI 功能' },
+        { name: 'Participants', description: '参与者管理' },
+      ],
+    },
+  }))
   // 注册路由模块（Controller）
   .use(authController)
   .use(userController)
   .use(activityController)
+  .use(aiController)
+  .use(participantController)
   // 健康检查
   .get('/', () => 'Hello Juchang API')
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }));

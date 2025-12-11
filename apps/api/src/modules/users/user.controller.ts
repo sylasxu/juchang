@@ -1,11 +1,55 @@
 // User Controller - Elysia 实例作为控制器
 import { Elysia } from 'elysia';
 import { selectUserSchema } from '@juchang/db';
+import { basePlugins, verifyAuth } from '../../setup';
 import { userModel, type ErrorResponse } from './user.model';
 import { getUserList, getUserById } from './user.service';
 
 export const userController = new Elysia({ prefix: '/users' })
-  .use(userModel) // 引入 DTO
+  .use(basePlugins) // 引入基础插件（包含 JWT）
+  .use(userModel) // 引入 Model Plugin
+  // 获取当前用户信息
+  .get(
+    '/me',
+    async ({ set, jwt, headers }) => {
+      // JWT 认证
+      const user = await verifyAuth(jwt, headers);
+      if (!user) {
+        set.status = 401;
+        return {
+          code: 401,
+          msg: '未授权',
+        } satisfies ErrorResponse;
+      }
+
+      const currentUser = await getUserById(user.id);
+
+      if (!currentUser) {
+        set.status = 404;
+        return {
+          code: 404,
+          msg: '用户不存在',
+        } satisfies ErrorResponse;
+      }
+
+      return currentUser;
+    },
+    {
+      detail: {
+        tags: ['Users'],
+        summary: '获取当前用户信息',
+        description: '获取当前登录用户的详细信息',
+      },
+      response: {
+        200: selectUserSchema,
+        404: 'user.error',
+      },
+    }
+  )
+  
+
+  
+  // 获取用户列表
   .get(
     '/',
     async ({ query }) => {
@@ -24,12 +68,14 @@ export const userController = new Elysia({ prefix: '/users' })
       },
     }
   )
+  
+  // 获取用户详情
   .get(
     '/:id',
     async ({ params, set }) => {
-      const user = await getUserById(params.id);
+      const targetUser = await getUserById(params.id);
 
-      if (!user) {
+      if (!targetUser) {
         set.status = 404;
         return {
           code: 404,
@@ -37,7 +83,7 @@ export const userController = new Elysia({ prefix: '/users' })
         } satisfies ErrorResponse;
       }
 
-      return user;
+      return targetUser;
     },
     {
       detail: {

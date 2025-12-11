@@ -12,16 +12,17 @@ import { selectUserSchema } from '@juchang/db';
  */
 
 // 登录请求 DTO
-// 重用 DB schema 中的 phoneNumber 定义，password 作为瞬态参数手动定义
-const LoginRequest = t.Intersect([
-  t.Pick(selectUserSchema, ['phoneNumber']),
-  t.Object({
-    password: t.String({
-      description: '密码',
-      minLength: 8,
-    }),
+// phoneNumber 手动定义为必填，password 作为瞬态参数
+const LoginRequest = t.Object({
+  phoneNumber: t.String({
+    description: '手机号',
+    pattern: '^1[3-9]\\d{9}$', // 中国手机号格式
   }),
-]);
+  password: t.String({
+    description: '密码',
+    minLength: 8,
+  }),
+});
 
 // Token 响应 DTO
 const TokenResponse = t.Object({

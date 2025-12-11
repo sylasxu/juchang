@@ -1,12 +1,12 @@
 // Auth Controller - Elysia 实例作为控制器
 import { Elysia } from 'elysia';
-import { setup } from '../../setup';
+import { basePlugins } from '../../setup';
 import { authModel, type ErrorResponse } from './auth.model';
 import { validateUser } from './auth.service';
 
 export const authController = new Elysia({ prefix: '/auth' })
-  .use(setup) // 引入 JWT 能力
-  .use(authModel) // 引入 DTO
+  .use(basePlugins) // 引入 JWT 功能
+  .use(authModel) // 引入 Model Plugin
   .post(
     '/login',
     async ({ body, jwt, set }) => {
