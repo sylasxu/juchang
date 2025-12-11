@@ -1,5 +1,4 @@
-import { pgTable, uuid, timestamp, text, index, unique } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { pgTable, uuid, timestamp, text, index, unique, boolean } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { activities } from "./activities";
 import { participantStatusEnum } from "./enums";
@@ -13,29 +12,24 @@ export const participants = pgTable("participants", {
   
   status: participantStatusEnum("status").default("pending").notNull(),
   
-  // 申请理由：用户申请加入活动时的说明（仅当 joinMode=approval 时使用）
-  applicationMsg: text("application_msg"), 
+  applicationMsg: text("application_msg"),
+  isFastPass: boolean("is_fast_pass").default(false).notNull(), // 优先入场券
+  
+  // --- 履约与申诉 ---
+  confirmedAt: timestamp("confirmed_at"),
+  isDisputed: boolean("is_disputed").default(false).notNull(),  // 是否申诉
+  disputedAt: timestamp("disputed_at"),
+  disputeExpiresAt: timestamp("dispute_expires_at"),            // 申诉截止时间
   
   joinedAt: timestamp("joined_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (t) => [
-  // 复合唯一约束：防止重复报名
   unique("unique_participant").on(t.activityId, t.userId),
   index("participant_user_idx").on(t.userId),
+  index("participant_activity_idx").on(t.activityId),
+  index("participant_status_idx").on(t.status),
 ]);
 
-export const participantsRelations = relations(participants, ({ one }) => ({
-  user: one(users, {
-    fields: [participants.userId],
-    references: [users.id],
-  }),
-  activity: one(activities, {
-    fields: [participants.activityId],
-    references: [activities.id],
-  }),
-}));
-
-// TypeBox Schemas (使用 drizzle-typebox)
 export const insertParticipantSchema = createInsertSchema(participants);
 export const selectParticipantSchema = createSelectSchema(participants);
 
