@@ -1,100 +1,257 @@
-export default function Home() {
-  const productInfo = {
-    title: "周末羽毛球局",
-    priceStr: "免费"
-  };
-  
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
-      <div className="container mx-auto px-4 py-16">
-        {/* 头部 */}
-        <header className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-4">
-            聚场
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300">
-            AI 碎片化社交
-          </p>
-        </header>
+'use client';
 
-        {/* 产品展示卡片 */}
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
-            <div className="mb-6">
-              <div className="w-20 h-20 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-10 h-10 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                {productInfo.title}
-              </h2>
-              <p className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-4">
-                {productInfo.priceStr}
-              </p>
-            </div>
-            
-            <div className="space-y-4 mb-8">
-              <div className="flex items-center justify-center space-x-2 text-gray-600 dark:text-gray-300">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                <span>朝阳公园体育馆</span>
-              </div>
-              <div className="flex items-center justify-center space-x-2 text-gray-600 dark:text-gray-300">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span>本周六 14:00-17:00</span>
-              </div>
-              <div className="flex items-center justify-center space-x-2 text-gray-600 dark:text-gray-300">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                </svg>
-                <span>4/6 人已报名</span>
-              </div>
-            </div>
-            
-            <button className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
-              立即报名
-            </button>
+import { useState, useEffect } from 'react';
+import AdminLayout from '@/components/AdminLayout';
+import StatCard from '@/components/StatCard';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import ErrorAlert from '@/components/ui/ErrorAlert';
+import { ToastManager } from '@/components/ui/Toast';
+import SafeTime from '@/components/ui/SafeTime';
+import { useDashboard } from '@/hooks/useDashboard';
+
+export default function AdminDashboard() {
+  // 使用真实的仪表板数据
+  const {
+    data,
+    loading,
+    error,
+    lastUpdated,
+    refreshData,
+    setError
+  } = useDashboard();
+
+  // 处理刷新
+  const handleRefresh = async () => {
+    await refreshData();
+    if (!error) {
+      ToastManager.success('数据已刷新');
+    }
+  };
+
+  // 自动刷新
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshData();
+    }, 5 * 60 * 1000); // 每5分钟自动刷新
+
+    return () => clearInterval(interval);
+  }, [refreshData]);
+
+  return (
+    <AdminLayout>
+      <div className="space-y-8">
+        {/* 页面标题 */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">数据概览</h1>
+            <p className="text-gray-500 mt-1">
+              聚场平台运营数据总览 · 最后更新: 
+              <SafeTime 
+                date={lastUpdated || undefined} 
+                format="time" 
+                fallback="--:--:--" 
+              />
+            </p>
           </div>
+          <button
+            onClick={refreshData}
+            disabled={loading}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+          >
+            {loading ? (
+              <LoadingSpinner size="sm" />
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            )}
+            <span>刷新数据</span>
+          </button>
         </div>
 
-        {/* 功能特色 */}
-        <div className="mt-16 grid md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">真实可靠</h3>
-            <p className="text-gray-600 dark:text-gray-300">实名认证，活动真实有效</p>
+        {/* 错误提示 */}
+        {error && (
+          <ErrorAlert
+            error={{ code: 500, msg: error }}
+            onRetry={refreshData}
+            onDismiss={() => setError(null)}
+          />
+        )}
+
+        {/* 核心指标 */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="bg-white rounded-xl p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
+                <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+              </div>
+            ))}
           </div>
-          
-          <div className="text-center">
-            <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">兴趣匹配</h3>
-            <p className="text-gray-600 dark:text-gray-300">基于兴趣推荐合适活动</p>
+        ) : data ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <StatCard
+              title="总用户数"
+              value={data.stats.totalUsers}
+              change={{ value: '12.5%', type: 'increase', period: '较上月' }}
+              icon="👥"
+              iconBg="bg-blue-50"
+            />
+            <StatCard
+              title="活跃用户"
+              value={data.stats.activeUsers}
+              change={{ value: '8.2%', type: 'increase', period: '较上周' }}
+              icon="🔥"
+              iconBg="bg-green-50"
+            />
+            <StatCard
+              title="今日收入"
+              value={`¥${data.stats.todayRevenue.toLocaleString()}`}
+              change={{ value: '15.3%', type: 'increase', period: '较昨日' }}
+              icon="💰"
+              iconBg="bg-yellow-50"
+            />
+            <StatCard
+              title="付费转化率"
+              value={`${data.stats.conversionRate}%`}
+              change={{ value: '2.1%', type: 'increase', period: '较上月' }}
+              icon="📈"
+              iconBg="bg-purple-50"
+            />
+            <StatCard
+              title="履约率"
+              value={`${data.stats.avgFulfillmentRate}%`}
+              change={{ value: '1.2%', type: 'decrease', period: '较上月' }}
+              icon="✅"
+              iconBg="bg-green-50"
+            />
+            <StatCard
+              title="总活动数"
+              value={data.stats.totalActivities}
+              change={{ value: '18.7%', type: 'increase', period: '较上月' }}
+              icon="🎯"
+              iconBg="bg-orange-50"
+            />
           </div>
-          
-          <div className="text-center">
-            <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">便捷高效</h3>
-            <p className="text-gray-600 dark:text-gray-300">一键报名，快速参与</p>
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-gray-500">暂无数据</p>
           </div>
+        )}
+
+        {/* 最近活动 */}
+        <div className="bg-white rounded-xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">最近活动</h3>
+            <a href="/activities" className="text-sm text-blue-600 hover:text-blue-700 font-medium">查看全部</a>
+          </div>
+          {loading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between py-4 animate-pulse">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-3 h-3 bg-gray-200 rounded-full"></div>
+                    <div>
+                      <div className="h-4 bg-gray-200 rounded w-32 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-48"></div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="h-4 bg-gray-200 rounded w-16 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-12"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : data?.recentActivities.length ? (
+            <div className="space-y-4">
+              {data.recentActivities.map((activity) => (
+                <div key={activity.id} className="flex items-center justify-between py-4">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-3 h-3 rounded-full ${
+                      activity.status === 'active' ? 'bg-green-400' :
+                      activity.status === 'completed' ? 'bg-gray-400' :
+                      'bg-red-400'
+                    }`}></div>
+                    <div>
+                      <p className="font-medium text-gray-900">{activity.title}</p>
+                      <p className="text-sm text-gray-500">发起人: {activity.creator} · {activity.participants}人参与</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-gray-900">¥{activity.revenue}</p>
+                    <p className={`text-sm ${
+                      activity.status === 'active' ? 'text-green-600' :
+                      activity.status === 'completed' ? 'text-gray-500' :
+                      'text-red-600'
+                    }`}>
+                      {activity.status === 'active' ? '进行中' :
+                       activity.status === 'completed' ? '已完成' :
+                       '有争议'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">暂无最近活动</p>
+            </div>
+          )}
+        </div>
+
+        {/* 风险用户 */}
+        <div className="bg-white rounded-xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-gray-900">风险用户监控</h3>
+            <a href="/users" className="text-sm text-red-600 hover:text-red-700 font-medium">处理全部</a>
+          </div>
+          {loading ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between py-4 animate-pulse">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-3 h-3 bg-gray-200 rounded-full"></div>
+                    <div>
+                      <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-40"></div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-16"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : data?.riskUsers.length ? (
+            <div className="space-y-4">
+              {data.riskUsers.map((user) => (
+                <div key={user.id} className="flex items-center justify-between py-4">
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-3 h-3 rounded-full ${
+                      user.risk === 'high' ? 'bg-red-400' : 'bg-yellow-400'
+                    }`}></div>
+                    <div>
+                      <p className="font-medium text-gray-900">{user.name}</p>
+                      <p className="text-sm text-gray-500">{user.phone} · 履约率 {user.fulfillmentRate}%</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-medium text-gray-900">{user.disputes} 次争议</p>
+                    <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">查看详情</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-500">暂无风险用户</p>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </AdminLayout>
   );
 }

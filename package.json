@@ -32,7 +32,7 @@
     "--- DEVELOPMENT ---": "echo '开发启动'",
     "dev": "turbo run dev",
     "dev:api": "turbo run dev --filter=@juchang/api",
-    "dev:web": "turbo run dev --filter=@juchang/web",
+    "dev:web": "turbo run dev --filter=web",
     "dev:mp": "turbo run dev --filter=@juchang/miniprogram",
 
     "--- QUALITY ---": "echo '代码质量检查'",

@@ -1,2 +1,2 @@
-// 导出 App 类型供 Eden Treaty 使用
+// API Types Export for Eden Treaty
 export type { App } from './index';

@@ -1,4 +1,4 @@
-version: "3.8"
+# Docker Compose for Juchang Development
 
 services:
   postgres:
@@ -14,9 +14,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: juchang
      # ⚠️ 关键 2：显式定义数据存储位置
       # 虽然官方说 VOLUME 变了，但我们可以通过环境变量强行指定它存哪
       # 这样可以避免路径混乱
