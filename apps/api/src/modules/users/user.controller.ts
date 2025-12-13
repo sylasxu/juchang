@@ -3,7 +3,7 @@ import { Elysia } from 'elysia';
 import { selectUserSchema } from '@juchang/db';
 import { basePlugins, verifyAuth } from '../../setup';
 import { userModel, type ErrorResponse } from './user.model';
-import { getUserList, getUserById, blockUser, unblockUser } from './user.service';
+import { getUserList, getUserById, blockUser, unblockUser, updateUser, deleteUser } from './user.service';
 
 export const userController = new Elysia({ prefix: '/users' })
   .use(basePlugins) // 引入基础插件（包含 JWT）
@@ -179,6 +179,70 @@ export const userController = new Elysia({ prefix: '/users' })
         200: 'user.error',
         404: 'user.error',
         500: 'user.error',
+      },
+    }
+  )
+
+  // 更新用户
+  .put(
+    '/:id',
+    async ({ params, body, set }) => {
+      const updated = await updateUser(params.id, body);
+
+      if (!updated) {
+        set.status = 404;
+        return {
+          code: 404,
+          msg: '用户不存在',
+        } satisfies ErrorResponse;
+      }
+
+      return updated;
+    },
+    {
+      detail: {
+        tags: ['Users'],
+        summary: '更新用户',
+        description: '更新用户信息',
+      },
+      params: 'user.idParams',
+      body: 'user.updateBody',
+      response: {
+        200: selectUserSchema,
+        404: 'user.error',
+      },
+    }
+  )
+
+  // 删除用户
+  .delete(
+    '/:id',
+    async ({ params, set }) => {
+      const success = await deleteUser(params.id);
+
+      if (!success) {
+        set.status = 404;
+        return {
+          code: 404,
+          msg: '用户不存在或删除失败',
+        } satisfies ErrorResponse;
+      }
+
+      return {
+        code: 200,
+        msg: '用户已删除',
+      };
+    },
+    {
+      detail: {
+        tags: ['Users'],
+        summary: '删除用户',
+        description: '删除指定用户',
+      },
+      params: 'user.idParams',
+      response: {
+        200: 'user.success',
+        404: 'user.error',
       },
     }
   );
