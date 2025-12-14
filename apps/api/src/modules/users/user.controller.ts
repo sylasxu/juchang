@@ -42,6 +42,48 @@ export const userController = new Elysia({ prefix: '/users' })
       },
       response: {
         200: selectUserSchema,
+        401: 'user.error',
+        404: 'user.error',
+      },
+    }
+  )
+
+  // 更新当前用户信息
+  .put(
+    '/me',
+    async ({ body, set, jwt, headers }) => {
+      // JWT 认证
+      const user = await verifyAuth(jwt, headers);
+      if (!user) {
+        set.status = 401;
+        return {
+          code: 401,
+          msg: '未授权',
+        } satisfies ErrorResponse;
+      }
+
+      const updated = await updateUser(user.id, body);
+
+      if (!updated) {
+        set.status = 404;
+        return {
+          code: 404,
+          msg: '用户不存在',
+        } satisfies ErrorResponse;
+      }
+
+      return updated;
+    },
+    {
+      detail: {
+        tags: ['Users'],
+        summary: '更新当前用户信息',
+        description: '更新当前登录用户的个人信息',
+      },
+      body: 'user.updateBody',
+      response: {
+        200: selectUserSchema,
+        401: 'user.error',
         404: 'user.error',
       },
     }

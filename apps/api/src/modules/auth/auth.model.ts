@@ -1,34 +1,18 @@
-// Auth Model - 定义认证相关的 DTO
+// Auth Model - TypeBox schemas and types
 import { Elysia, t, type Static } from 'elysia';
-import { selectUserSchema } from '@juchang/db';
 
-/**
- * Auth Model Plugin
- * 使用 Static<typeof schema> 自动推导类型，避免手写类型定义
- * 
- * 遵循 Single Source of Truth 原则：
- * - phoneNumber 从 DB schema 派生（使用 t.Pick）
- * - password 是瞬态参数（DB 存储 hash，登录时是原始密码），手动定义
- */
-
-// 登录请求 DTO
-// phoneNumber 手动定义为必填，password 作为瞬态参数
-const LoginRequest = t.Object({
-  phoneNumber: t.String({
-    description: '手机号',
-    pattern: '^1[3-9]\\d{9}$', // 中国手机号格式
-  }),
-  password: t.String({
-    description: '密码',
-    minLength: 8,
-  }),
+// 微信登录请求
+const WxLoginRequest = t.Object({
+  code: t.String({ description: '微信登录凭证' }),
+  phoneNumber: t.Optional(t.String({ description: '手机号' })),
+  nickname: t.Optional(t.String({ description: '昵称' })),
+  avatarUrl: t.Optional(t.String({ description: '头像URL' })),
 });
 
-// Token 响应 DTO
-const TokenResponse = t.Object({
-  token: t.String({
-    description: 'JWT Token',
-  }),
+// 登录响应
+const LoginResponse = t.Object({
+  user: t.Any({ description: '用户信息' }),
+  token: t.String({ description: 'JWT Token' }),
 });
 
 // 错误响应
@@ -37,15 +21,15 @@ const ErrorResponse = t.Object({
   msg: t.String(),
 });
 
-// 注册到 Elysia
+// 注册到 Elysia Model Plugin
 export const authModel = new Elysia({ name: 'authModel' })
   .model({
-    'auth.login': LoginRequest,
-    'auth.token': TokenResponse,
+    'auth.wxLogin': WxLoginRequest,
+    'auth.loginResponse': LoginResponse,
     'auth.error': ErrorResponse,
   });
 
-// 导出 TS 类型 (使用 Static<typeof schema> 自动推导)
-export type LoginRequest = Static<typeof LoginRequest>;
-export type TokenResponse = Static<typeof TokenResponse>;
+// 导出 TS 类型
+export type WxLoginRequest = Static<typeof WxLoginRequest>;
+export type LoginResponse = Static<typeof LoginResponse>;
 export type ErrorResponse = Static<typeof ErrorResponse>;

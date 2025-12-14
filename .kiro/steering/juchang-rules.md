@@ -134,7 +134,7 @@ When implementing a feature (e.g., "Find Nearby Activities"):
     - **Response**: `t.Array(selectActivitySchema)` or derived schema.
 4.  **Route Implementation**:
     - Call service function -> Return data (Elysia auto-serializes).
-5.  **SDK Gen**: Run `bun run gen:api` to update `apps/miniprogram/src/api/generated.ts`.
+5.  **SDK Gen**: Run `bun run gen:api` to update miniprogram API code in `apps/miniprogram/src/api/`.
 
 ---
 

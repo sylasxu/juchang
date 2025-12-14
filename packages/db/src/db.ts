@@ -10,6 +10,12 @@ const client = postgres(connectionString, {
   max: 20, 
   idle_timeout: 20,
   connect_timeout: 10,
+  // 明确指定用户名，避免 Windows 默认用户问题
+  username: 'postgres',
+  password: 'password',
+  host: 'localhost',
+  port: 5432,
+  database: 'juchang',
 });
 
 // 👈 核心修改：把 schema 传进去

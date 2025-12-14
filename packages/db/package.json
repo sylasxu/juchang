@@ -12,7 +12,8 @@
     "db:studio": "drizzle-kit studio",
     "db:drop": "drizzle-kit drop",
     "db:check": "drizzle-kit check",
-    "db:reset": "drizzle-kit drop && bun run db:push"
+    "db:reset": "drizzle-kit drop && bun run db:push",
+    "seed": "bun src/seed.ts"
   },
   "dependencies": {
     "@sinclair/typebox": "^0.34.8",
@@ -22,7 +23,7 @@
     "postgres": "^3.4.3"
   },
   "devDependencies": {
-    "@juchang/ts-config": "workspace:^",
+    "@juchang/ts-config": "workspace:*",
     "@types/node": "^24.10.1",
     "drizzle-kit": "^0.31.7",
     "typescript": "^5.9.3"

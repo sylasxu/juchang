@@ -1,0 +1,102 @@
+<t-toast id="t-toast" />
+
+<view class="my">
+  <image class="nav-bg" src="/static/bg_navbar.png" />
+  <nav title-text="我的" />
+  <view class="my-info">
+    <t-cell-group>
+      <!-- 已登录状态 -->
+      <t-cell wx:if="{{isLoad}}" bordered="{{false}}">
+        <t-avatar 
+          image="{{userInfo.avatarUrl}}" 
+          icon="user" 
+          slot="left-icon" 
+          size="large" 
+        />
+        <view class="my-info__person" slot="description">
+          <view class="name">{{userInfo.nickname || '聚场用户'}}</view>
+          <view class="tags">
+            <t-tag class="tag" variant="light" icon="star">
+              {{userInfo.participationCount > 0 ? (userInfo.fulfillmentCount / userInfo.participationCount * 100).toFixed(0) + '%' : '新用户'}}
+            </t-tag>
+            <t-tag class="tag" variant="light" icon="crown" wx:if="{{userInfo.membershipType === 'pro'}}">
+              Pro会员
+            </t-tag>
+          </view>
+          <view class="stats">
+            <text class="stat-item">组织 {{userInfo.activitiesCreatedCount}} 场</text>
+            <text class="stat-item">参与 {{userInfo.participationCount}} 场</text>
+          </view>
+        </view>
+        <t-icon slot="right-icon" name="edit" size="40rpx" color="#000000e6" bindtap="onNavigateTo" />
+      </t-cell>
+      
+      <!-- 未登录状态 -->
+      <t-cell
+        wx:if="{{!isLoad}}"
+        title="请先登录/注册"
+        bordered="{{false}}"
+        t-class-title="cell-class-title"
+        t-class-center="cell-class-center"
+        bindtap="onLogin"
+      >
+        <t-avatar slot="left-icon" icon="user" size="128rpx" />
+      </t-cell>
+    </t-cell-group>
+    
+    <t-divider t-class="divider-class" />
+    
+    <!-- 功能网格 -->
+    <t-grid t-class="grid-class">
+      <t-grid-item
+        wx:for="{{gridList}}"
+        wx:for-item="gridItem"
+        wx:key="type"
+        text="{{gridItem.name}}"
+        icon="{{gridItem.icon}}"
+        class="grid-item"
+        data-data="{{gridItem}}"
+        bindclick="onEleClick"
+      />
+    </t-grid>
+  </view>
+
+  <view class="my-service">
+    <view class="my-service--tips">推荐服务</view>
+    <t-grid column="{{4}}" class="my-service__list">
+      <t-grid-item
+        class="my-service__list-item"
+        wx:for="{{service}}"
+        wx:key="item"
+        text="{{item.name}}"
+        image="{{item.image}}"
+        url="{{item.url}}"
+        data-data="{{item}}"
+        bindclick="onEleClick"
+      />
+    </t-grid>
+  </view>
+
+  <t-cell-group theme="card">
+    <t-cell
+      wx:for="{{settingList}}"
+      wx:for-item="item"
+      wx:key="type"
+      title="{{item.name}}"
+      leftIcon="{{item.icon}}"
+      hover
+      arrow
+      data-data="{{item}}"
+      bindclick="onEleClick"
+    />
+    
+    <!-- 退出登录 -->
+    <t-cell
+      wx:if="{{isLoad}}"
+      title="退出登录"
+      leftIcon="logout"
+      hover
+      bindtap="onLogout"
+    />
+  </t-cell-group>
+</view>

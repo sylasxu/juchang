@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "files": [],
+  "references": [
+    { "path": "./apps/api" },
+    { "path": "./apps/admin" },
+    { "path": "./apps/miniprogram" },
+    { "path": "./packages/db" },
+    { "path": "./packages/utils" }
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@juchang/db": ["./packages/db/src"],
+      "@juchang/utils": ["./packages/utils/src"],
+      "@juchang/api": ["./apps/api/src"]
+    }
+  }
+}

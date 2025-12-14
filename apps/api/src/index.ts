@@ -1,4 +1,10 @@
 // Elysia API Server Entry
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+// 加载根目录的 .env 文件
+config({ path: resolve(process.cwd(), '../../.env') });
+
 import { Elysia } from 'elysia';
 import { basePlugins } from './setup';
 import { openapi } from '@elysiajs/openapi';

@@ -1,6 +1,5 @@
 // Dashboard Service - Pure functions for dashboard data
-import { db, users, activities, participants, eq, sql, and, gte, desc } from '@juchang/db';
-import { count } from 'drizzle-orm';
+import { db, users, activities, participants, eq, sql, and, gte, desc, count } from '@juchang/db';
 import type { DashboardStats, RecentActivity, RiskUser } from './dashboard.model';
 
 /**

@@ -1,44 +1,51 @@
-// Auth Controller - Elysia 实例作为控制器
+// Auth Controller - 认证相关接口
 import { Elysia } from 'elysia';
+import { selectUserSchema } from '@juchang/db';
 import { basePlugins } from '../../setup';
 import { authModel, type ErrorResponse } from './auth.model';
-import { validateUser } from './auth.service';
+import { wxLogin } from './auth.service';
 
 export const authController = new Elysia({ prefix: '/auth' })
-  .use(basePlugins) // 引入 JWT 功能
-  .use(authModel) // 引入 Model Plugin
+  .use(basePlugins)
+  .use(authModel)
+  
+  // 微信登录
   .post(
-    '/login',
+    '/wx-login',
     async ({ body, jwt, set }) => {
-      const user = await validateUser(body.phoneNumber, body.password);
+      try {
+        const user = await wxLogin(body);
 
-      if (!user) {
-        set.status = 401;
+        // 生成 JWT Token
+        const token = await jwt.sign({
+          id: user.id,
+          wxOpenId: user.wxOpenId,
+          role: 'user',
+        });
+
         return {
-          code: 401,
-          msg: '用户名或密码错误',
+          user,
+          token,
+        };
+      } catch (error) {
+        console.error('微信登录失败:', error);
+        set.status = 400;
+        return {
+          code: 400,
+          msg: error.message || '登录失败',
         } satisfies ErrorResponse;
       }
-
-      // ✍️ 签发 Token
-      const token = await jwt.sign({
-        id: user.id,
-        role: 'user', // 可以从 user.membershipType 转换
-      });
-
-      return { token };
     },
     {
-      body: 'auth.login',
-      response: {
-        200: 'auth.token',
-        401: 'auth.error',
-      },
       detail: {
         tags: ['Auth'],
-        summary: '用户登录',
-        description: '通过手机号和密码登录，返回 JWT Token',
+        summary: '微信登录',
+        description: '使用微信授权码登录或注册',
+      },
+      body: 'auth.wxLogin',
+      response: {
+        200: 'auth.loginResponse',
+        400: 'auth.error',
       },
     }
   );
-

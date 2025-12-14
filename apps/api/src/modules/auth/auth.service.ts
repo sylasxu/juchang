@@ -1,64 +1,116 @@
-// Auth Service - 认证业务逻辑
-import { db, users, userAuths, eq, and } from '@juchang/db';
-import type { LoginRequest } from './auth.model';
+// Auth Service - 认证相关业务逻辑
+import { db, users, eq } from '@juchang/db';
+import type { WxLoginRequest } from './auth.model';
 
 /**
- * 验证用户登录
- * TODO: 实际项目中应该使用 bcrypt 等库进行密码哈希验证
+ * 微信登录
  */
-export async function validateUser(phoneNumber: string, password: string) {
-  // 查询用户信息
-  const [user] = await db
-    .select({
-      id: users.id,
-      phoneNumber: users.phoneNumber,
-      nickname: users.nickname,
-      membershipType: users.membershipType,
-      isBlocked: users.isBlocked,
-    })
-    .from(users)
-    .where(eq(users.phoneNumber, phoneNumber))
-    .limit(1);
+export async function wxLogin(params: WxLoginRequest) {
+  const { code, phoneNumber, nickname, avatarUrl } = params;
 
-  if (!user) {
-    return null;
+  try {
+    // 调用微信接口获取 openid 和 session_key
+    const wxData = await getWxOpenId(code);
+    
+    if (!wxData.openid) {
+      throw new Error('微信登录失败，请重试');
+    }
+
+    // 查找是否已存在用户
+    let user = await db
+      .select()
+      .from(users)
+      .where(eq(users.wxOpenId, wxData.openid))
+      .limit(1)
+      .then(rows => rows[0]);
+
+    if (!user) {
+      // 创建新用户
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          wxOpenId: wxData.openid,
+          phoneNumber: phoneNumber || null,
+          nickname: nickname || `用户${wxData.openid.slice(-6)}`,
+          avatarUrl: avatarUrl || null,
+          gender: 'unknown',
+          participationCount: 0,
+          fulfillmentCount: 0,
+          disputeCount: 0,
+          activitiesCreatedCount: 0,
+          membershipType: 'free',
+          isRegistered: true,
+          isBlocked: false,
+        })
+        .returning();
+
+      user = newUser;
+    } else {
+      // 更新用户信息（如果提供了新信息）
+      if (nickname || avatarUrl || phoneNumber) {
+        const updateData: any = {};
+        if (nickname) updateData.nickname = nickname;
+        if (avatarUrl) updateData.avatarUrl = avatarUrl;
+        if (phoneNumber) updateData.phoneNumber = phoneNumber;
+        updateData.updatedAt = new Date();
+
+        const [updatedUser] = await db
+          .update(users)
+          .set(updateData)
+          .where(eq(users.id, user.id))
+          .returning();
+
+        user = updatedUser;
+      }
+    }
+
+    return user;
+  } catch (error) {
+    console.error('微信登录失败:', error);
+    throw new Error(error.message || '登录失败');
   }
-
-  // 检查用户状态
-  if (user.isBlocked) {
-    throw new Error('用户已被封禁');
-  }
-
-  // 查询认证信息
-  const [auth] = await db
-    .select()
-    .from(userAuths)
-    .where(and(
-      eq(userAuths.userId, user.id),
-      eq(userAuths.provider, 'phone_sms')
-    ))
-    .limit(1);
-
-  if (!auth) {
-    return null;
-  }
-
-  // TODO: 实际项目中应该使用 bcrypt.compare(password, auth.passwordHash)
-  // 这里为了演示，直接比较明文（生产环境绝对不能这样做）
-  if (auth.passwordHash !== password) {
-    return null;
-  }
-
-  return user;
 }
 
 /**
- * 微信小程序登录
- * TODO: 集成微信小程序登录逻辑
+ * 微信登录响应接口
  */
-export async function loginWithWechat(code: string) {
-  // TODO: 调用微信 API 获取 openid
-  // TODO: 查询或创建用户
-  // TODO: 返回用户信息
-  throw new Error('微信登录功能待实现');
+interface WxLoginResponse {
+  openid?: string;
+  session_key?: string;
+  unionid?: string;
+  errcode?: number;
+  errmsg?: string;
+}
+
+/**
+ * 根据微信 code 获取 openid 和 session_key
+ */
+async function getWxOpenId(code: string): Promise<WxLoginResponse> {
+  const WECHAT_APP_ID = process.env.WECHAT_APP_ID;
+  const WECHAT_APP_SECRET = process.env.WECHAT_APP_SECRET;
+
+  if (!WECHAT_APP_ID || !WECHAT_APP_SECRET) {
+    console.warn('微信配置未设置，使用模拟数据');
+    // 开发环境返回模拟数据
+    return {
+      openid: `wx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      session_key: 'mock_session_key'
+    };
+  }
+
+  try {
+    const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${WECHAT_APP_ID}&secret=${WECHAT_APP_SECRET}&js_code=${code}&grant_type=authorization_code`;
+    
+    const response = await fetch(url);
+    const data: WxLoginResponse = await response.json();
+
+    if (data.errcode) {
+      throw new Error(`微信接口错误: ${data.errmsg}`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('调用微信接口失败:', error);
+    throw new Error('微信登录验证失败');
+  }
 }

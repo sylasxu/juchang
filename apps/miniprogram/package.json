@@ -1,0 +1,52 @@
+{
+  "name": "@juchang/miniprogram",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "dev": "echo '请在微信开发者工具中打开此目录'",
+    "build": "echo '小程序构建通过微信开发者工具完成'",
+    "gen:api": "orval --config orval.config.ts",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "npx eslint ./ --no-eslintrc -c ./.eslintrc.js",
+    "lint:fix": "npm run lint:fix-eslint && npm run lint:fix-prettier",
+    "lint:fix-eslint": "eslint --ext .js,.ts ./ --max-warnings 0 --ignore-path .gitignore --ignore-path .eslintignore --fix",
+    "lint:fix-prettier": "prettier ./ --ignore-path .gitignore --ignore-path .eslintignore --ignore-path .prettierignore --write './**/*.{js,ts}' --ignore-unknown"
+  },
+  "keywords": [
+    "wechat",
+    "miniprogram",
+    "juchang",
+    "social"
+  ],
+  "author": "Juchang Team",
+  "license": "MIT",
+  "description": "聚场小程序 - AI碎片化社交找搭子平台",
+  "dependencies": {
+    "immer": "^11.0.1",
+    "tdesign-miniprogram": "^1.8.6",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@types/wechat-miniprogram": "^3.4.9",
+    "eslint": "^8.49.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-import": "^2.28.1",
+    "eslint-plugin-prettier": "^5.0.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^14.0.1",
+    "miniprogram-api-typings": "^4.1.1",
+    "orval": "^7.17.0",
+    "prettier": "^3.0.2",
+    "typescript": "^5.9.3"
+  },
+  "lint-staged": {
+    "{src,example,script}/**/*.{js,ts,wxml,html,json,less}": [
+      "prettier --write"
+    ],
+    "**/*.{js,ts}": [
+      "eslint --fix"
+    ]
+  }
+}

@@ -1,6 +1,5 @@
 // User Service - 纯业务逻辑，无 HTTP 依赖
-import { db, users, eq } from '@juchang/db';
-import { count, or, ilike } from 'drizzle-orm';
+import { db, users, eq, count, or, ilike } from '@juchang/db';
 import type { PaginationQuery, ListResponse, UpdateUserBody } from './user.model';
 
 /**

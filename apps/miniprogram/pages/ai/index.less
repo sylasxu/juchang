@@ -1,0 +1,104 @@
+.ai-container {
+  padding: 32rpx;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f8f9fa;
+}
+
+.ai-quota {
+  background: white;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+}
+
+.quota-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quota-label {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.quota-value {
+  font-size: 24rpx;
+  color: #1a1b3a;
+  font-weight: 500;
+}
+
+.ai-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 24rpx;
+}
+
+.shortcut-btn {
+  width: 100%;
+  text-align: left;
+  border-radius: 12rpx;
+}
+
+.ai-chat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  border-radius: 16rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+}
+
+.chat-messages {
+  flex: 1;
+  padding: 24rpx;
+  max-height: 600rpx;
+}
+
+.message {
+  margin-bottom: 24rpx;
+  display: flex;
+}
+
+.message.user {
+  justify-content: flex-end;
+}
+
+.message.assistant {
+  justify-content: flex-start;
+}
+
+.message-content {
+  max-width: 70%;
+  padding: 16rpx 20rpx;
+  border-radius: 16rpx;
+  font-size: 28rpx;
+  line-height: 1.4;
+}
+
+.message.user .message-content {
+  background: #1a1b3a;
+  color: white;
+}
+
+.message.assistant .message-content {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.chat-input {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  border-top: 1rpx solid #eee;
+  gap: 16rpx;
+}
+
+.chat-input t-input {
+  flex: 1;
+}

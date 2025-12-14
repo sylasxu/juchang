@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2018",
+    "lib": ["ES2018", "DOM"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@/api/*": ["./src/api/*"],
+      "@/utils/*": ["./src/utils/*"],
+      "@/stores/*": ["./src/stores/*"],
+      "@/types/*": ["./src/types/*"],
+      "@/components/*": ["./src/components/*"]
+    },
+    "types": [
+      "miniprogram-api-typings",
+      "@types/wechat-miniprogram"
+    ]
+  },
+  "include": [
+    "src/**/*",
+    "pages/**/*",
+    "components/**/*",
+    "app.ts",
+    "*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "miniprogram_npm"
+  ]
+}

@@ -194,6 +194,18 @@ project.private.config.json
 # 微信 Ci 密钥 (如果有)
 private.*.key
 
+# Orval 生成的 API 文件 (可以重新生成，不需要提交)
+apps/miniprogram/src/api/endpoints/
+apps/miniprogram/src/api/model/
+
+# 测试文件
+**/*.test.js
+**/*.test.ts
+**/*.spec.js
+**/*.spec.ts
+test-*.js
+test-*.ts
+
 # ==============================================
 # 7. Apps: Hono API (apps/api-server)
 # ==============================================
@@ -220,7 +232,62 @@ private.*.key
 .history/
 
 # ==============================================
-# 10. 临时文件
+# 10. 生成的代码和临时文件
 # ==============================================
+# 代码生成工具输出
+**/generated/
+**/auto-generated/
+**/.generated/
+
+# API 文档生成
+**/api-docs/
+**/swagger-ui/
+
+# 临时文件
 tmp/
 temp/
+*.tmp
+*.temp
+
+# 备份文件
+*.bak
+*.backup
+*~
+
+# 操作系统生成的文件
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ==============================================
+# 11. 开发工具和编辑器
+# ==============================================
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Atom
+.atom/
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Vim
+*.swp
+*.swo
+*~
+.viminfo

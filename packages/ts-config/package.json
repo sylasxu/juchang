@@ -1,8 +1,10 @@
 {
-    "name": "@juchang/ts-config",
-    "version": "0.0.0",
-    "private": true,
-    "exports": {
-      "./base.json": "./base.json"
-    }
+  "name": "@juchang/ts-config",
+  "version": "1.0.0",
+  "description": "Shared TypeScript configurations for Juchang platform",
+  "private": true,
+  "exports": {
+    "./base.json": "./base.json",
+    "./miniprogram.json": "./miniprogram.json"
   }
+}
