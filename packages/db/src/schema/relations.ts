@@ -1,28 +1,25 @@
 import { relations } from "drizzle-orm";
 import { users } from "./users";
-import { userAuths } from "./user_auths";
 import { activities } from "./activities";
 import { participants } from "./participants";
 import { feedbacks } from "./feedbacks";
 import { notifications } from "./notifications";
-import { chatGroups } from "./chat_groups";
 import { chatMessages } from "./chat_messages";
-import { orders } from "./orders";
-import { payments } from "./payments";
+import { transactions } from "./transactions";
 import { actionLogs } from "./action_logs";
 
 // ==========================================
 // User Relations
 // ==========================================
 export const usersRelations = relations(users, ({ many }) => ({
-  auths: many(userAuths),
   activitiesCreated: many(activities),
   participations: many(participants),
   feedbacksReceived: many(feedbacks, { relationName: "target" }),
   feedbacksGiven: many(feedbacks, { relationName: "reporter" }),
   notifications: many(notifications),
-  orders: many(orders),
+  transactions: many(transactions),
   actionLogs: many(actionLogs),
+  chatMessages: many(chatMessages),
 }));
 
 // ==========================================
@@ -34,10 +31,7 @@ export const activitiesRelations = relations(activities, ({ one, many }) => ({
     references: [users.id],
   }),
   participants: many(participants),
-  chatGroup: one(chatGroups, {
-    fields: [activities.id],
-    references: [chatGroups.activityId],
-  }),
+  chatMessages: many(chatMessages), // 直接关联消息
   feedbacks: many(feedbacks),
 }));
 
@@ -86,20 +80,12 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 }));
 
 // ==========================================
-// Chat Relations
+// Chat Relations (简化)
 // ==========================================
-export const chatGroupsRelations = relations(chatGroups, ({ one, many }) => ({
-  activity: one(activities, {
-    fields: [chatGroups.activityId],
-    references: [activities.id],
-  }),
-  messages: many(chatMessages),
-}));
-
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
-  group: one(chatGroups, {
-    fields: [chatMessages.groupId],
-    references: [chatGroups.id],
+  activity: one(activities, {
+    fields: [chatMessages.activityId],
+    references: [activities.id],
   }),
   sender: one(users, {
     fields: [chatMessages.senderId],
@@ -108,33 +94,11 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
 }));
 
 // ==========================================
-// Auth Relations
+// Transaction Relations (整合支付)
 // ==========================================
-export const userAuthsRelations = relations(userAuths, ({ one }) => ({
+export const transactionsRelations = relations(transactions, ({ one }) => ({
   user: one(users, {
-    fields: [userAuths.userId],
-    references: [users.id],
-  }),
-}));
-
-// ==========================================
-// Payment Relations
-// ==========================================
-export const ordersRelations = relations(orders, ({ one, many }) => ({
-  user: one(users, {
-    fields: [orders.userId],
-    references: [users.id],
-  }),
-  payments: many(payments),
-}));
-
-export const paymentsRelations = relations(payments, ({ one }) => ({
-  order: one(orders, {
-    fields: [payments.orderId],
-    references: [orders.id],
-  }),
-  user: one(users, {
-    fields: [payments.userId],
+    fields: [transactions.userId],
     references: [users.id],
   }),
 }));

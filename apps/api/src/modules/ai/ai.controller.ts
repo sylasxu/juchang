@@ -104,9 +104,9 @@ export const aiController = new Elysia({ prefix: '/ai' })
     }
   )
   
-  // AI 对话（普通响应）
+  // AI 搜索（地图筛选）
   .post(
-    '/chat',
+    '/search',
     async ({ body, set, jwt, headers }) => {
       // JWT 认证
       const user = await verifyAuth(jwt, headers);
@@ -119,49 +119,49 @@ export const aiController = new Elysia({ prefix: '/ai' })
       }
 
       // 检查并消耗额度
-      const hasQuota = await consumeAIChatQuota(user.id);
+      const hasQuota = await consumeAISearchQuota(user.id);
       if (!hasQuota) {
         set.status = 403;
         return {
           code: 403,
-          msg: 'AI 对话额度不足',
+          msg: 'AI 搜索额度不足',
         } satisfies ErrorResponse;
       }
       
       try {
-        const result = await processChatWithAI(body);
+        const result = await processSearchWithAI(body);
         return result;
       } catch (error) {
         set.status = 500;
         return {
           code: 500,
-          msg: 'AI 对话失败，请稍后重试',
+          msg: 'AI 搜索失败，请稍后重试',
         } satisfies ErrorResponse;
       }
     },
     {
       detail: {
         tags: ['AI'],
-        summary: 'AI 对话',
-        description: 'AI 助手对话，支持活动推荐、信息查询等功能',
+        summary: 'AI 智能搜索',
+        description: '使用自然语言搜索活动，返回地图筛选条件',
       },
-      body: 'ai.chatRequest',
+      body: 'ai.searchRequest',
       response: {
-        200: 'ai.chatResponse',
+        200: 'ai.searchResponse',
         403: 'ai.error',
         500: 'ai.error',
       },
     }
   )
   
-  // AI 流式对话（根据 Elysia AI SDK 文档）
+  // AI 解析（魔法输入框）
   .post(
-    '/chat/stream',
+    '/parse',
     async ({ body, set, jwt, headers }) => {
       // JWT 认证
       const user = await verifyAuth(jwt, headers);
       if (!user) {
-        set.status = 403;
+        set.status = 401;
         return {
           code: 401,
           msg: '未授权',
@@ -169,36 +169,35 @@ export const aiController = new Elysia({ prefix: '/ai' })
       }
 
       // 检查并消耗额度
-      const hasQuota = await consumeAIChatQuota(user.id);
+      const hasQuota = await consumeAICreateQuota(user.id);
       if (!hasQuota) {
         set.status = 403;
         return {
           code: 403,
-          msg: 'AI 对话额度不足',
+          msg: 'AI 解析额度不足',
         } satisfies ErrorResponse;
       }
       
       try {
-        const stream = await processChatStreamWithAI(body);
-        // 根据 Elysia 文档，直接返回 textStream
-        return stream.textStream;
+        const result = await parseActivityWithAI(body);
+        return result;
       } catch (error) {
         set.status = 500;
         return {
           code: 500,
-          msg: 'AI 流式对话失败，请稍后重试',
+          msg: 'AI 解析失败，请稍后重试',
         } satisfies ErrorResponse;
       }
     },
     {
       detail: {
         tags: ['AI'],
-        summary: 'AI 流式对话',
-        description: 'AI 助手流式对话，实时返回响应内容',
+        summary: 'AI 意图解析',
+        description: '解析自然语言或粘贴文本，生成活动信息',
       },
-      body: 'ai.chatRequest',
+      body: 'ai.parseRequest',
       response: {
-        200: t.Any({ description: '流式文本响应' }),
+        200: 'ai.parseResponse',
         403: 'ai.error',
         500: 'ai.error',
       },

@@ -10,6 +10,10 @@ export const users = pgTable("users", {
   wxOpenId: varchar("wx_openid", { length: 128 }).notNull().unique(),
   phoneNumber: varchar("phone_number", { length: 20 }),
   
+  // --- 认证信息 (整合 user_auths) ---
+  lastLoginIp: varchar("last_login_ip", { length: 45 }),
+  lastLoginAt: timestamp("last_login_at"),
+  
   // --- 基础资料 ---
   nickname: varchar("nickname", { length: 50 }),
   avatarUrl: varchar("avatar_url", { length: 500 }),
@@ -29,7 +33,7 @@ export const users = pgTable("users", {
   membershipType: membershipTypeEnum("membership_type").default("free").notNull(),
   membershipExpiresAt: timestamp("membership_expires_at"),
   aiCreateQuotaToday: integer("ai_create_quota_today").default(3).notNull(), // 今日AI建局剩余
-  aiChatQuotaToday: integer("ai_chat_quota_today").default(5).notNull(),     // 今日AI对话剩余
+  aiSearchQuotaToday: integer("ai_search_quota_today").default(10).notNull(), // 今日AI搜索剩余
   aiQuotaResetAt: timestamp("ai_quota_reset_at"),                            // 额度重置时间
 
   // --- LBS ---

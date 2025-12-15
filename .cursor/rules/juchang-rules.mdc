@@ -12,28 +12,83 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
 
 # 🏗️ Monorepo Structure & Responsibilities
 
-## 1. @juchang/db (The Single Source of Truth)
-- **Tech**: Drizzle ORM (PostgreSQL + PostGIS + pgvector) + `drizzle-typebox`.
+## 1. @juchang/db (The Single Source of Truth - V9.2 Integrated)
+- **Tech**: Drizzle ORM (PostgreSQL + PostGIS) + `drizzle-typebox`.
 - **Path**: `packages/db/src/schema/*.ts`
+- **Architecture**: **11 张整合表** (从 13 张优化而来，减少 15% 复杂度)
+  - `users` (整合认证信息 + AI 额度分离)
+  - `activities` (整合群聊状态 + 重庆地形适配 + 幽灵锚点)  
+  - `participants` (履约确认 + 申诉机制)
+  - `chat_messages` (直接关联活动，无需 chat_groups)
+  - `feedbacks` (差评反馈系统)
+  - `notifications` (通知推送系统)
+  - `transactions` (整合 orders + payments 支付逻辑)
+  - `action_logs` (操作审计日志)
+  - `enums` (所有枚举定义)
+  - `relations` (表关系定义)
+  - `index.ts` (统一导出)
+- **V9.2 核心特性**:
+  - **重庆地形适配**: `locationHint` 字段支持 3D 地形位置备注
+  - **AI 额度分离**: `aiCreateQuotaToday` + `aiSearchQuotaToday` 分别管理
+  - **幽灵锚点完整支持**: `isGhost` + `ghostAnchorType` + `ghostSuggestedType`
+  - **整合支付逻辑**: 一个 `transactions` 表替代 `orders` + `payments`
 - **Mandate**:
   - Define tables using snake_case columns.
   - **IMMEDIATELY export TypeBox Schemas** (`insert...Schema`, `select...Schema`) using `createInsertSchema` and `createSelectSchema` from `drizzle-typebox`.
   - **Refine Logic Here**: Add validation (min/max/regex) inside `createInsertSchema`.
-  - **LBS Note**: For `geometry` types, ensure TypeBox schemas allow array `[lon, lat]` input but handle the output format correctly.
-  - **Schema Export Pattern**: Directly use `createInsertSchema` and `createSelectSchema`:
+  - **Integration Pattern**: 整合相关表到主表，减少 JOIN 复杂度
     ```typescript
-    // ✅ CORRECT: Direct usage
-    export const insertUserSchema = createInsertSchema(users);
-    export const selectUserSchema = createSelectSchema(users);
+    // ✅ CORRECT: V9.2 整合后的表结构
+    export const users = pgTable("users", {
+      // 认证信息直接存储，无需单独 user_auths 表
+      wxOpenId: varchar("wx_openid", { length: 128 }).notNull().unique(),
+      lastLoginIp: varchar("last_login_ip", { length: 45 }),
+      lastLoginAt: timestamp("last_login_at"),
+      // AI 额度分离管理
+      aiCreateQuotaToday: integer("ai_create_quota_today").default(3).notNull(),
+      aiSearchQuotaToday: integer("ai_search_quota_today").default(10).notNull(),
+    });
+    
+    export const activities = pgTable("activities", {
+      // 群聊状态直接存储，无需单独 chat_groups 表
+      chatStatus: varchar("chat_status", { length: 20 }).default("active").notNull(),
+      chatArchivedAt: timestamp("chat_archived_at"),
+      // 重庆地形位置备注
+      locationHint: varchar("location_hint", { length: 100 }),
+      // 幽灵锚点完整支持
+      isGhost: boolean("is_ghost").default(false).notNull(),
+      ghostAnchorType: varchar("ghost_anchor_type", { length: 20 }),
+      ghostSuggestedType: activityTypeEnum("ghost_suggested_type"),
+    });
+    
+    export const transactions = pgTable("transactions", {
+      // 整合 orders + payments，一表搞定支付逻辑
+      status: transactionStatusEnum("status").default("pending").notNull(),
+      outTradeNo: varchar("out_trade_no", { length: 64 }).unique().notNull(),
+      transactionId: varchar("transaction_id", { length: 64 }),
+    });
     ```
 
-## 2. apps/api (The Business Logic Gateway)
+## 2. apps/api (The Business Logic Gateway - V9.2 8-Module Design)
 - **Tech**: ElysiaJS + `@elysiajs/swagger` + TypeBox (t).
 - **Path**: `apps/api/src/modules/*`
+- **Architecture**: **8 个核心模块** (重构 AI，新增 chat/transactions)
+  - `auth`: 认证授权 (整合微信登录)
+  - `users`: 用户管理 (整合认证信息 + AI 额度)
+  - `activities`: 活动管理 (整合群聊状态 + 地形备注)
+  - `participants`: 参与管理 (履约确认 + 申诉机制)
+  - `ai`: AI 服务 (❌砍掉聊天，✅专注解析/搜索)
+  - `chat`: 群聊消息 (✅新增，直接关联活动)
+  - `transactions`: 支付交易 (✅新增，整合支付逻辑)
+  - `dashboard`: 数据面板 (管理后台)
 - **Structure**: Feature-based folder structure (following Elysia best practices):
   - `controller.ts`: Elysia instance as controller, handles HTTP routing
   - `service.ts`: Business logic functions, pure functions that work with database
   - `model.ts`: TypeBox schemas and types using `Static<typeof schema>`
+- **V9.2 AI Module Changes**:
+  - ❌ **删除**: `/ai/chat`, `/ai/stream` 等聊天端点
+  - ✅ **新增**: `/ai/parse` (意图解析), `/ai/search` (智能搜索)
+  - ✅ **额度管理**: 分别消耗 `aiCreateQuotaToday` 和 `aiSearchQuotaToday`
 - **Mandate**:
   - **Controller**: HTTP routing and request/response handling
   - **Service**: Pure business logic functions, database operations
@@ -380,19 +435,27 @@ function handleError(): ErrorResponse {
 
 ---
 
-# 🤖 Instruction for AI Generation
+# 🤖 Instruction for AI Generation (V9.2 Updated)
 
 When I ask for a feature:
-1.  **Plan**: Analyze `@juchang/db` first. Do we need new columns?
+1.  **Plan**: Analyze `@juchang/db` first. Do we need new columns? Consider V9.2 integrated tables.
 2.  **Schema**: Show me the `drizzle-typebox` derivation strategy (e.g., "I'll use `t.Pick(selectUserSchema, ['id', 'nickname'])`" or "I'll manually construct with `t.Object()`").
 3.  **Service**: Write pure function (not class): `export async function getUserById(id: string) { ... }`
-4.  **API**: Write the Elysia route with TypeBox schemas.
-5.  **Frontend**: If asked for UI, show how to call the **Eden Treaty** (Admin) or **Orval SDK** (MiniProgram), not raw fetch.
-6.  **Admin Feature**: For admin features, create React Query hooks in `hooks/use-*.ts` and use them in components.
+4.  **API**: Write the Elysia route with TypeBox schemas. Use correct V9.2 module (auth/users/activities/participants/ai/chat/transactions/dashboard).
+5.  **AI Features**: 
+   - ❌ **Never create** `/ai/chat` or streaming endpoints
+   - ✅ **Always use** `/ai/parse` for activity creation, `/ai/search` for map search
+   - ✅ **Always check** and consume appropriate AI quota (`aiCreateQuotaToday` or `aiSearchQuotaToday`)
+6.  **Frontend**: If asked for UI, show how to call the **Eden Treaty** (Admin) or **Orval SDK** (MiniProgram), not raw fetch.
+7.  **Admin Feature**: For admin features, create React Query hooks in `hooks/use-*.ts` and use them in components.
+8.  **V9.2 Specific**:
+   - **重庆地形**: Always include `locationHint` for activity creation
+   - **幽灵锚点**: Use `isGhost`, `ghostAnchorType`, `ghostSuggestedType` fields
+   - **整合表**: Leverage integrated tables (users with auth, activities with chat status, transactions for payments)
 
 ---
 
-# ⚠️ Important Notes
+# ⚠️ Important Notes (V9.2 Updated)
 
 - **TypeBox vs Zod**: We use TypeBox (t) from Elysia, NOT Zod (z). TypeBox is 50x faster.
 - **Elysia vs Hono**: We use ElysiaJS, NOT Hono. Elysia is optimized for Bun.
@@ -401,3 +464,297 @@ When I ask for a feature:
 - **Eden Treaty**: Admin uses Eden Treaty for type-safe API calls (zero code generation).
 - **Orval SDK**: MiniProgram uses Orval-generated SDK (because Proxy is not supported).
 - **Admin Stack**: Vite + React 19 + TanStack Router + TanStack React Query + shadcn/ui.
+- **V9.2 Architecture**:
+  - **11 张整合表**: 从 13 张优化而来，减少 15% 复杂度 (实际实现)
+  - **8 个 API 模块**: 重构 AI，新增 chat/transactions
+  - **AI 功能重定位**: 从独立聊天转向业务场景集成
+  - **重庆本地化**: 强制 `locationHint`，支持 3D 地形
+  - **幽灵锚点**: 完整的冷启动运营支持
+  - **支付整合**: 一个 `transactions` 表替代 `orders` + `payments`
+
+---
+
+# 🎯 V9.2 Specific Development Patterns
+
+## AI Integration Patterns
+
+### ✅ Correct: AI as Business Tool
+```typescript
+// AI 意图解析 - 融入创建活动流程
+export async function parseActivityIntent(input: string, userId: string) {
+  // 1. 检查额度
+  const user = await getUserById(userId);
+  if (user.aiCreateQuotaToday <= 0) {
+    throw new Error('AI 建局额度已用完');
+  }
+
+  // 2. 调用 LLM
+  const result = await callLLM({ input, schema: activitySchema });
+
+  // 3. 扣除额度
+  await consumeAIQuota(userId, 'create');
+
+  return result;
+}
+
+// AI 智能搜索 - 融入地图搜索流程
+export async function searchActivitiesWithAI(query: string, location: [number, number], userId: string) {
+  // 1. 检查额度
+  const user = await getUserById(userId);
+  if (user.aiSearchQuotaToday <= 0) {
+    throw new Error('AI 搜索额度已用完');
+  }
+
+  // 2. PostGIS + AI 语义搜索
+  const activities = await searchNearbyActivities(location, query);
+
+  // 3. 扣除额度
+  await consumeAIQuota(userId, 'search');
+
+  return activities;
+}
+```
+
+### ❌ Wrong: AI as Chat Service
+```typescript
+// ❌ 禁止：独立的 AI 聊天服务
+export async function chatWithAI(message: string, conversationId: string) {
+  // 这种开放式聊天会浪费 Token，且与业务场景脱节
+}
+
+// ❌ 禁止：流式聊天端点
+app.get('/ai/stream', async ({ query }) => {
+  // 不要实现流式聊天功能
+});
+```
+
+## Database Integration Patterns
+
+### ✅ Correct: Leveraging Integrated Tables
+```typescript
+// 利用整合后的 users 表
+export async function getUserWithAuthInfo(id: string) {
+  return await db.select({
+    id: users.id,
+    nickname: users.nickname,
+    // 认证信息直接可用，无需 JOIN
+    lastLoginAt: users.lastLoginAt,
+    lastLoginIp: users.lastLoginIp,
+    // AI 额度直接可用
+    aiCreateQuota: users.aiCreateQuotaToday,
+    aiSearchQuota: users.aiSearchQuotaToday,
+  }).from(users).where(eq(users.id, id));
+}
+
+// 利用整合后的 activities 表
+export async function getActivityWithChatStatus(id: string) {
+  return await db.select({
+    ...activities,
+    // 群聊状态直接可用，无需 JOIN chat_groups
+    chatStatus: activities.chatStatus,
+    chatArchivedAt: activities.chatArchivedAt,
+    // 重庆地形信息
+    locationHint: activities.locationHint,
+    // 幽灵锚点信息
+    isGhost: activities.isGhost,
+    ghostAnchorType: activities.ghostAnchorType,
+  }).from(activities).where(eq(activities.id, id));
+}
+```
+
+### ❌ Wrong: Old Multi-Table JOINs
+```typescript
+// ❌ 错误：尝试 JOIN 已经整合的表
+export async function getUserWithAuth(id: string) {
+  // user_auths 表已经不存在了
+  return await db.select()
+    .from(users)
+    .leftJoin(userAuths, eq(users.id, userAuths.userId)) // ❌ 表不存在
+    .where(eq(users.id, id));
+}
+```
+
+## Payment Integration Patterns
+
+### ✅ Correct: Using Integrated Transactions
+```typescript
+// 创建支付订单 - 使用整合的 transactions 表
+export async function createPaymentOrder(data: {
+  userId: string;
+  productType: 'boost' | 'pin_plus' | 'fast_pass';
+  amount: number;
+  relatedId?: string;
+}) {
+  const outTradeNo = generateTradeNo();
+  
+  const transaction = await db.insert(transactions).values({
+    userId: data.userId,
+    productType: data.productType,
+    productName: getProductName(data.productType),
+    amount: data.amount,
+    outTradeNo,
+    relatedId: data.relatedId,
+    status: 'pending',
+  }).returning();
+
+  // 调用微信支付 API
+  const wxPayResult = await createWxPayOrder({
+    outTradeNo,
+    amount: data.amount,
+    description: transaction.productName,
+  });
+
+  return { transaction, wxPayResult };
+}
+
+// 支付回调处理 - 原子性更新
+export async function handlePaymentCallback(callbackData: WxPayCallback) {
+  return await db.transaction(async (tx) => {
+    // 1. 更新交易状态
+    await tx.update(transactions)
+      .set({
+        status: 'paid',
+        transactionId: callbackData.transaction_id,
+        callbackData: callbackData,
+        paidAt: new Date(),
+      })
+      .where(eq(transactions.outTradeNo, callbackData.out_trade_no));
+
+    // 2. 下发权益
+    const transaction = await tx.select().from(transactions)
+      .where(eq(transactions.outTradeNo, callbackData.out_trade_no));
+    
+    await grantPremiumService(transaction[0], tx);
+  });
+}
+```
+
+## Chongqing Terrain Adaptation
+
+### ✅ Correct: Location Hint Integration
+```typescript
+// 创建活动时强制位置备注
+export const createActivitySchema = t.Intersect([
+  t.Pick(insertActivitySchema, ['title', 'description', 'type']),
+  t.Object({
+    location: t.Object({
+      lat: t.Number(),
+      lng: t.Number(),
+    }),
+    locationName: t.String(),
+    locationHint: t.String({ 
+      minLength: 1,
+      description: '位置备注（必填）：如 4楼平台、地下B1层、轻轨3号出口等'
+    }),
+  }),
+]);
+
+// 地图显示时包含位置备注
+export async function getActivitiesForMap(bounds: MapBounds) {
+  return await db.select({
+    id: activities.id,
+    title: activities.title,
+    location: activities.location,
+    locationName: activities.locationName,
+    locationHint: activities.locationHint, // 重庆地形备注
+    type: activities.type,
+    currentParticipants: activities.currentParticipants,
+    maxParticipants: activities.maxParticipants,
+  }).from(activities)
+  .where(and(
+    eq(activities.status, 'published'),
+    sql`ST_Within(${activities.location}, ST_MakeEnvelope(${bounds.sw.lng}, ${bounds.sw.lat}, ${bounds.ne.lng}, ${bounds.ne.lat}, 4326))`
+  ));
+}
+```
+
+## Ghost Anchor Patterns
+
+### ✅ Correct: Complete Ghost Anchor Support
+```typescript
+// 创建幽灵锚点
+export async function createGhostAnchor(data: {
+  location: [number, number];
+  anchorType: 'demand' | 'promotion';
+  suggestedType: ActivityType;
+  locationHint: string;
+}) {
+  return await db.insert(activities).values({
+    title: generateAnchorTitle(data.suggestedType),
+    description: generateAnchorDescription(data.suggestedType),
+    location: sql`ST_GeomFromText('POINT(${data.location[0]} ${data.location[1]})', 4326)`,
+    locationName: '待定',
+    locationHint: data.locationHint,
+    type: data.suggestedType,
+    startAt: new Date(),
+    
+    // 幽灵锚点标记
+    isGhost: true,
+    ghostAnchorType: data.anchorType,
+    ghostSuggestedType: data.suggestedType,
+    
+    // 默认值
+    creatorId: SYSTEM_USER_ID,
+    status: 'published',
+    maxParticipants: 4,
+  });
+}
+
+// 点击幽灵锚点的处理
+export async function handleGhostAnchorClick(anchorId: string, userId: string) {
+  const anchor = await db.select().from(activities)
+    .where(and(
+      eq(activities.id, anchorId),
+      eq(activities.isGhost, true)
+    ));
+
+  if (!anchor.length) {
+    throw new Error('锚点不存在');
+  }
+
+  // 复用 AI 意图解析流程，预填信息
+  return {
+    prefilled: {
+      type: anchor[0].ghostSuggestedType,
+      location: anchor[0].location,
+      locationName: anchor[0].locationName,
+      locationHint: anchor[0].locationHint,
+    },
+    suggestions: [
+      `在${anchor[0].locationName}组织${getTypeLabel(anchor[0].ghostSuggestedType)}活动`,
+      `这里很适合${getTypeLabel(anchor[0].ghostSuggestedType)}，要不要试试？`,
+    ],
+  };
+}
+```
+
+---
+
+# 📋 V9.2 Development Checklist
+
+## When Creating New Features
+
+### Database Changes
+- [ ] 考虑是否可以利用现有的 9 张整合表
+- [ ] 如需新字段，优先添加到主表而非创建新表
+- [ ] 使用 `drizzle-typebox` 自动生成 TypeBox Schema
+- [ ] 为重庆地形相关功能添加 `locationHint` 支持
+
+### API Development
+- [ ] 确定功能属于哪个模块 (auth/users/activities/participants/ai/chat/transactions/dashboard)
+- [ ] AI 功能必须检查并消耗对应额度
+- [ ] 从 `@juchang/db` 派生 TypeBox Schema，禁止手动定义
+- [ ] 使用纯函数实现 Service 层
+- [ ] 错误响应使用统一格式 `{ code, msg, data? }`
+
+### Frontend Integration
+- [ ] Admin 使用 Eden Treaty + React Query
+- [ ] MiniProgram 使用 Orval 生成的 SDK
+- [ ] 重庆地形功能必须显示 `locationHint`
+- [ ] 幽灵锚点点击后复用 AI 解析流程
+
+### Testing & Validation
+- [ ] 测试整合表的查询性能
+- [ ] 验证 AI 额度扣除逻辑
+- [ ] 确认支付回调的原子性
+- [ ] 检查重庆地形备注的必填验证

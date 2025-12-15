@@ -16,6 +16,7 @@ export const activities = pgTable("activities", {
   location: geometry("location", { type: "point", mode: "xy", srid: 4326 }).notNull(),
   locationName: varchar("location_name", { length: 100 }).notNull(),
   address: varchar("address", { length: 255 }),
+  locationHint: varchar("location_hint", { length: 100 }), // 重庆地形位置备注
   
   startAt: timestamp("start_at").notNull(),
   endAt: timestamp("end_at"),
@@ -53,6 +54,12 @@ export const activities = pgTable("activities", {
   
   // --- 运营标记 ---
   isGhost: boolean("is_ghost").default(false).notNull(),
+  ghostAnchorType: varchar("ghost_anchor_type", { length: 20 }), // 锚点类型：demand, promotion
+  ghostSuggestedType: activityTypeEnum("ghost_suggested_type"), // 建议的活动类型
+  
+  // --- 群聊状态 (整合 chat_groups) ---
+  chatStatus: varchar("chat_status", { length: 20 }).default("active").notNull(), // active, archived
+  chatArchivedAt: timestamp("chat_archived_at"), // 群聊归档时间
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

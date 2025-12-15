@@ -6,10 +6,7 @@ import { pgEnum } from "drizzle-orm/pg-core";
 
 export const genderEnum = pgEnum("gender", ["unknown", "male", "female"]);
 
-export const authProviderEnum = pgEnum("auth_provider", [
-  "wechat_miniprogram",
-  "phone_sms",
-]);
+// 认证方式枚举已整合到 users 表，不再需要单独枚举
 
 // 会员类型
 export const membershipTypeEnum = pgEnum("membership_type", [
@@ -57,13 +54,8 @@ export const participantStatusEnum = pgEnum("participant_status", [
 ]);
 
 // ==========================================
-// 4. 💬 群聊与消息 (Chat Domain)
+// 4. 💬 消息 (Chat Domain) - 群聊状态已整合到 activities
 // ==========================================
-
-export const chatGroupStatusEnum = pgEnum("chat_group_status", [
-  "active",
-  "archived"
-]);
 
 export const messageTypeEnum = pgEnum("message_type", [
   "text",
@@ -98,19 +90,12 @@ export const feedbackReasonEnum = pgEnum("feedback_reason", [
 ]);
 
 // ==========================================
-// 7. 💸 支付 (Payment Domain)
+// 7. 💸 交易 (Transaction Domain) - 整合支付状态
 // ==========================================
 
-export const orderStatusEnum = pgEnum("order_status", [
+export const transactionStatusEnum = pgEnum("transaction_status", [
   "pending",
-  "paid",
-  "failed",
-  "refunded"
-]);
-
-export const paymentStatusEnum = pgEnum("payment_status", [
-  "pending",
-  "success",
+  "paid", 
   "failed",
   "refunded"
 ]);
