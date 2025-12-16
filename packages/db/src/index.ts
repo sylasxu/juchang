@@ -4,4 +4,4 @@ export * from './schema';
 
 // Re-export commonly used Drizzle ORM operators
 // This allows API layer to use them without directly depending on drizzle-orm
-export { eq, and, or, not, gt, gte, lt, lte, like, ilike, inArray, isNull, isNotNull, sql, count, desc, asc } from 'drizzle-orm';
+export { eq, and, or, not, gt, gte, lt, lte, like, ilike, inArray, isNull, isNotNull, sql, count, sum, desc, asc } from 'drizzle-orm';

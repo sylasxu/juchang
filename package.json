@@ -33,6 +33,7 @@
     "--- DEVELOPMENT ---": "echo '开发启动'",
     "dev": "turbo run dev",
     "dev:api": "turbo run dev --filter=@juchang/api",
+    "dev:api:clean": "node scripts/dev-api-clean.js",
     "dev:admin": "turbo run dev --filter=@juchang/admin",
     "dev:web": "turbo run dev --filter=@juchang/admin",
     "dev:mp": "turbo run dev --filter=@juchang/miniprogram",

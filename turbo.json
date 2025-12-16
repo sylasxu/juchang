@@ -10,7 +10,8 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "dependsOn": ["gen:api"]
+      "dependsOn": ["gen:api"],
+      "env": ["NODE_ENV", "API_PORT", "DATABASE_URL", "JWT_SECRET"]
     },
     "start": {
       "cache": false,

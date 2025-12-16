@@ -21,6 +21,10 @@ import {
   AudioWaveform,
   Command,
   GalleryVerticalEnd,
+  Calendar,
+  MapPin,
+  CreditCard,
+  TrendingUp,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -76,6 +80,34 @@ export const sidebarData: SidebarData = {
           title: 'Users',
           url: '/users',
           icon: Users,
+        },
+        {
+          title: 'Activities',
+          icon: Calendar,
+          items: [
+            {
+              title: 'Activity List',
+              url: '/activities',
+            },
+            {
+              title: 'Ghost Activities',
+              url: '/activities/ghost',
+            },
+          ],
+        },
+        {
+          title: 'Transactions',
+          icon: CreditCard,
+          items: [
+            {
+              title: 'Transaction Records',
+              url: '/transactions',
+            },
+            {
+              title: 'Revenue Analytics',
+              url: '/transactions/revenue',
+            },
+          ],
         },
       ],
     },
