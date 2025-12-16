@@ -1,5 +1,5 @@
 // Transaction Service - 支付交易业务逻辑
-import { db, transactions, activities, users, eq, and, desc, count } from '@juchang/db';
+import { db, transactions, activities, users, eq, and, desc, count, sql } from '@juchang/db';
 import type { CreateTransactionRequest, TransactionListQuery, WxPayCallback } from './transaction.model';
 
 // 产品价格配置
@@ -74,15 +74,17 @@ export async function getTransactionList(query: TransactionListQuery, userId: st
   const offset = (page - 1) * limit;
 
   // 构建查询条件
-  let whereCondition = eq(transactions.userId, userId);
+  const conditions = [eq(transactions.userId, userId)];
   
   if (query.status) {
-    whereCondition = and(whereCondition, eq(transactions.status, query.status));
+    conditions.push(eq(transactions.status, query.status));
   }
   
   if (query.productType) {
-    whereCondition = and(whereCondition, eq(transactions.productType, query.productType));
+    conditions.push(eq(transactions.productType, query.productType));
   }
+
+  const whereCondition = conditions.length > 1 ? and(...conditions) : conditions[0];
 
   // 查询数据
   const [data, [{ total }]] = await Promise.all([
@@ -166,7 +168,7 @@ async function grantUserBenefit(tx: any, transaction: any) {
           .set({
             isBoosted: true,
             boostExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24小时
-            boostCount: db.sql`boost_count + 1`,
+            boostCount: sql`boost_count + 1`,
           })
           .where(eq(activities.id, relatedId));
       }
@@ -190,8 +192,8 @@ async function grantUserBenefit(tx: any, transaction: any) {
       await tx
         .update(users)
         .set({
-          aiCreateQuotaToday: db.sql`ai_create_quota_today + 10`,
-          aiSearchQuotaToday: db.sql`ai_search_quota_today + 10`,
+          aiCreateQuotaToday: sql`ai_create_quota_today + 10`,
+          aiSearchQuotaToday: sql`ai_search_quota_today + 10`,
         })
         .where(eq(users.id, userId));
       break;
@@ -233,4 +235,98 @@ async function createWxPayOrder(params: {
     signType: 'RSA',
     paySign: 'mock_pay_sign_' + Math.random().toString(36).substr(2, 10),
   };
+}
+
+
+/**
+ * 购买强力召唤
+ */
+export async function purchaseBoost(data: { activityId: string }, userId: string) {
+  // 验证活动存在且属于用户
+  const [activity] = await db
+    .select()
+    .from(activities)
+    .where(eq(activities.id, data.activityId))
+    .limit(1);
+
+  if (!activity) {
+    throw new Error('活动不存在');
+  }
+
+  if (activity.creatorId !== userId) {
+    throw new Error('只能为自己创建的活动购买强力召唤');
+  }
+
+  // 检查Boost次数限制
+  if (activity.boostCount >= 3) {
+    throw new Error('同一活动最多Boost 3次');
+  }
+
+  // 创建交易
+  return createTransaction({
+    productType: 'boost',
+    relatedId: data.activityId,
+  }, userId);
+}
+
+/**
+ * 购买黄金置顶
+ */
+export async function purchasePinPlus(data: { activityId: string }, userId: string) {
+  // 验证活动存在且属于用户
+  const [activity] = await db
+    .select()
+    .from(activities)
+    .where(eq(activities.id, data.activityId))
+    .limit(1);
+
+  if (!activity) {
+    throw new Error('活动不存在');
+  }
+
+  if (activity.creatorId !== userId) {
+    throw new Error('只能为自己创建的活动购买黄金置顶');
+  }
+
+  // 创建交易
+  return createTransaction({
+    productType: 'pin_plus',
+    relatedId: data.activityId,
+  }, userId);
+}
+
+/**
+ * 购买优先入场券
+ */
+export async function purchaseFastPass(data: { activityId: string }, userId: string) {
+  // 验证活动存在
+  const [activity] = await db
+    .select()
+    .from(activities)
+    .where(eq(activities.id, data.activityId))
+    .limit(1);
+
+  if (!activity) {
+    throw new Error('活动不存在');
+  }
+
+  // 创建交易
+  return createTransaction({
+    productType: 'fast_pass',
+    relatedId: data.activityId,
+  }, userId);
+}
+
+/**
+ * 购买Pro会员
+ */
+export async function purchaseMembership(data: { plan: string }, userId: string) {
+  // 根据计划类型确定产品
+  const productType = 'pro_monthly'; // 目前只支持月费
+
+  // 创建交易
+  return createTransaction({
+    productType,
+    metadata: { plan: data.plan },
+  }, userId);
 }

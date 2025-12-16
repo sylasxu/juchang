@@ -74,6 +74,30 @@ const ErrorResponse = t.Object({
   msg: t.String(),
 });
 
+// 购买强力召唤请求
+const BoostRequest = t.Object({
+  activityId: t.String({ format: 'uuid' }),
+});
+
+// 购买黄金置顶请求
+const PinPlusRequest = t.Object({
+  activityId: t.String({ format: 'uuid' }),
+});
+
+// 购买优先入场券请求
+const FastPassRequest = t.Object({
+  activityId: t.String({ format: 'uuid' }),
+});
+
+// 购买会员请求
+const MembershipRequest = t.Object({
+  plan: t.Union([
+    t.Literal('monthly'),
+    t.Literal('quarterly'),
+    t.Literal('yearly'),
+  ]),
+});
+
 // 注册到 Elysia Model Plugin
 export const transactionModel = new Elysia({ name: 'transactionModel' })
   .model({
@@ -84,6 +108,10 @@ export const transactionModel = new Elysia({ name: 'transactionModel' })
     'transaction.createResponse': CreateTransactionResponse,
     'transaction.idParams': IdParams,
     'transaction.error': ErrorResponse,
+    'transaction.boostRequest': BoostRequest,
+    'transaction.pinPlusRequest': PinPlusRequest,
+    'transaction.fastPassRequest': FastPassRequest,
+    'transaction.membershipRequest': MembershipRequest,
   });
 
 // 导出 TS 类型
@@ -94,3 +122,8 @@ export type TransactionListResponse = Static<typeof TransactionListResponse>;
 export type CreateTransactionResponse = Static<typeof CreateTransactionResponse>;
 export type IdParams = Static<typeof IdParams>;
 export type ErrorResponse = Static<typeof ErrorResponse>;
+
+export type BoostRequest = Static<typeof BoostRequest>;
+export type PinPlusRequest = Static<typeof PinPlusRequest>;
+export type FastPassRequest = Static<typeof FastPassRequest>;
+export type MembershipRequest = Static<typeof MembershipRequest>;

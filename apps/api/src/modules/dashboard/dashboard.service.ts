@@ -32,12 +32,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       // 总活动数
       db.select({ count: count() }).from(activities),
       
-      // 今日收入（简化计算，实际应该从订单表获取）
-      db.select({ 
-        revenue: sql<number>`COALESCE(SUM(CASE WHEN ${activities.isPaid} THEN ${activities.price} ELSE 0 END), 0)` 
-      })
-        .from(activities)
-        .where(gte(activities.createdAt, today)),
+      // 今日收入（从交易表获取）
+      // TODO: 实际应该从 transactions 表计算
+      Promise.resolve([{ revenue: 0 }]),
     ]);
 
     return {
@@ -72,9 +69,8 @@ export async function getRecentActivities(): Promise<RecentActivity[]> {
         id: activities.id,
         title: activities.title,
         creator: users.nickname,
-        price: activities.price,
-        isPaid: activities.isPaid,
         status: activities.status,
+        currentParticipants: activities.currentParticipants,
         createdAt: activities.createdAt,
       })
       .from(activities)
@@ -82,24 +78,15 @@ export async function getRecentActivities(): Promise<RecentActivity[]> {
       .orderBy(desc(activities.createdAt))
       .limit(5);
 
-    // 获取每个活动的参与者数量
-    const activitiesWithParticipants = await Promise.all(
-      result.map(async (activity) => {
-        const participantCount = await db
-          .select({ count: count() })
-          .from(participants)
-          .where(eq(participants.activityId, activity.id));
-
-        return {
-          id: activity.id,
-          title: activity.title,
-          creator: activity.creator || '未知用户',
-          participants: participantCount[0]?.count || 0,
-          status: activity.status as 'active' | 'completed' | 'disputed',
-          revenue: activity.isPaid ? (activity.price || 0) : 0,
-        };
-      })
-    );
+    // 转换为响应格式
+    const activitiesWithParticipants = result.map((activity) => ({
+      id: activity.id,
+      title: activity.title,
+      creator: activity.creator || '未知用户',
+      participants: activity.currentParticipants || 0,
+      status: activity.status as 'active' | 'completed' | 'disputed',
+      revenue: 0, // TODO: 从交易表获取
+    }));
 
     return activitiesWithParticipants;
   } catch (error) {
@@ -140,4 +127,74 @@ export async function getRiskUsers(): Promise<RiskUser[]> {
     console.error('获取风险用户失败:', error);
     return [];
   }
+}
+
+
+/**
+ * 获取用户个人统计数据
+ */
+export async function getUserStats(userId: string) {
+  try {
+    // 获取用户基本信息
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user) {
+      throw new Error('用户不存在');
+    }
+
+    // 计算靠谱度
+    const reliabilityRate = user.participationCount > 0
+      ? Math.round((user.fulfillmentCount / user.participationCount) * 100)
+      : 100;
+
+    // 获取用户创建的活动数
+    const [createdActivities] = await db
+      .select({ count: count() })
+      .from(activities)
+      .where(eq(activities.creatorId, userId));
+
+    // 获取用户参与的活动数
+    const [participatedActivities] = await db
+      .select({ count: count() })
+      .from(participants)
+      .where(eq(participants.userId, userId));
+
+    return {
+      userId,
+      nickname: user.nickname,
+      avatarUrl: user.avatarUrl,
+      membershipType: user.membershipType,
+      reliabilityRate,
+      reliabilityLevel: getReliabilityLevel(reliabilityRate, user.participationCount),
+      stats: {
+        activitiesCreated: createdActivities?.count || 0,
+        activitiesParticipated: participatedActivities?.count || 0,
+        fulfillmentCount: user.fulfillmentCount,
+        disputeCount: user.disputeCount,
+        feedbackReceivedCount: user.feedbackReceivedCount,
+      },
+      aiQuota: {
+        createQuotaToday: user.aiCreateQuotaToday,
+        searchQuotaToday: user.aiSearchQuotaToday,
+      },
+    };
+  } catch (error) {
+    console.error('获取用户统计失败:', error);
+    throw error;
+  }
+}
+
+/**
+ * 获取靠谱度等级
+ */
+function getReliabilityLevel(rate: number, participationCount: number): string {
+  if (participationCount === 0) return '新用户';
+  if (rate >= 100) return '非常靠谱';
+  if (rate >= 80) return '靠谱';
+  if (rate >= 60) return '一般';
+  return '待提升';
 }

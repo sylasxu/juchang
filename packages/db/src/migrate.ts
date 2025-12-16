@@ -1,27 +1,28 @@
-// /Users/sylas/Documents/GitHub/juchang/packages/db/src/migrate.ts
+import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import { db, closeConnection } from './db';
-import path from 'path';
+import postgres from 'postgres';
+import * as dotenv from 'dotenv';
 
-async function runMigrations() {
+// 加载环境变量
+dotenv.config({ path: '../../.env' });
+
+const connectionString = process.env.DATABASE_URL!;
+
+async function main() {
+  console.log('🚀 开始数据库迁移...');
+  
+  const migrationClient = postgres(connectionString, { max: 1 });
+  const db = drizzle(migrationClient);
+  
   try {
-    console.log('🚀 Starting migrations...');
-    
-    // 使用绝对路径，防止在不同目录下执行命令时找不到文件夹
-    // 假设当前文件在 src 下，drizzle 文件夹在包根目录下
-    const migrationsFolder = path.resolve(__dirname, '../drizzle');
-    
-    await migrate(db, { migrationsFolder });
-    
-    console.log('✅ Migrations completed!');
+    await migrate(db, { migrationsFolder: './drizzle' });
+    console.log('✅ 数据库迁移完成');
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error('❌ 数据库迁移失败:', error);
     process.exit(1);
   } finally {
-    await closeConnection();
+    await migrationClient.end();
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  runMigrations();
-}
+main();

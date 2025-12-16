@@ -39,7 +39,7 @@ const userSchema = z.object({
   membershipType: membershipTypeSchema,
   membershipExpiresAt: z.string().nullable(),
   aiCreateQuotaToday: z.number(),
-  aiChatQuotaToday: z.number(),
+  aiSearchQuotaToday: z.number(),
   aiQuotaResetAt: z.string().nullable(),
   lastLocation: z.any().nullable(),
   lastActiveAt: z.string().nullable(),

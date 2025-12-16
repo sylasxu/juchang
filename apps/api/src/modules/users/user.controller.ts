@@ -1,9 +1,22 @@
 // User Controller - Elysia 实例作为控制器
-import { Elysia } from 'elysia';
 import { selectUserSchema } from '@juchang/db';
 import { basePlugins, verifyAuth } from '../../setup';
 import { userModel, type ErrorResponse } from './user.model';
-import { getUserList, getUserById, blockUser, unblockUser, updateUser, deleteUser } from './user.service';
+import { Elysia, t } from 'elysia';
+import { 
+  getUserList, 
+  getUserById, 
+  blockUser, 
+  unblockUser, 
+  updateUser, 
+  deleteUser,
+  getUserReliability,
+  getUserActivities,
+  getUserParticipations,
+  reportUser,
+  getUserDisputes,
+  appealDispute
+} from './user.service';
 
 export const userController = new Elysia({ prefix: '/users' })
   .use(basePlugins) // 引入基础插件（包含 JWT）
@@ -289,3 +302,155 @@ export const userController = new Elysia({ prefix: '/users' })
     }
   );
 
+
+
+// 获取用户靠谱度详情
+userController.get(
+  '/:id/reliability',
+  async ({ params, set }) => {
+    try {
+      const reliability = await getUserReliability(params.id);
+      if (!reliability) {
+        set.status = 404;
+        return { code: 404, msg: '用户不存在' };
+      }
+      return reliability;
+    } catch (error) {
+      set.status = 500;
+      return { code: 500, msg: '获取靠谱度失败' };
+    }
+  },
+  {
+    detail: {
+      tags: ['Users'],
+      summary: '获取用户靠谱度详情',
+    },
+    params: 'user.idParams',
+  }
+);
+
+// 获取用户创建的活动列表
+userController.get(
+  '/:id/activities',
+  async ({ params, query, set }) => {
+    try {
+      const activities = await getUserActivities(params.id, query);
+      return activities;
+    } catch (error) {
+      set.status = 500;
+      return { code: 500, msg: '获取活动列表失败' };
+    }
+  },
+  {
+    detail: {
+      tags: ['Users'],
+      summary: '获取用户创建的活动',
+    },
+    params: 'user.idParams',
+    query: 'user.paginationQuery',
+  }
+);
+
+// 获取用户参与的活动列表
+userController.get(
+  '/:id/participations',
+  async ({ params, query, set }) => {
+    try {
+      const participations = await getUserParticipations(params.id, query);
+      return participations;
+    } catch (error) {
+      set.status = 500;
+      return { code: 500, msg: '获取参与记录失败' };
+    }
+  },
+  {
+    detail: {
+      tags: ['Users'],
+      summary: '获取用户参与的活动',
+    },
+    params: 'user.idParams',
+    query: 'user.paginationQuery',
+  }
+);
+
+// 举报用户
+userController.post(
+  '/:id/report',
+  async ({ params, body, set, jwt, headers }) => {
+    const user = await verifyAuth(jwt, headers);
+    if (!user) {
+      set.status = 401;
+      return { code: 401, msg: '未授权' };
+    }
+
+    try {
+      await reportUser(params.id, user.id, body);
+      return { msg: '举报已提交' };
+    } catch (error: any) {
+      set.status = 400;
+      return { code: 400, msg: error.message || '举报失败' };
+    }
+  },
+  {
+    detail: {
+      tags: ['Users'],
+      summary: '举报用户',
+    },
+    params: 'user.idParams',
+    body: 'user.reportBody',
+  }
+);
+
+// 获取我的争议记录
+userController.get(
+  '/me/disputes',
+  async ({ query, set, jwt, headers }) => {
+    const user = await verifyAuth(jwt, headers);
+    if (!user) {
+      set.status = 401;
+      return { code: 401, msg: '未授权' };
+    }
+
+    try {
+      const disputes = await getUserDisputes(user.id, query);
+      return disputes;
+    } catch (error) {
+      set.status = 500;
+      return { code: 500, msg: '获取争议记录失败' };
+    }
+  },
+  {
+    detail: {
+      tags: ['Users'],
+      summary: '获取我的争议记录',
+    },
+    query: 'user.paginationQuery',
+  }
+);
+
+// 申诉履约争议
+userController.post(
+  '/me/appeal',
+  async ({ body, set, jwt, headers }) => {
+    const user = await verifyAuth(jwt, headers);
+    if (!user) {
+      set.status = 401;
+      return { code: 401, msg: '未授权' };
+    }
+
+    try {
+      await appealDispute(user.id, body);
+      return { msg: '申诉已提交' };
+    } catch (error: any) {
+      set.status = 400;
+      return { code: 400, msg: error.message || '申诉失败' };
+    }
+  },
+  {
+    detail: {
+      tags: ['Users'],
+      summary: '申诉履约争议',
+    },
+    body: 'user.appealBody',
+  }
+);

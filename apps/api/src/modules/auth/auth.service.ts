@@ -65,9 +65,9 @@ export async function wxLogin(params: WxLoginRequest) {
     }
 
     return user;
-  } catch (error) {
+  } catch (error: any) {
     console.error('微信登录失败:', error);
-    throw new Error(error.message || '登录失败');
+    throw new Error(error?.message || '登录失败');
   }
 }
 
@@ -113,4 +113,67 @@ async function getWxOpenId(code: string): Promise<WxLoginResponse> {
     console.error('调用微信接口失败:', error);
     throw new Error('微信登录验证失败');
   }
+}
+
+
+/**
+ * 根据ID获取用户信息
+ */
+export async function getUserById(userId: string) {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  return user || null;
+}
+
+/**
+ * 更新用户信息
+ */
+export async function updateUserProfile(userId: string, data: any) {
+  const updateData: any = {
+    ...data,
+    updatedAt: new Date(),
+  };
+
+  const [updated] = await db
+    .update(users)
+    .set(updateData)
+    .where(eq(users.id, userId))
+    .returning();
+
+  return updated;
+}
+
+/**
+ * 完善用户信息（注册）
+ * 用于微信登录后完善用户资料
+ */
+export async function registerUser(userId: string, data: any) {
+  const { nickname, avatarUrl, gender, bio, interestTags } = data;
+
+  const updateData: any = {
+    nickname,
+    isRegistered: true,
+    updatedAt: new Date(),
+  };
+
+  if (avatarUrl) updateData.avatarUrl = avatarUrl;
+  if (gender) updateData.gender = gender;
+  if (bio) updateData.bio = bio;
+  if (interestTags) updateData.interestTags = interestTags;
+
+  const [updated] = await db
+    .update(users)
+    .set(updateData)
+    .where(eq(users.id, userId))
+    .returning();
+
+  if (!updated) {
+    throw new Error('用户不存在');
+  }
+
+  return updated;
 }

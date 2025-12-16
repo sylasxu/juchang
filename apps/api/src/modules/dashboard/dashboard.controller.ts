@@ -94,3 +94,33 @@ export const dashboardController = new Elysia({ prefix: '/dashboard' })
       },
     }
   );
+
+
+// 获取用户个人统计
+dashboardController.get(
+  '/user-stats',
+  async ({ set, jwt, headers }) => {
+    const { verifyAuth } = await import('../../setup');
+    const user = await verifyAuth(jwt, headers);
+    if (!user) {
+      set.status = 401;
+      return { code: 401, msg: '未授权' };
+    }
+
+    try {
+      const { getUserStats } = await import('./dashboard.service');
+      const stats = await getUserStats(user.id);
+      return stats;
+    } catch (error) {
+      set.status = 500;
+      return { code: 500, msg: '获取用户统计失败' };
+    }
+  },
+  {
+    detail: {
+      tags: ['Dashboard'],
+      summary: '获取用户个人统计',
+      description: '获取当前用户的个人统计数据',
+    },
+  }
+);

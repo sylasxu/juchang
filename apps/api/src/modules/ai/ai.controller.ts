@@ -5,10 +5,11 @@ import { aiModel, type ErrorResponse } from './ai.model';
 import { 
   checkUserAIQuota, 
   consumeAICreateQuota, 
-  consumeAIChatQuota,
+  consumeAISearchQuota,
   parseActivityWithAI,
-  processChatWithAI,
-  processChatStreamWithAI 
+  parseInputWithAI,
+  processSearchWithAI,
+  generateUserRiskReport
 } from './ai.service';
 
 export const aiController = new Elysia({ prefix: '/ai' })
@@ -179,7 +180,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
       }
       
       try {
-        const result = await parseActivityWithAI(body);
+        const result = await parseInputWithAI(body);
         return result;
       } catch (error) {
         set.status = 500;
@@ -199,6 +200,48 @@ export const aiController = new Elysia({ prefix: '/ai' })
       response: {
         200: 'ai.parseResponse',
         403: 'ai.error',
+        500: 'ai.error',
+      },
+    }
+  )
+  
+  // 用户深度风控报告（付费功能）
+  .post(
+    '/user-report',
+    async ({ body, set, jwt, headers }) => {
+      // JWT 认证
+      const user = await verifyAuth(jwt, headers);
+      if (!user) {
+        set.status = 401;
+        return {
+          code: 401,
+          msg: '未授权',
+        } satisfies ErrorResponse;
+      }
+
+      // TODO: 检查用户是否有权限使用此功能（Pro会员或付费）
+      
+      try {
+        const result = await generateUserRiskReport(body);
+        return result;
+      } catch (error) {
+        set.status = 500;
+        return {
+          code: 500,
+          msg: 'AI 风控分析失败，请稍后重试',
+        } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: '用户深度风控报告',
+        description: '生成用户的详细履约分析和风险评估报告（付费功能）',
+      },
+      body: 'ai.userReportRequest',
+      response: {
+        200: 'ai.userReportResponse',
+        401: 'ai.error',
         500: 'ai.error',
       },
     }

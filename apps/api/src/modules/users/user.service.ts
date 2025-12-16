@@ -117,3 +117,95 @@ export async function deleteUser(id: string): Promise<boolean> {
     return false;
   }
 }
+
+
+/**
+ * 获取用户靠谱度详情
+ */
+export async function getUserReliability(userId: string) {
+  const user = await getUserById(userId);
+  if (!user) return null;
+
+  const { participationCount, fulfillmentCount, disputeCount, feedbackReceivedCount } = user;
+  
+  // 计算靠谱度
+  const reliabilityRate = participationCount > 0 
+    ? Math.round((fulfillmentCount / participationCount) * 100) 
+    : 100;
+
+  // 确定等级
+  let level = '新用户';
+  if (participationCount > 0) {
+    if (reliabilityRate >= 100) level = '非常靠谱';
+    else if (reliabilityRate >= 80) level = '靠谱';
+    else if (reliabilityRate >= 60) level = '一般';
+    else level = '待提升';
+  }
+
+  return {
+    userId,
+    reliabilityRate,
+    level,
+    participationCount,
+    fulfillmentCount,
+    disputeCount,
+    feedbackReceivedCount,
+    recentActivities: [], // TODO: 查询最近活动记录
+  };
+}
+
+/**
+ * 获取用户创建的活动列表
+ */
+export async function getUserActivities(userId: string, query: any) {
+  // TODO: 实现查询用户创建的活动
+  return {
+    data: [],
+    total: 0,
+    page: query.page || 1,
+    hasMore: false,
+  };
+}
+
+/**
+ * 获取用户参与的活动列表
+ */
+export async function getUserParticipations(userId: string, query: any) {
+  // TODO: 实现查询用户参与的活动
+  return {
+    data: [],
+    total: 0,
+    page: query.page || 1,
+    hasMore: false,
+  };
+}
+
+/**
+ * 举报用户
+ */
+export async function reportUser(targetUserId: string, reporterId: string, data: any) {
+  // TODO: 创建举报记录
+  console.log(`User ${reporterId} reported ${targetUserId}:`, data);
+  return true;
+}
+
+/**
+ * 获取用户争议记录
+ */
+export async function getUserDisputes(userId: string, query: any) {
+  // TODO: 查询用户的争议记录
+  return {
+    data: [],
+    total: 0,
+    page: query.page || 1,
+  };
+}
+
+/**
+ * 申诉履约争议
+ */
+export async function appealDispute(userId: string, data: any) {
+  // TODO: 创建申诉记录
+  console.log(`User ${userId} appealed:`, data);
+  return true;
+}

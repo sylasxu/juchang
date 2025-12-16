@@ -7,7 +7,9 @@ import type {
   AICreateActivityResponse,
   AIChatRequest,
   AIChatResponse,
-  AIQuotaStatus 
+  AIQuotaStatus,
+  AIParseRequest,
+  AIParseResponse
 } from './ai.model';
 
 /**
@@ -58,7 +60,7 @@ export async function checkUserAIQuota(userId: string): Promise<AIQuotaStatus | 
   const [user] = await db
     .select({
       aiCreateQuotaToday: users.aiCreateQuotaToday,
-      aiChatQuotaToday: users.aiChatQuotaToday,
+      aiSearchQuotaToday: users.aiSearchQuotaToday,
       aiQuotaResetAt: users.aiQuotaResetAt,
       membershipType: users.membershipType,
     })
@@ -105,41 +107,8 @@ export async function consumeAICreateQuota(userId: string): Promise<boolean> {
   return true;
 }
 
-/**
- * 消耗 AI 对话额度
- */
-export async function consumeAIChatQuota(userId: string): Promise<boolean> {
-  const [user] = await db
-    .select({
-      aiChatQuotaToday: users.aiChatQuotaToday,
-      membershipType: users.membershipType,
-    })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-
-  if (!user) return false;
-
-  // Pro 会员无限额度
-  if (user.membershipType === 'pro') {
-    return true;
-  }
-
-  // 检查免费用户额度
-  if (user.aiChatQuotaToday <= 0) {
-    return false;
-  }
-
-  // 扣除额度
-  await db
-    .update(users)
-    .set({
-      aiChatQuotaToday: user.aiChatQuotaToday - 1,
-    })
-    .where(eq(users.id, userId));
-
-  return true;
-}
+// 注意：consumeAIChatQuota 已被移除，因为V9.2砍掉了独立AI对话功能
+// 使用 consumeAISearchQuota 替代
 
 /**
  * AI 解析活动创建请求
@@ -362,4 +331,263 @@ export async function processChatStreamWithAI(request: AIChatRequest) {
   });
 
   return stream;
+}
+
+
+/**
+ * AI 解析输入（魔法输入框）
+ */
+export async function parseInputWithAI(request: AIParseRequest): Promise<AIParseResponse> {
+  const { input, inputType } = request;
+  
+  try {
+    const result = await generateText({
+      model: getAIModel(),
+      prompt: `
+        请解析以下用户输入，提取活动相关信息并以JSON格式返回：
+        输入类型：${inputType || 'text'}
+        用户输入：${input}
+        
+        请返回以下JSON格式：
+        {
+          "parsed": {
+            "title": "活动标题或null",
+            "description": "活动描述或null",
+            "type": "活动类型(food/entertainment/sports/study/other)或null",
+            "startAt": "开始时间ISO格式或null",
+            "endAt": "结束时间ISO格式或null",
+            "location": [经度, 纬度] 或 null,
+            "locationName": "地点名称或null",
+            "address": "详细地址或null",
+            "maxParticipants": 参与人数或null,
+            "feeType": "费用类型(free/aa/treat)或null",
+            "estimatedCost": 预估费用或null
+          },
+          "confidence": 解析置信度(0-1的数字),
+          "suggestions": ["优化建议数组"]
+        }
+        
+        只返回JSON，不要其他文字。
+      `,
+      maxTokens: 500,
+    });
+
+    // 解析 AI 返回的 JSON
+    const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsedResult = JSON.parse(jsonMatch[0]);
+      
+      // 处理地理位置
+      if (parsedResult.parsed.locationName && !parsedResult.parsed.location) {
+        const locationKeywords: Record<string, [number, number]> = {
+          '观音桥': [106.5516, 29.5630],
+          '解放碑': [106.5770, 29.5647],
+          '南坪': [106.5516, 29.5230],
+          '沙坪坝': [106.4550, 29.5410],
+          '江北': [106.5740, 29.6060],
+        };
+        
+        for (const [keyword, coords] of Object.entries(locationKeywords)) {
+          if (parsedResult.parsed.locationName.includes(keyword)) {
+            parsedResult.parsed.location = coords;
+            break;
+          }
+        }
+      }
+      
+      return parsedResult;
+    }
+    
+    throw new Error('No JSON found');
+  } catch (error) {
+    console.error('AI 解析失败:', error);
+    
+    // 回退到简单解析
+    return {
+      parsed: {
+        title: undefined,
+        description: input.length > 20 ? input.substring(0, 50) + '...' : input,
+        type: undefined,
+        startAt: undefined,
+        endAt: undefined,
+        location: undefined,
+        locationName: undefined,
+        address: undefined,
+        maxParticipants: undefined,
+        feeType: undefined,
+        estimatedCost: undefined,
+      },
+      confidence: 0.3,
+      suggestions: ['请提供更详细的活动信息'],
+    };
+  }
+}
+
+/**
+ * 消耗 AI 搜索额度
+ */
+export async function consumeAISearchQuota(userId: string): Promise<boolean> {
+  const [user] = await db
+    .select({
+      aiSearchQuotaToday: users.aiSearchQuotaToday,
+      membershipType: users.membershipType,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+
+  if (!user) return false;
+
+  // Pro 会员无限额度
+  if (user.membershipType === 'pro') {
+    return true;
+  }
+
+  // 检查免费用户额度
+  if (user.aiSearchQuotaToday <= 0) {
+    return false;
+  }
+
+  // 扣除额度
+  await db
+    .update(users)
+    .set({
+      aiSearchQuotaToday: user.aiSearchQuotaToday - 1,
+    })
+    .where(eq(users.id, userId));
+
+  return true;
+}
+
+/**
+ * AI 搜索处理
+ */
+export async function processSearchWithAI(request: any) {
+  const { query, location, radius } = request;
+  
+  try {
+    const result = await generateText({
+      model: getAIModel(),
+      prompt: `
+        请解析以下搜索词，提取筛选条件并以JSON格式返回：
+        "${query}"
+        
+        返回以下JSON格式：
+        {
+          "filters": {
+            "type": "活动类型(food/entertainment/sports/study/other)或null",
+            "keywords": ["关键词数组"],
+            "priceRange": {"min": 0, "max": 100} 或 null,
+            "timeRange": {"start": "ISO时间", "end": "ISO时间"} 或 null
+          },
+          "suggestions": ["搜索建议数组"],
+          "confidence": 0.8
+        }
+        
+        只返回JSON，不要其他文字。
+      `,
+      maxTokens: 300,
+    });
+
+    // 解析 AI 返回的 JSON
+    const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+    
+    throw new Error('No JSON found');
+  } catch (error) {
+    console.error('AI 搜索解析失败:', error);
+    
+    // 回退到简单解析
+    return {
+      filters: {
+        type: null,
+        keywords: query.split(/\s+/),
+        priceRange: null,
+        timeRange: null,
+      },
+      suggestions: ['尝试更具体的搜索词'],
+      confidence: 0.5,
+    };
+  }
+}
+
+/**
+ * 生成用户深度风控报告
+ */
+export async function generateUserRiskReport(request: any) {
+  const { targetUserId } = request;
+  
+  // 获取用户信息
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+
+  if (!user) {
+    throw new Error('用户不存在');
+  }
+
+  // 计算靠谱度
+  const reliabilityRate = user.participationCount > 0
+    ? Math.round((user.fulfillmentCount / user.participationCount) * 100)
+    : 100;
+
+  // 计算风险等级
+  let riskLevel: 'low' | 'medium' | 'high' = 'low';
+  let riskScore = 20;
+  const factors: string[] = [];
+
+  if (reliabilityRate < 60) {
+    riskLevel = 'high';
+    riskScore = 80;
+    factors.push('靠谱度低于60%');
+  } else if (reliabilityRate < 80) {
+    riskLevel = 'medium';
+    riskScore = 50;
+    factors.push('靠谱度低于80%');
+  }
+
+  if (user.disputeCount > 3) {
+    riskLevel = 'high';
+    riskScore = Math.max(riskScore, 70);
+    factors.push('争议次数较多');
+  } else if (user.disputeCount > 0) {
+    factors.push('有争议记录');
+  }
+
+  if (user.feedbackReceivedCount > 2) {
+    factors.push('收到多次负面反馈');
+  }
+
+  // 生成建议
+  let recommendation = '可以通过申请';
+  if (riskLevel === 'high') {
+    recommendation = '建议谨慎考虑，可要求对方提供更多信息';
+  } else if (riskLevel === 'medium') {
+    recommendation = '建议了解更多情况后再决定';
+  }
+
+  return {
+    userId: user.id,
+    nickname: user.nickname || '未知用户',
+    avatarUrl: user.avatarUrl || undefined,
+    basicStats: {
+      reliabilityRate,
+      participationCount: user.participationCount,
+      fulfillmentCount: user.fulfillmentCount,
+      disputeCount: user.disputeCount,
+      feedbackReceivedCount: user.feedbackReceivedCount,
+    },
+    timeline: [], // TODO: 查询用户活动历史
+    feedbackDetails: [], // TODO: 查询反馈详情
+    riskAssessment: {
+      level: riskLevel,
+      score: riskScore,
+      factors,
+      recommendation,
+    },
+  };
 }

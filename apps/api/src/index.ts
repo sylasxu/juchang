@@ -18,6 +18,7 @@ import { participantController } from './modules/participants/participant.contro
 import { dashboardController } from './modules/dashboard/dashboard.controller';
 import { chatController } from './modules/chat/chat.controller';
 import { transactionController } from './modules/transactions/transaction.controller';
+import { uploadController } from './modules/upload/upload.controller';
 
 // 创建 Elysia 应用
 const app = new Elysia()
@@ -38,6 +39,7 @@ const app = new Elysia()
         { name: 'Participants', description: '参与者管理' },
         { name: 'Chat', description: '群聊消息' },
         { name: 'Transactions', description: '支付交易' },
+        { name: 'Upload', description: '文件上传' },
         { name: 'Dashboard', description: '仪表板数据' },
       ],
     },
@@ -50,6 +52,7 @@ const app = new Elysia()
   .use(participantController)
   .use(chatController)
   .use(transactionController)
+  .use(uploadController)
   .use(dashboardController)
   // 健康检查
   .get('/', () => 'Hello Juchang API')

@@ -141,3 +141,90 @@ export async function revokeMessage(messageId: string, userId: string) {
 
   return { success: true };
 }
+
+
+/**
+ * 获取我的群聊列表
+ */
+export async function getMyChats(userId: string, query: any) {
+  // 查询用户参与的所有活动
+  const myParticipations = await db
+    .select({
+      activityId: participants.activityId,
+      joinedAt: participants.joinedAt,
+    })
+    .from(participants)
+    .where(
+      and(
+        eq(participants.userId, userId),
+        eq(participants.status, 'approved')
+      )
+    );
+
+  if (myParticipations.length === 0) {
+    return { data: [], total: 0 };
+  }
+
+  // 获取活动详情
+  const activityIds = myParticipations.map(p => p.activityId);
+  const activityList = await db
+    .select({
+      id: activities.id,
+      title: activities.title,
+      chatStatus: activities.chatStatus,
+      currentParticipants: activities.currentParticipants,
+      startAt: activities.startAt,
+    })
+    .from(activities)
+    .where(
+      and(
+        eq(activities.chatStatus, 'active')
+      )
+    );
+
+  // 过滤出用户参与的活动
+  const myChats = activityList.filter(a => activityIds.includes(a.id));
+
+  return {
+    data: myChats.map(chat => ({
+      activityId: chat.id,
+      title: chat.title,
+      chatStatus: chat.chatStatus,
+      participantCount: chat.currentParticipants,
+      startAt: chat.startAt,
+      lastMessage: null, // TODO: 查询最后一条消息
+    })),
+    total: myChats.length,
+  };
+}
+
+/**
+ * 归档群聊
+ */
+export async function archiveChat(activityId: string, userId: string) {
+  // 验证用户是否为活动创建者
+  const [activity] = await db
+    .select()
+    .from(activities)
+    .where(eq(activities.id, activityId))
+    .limit(1);
+
+  if (!activity) {
+    throw new Error('活动不存在');
+  }
+
+  if (activity.creatorId !== userId) {
+    throw new Error('只有活动创建者可以归档群聊');
+  }
+
+  // 更新群聊状态
+  await db
+    .update(activities)
+    .set({
+      chatStatus: 'archived',
+      chatArchivedAt: new Date(),
+    })
+    .where(eq(activities.id, activityId));
+
+  return true;
+}

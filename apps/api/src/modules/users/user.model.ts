@@ -61,6 +61,63 @@ const SuccessResponse = t.Object({
   msg: t.String(),
 });
 
+// 靠谱度响应
+const ReliabilityResponse = t.Object({
+  userId: t.String(),
+  reliabilityRate: t.Number({ description: '靠谱度百分比' }),
+  level: t.String({ description: '靠谱度等级' }),
+  participationCount: t.Number(),
+  fulfillmentCount: t.Number(),
+  disputeCount: t.Number(),
+  feedbackReceivedCount: t.Number(),
+  recentActivities: t.Array(t.Object({
+    activityId: t.String(),
+    title: t.String(),
+    fulfilled: t.Boolean(),
+    date: t.String(),
+  })),
+});
+
+// 活动列表响应
+const ActivitiesResponse = t.Object({
+  data: t.Array(t.Any()),
+  total: t.Number(),
+  page: t.Number(),
+  hasMore: t.Boolean(),
+});
+
+// 争议记录响应
+const DisputesResponse = t.Object({
+  data: t.Array(t.Object({
+    id: t.String(),
+    activityId: t.String(),
+    activityTitle: t.String(),
+    status: t.String(),
+    createdAt: t.String(),
+    resolvedAt: t.Optional(t.String()),
+  })),
+  total: t.Number(),
+  page: t.Number(),
+});
+
+// 举报请求体
+const ReportBody = t.Object({
+  reason: t.String({ minLength: 1, maxLength: 500 }),
+  type: t.Union([
+    t.Literal('harassment'),
+    t.Literal('fraud'),
+    t.Literal('inappropriate'),
+    t.Literal('other'),
+  ]),
+  evidence: t.Optional(t.Array(t.String())),
+});
+
+// 申诉请求体
+const AppealBody = t.Object({
+  participantId: t.String({ format: 'uuid' }),
+  reason: t.Optional(t.String({ maxLength: 500 })),
+});
+
 // 注册到 Elysia
 export const userModel = new Elysia({ name: 'userModel' })
   .model({
@@ -71,6 +128,11 @@ export const userModel = new Elysia({ name: 'userModel' })
     'user.success': SuccessResponse,
     'user.idParams': IdParams,
     'user.updateBody': UpdateUserBody,
+    'user.reliabilityResponse': ReliabilityResponse,
+    'user.activitiesResponse': ActivitiesResponse,
+    'user.disputesResponse': DisputesResponse,
+    'user.reportBody': ReportBody,
+    'user.appealBody': AppealBody,
   });
 
 // 导出 TS 类型 (使用 Static<typeof schema> 自动推导)
@@ -80,3 +142,9 @@ export type ErrorResponse = Static<typeof ErrorResponse>;
 export type SuccessResponse = Static<typeof SuccessResponse>;
 export type IdParams = Static<typeof IdParams>;
 export type UpdateUserBody = Static<typeof UpdateUserBody>;
+
+export type ReliabilityResponse = Static<typeof ReliabilityResponse>;
+export type ActivitiesResponse = Static<typeof ActivitiesResponse>;
+export type DisputesResponse = Static<typeof DisputesResponse>;
+export type ReportBody = Static<typeof ReportBody>;
+export type AppealBody = Static<typeof AppealBody>;
