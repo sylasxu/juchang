@@ -15,7 +15,9 @@ import {
   getUserParticipations,
   reportUser,
   getUserDisputes,
-  appealDispute
+  appealDispute,
+  getAdminUserList,
+  getAdminUserById
 } from './user.service';
 
 export const userController = new Elysia({ prefix: '/users' })
@@ -120,6 +122,56 @@ export const userController = new Elysia({ prefix: '/users' })
       query: 'user.paginationQuery',
       response: {
         200: 'user.listResponse',
+      },
+    }
+  )
+
+  // 管理员获取用户列表（增强版）
+  .get(
+    '/admin',
+    async ({ query }) => {
+      const result = await getAdminUserList(query);
+      return result;
+    },
+    {
+      detail: {
+        tags: ['Admin', 'Users'],
+        summary: '管理员获取用户列表',
+        description: '管理员专用的用户列表接口，包含更多筛选和排序选项',
+      },
+      query: 'user.adminQuery',
+      response: {
+        200: 'user.adminListResponse',
+      },
+    }
+  )
+
+  // 管理员获取用户详情（增强版）
+  .get(
+    '/admin/:id',
+    async ({ params, set }) => {
+      const user = await getAdminUserById(params.id);
+
+      if (!user) {
+        set.status = 404;
+        return {
+          code: 404,
+          msg: '用户不存在',
+        } satisfies ErrorResponse;
+      }
+
+      return user;
+    },
+    {
+      detail: {
+        tags: ['Admin', 'Users'],
+        summary: '管理员获取用户详情',
+        description: '管理员专用的用户详情接口，包含风险评估和统计信息',
+      },
+      params: 'user.idParams',
+      response: {
+        200: 'user.adminUserView',
+        404: 'user.error',
       },
     }
   )

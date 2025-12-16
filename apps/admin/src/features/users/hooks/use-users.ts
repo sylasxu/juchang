@@ -3,11 +3,14 @@ import { toast } from 'sonner'
 import {
   fetchUsers,
   fetchUserById,
+  fetchAdminUsers,
+  fetchAdminUserById,
   updateUser,
   deleteUser,
   blockUser,
   unblockUser,
   type UserQueryParams,
+  type AdminUserQueryParams,
 } from '../data/users'
 
 // Query Keys
@@ -30,12 +33,33 @@ export function useUsers(params: UserQueryParams = {}) {
 }
 
 /**
+ * 管理员获取用户列表（增强版）
+ */
+export function useAdminUsers(params: AdminUserQueryParams = {}) {
+  return useQuery({
+    queryKey: [...userKeys.lists(), 'admin', params],
+    queryFn: () => fetchAdminUsers(params),
+  })
+}
+
+/**
  * 获取用户详情
  */
 export function useUser(id: string) {
   return useQuery({
     queryKey: userKeys.detail(id),
     queryFn: () => fetchUserById(id),
+    enabled: !!id,
+  })
+}
+
+/**
+ * 管理员获取用户详情（增强版）
+ */
+export function useAdminUser(id: string) {
+  return useQuery({
+    queryKey: [...userKeys.details(), 'admin', id],
+    queryFn: () => fetchAdminUserById(id),
     enabled: !!id,
   })
 }

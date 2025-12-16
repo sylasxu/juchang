@@ -22,8 +22,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { statusOptions, membershipOptions } from '../data/data'
-import { type User } from '../data/schema'
+import { statusOptions, membershipOptions, verificationOptions } from '../data/data'
+import { type AdminUser } from '../data/schema'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 import { usersColumns as columns } from './users-columns'
 
@@ -35,7 +35,7 @@ type PaginationInfo = {
 }
 
 type DataTableProps = {
-  data: User[]
+  data: AdminUser[]
   search: Record<string, unknown>
   navigate: NavigateFn
   pagination?: PaginationInfo
@@ -63,6 +63,7 @@ export function UsersTable({ data, search, navigate, pagination: serverPaginatio
       { columnId: 'nickname', searchKey: 'nickname', type: 'string' },
       { columnId: 'isBlocked', searchKey: 'status', type: 'array' },
       { columnId: 'membershipType', searchKey: 'membership', type: 'array' },
+      { columnId: 'isRealNameVerified', searchKey: 'verification', type: 'array' },
     ],
   })
 
@@ -117,6 +118,11 @@ export function UsersTable({ data, search, navigate, pagination: serverPaginatio
             columnId: 'membershipType',
             title: '会员',
             options: membershipOptions.map(({ label, value }) => ({ label, value })),
+          },
+          {
+            columnId: 'isRealNameVerified',
+            title: '实名认证',
+            options: verificationOptions.map(({ label, value }) => ({ label, value: value.toString() })),
           },
         ]}
       />

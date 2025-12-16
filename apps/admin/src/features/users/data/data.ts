@@ -38,3 +38,23 @@ export const genderLabels: Record<Gender, string> = {
   female: '女',
   unknown: '未知',
 }
+
+// 实名认证状态选项
+export const verificationOptions = [
+  { label: '已认证', value: true, icon: CheckCircle },
+  { label: '未认证', value: false, icon: User },
+] as const
+
+// 排序选项
+export const sortOptions = [
+  { label: '注册时间', value: 'createdAt' },
+  { label: '最后活跃', value: 'lastActiveAt' },
+  { label: '参与次数', value: 'participationCount' },
+  { label: '履约次数', value: 'fulfillmentCount' },
+] as const
+
+// 排序方向选项
+export const sortOrderOptions = [
+  { label: '降序', value: 'desc' },
+  { label: '升序', value: 'asc' },
+] as const

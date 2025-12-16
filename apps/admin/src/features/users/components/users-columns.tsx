@@ -7,10 +7,10 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { LongText } from '@/components/long-text'
 import { statusStyles, membershipStyles, genderLabels } from '../data/data'
-import { type User } from '../data/schema'
+import { type AdminUser } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
 
-export const usersColumns: ColumnDef<User>[] = [
+export const usersColumns: ColumnDef<AdminUser>[] = [
   {
     id: 'select',
     header: ({ table }) => (
@@ -109,15 +109,51 @@ export const usersColumns: ColumnDef<User>[] = [
       <DataTableColumnHeader column={column} title='履约率' />
     ),
     cell: ({ row }) => {
-      const { participationCount, fulfillmentCount } = row.original
-      const rate = participationCount > 0
-        ? Math.round((fulfillmentCount / participationCount) * 100)
-        : 0
+      const { reliabilityRate, participationCount, fulfillmentCount } = row.original
       return (
         <div className='text-nowrap'>
-          {rate}% ({fulfillmentCount}/{participationCount})
+          {reliabilityRate}% ({fulfillmentCount}/{participationCount})
         </div>
       )
+    },
+    enableSorting: false,
+  },
+  {
+    id: 'riskScore',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='风险评分' />
+    ),
+    cell: ({ row }) => {
+      const riskScore = row.original.riskScore
+      const badgeColor = riskScore >= 70 ? 'text-red-600' : 
+                        riskScore >= 40 ? 'text-yellow-600' : 
+                        'text-green-600'
+      return (
+        <div className={cn('text-nowrap font-medium', badgeColor)}>
+          {riskScore}
+        </div>
+      )
+    },
+    enableSorting: false,
+  },
+  {
+    accessorKey: 'isRealNameVerified',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='实名认证' />
+    ),
+    cell: ({ row }) => {
+      const isVerified = row.original.isRealNameVerified
+      return (
+        <Badge variant='outline' className={cn(
+          'capitalize',
+          isVerified ? 'text-green-600 border-green-200' : 'text-gray-500 border-gray-200'
+        )}>
+          {isVerified ? '已认证' : '未认证'}
+        </Badge>
+      )
+    },
+    filterFn: (row, _id, value) => {
+      return value.includes(row.getValue('isRealNameVerified'))
     },
     enableSorting: false,
   },

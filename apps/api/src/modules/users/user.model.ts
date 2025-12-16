@@ -24,9 +24,51 @@ const PaginationQuery = t.Object({
   search: t.Optional(t.String({ description: '搜索关键词（昵称/手机号）' })),
 });
 
+// 管理员用户查询参数（扩展分页查询）
+const AdminUserQuery = t.Intersect([
+  PaginationQuery,
+  t.Object({
+    membershipType: t.Optional(t.Array(t.Union([t.Literal('free'), t.Literal('pro')]))),
+    isBlocked: t.Optional(t.Boolean()),
+    isRealNameVerified: t.Optional(t.Boolean()),
+    sortBy: t.Optional(t.Union([
+      t.Literal('createdAt'),
+      t.Literal('lastActiveAt'),
+      t.Literal('participationCount'),
+      t.Literal('fulfillmentCount')
+    ])),
+    sortOrder: t.Optional(t.Union([t.Literal('asc'), t.Literal('desc')])),
+  }),
+]);
+
 // 用户列表响应（从 DB Schema 派生）
 const ListResponse = t.Object({
   data: t.Array(selectUserSchema), // 直接使用 DB Schema
+  total: t.Number(),
+  page: t.Number(),
+  totalPages: t.Number(),
+});
+
+// 管理员用户视图（扩展用户信息）
+const AdminUserView = t.Intersect([
+  selectUserSchema,
+  t.Object({
+    totalActivitiesCreated: t.Number(),
+    totalTransactionAmount: t.Number(),
+    lastActivityAt: t.Union([t.String(), t.Null()]),
+    riskScore: t.Number(),
+    moderationStatus: t.Union([
+      t.Literal('clean'),
+      t.Literal('flagged'),
+      t.Literal('blocked')
+    ]),
+    reliabilityRate: t.Number(),
+  }),
+]);
+
+// 管理员用户列表响应
+const AdminUserListResponse = t.Object({
+  data: t.Array(AdminUserView),
   total: t.Number(),
   page: t.Number(),
   totalPages: t.Number(),
@@ -122,7 +164,10 @@ const AppealBody = t.Object({
 export const userModel = new Elysia({ name: 'userModel' })
   .model({
     'user.paginationQuery': PaginationQuery,
+    'user.adminQuery': AdminUserQuery,
     'user.listResponse': ListResponse,
+    'user.adminListResponse': AdminUserListResponse,
+    'user.adminUserView': AdminUserView,
     'user.response': selectUserSchema, // 直接使用 DB Schema
     'user.error': ErrorResponse,
     'user.success': SuccessResponse,
@@ -137,7 +182,10 @@ export const userModel = new Elysia({ name: 'userModel' })
 
 // 导出 TS 类型 (使用 Static<typeof schema> 自动推导)
 export type PaginationQuery = Static<typeof PaginationQuery>;
+export type AdminUserQuery = Static<typeof AdminUserQuery>;
 export type ListResponse = Static<typeof ListResponse>;
+export type AdminUserView = Static<typeof AdminUserView>;
+export type AdminUserListResponse = Static<typeof AdminUserListResponse>;
 export type ErrorResponse = Static<typeof ErrorResponse>;
 export type SuccessResponse = Static<typeof SuccessResponse>;
 export type IdParams = Static<typeof IdParams>;

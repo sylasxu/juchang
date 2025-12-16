@@ -61,7 +61,7 @@ bun run dev:full
 
 1. **后端开发**：修改 `apps/api/src/` 中的代码
 2. **小程序开发**：在微信开发者工具中打开 `apps/miniprogram/`
-3. **Admin 开发**：运行 `bun run dev:web` 启动管理后台
+3. **Admin 开发**：运行 `bun run dev:admin` 启动管理后台
 
 API 变更会自动重新生成小程序的类型安全 API 代码！
 
@@ -88,7 +88,8 @@ juchang/
 bun run dev:full     # 🌟 推荐：启动 API + 自动 API 生成
 bun run dev          # 启动所有服务（不含自动生成）
 bun run dev:api      # 仅启动 API 服务器
-bun run dev:web      # 仅启动 Admin 后台
+bun run dev:admin    # 仅启动 Admin 后台
+bun run dev:web      # 仅启动 Admin 后台 (别名)
 ```
 
 ### API 开发流程
@@ -149,7 +150,7 @@ bun run clean         # 清理构建文件
 - **API 服务器**: http://localhost:3000
 - **API 文档**: http://localhost:3000/openapi/json
 - **健康检查**: http://localhost:3000/health
-- **Admin 后台**: http://localhost:5173 (运行 `bun run dev:web`)
+- **Admin 后台**: http://localhost:5173 (运行 `bun run dev:admin`)
 - **数据库管理**: 运行 `bun run db:studio`
 
 ## 📱 小程序开发

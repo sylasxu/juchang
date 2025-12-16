@@ -1,6 +1,13 @@
 // User Service - 纯业务逻辑，无 HTTP 依赖
-import { db, users, eq, count, or, ilike } from '@juchang/db';
-import type { PaginationQuery, ListResponse, UpdateUserBody } from './user.model';
+import { db, users, eq, count, or, ilike, and, desc, asc } from '@juchang/db';
+import type { 
+  PaginationQuery, 
+  ListResponse, 
+  UpdateUserBody, 
+  AdminUserQuery, 
+  AdminUserListResponse, 
+  AdminUserView 
+} from './user.model';
 
 /**
  * 获取用户列表（分页 + 搜索）
@@ -208,4 +215,156 @@ export async function appealDispute(userId: string, data: any) {
   // TODO: 创建申诉记录
   console.log(`User ${userId} appealed:`, data);
   return true;
+}
+
+/**
+ * 管理员获取用户列表（增强版）
+ */
+export async function getAdminUserList(query: AdminUserQuery): Promise<AdminUserListResponse> {
+  const { 
+    page = 1, 
+    limit = 20, 
+    search, 
+    membershipType, 
+    isBlocked, 
+    isRealNameVerified,
+    sortBy = 'createdAt',
+    sortOrder = 'desc'
+  } = query;
+  
+  const offset = (page - 1) * limit;
+
+  // 构建搜索条件
+  const conditions = [];
+  
+  if (search) {
+    conditions.push(
+      or(
+        ilike(users.nickname, `%${search}%`),
+        ilike(users.phoneNumber, `%${search}%`),
+        ilike(users.wxOpenId, `%${search}%`)
+      )
+    );
+  }
+  
+  if (membershipType && membershipType.length > 0) {
+    conditions.push(
+      or(...membershipType.map(type => eq(users.membershipType, type)))
+    );
+  }
+  
+  if (typeof isBlocked === 'boolean') {
+    conditions.push(eq(users.isBlocked, isBlocked));
+  }
+  
+  if (typeof isRealNameVerified === 'boolean') {
+    conditions.push(eq(users.isRealNameVerified, isRealNameVerified));
+  }
+
+  const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // 构建排序
+  let orderByColumn;
+  switch (sortBy) {
+    case 'createdAt':
+      orderByColumn = users.createdAt;
+      break;
+    case 'lastActiveAt':
+      orderByColumn = users.lastActiveAt;
+      break;
+    case 'participationCount':
+      orderByColumn = users.participationCount;
+      break;
+    case 'fulfillmentCount':
+      orderByColumn = users.fulfillmentCount;
+      break;
+    default:
+      orderByColumn = users.createdAt;
+  }
+  const orderByFn = sortOrder === 'asc' ? asc : desc;
+
+  const [data, totalResult] = await Promise.all([
+    db
+      .select()
+      .from(users)
+      .where(whereCondition)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(orderByFn(orderByColumn)),
+    db
+      .select({ count: count() })
+      .from(users)
+      .where(whereCondition),
+  ]);
+
+  const total = totalResult[0]?.count || 0;
+  const totalPages = Math.ceil(total / limit);
+
+  // 转换为管理员视图格式
+  const adminData: AdminUserView[] = data.map(user => ({
+    ...user,
+    totalActivitiesCreated: user.activitiesCreatedCount,
+    totalTransactionAmount: 0, // TODO: 从交易表计算
+    lastActivityAt: user.lastActiveAt?.toISOString() || null,
+    riskScore: calculateRiskScore(user),
+    moderationStatus: user.isBlocked ? 'blocked' : 'clean',
+    reliabilityRate: user.participationCount > 0 
+      ? Math.round((user.fulfillmentCount / user.participationCount) * 100) 
+      : 100,
+  }));
+
+  return {
+    data: adminData,
+    total,
+    page,
+    totalPages,
+  };
+}
+
+/**
+ * 管理员获取用户详情（增强版）
+ */
+export async function getAdminUserById(id: string): Promise<AdminUserView | null> {
+  const user = await getUserById(id);
+  if (!user) return null;
+
+  // TODO: 查询相关统计数据
+  const totalTransactionAmount = 0; // 从交易表计算
+  
+  return {
+    ...user,
+    totalActivitiesCreated: user.activitiesCreatedCount,
+    totalTransactionAmount,
+    lastActivityAt: user.lastActiveAt?.toISOString() || null,
+    riskScore: calculateRiskScore(user),
+    moderationStatus: user.isBlocked ? 'blocked' : 'clean',
+    reliabilityRate: user.participationCount > 0 
+      ? Math.round((user.fulfillmentCount / user.participationCount) * 100) 
+      : 100,
+  };
+}
+
+/**
+ * 计算用户风险评分
+ */
+function calculateRiskScore(user: any): number {
+  let score = 0;
+  
+  // 基于争议次数
+  if (user.disputeCount > 5) score += 30;
+  else if (user.disputeCount > 2) score += 15;
+  
+  // 基于履约率
+  const reliabilityRate = user.participationCount > 0 
+    ? (user.fulfillmentCount / user.participationCount) * 100 
+    : 100;
+  
+  if (reliabilityRate < 50) score += 40;
+  else if (reliabilityRate < 80) score += 20;
+  
+  // 基于账户状态
+  if (user.isBlocked) score += 50;
+  if (!user.isRealNameVerified) score += 10;
+  
+  return Math.min(score, 100);
 }

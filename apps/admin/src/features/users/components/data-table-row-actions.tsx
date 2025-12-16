@@ -1,6 +1,7 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Trash2, UserPen, Ban, CheckCircle } from 'lucide-react'
+import { Trash2, UserPen, Ban, CheckCircle, Eye } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -10,16 +11,21 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { type User } from '../data/schema'
+import { type AdminUser } from '../data/schema'
 import { useUsersContext } from './users-provider'
 
 type DataTableRowActionsProps = {
-  row: Row<User>
+  row: Row<AdminUser>
 }
 
 export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const { setOpen, setCurrentRow } = useUsersContext()
+  const navigate = useNavigate()
   const { isBlocked } = row.original
+
+  const handleViewDetail = () => {
+    navigate({ to: '/users/$id', params: { id: row.original.id } })
+  }
 
   return (
     <>
@@ -34,6 +40,12 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align='end' className='w-[160px]'>
+          <DropdownMenuItem onClick={handleViewDetail}>
+            查看详情
+            <DropdownMenuShortcut>
+              <Eye size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
               setCurrentRow(row.original)

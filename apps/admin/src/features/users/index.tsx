@@ -11,7 +11,7 @@ import { UsersDialogs } from './components/users-dialogs'
 import { UsersPrimaryButtons } from './components/users-primary-buttons'
 import { UsersProvider } from './components/users-provider'
 import { UsersTable } from './components/users-table'
-import { useUsers } from './hooks/use-users'
+import { useAdminUsers } from './hooks/use-users'
 
 const route = getRouteApi('/_authenticated/users/')
 
@@ -22,9 +22,14 @@ export function Users() {
     page: 1,
     limit: 20,
     search: '',
+    membershipType: undefined as ('free' | 'pro')[] | undefined,
+    isBlocked: undefined as boolean | undefined,
+    isRealNameVerified: undefined as boolean | undefined,
+    sortBy: 'createdAt' as 'createdAt' | 'lastActiveAt' | 'participationCount' | 'fulfillmentCount',
+    sortOrder: 'desc' as 'asc' | 'desc',
   })
 
-  const { data, isLoading, isError, error } = useUsers(queryParams)
+  const { data, isLoading, isError, error } = useAdminUsers(queryParams)
 
   return (
     <UsersProvider>

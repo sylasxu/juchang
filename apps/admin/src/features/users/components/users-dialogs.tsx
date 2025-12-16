@@ -6,7 +6,7 @@ import { useUsersContext } from './users-provider'
 export function UsersDialogs() {
   const { open, setOpen, currentRow, setCurrentRow } = useUsersContext()
 
-  const handleClose = (type: string) => {
+  const handleClose = () => {
     setOpen(null)
     setTimeout(() => {
       setCurrentRow(null)
@@ -20,21 +20,21 @@ export function UsersDialogs() {
           <UsersActionDialog
             key={`user-edit-${currentRow.id}`}
             open={open === 'edit'}
-            onOpenChange={() => handleClose('edit')}
+            onOpenChange={handleClose}
             currentRow={currentRow}
           />
 
           <UsersDeleteDialog
             key={`user-delete-${currentRow.id}`}
             open={open === 'delete'}
-            onOpenChange={() => handleClose('delete')}
+            onOpenChange={handleClose}
             currentRow={currentRow}
           />
 
           <UsersBlockDialog
             key={`user-block-${currentRow.id}`}
             open={open === 'block'}
-            onOpenChange={() => handleClose('block')}
+            onOpenChange={handleClose}
             currentRow={currentRow}
             action='block'
           />
@@ -42,7 +42,7 @@ export function UsersDialogs() {
           <UsersBlockDialog
             key={`user-unblock-${currentRow.id}`}
             open={open === 'unblock'}
-            onOpenChange={() => handleClose('unblock')}
+            onOpenChange={handleClose}
             currentRow={currentRow}
             action='unblock'
           />
