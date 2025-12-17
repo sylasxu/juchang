@@ -10,8 +10,12 @@
     "dev": {
       "cache": false,
       "persistent": true,
-      "dependsOn": ["gen:api"],
       "env": ["NODE_ENV", "API_PORT", "DATABASE_URL", "JWT_SECRET"]
+    },
+    "@juchang/miniprogram#dev": {
+      "cache": false,
+      "persistent": true,
+      "dependsOn": ["gen:api"]
     },
     "start": {
       "cache": false,

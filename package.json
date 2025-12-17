@@ -31,12 +31,13 @@
     "db:seed": "turbo run seed --filter=@juchang/db",
 
     "--- DEVELOPMENT ---": "echo '开发启动'",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev --filter=@juchang/api --filter=@juchang/admin",
+    "dev:core": "turbo run dev --filter=@juchang/api --filter=@juchang/admin",
+    "dev:all": "turbo run dev",
     "dev:api": "turbo run dev --filter=@juchang/api",
-    "dev:api:clean": "node scripts/dev-api-clean.js",
     "dev:admin": "turbo run dev --filter=@juchang/admin",
-    "dev:web": "turbo run dev --filter=@juchang/admin",
     "dev:mp": "turbo run dev --filter=@juchang/miniprogram",
+    "dev:api:clean": "node scripts/dev-api-clean.js",
     "dev:full": "node scripts/dev-with-api-watch.js",
 
     "--- API GENERATION ---": "echo 'API 代码生成'",
