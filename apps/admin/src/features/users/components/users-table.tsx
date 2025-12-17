@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { getRouteApi } from '@tanstack/react-router'
 import {
   type SortingState,
   type VisibilityState,
@@ -12,7 +13,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { cn } from '@/lib/utils'
-import { type NavigateFn, useTableUrlState } from '@/hooks/use-table-url-state'
+import { useTableUrlState } from '@/hooks/use-table-url-state'
 import {
   Table,
   TableBody,
@@ -22,107 +23,103 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { statusOptions, membershipOptions, verificationOptions } from '../data/data'
-import { type AdminUser } from '../data/schema'
+import { statuses, membershipTypes } from '../data/data'
+import { type User } from '../data/schema'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 import { usersColumns as columns } from './users-columns'
 
-type PaginationInfo = {
-  page: number
-  totalPages: number
-  total: number
-  onPageChange: (page: number) => void
-}
+const route = getRouteApi('/_authenticated/users/')
 
 type DataTableProps = {
-  data: AdminUser[]
-  search: Record<string, unknown>
-  navigate: NavigateFn
-  pagination?: PaginationInfo
+  data: User[]
 }
 
-export function UsersTable({ data, search, navigate, pagination: serverPagination }: DataTableProps) {
+export function UsersTable({ data }: DataTableProps) {
   // Local UI-only states
   const [rowSelection, setRowSelection] = useState({})
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
   const [sorting, setSorting] = useState<SortingState>([])
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
   // Synced with URL states
   const {
+    globalFilter,
+    onGlobalFilterChange,
     columnFilters,
     onColumnFiltersChange,
     pagination,
     onPaginationChange,
     ensurePageInRange,
   } = useTableUrlState({
-    search,
-    navigate,
-    pagination: { defaultPage: 1, defaultPageSize: 20 },
-    globalFilter: { enabled: false },
+    search: route.useSearch(),
+    navigate: route.useNavigate(),
+    pagination: { defaultPage: 1, defaultPageSize: 10 },
+    globalFilter: { enabled: true, key: 'filter' },
     columnFilters: [
-      { columnId: 'nickname', searchKey: 'nickname', type: 'string' },
-      { columnId: 'isBlocked', searchKey: 'status', type: 'array' },
+      { columnId: 'status', searchKey: 'status', type: 'array' },
       { columnId: 'membershipType', searchKey: 'membership', type: 'array' },
-      { columnId: 'isRealNameVerified', searchKey: 'verification', type: 'array' },
     ],
   })
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
     state: {
       sorting,
-      pagination,
+      columnVisibility,
       rowSelection,
       columnFilters,
-      columnVisibility,
+      globalFilter,
+      pagination,
     },
     enableRowSelection: true,
-    manualPagination: !!serverPagination, // 使用服务端分页
-    pageCount: serverPagination?.totalPages || -1,
-    onPaginationChange,
-    onColumnFiltersChange,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    getPaginationRowModel: getPaginationRowModel(),
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const id = String(row.getValue('id')).toLowerCase()
+      const nickname = String(row.getValue('nickname')).toLowerCase()
+      const phoneNumber = String(row.getValue('phoneNumber') || '').toLowerCase()
+      const searchValue = String(filterValue).toLowerCase()
+
+      return id.includes(searchValue) || nickname.includes(searchValue) || phoneNumber.includes(searchValue)
+    },
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    onPaginationChange,
+    onGlobalFilterChange,
+    onColumnFiltersChange,
   })
 
+  const pageCount = table.getPageCount()
   useEffect(() => {
-    ensurePageInRange(table.getPageCount())
-  }, [table, ensurePageInRange])
+    ensurePageInRange(pageCount)
+  }, [pageCount, ensurePageInRange])
 
   return (
     <div
       className={cn(
-        'max-sm:has-[div[role="toolbar"]]:mb-16',
+        'max-sm:has-[div[role="toolbar"]]:mb-16', // Add margin bottom to the table on mobile when the toolbar is visible
         'flex flex-1 flex-col gap-4'
       )}
     >
       <DataTableToolbar
         table={table}
-        searchPlaceholder='搜索用户...'
-        searchKey='nickname'
+        searchPlaceholder='按昵称、ID或手机号搜索...'
         filters={[
           {
-            columnId: 'isBlocked',
+            columnId: 'status',
             title: '状态',
-            options: statusOptions.map(({ label, value }) => ({ label, value })),
+            options: statuses,
           },
           {
             columnId: 'membershipType',
-            title: '会员',
-            options: membershipOptions.map(({ label, value }) => ({ label, value })),
-          },
-          {
-            columnId: 'isRealNameVerified',
-            title: '实名认证',
-            options: verificationOptions.map(({ label, value }) => ({ label, value: value.toString() })),
+            title: '会员类型',
+            options: membershipTypes,
           },
         ]}
       />
@@ -130,14 +127,13 @@ export function UsersTable({ data, search, navigate, pagination: serverPaginatio
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className='group/row'>
+              <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
                       className={cn(
-                        'bg-background group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted',
                         header.column.columnDef.meta?.className,
                         header.column.columnDef.meta?.thClassName
                       )}
@@ -160,13 +156,11 @@ export function UsersTable({ data, search, navigate, pagination: serverPaginatio
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && 'selected'}
-                  className='group/row'
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
                       className={cn(
-                        'bg-background group-hover/row:bg-muted group-data-[state=selected]/row:bg-muted',
                         cell.column.columnDef.meta?.className,
                         cell.column.columnDef.meta?.tdClassName
                       )}

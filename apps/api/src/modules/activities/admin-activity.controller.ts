@@ -3,6 +3,7 @@ import { Elysia, t } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { 
   adminActivityModel,
+  ActivityModerationAction,
   type AdminActivityListResponse,
   type ErrorResponse 
 } from './admin-activity.model';
@@ -102,8 +103,10 @@ export const adminActivityController = new Elysia({ prefix: '/admin/activities' 
       try {
         const result = await moderateActivity(
           {
-            ...body,
             activityId: params.id,
+            action: body.action,
+            reason: body.reason,
+            notes: body.notes,
             adminId: user.id
           },
           user.id
@@ -129,7 +132,7 @@ export const adminActivityController = new Elysia({ prefix: '/admin/activities' 
         description: '对活动执行审核操作（批准、隐藏、删除、标记等）',
       },
       params: 'admin.activity.idParams',
-      body: t.Omit('admin.activity.moderationAction', ['activityId', 'adminId']),
+      body: t.Omit(ActivityModerationAction, ['activityId', 'adminId']),
       response: {
         200: t.Object({
           success: t.Boolean(),

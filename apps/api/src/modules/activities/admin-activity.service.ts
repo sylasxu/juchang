@@ -401,13 +401,14 @@ export async function moderateActivity(
   await db
     .insert(actionLogs)
     .values({
-      adminId: adminUserId,
-      targetType: 'activity',
-      targetId: activityId,
-      action: moderationAction,
-      reason,
-      notes: notes || null,
+      userId: adminUserId,
+      actionType: `activity_${moderationAction}`,
       metadata: {
+        activityId,
+        targetType: 'activity',
+        action: moderationAction,
+        reason,
+        notes: notes || null,
         previousStatus: activity.status,
         newStatus: updateData.status,
         previousRiskScore: activity.riskScore,

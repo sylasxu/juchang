@@ -1,24 +1,20 @@
-import { RefreshCw } from 'lucide-react'
-import { useQueryClient } from '@tanstack/react-query'
+import { Download, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { userKeys } from '../hooks/use-users'
+import { useUsers } from './users-provider'
 
 export function UsersPrimaryButtons() {
-  const queryClient = useQueryClient()
-
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: userKeys.all })
-  }
-
+  const { setOpen } = useUsers()
   return (
     <div className='flex gap-2'>
       <Button
         variant='outline'
         className='space-x-1'
-        onClick={handleRefresh}
+        onClick={() => setOpen('import')}
       >
-        <RefreshCw size={18} />
-        <span>刷新</span>
+        <span>导入</span> <Download size={18} />
+      </Button>
+      <Button className='space-x-1' onClick={() => setOpen('create')}>
+        <span>创建</span> <Plus size={18} />
       </Button>
     </div>
   )

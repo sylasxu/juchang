@@ -1,4 +1,5 @@
 // 用户管理相关 Hooks
+import { useQuery } from '@tanstack/react-query'
 import { api } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
 import { useApiList, useApiDetail, useApiUpdate } from './use-api'
@@ -80,40 +81,56 @@ export function useUnblockUser() {
   )
 }
 
-// 获取用户可靠性信息
+// 获取用户可靠性信息 - TODO: 实现API端点
 export function useUserReliability(userId: string) {
-  return useApiDetail(
-    ['users', userId, 'reliability'],
-    (id) => api.users({ id }).reliability.get(),
-    userId,
-    {
-      staleTime: 10 * 60 * 1000, // 10 分钟
-    }
-  )
+  return useQuery({
+    queryKey: ['users', userId, 'reliability'],
+    queryFn: async () => {
+      // Mock data - 替换为实际API调用
+      return {
+        score: 95,
+        totalActivities: 12,
+        completedActivities: 11,
+        disputes: 0
+      }
+    },
+    enabled: !!userId,
+    staleTime: 10 * 60 * 1000, // 10 分钟
+  })
 }
 
-// 获取用户活动历史
+// 获取用户活动历史 - TODO: 实现API端点
 export function useUserActivities(userId: string, filters: PaginationQuery = { page: 1, limit: 10 }) {
-  return useApiList(
-    ['users', userId, 'activities', filters],
-    (params) => api.users({ id: userId }).activities.get({ query: params }),
-    filters,
-    {
-      enabled: !!userId,
-      staleTime: 5 * 60 * 1000,
-    }
-  )
+  return useQuery({
+    queryKey: ['users', userId, 'activities', filters],
+    queryFn: async () => {
+      // Mock data - 替换为实际API调用
+      return {
+        data: [],
+        total: 0,
+        page: filters.page || 1,
+        limit: filters.limit || 10
+      }
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  })
 }
 
-// 获取用户参与记录
+// 获取用户参与记录 - TODO: 实现API端点
 export function useUserParticipations(userId: string, filters: PaginationQuery = { page: 1, limit: 10 }) {
-  return useApiList(
-    ['users', userId, 'participations', filters],
-    (params) => api.users({ id: userId }).participations.get({ query: params }),
-    filters,
-    {
-      enabled: !!userId,
-      staleTime: 5 * 60 * 1000,
-    }
-  )
+  return useQuery({
+    queryKey: ['users', userId, 'participations', filters],
+    queryFn: async () => {
+      // Mock data - 替换为实际API调用
+      return {
+        data: [],
+        total: 0,
+        page: filters.page || 1,
+        limit: filters.limit || 10
+      }
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000,
+  })
 }

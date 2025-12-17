@@ -22,9 +22,7 @@ import {
   Command,
   GalleryVerticalEnd,
   Calendar,
-  MapPin,
   CreditCard,
-  TrendingUp,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 

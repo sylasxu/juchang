@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+
 import { 
   MapPin,
   Plus,
@@ -53,7 +53,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 
 // 模拟 API 调用
-const fetchGhostActivities = async (filters: any) => {
+const fetchGhostActivities = async (_filters: any) => {
   return {
     data: [
       {

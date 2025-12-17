@@ -1,55 +1,42 @@
-'use client'
-
 import { useState } from 'react'
 import { type Table } from '@tanstack/react-table'
-import { AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
-import { useQueryClient } from '@tanstack/react-query'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { ConfirmDialog } from '@/components/confirm-dialog'
-import { deleteUser } from '../data/users'
-import { userKeys } from '../hooks/use-users'
+import { sleep } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { type User } from '../data/schema'
 
-type UserMultiDeleteDialogProps<TData> = {
+type UsersMultiDeleteDialogProps<TData> = {
   open: boolean
   onOpenChange: (open: boolean) => void
   table: Table<TData>
 }
 
-const CONFIRM_WORD = 'DELETE'
-
 export function UsersMultiDeleteDialog<TData>({
   open,
   onOpenChange,
   table,
-}: UserMultiDeleteDialogProps<TData>) {
-  const [value, setValue] = useState('')
+}: UsersMultiDeleteDialogProps<TData>) {
   const [isDeleting, setIsDeleting] = useState(false)
-  const queryClient = useQueryClient()
-
   const selectedRows = table.getFilteredSelectedRowModel().rows
+  const selectedUsers = selectedRows.map((row) => row.original as User)
 
   const handleDelete = async () => {
-    if (value.trim() !== CONFIRM_WORD) {
-      toast.error(`请输入 "${CONFIRM_WORD}" 确认删除`)
-      return
-    }
-
     setIsDeleting(true)
-
+    
     try {
-      const users = selectedRows.map((row) => row.original as User)
-      await Promise.all(users.map((u) => deleteUser(u.id)))
-
-      queryClient.invalidateQueries({ queryKey: userKeys.all })
+      await sleep(2000) // 模拟 API 调用
+      
+      toast.success(`已删除 ${selectedUsers.length} 个用户`)
       table.resetRowSelection()
-      setValue('')
       onOpenChange(false)
-
-      toast.success(`已删除 ${selectedRows.length} 个用户`)
     } catch (error) {
       toast.error('删除失败')
     } finally {
@@ -58,47 +45,46 @@ export function UsersMultiDeleteDialog<TData>({
   }
 
   return (
-    <ConfirmDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      handleConfirm={handleDelete}
-      disabled={value.trim() !== CONFIRM_WORD || isDeleting}
-      title={
-        <span className='text-destructive'>
-          <AlertTriangle
-            className='stroke-destructive me-1 inline-block'
-            size={18}
-          />{' '}
-          删除 {selectedRows.length} 个用户
-        </span>
-      }
-      desc={
-        <div className='space-y-4'>
-          <p className='mb-2'>
-            确定要删除所选的 {selectedRows.length} 个用户吗？
-            <br />
-            此操作不可撤销。
-          </p>
-
-          <Label className='my-4 flex flex-col items-start gap-1.5'>
-            <span>请输入 "{CONFIRM_WORD}" 确认:</span>
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder={`输入 "${CONFIRM_WORD}" 确认`}
-            />
-          </Label>
-
-          <Alert variant='destructive'>
-            <AlertTitle>警告！</AlertTitle>
-            <AlertDescription>
-              此操作不可逆，请谨慎操作。
-            </AlertDescription>
-          </Alert>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>确认删除</DialogTitle>
+          <DialogDescription>
+            您确定要删除选中的 {selectedUsers.length} 个用户吗？此操作无法撤销。
+          </DialogDescription>
+        </DialogHeader>
+        <div className='py-4'>
+          <div className='space-y-2'>
+            {selectedUsers.slice(0, 5).map((user) => (
+              <div key={user.id} className='flex items-center space-x-2 text-sm'>
+                <span className='font-medium'>{user.nickname}</span>
+                <span className='text-muted-foreground'>({user.id})</span>
+              </div>
+            ))}
+            {selectedUsers.length > 5 && (
+              <div className='text-sm text-muted-foreground'>
+                还有 {selectedUsers.length - 5} 个用户...
+              </div>
+            )}
+          </div>
         </div>
-      }
-      confirmText={isDeleting ? '删除中...' : '确认删除'}
-      destructive
-    />
+        <DialogFooter>
+          <Button
+            variant='outline'
+            onClick={() => onOpenChange(false)}
+            disabled={isDeleting}
+          >
+            取消
+          </Button>
+          <Button
+            variant='destructive'
+            onClick={handleDelete}
+            disabled={isDeleting}
+          >
+            {isDeleting ? '删除中...' : '确认删除'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

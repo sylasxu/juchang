@@ -47,7 +47,7 @@ import { toast } from 'sonner'
 import { ModerationDialog } from './moderation-dialog'
 
 // 模拟 API 调用 - 实际应该使用 Eden Treaty
-const fetchActivities = async (filters: any) => {
+const fetchActivities = async (_filters: any) => {
   // TODO: 使用 Eden Treaty 调用 /admin/activities API
   return {
     data: [

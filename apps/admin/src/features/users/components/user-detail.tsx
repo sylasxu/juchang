@@ -198,7 +198,7 @@ export function UserDetail() {
                       </div>
                       <div>
                         <p className='text-sm font-medium text-muted-foreground'>性别</p>
-                        <p className='text-sm'>{genderLabels[user.gender]}</p>
+                        <p className='text-sm'>{user.gender ? genderLabels[user.gender] : '未设置'}</p>
                       </div>
                       <div>
                         <p className='text-sm font-medium text-muted-foreground'>注册时间</p>
@@ -346,22 +346,22 @@ export function UserDetail() {
                 <div className='text-center'>
                   <div className={cn(
                     'text-3xl font-bold mb-2',
-                    user.riskScore >= 70 ? 'text-red-600' :
-                    user.riskScore >= 40 ? 'text-yellow-600' :
+                    (user.riskScore ?? 0) >= 70 ? 'text-red-600' :
+                    (user.riskScore ?? 0) >= 40 ? 'text-yellow-600' :
                     'text-green-600'
                   )}>
-                    {user.riskScore}
+                    {user.riskScore ?? 0}
                   </div>
                   <p className='text-sm text-muted-foreground'>风险评分</p>
                   <div className='w-full bg-gray-200 rounded-full h-2 mt-2'>
                     <div 
                       className={cn(
                         'h-2 rounded-full transition-all',
-                        user.riskScore >= 70 ? 'bg-red-500' :
-                        user.riskScore >= 40 ? 'bg-yellow-500' :
+                        (user.riskScore ?? 0) >= 70 ? 'bg-red-500' :
+                        (user.riskScore ?? 0) >= 40 ? 'bg-yellow-500' :
                         'bg-green-500'
                       )}
-                      style={{ width: `${user.riskScore}%` }}
+                      style={{ width: `${user.riskScore ?? 0}%` }}
                     />
                   </div>
                 </div>

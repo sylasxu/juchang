@@ -71,14 +71,13 @@ export async function getMessageList(query: MessageListQuery, userId: string) {
   }
 
   // 2. 构建查询条件
-  let whereCondition = eq(chatMessages.activityId, query.activityId);
+  const conditions = [eq(chatMessages.activityId, query.activityId)];
   
   if (query.before) {
-    whereCondition = and(
-      whereCondition,
-      lt(chatMessages.createdAt, new Date(query.before))
-    );
+    conditions.push(lt(chatMessages.createdAt, new Date(query.before)));
   }
+  
+  const whereCondition = conditions.length > 1 ? and(...conditions) : conditions[0];
 
   // 3. 查询消息
   const limit = query.limit || 20;
@@ -176,11 +175,7 @@ export async function getMyChats(userId: string, query: any) {
       startAt: activities.startAt,
     })
     .from(activities)
-    .where(
-      and(
-        eq(activities.chatStatus, 'active')
-      )
-    );
+    .where(eq(activities.chatStatus, 'active'));
 
   // 过滤出用户参与的活动
   const myChats = activityList.filter(a => activityIds.includes(a.id));

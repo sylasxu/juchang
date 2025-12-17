@@ -1,141 +1,116 @@
-// 用户数据 API 调用
-import { api } from '@/lib/eden'
-import type { User, UserListResponse, AdminUser, AdminUserListResponse } from './schema'
+import { type User } from './schema'
 
-export interface UserQueryParams {
-  page?: number
-  limit?: number
-  search?: string
-}
-
-export interface AdminUserQueryParams extends UserQueryParams {
-  membershipType?: ('free' | 'pro')[]
-  isBlocked?: boolean
-  isRealNameVerified?: boolean
-  sortBy?: 'createdAt' | 'lastActiveAt' | 'participationCount' | 'fulfillmentCount'
-  sortOrder?: 'asc' | 'desc'
-}
-
-/**
- * 获取用户列表
- */
-export async function fetchUsers(params: UserQueryParams = {}): Promise<UserListResponse> {
-  const { data, error } = await api.users.get({
-    query: {
-      page: params.page || 1,
-      limit: params.limit || 20,
-      search: params.search,
-    },
-  })
-
-  if (error) {
-    throw new Error('获取用户列表失败')
-  }
-
-  return data as UserListResponse
-}
-
-/**
- * 管理员获取用户列表（增强版）
- */
-export async function fetchAdminUsers(params: AdminUserQueryParams = {}): Promise<AdminUserListResponse> {
-  const { data, error } = await api.users.admin.get({
-    query: {
-      page: params.page || 1,
-      limit: params.limit || 20,
-      search: params.search,
-      membershipType: params.membershipType,
-      isBlocked: params.isBlocked,
-      isRealNameVerified: params.isRealNameVerified,
-      sortBy: params.sortBy || 'createdAt',
-      sortOrder: params.sortOrder || 'desc',
-    },
-  })
-
-  if (error) {
-    throw new Error('获取用户列表失败')
-  }
-
-  return data as AdminUserListResponse
-}
-
-/**
- * 获取用户详情
- */
-export async function fetchUserById(id: string): Promise<User> {
-  const { data, error } = await api.users({ id }).get()
-
-  if (error) {
-    throw new Error('获取用户详情失败')
-  }
-
-  return data as User
-}
-
-/**
- * 管理员获取用户详情（增强版）
- */
-export async function fetchAdminUserById(id: string): Promise<AdminUser> {
-  const { data, error } = await api.users.admin({ id }).get()
-
-  if (error) {
-    throw new Error('获取用户详情失败')
-  }
-
-  return data as AdminUser
-}
-
-/**
- * 更新用户
- */
-export async function updateUser(
-  id: string,
-  body: {
-    nickname?: string
-    bio?: string
-    gender?: 'male' | 'female' | 'unknown'
-    membershipType?: 'free' | 'pro'
-    isBlocked?: boolean
-  }
-): Promise<User> {
-  const { data, error } = await api.users({ id }).put(body)
-
-  if (error) {
-    throw new Error('更新用户失败')
-  }
-
-  return data as User
-}
-
-/**
- * 删除用户
- */
-export async function deleteUser(id: string): Promise<void> {
-  const { error } = await api.users({ id }).delete()
-
-  if (error) {
-    throw new Error('删除用户失败')
-  }
-}
-
-/**
- * 封禁用户
- */
-export async function blockUser(id: string): Promise<void> {
-  const { error } = await api.users({ id }).block.post()
-
-  if (error) {
-    throw new Error('封禁用户失败')
-  }
-}
-
-/**
- * 解封用户
- */
-export async function unblockUser(id: string): Promise<void> {
-  const { error } = await api.users({ id }).unblock.post()
-
-  if (error) {
-    throw new Error('解封用户失败')
-  }
-}
+export const users: User[] = [
+  {
+    id: 'user_001',
+    nickname: '张三',
+    phoneNumber: '138****1234',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=zhang',
+    status: 'active',
+    membershipType: 'pro',
+    isRealNameVerified: true,
+    createdAt: '2024-01-15T08:30:00Z',
+    lastActiveAt: '2024-12-17T10:15:00Z',
+    bio: '热爱运动的程序员',
+    gender: 'male',
+    isBlocked: false,
+    moderationStatus: 'normal',
+    riskScore: 15,
+    totalActivitiesCreated: 12,
+    participationCount: 25,
+    reliabilityRate: 95,
+    disputeCount: 0,
+    aiCreateQuotaToday: 3,
+    aiSearchQuotaToday: 8,
+    aiQuotaResetAt: '2024-12-18T00:00:00Z',
+  },
+  {
+    id: 'user_002',
+    nickname: '李四',
+    phoneNumber: '139****5678',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=li',
+    status: 'active',
+    membershipType: 'free',
+    isRealNameVerified: false,
+    createdAt: '2024-02-20T14:20:00Z',
+    lastActiveAt: '2024-12-16T16:45:00Z',
+    bio: '喜欢美食和旅行',
+    gender: 'female',
+    isBlocked: false,
+    moderationStatus: 'normal',
+    riskScore: 25,
+    totalActivitiesCreated: 5,
+    participationCount: 18,
+    reliabilityRate: 88,
+    disputeCount: 1,
+    aiCreateQuotaToday: 1,
+    aiSearchQuotaToday: 3,
+    aiQuotaResetAt: '2024-12-18T00:00:00Z',
+  },
+  {
+    id: 'user_003',
+    nickname: '王五',
+    phoneNumber: '136****9012',
+    status: 'blocked',
+    membershipType: 'free',
+    isRealNameVerified: false,
+    createdAt: '2024-03-10T09:15:00Z',
+    lastActiveAt: '2024-12-10T12:30:00Z',
+    bio: '违规用户',
+    gender: 'male',
+    isBlocked: true,
+    moderationStatus: 'blocked',
+    riskScore: 85,
+    totalActivitiesCreated: 2,
+    participationCount: 3,
+    reliabilityRate: 45,
+    disputeCount: 5,
+    aiCreateQuotaToday: 0,
+    aiSearchQuotaToday: 0,
+  },
+  {
+    id: 'user_004',
+    nickname: '赵六',
+    phoneNumber: '137****3456',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=zhao',
+    status: 'pending',
+    membershipType: 'free',
+    isRealNameVerified: false,
+    createdAt: '2024-12-15T11:00:00Z',
+    bio: '新用户待审核',
+    gender: 'other',
+    isBlocked: false,
+    moderationStatus: 'flagged',
+    riskScore: 55,
+    totalActivitiesCreated: 0,
+    participationCount: 1,
+    reliabilityRate: 0,
+    disputeCount: 0,
+    aiCreateQuotaToday: 0,
+    aiSearchQuotaToday: 1,
+    aiQuotaResetAt: '2024-12-18T00:00:00Z',
+  },
+  {
+    id: 'user_005',
+    nickname: '孙七',
+    phoneNumber: '135****7890',
+    avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sun',
+    status: 'active',
+    membershipType: 'pro',
+    isRealNameVerified: true,
+    createdAt: '2024-01-05T16:45:00Z',
+    lastActiveAt: '2024-12-17T09:20:00Z',
+    bio: '资深用户，活跃度很高',
+    gender: 'female',
+    isBlocked: false,
+    moderationStatus: 'normal',
+    riskScore: 10,
+    totalActivitiesCreated: 28,
+    participationCount: 45,
+    reliabilityRate: 98,
+    disputeCount: 0,
+    aiCreateQuotaToday: 5,
+    aiSearchQuotaToday: 12,
+    aiQuotaResetAt: '2024-12-18T00:00:00Z',
+  },
+]

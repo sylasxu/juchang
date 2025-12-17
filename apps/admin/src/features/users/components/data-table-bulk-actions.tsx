@@ -1,17 +1,22 @@
 import { useState } from 'react'
 import { type Table } from '@tanstack/react-table'
-import { Trash2, Ban, CheckCircle } from 'lucide-react'
+import { Trash2, CircleArrowUp, Download } from 'lucide-react'
 import { toast } from 'sonner'
+import { sleep } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { DataTableBulkActions as BulkActionsToolbar } from '@/components/data-table'
-import { blockUser, unblockUser } from '../data/users'
-import { useQueryClient } from '@tanstack/react-query'
-import { userKeys } from '../hooks/use-users'
+import { statuses } from '../data/data'
 import { type User } from '../data/schema'
 import { UsersMultiDeleteDialog } from './users-multi-delete-dialog'
 
@@ -23,89 +28,89 @@ export function DataTableBulkActions<TData>({
   table,
 }: DataTableBulkActionsProps<TData>) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const queryClient = useQueryClient()
   const selectedRows = table.getFilteredSelectedRowModel().rows
 
-  const handleBulkBlock = async () => {
+  const handleBulkStatusChange = (status: string) => {
     const selectedUsers = selectedRows.map((row) => row.original as User)
-    const toBlock = selectedUsers.filter((u) => !u.isBlocked)
-
-    if (toBlock.length === 0) {
-      toast.info('所选用户已全部封禁')
-      return
-    }
-
-    toast.promise(
-      Promise.all(toBlock.map((u) => blockUser(u.id))),
-      {
-        loading: '正在封禁用户...',
-        success: () => {
-          queryClient.invalidateQueries({ queryKey: userKeys.all })
-          table.resetRowSelection()
-          return `已封禁 ${toBlock.length} 个用户`
-        },
-        error: '封禁用户失败',
-      }
-    )
+    toast.promise(sleep(2000), {
+      loading: '更新状态中...',
+      success: () => {
+        table.resetRowSelection()
+        return `已将 ${selectedUsers.length} 个用户的状态更新为"${statuses.find(s => s.value === status)?.label}"`
+      },
+      error: '操作失败',
+    })
+    table.resetRowSelection()
   }
 
-  const handleBulkUnblock = async () => {
+  const handleBulkExport = () => {
     const selectedUsers = selectedRows.map((row) => row.original as User)
-    const toUnblock = selectedUsers.filter((u) => u.isBlocked)
-
-    if (toUnblock.length === 0) {
-      toast.info('所选用户均未被封禁')
-      return
-    }
-
-    toast.promise(
-      Promise.all(toUnblock.map((u) => unblockUser(u.id))),
-      {
-        loading: '正在解封用户...',
-        success: () => {
-          queryClient.invalidateQueries({ queryKey: userKeys.all })
-          table.resetRowSelection()
-          return `已解封 ${toUnblock.length} 个用户`
-        },
-        error: '解封用户失败',
-      }
-    )
+    toast.promise(sleep(2000), {
+      loading: '导出用户数据中...',
+      success: () => {
+        table.resetRowSelection()
+        return `已导出 ${selectedUsers.length} 个用户数据到 CSV`
+      },
+      error: '导出失败',
+    })
+    table.resetRowSelection()
   }
 
   return (
     <>
       <BulkActionsToolbar table={table} entityName='用户'>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='outline'
-              size='icon'
-              onClick={handleBulkUnblock}
-              className='size-8'
-              aria-label='解封所选用户'
-            >
-              <CheckCircle />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>解封所选用户</p>
-          </TooltipContent>
-        </Tooltip>
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='outline'
+                  size='icon'
+                  className='size-8'
+                  aria-label='更新状态'
+                  title='更新状态'
+                >
+                  <CircleArrowUp />
+                  <span className='sr-only'>更新状态</span>
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>更新状态</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent sideOffset={14}>
+            {statuses.map((status) => (
+              <DropdownMenuItem
+                key={status.value}
+                defaultValue={status.value}
+                onClick={() => handleBulkStatusChange(status.value)}
+              >
+                {status.icon && (
+                  <status.icon className='text-muted-foreground size-4' />
+                )}
+                {status.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant='outline'
               size='icon'
-              onClick={handleBulkBlock}
+              onClick={() => handleBulkExport()}
               className='size-8'
-              aria-label='封禁所选用户'
+              aria-label='导出用户'
+              title='导出用户'
             >
-              <Ban />
+              <Download />
+              <span className='sr-only'>导出用户</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>封禁所选用户</p>
+            <p>导出用户</p>
           </TooltipContent>
         </Tooltip>
 
@@ -116,21 +121,23 @@ export function DataTableBulkActions<TData>({
               size='icon'
               onClick={() => setShowDeleteConfirm(true)}
               className='size-8'
-              aria-label='删除所选用户'
+              aria-label='删除选中用户'
+              title='删除选中用户'
             >
               <Trash2 />
+              <span className='sr-only'>删除选中用户</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>删除所选用户</p>
+            <p>删除选中用户</p>
           </TooltipContent>
         </Tooltip>
       </BulkActionsToolbar>
 
       <UsersMultiDeleteDialog
-        table={table}
         open={showDeleteConfirm}
         onOpenChange={setShowDeleteConfirm}
+        table={table}
       />
     </>
   )

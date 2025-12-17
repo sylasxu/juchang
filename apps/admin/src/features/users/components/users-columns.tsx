@@ -1,16 +1,13 @@
 import { type ColumnDef } from '@tanstack/react-table'
-import { format } from 'date-fns'
-import { cn } from '@/lib/utils'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DataTableColumnHeader } from '@/components/data-table'
-import { LongText } from '@/components/long-text'
-import { statusStyles, membershipStyles, genderLabels } from '../data/data'
-import { type AdminUser } from '../data/schema'
+import { statuses, membershipTypes } from '../data/data'
+import { type User } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
 
-export const usersColumns: ColumnDef<AdminUser>[] = [
+export const usersColumns: ColumnDef<User>[] = [
   {
     id: 'select',
     header: ({ table }) => (
@@ -24,9 +21,6 @@ export const usersColumns: ColumnDef<AdminUser>[] = [
         className='translate-y-[2px]'
       />
     ),
-    meta: {
-      className: cn('max-md:sticky start-0 z-10 rounded-tl-[inherit]'),
-    },
     cell: ({ row }) => (
       <Checkbox
         checked={row.getIsSelected()}
@@ -39,146 +33,106 @@ export const usersColumns: ColumnDef<AdminUser>[] = [
     enableHiding: false,
   },
   {
-    accessorKey: 'nickname',
+    accessorKey: 'id',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='用户' />
+      <DataTableColumnHeader column={column} title='ID' />
     ),
-    cell: ({ row }) => {
-      const { nickname, avatarUrl } = row.original
-      return (
-        <div className='flex items-center gap-2 ps-2'>
-          <Avatar className='h-8 w-8'>
-            <AvatarImage src={avatarUrl || undefined} alt={nickname || ''} />
-            <AvatarFallback>{(nickname || '?')[0]}</AvatarFallback>
-          </Avatar>
-          <LongText className='max-w-24'>{nickname || '未设置'}</LongText>
-        </div>
-      )
-    },
-    meta: {
-      className: cn(
-        'drop-shadow-[0_1px_2px_rgb(0_0_0_/_0.1)] dark:drop-shadow-[0_1px_2px_rgb(255_255_255_/_0.1)]',
-        'ps-0.5 max-md:sticky start-6 @4xl/content:table-cell @4xl/content:drop-shadow-none'
-      ),
-    },
+    cell: ({ row }) => <div className='w-[80px] font-mono text-xs'>{row.getValue('id')}</div>,
+    enableSorting: false,
     enableHiding: false,
   },
   {
-    accessorKey: 'phoneNumber',
+    accessorKey: 'nickname',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='手机号' />
+      <DataTableColumnHeader column={column} title='用户信息' />
     ),
-    cell: ({ row }) => (
-      <div className='text-nowrap'>{row.getValue('phoneNumber') || '-'}</div>
-    ),
-    enableSorting: false,
+    meta: { className: 'ps-1', tdClassName: 'ps-4' },
+    cell: ({ row }) => {
+      const user = row.original
+      const membershipType = membershipTypes.find(
+        (type) => type.value === user.membershipType
+      )
+
+      return (
+        <div className='flex items-center space-x-3'>
+          <Avatar className='h-8 w-8'>
+            <AvatarImage src={user.avatarUrl} alt={user.nickname} />
+            <AvatarFallback>{user.nickname.charAt(0)}</AvatarFallback>
+          </Avatar>
+          <div className='flex flex-col'>
+            <div className='flex items-center space-x-2'>
+              <span className='font-medium'>{user.nickname}</span>
+              {membershipType && (
+                <Badge variant={user.membershipType === 'pro' ? 'default' : 'secondary'}>
+                  {membershipType.label}
+                </Badge>
+              )}
+              {user.isRealNameVerified && (
+                <Badge variant='outline' className='text-green-600'>
+                  已认证
+                </Badge>
+              )}
+            </div>
+            {user.phoneNumber && (
+              <span className='text-xs text-muted-foreground'>{user.phoneNumber}</span>
+            )}
+          </div>
+        </div>
+      )
+    },
   },
   {
-    accessorKey: 'gender',
+    accessorKey: 'status',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='性别' />
+      <DataTableColumnHeader column={column} title='状态' />
     ),
+    meta: { className: 'ps-1', tdClassName: 'ps-4' },
     cell: ({ row }) => {
-      const gender = row.getValue('gender') as keyof typeof genderLabels
-      return <div>{genderLabels[gender] || '-'}</div>
+      const status = statuses.find(
+        (status) => status.value === row.getValue('status')
+      )
+
+      if (!status) {
+        return null
+      }
+
+      return (
+        <div className='flex w-[100px] items-center gap-2'>
+          {status.icon && (
+            <status.icon className='text-muted-foreground size-4' />
+          )}
+          <span>{status.label}</span>
+        </div>
+      )
     },
-    enableSorting: false,
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id))
+    },
   },
   {
     accessorKey: 'membershipType',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='会员' />
+      <DataTableColumnHeader column={column} title='会员类型' />
     ),
+    meta: { className: 'ps-1', tdClassName: 'ps-3' },
     cell: ({ row }) => {
-      const membershipType = row.original.membershipType
-      const badgeColor = membershipStyles.get(membershipType)
+      const membershipType = membershipTypes.find(
+        (type) => type.value === row.getValue('membershipType')
+      )
+
+      if (!membershipType) {
+        return null
+      }
+
       return (
-        <Badge variant='outline' className={cn('capitalize', badgeColor)}>
-          {membershipType === 'pro' ? 'Pro' : '免费'}
+        <Badge variant={row.getValue('membershipType') === 'pro' ? 'default' : 'secondary'}>
+          {membershipType.label}
         </Badge>
       )
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
     },
-    enableSorting: false,
-  },
-  {
-    id: 'reliability',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='履约率' />
-    ),
-    cell: ({ row }) => {
-      const { reliabilityRate, participationCount, fulfillmentCount } = row.original
-      return (
-        <div className='text-nowrap'>
-          {reliabilityRate}% ({fulfillmentCount}/{participationCount})
-        </div>
-      )
-    },
-    enableSorting: false,
-  },
-  {
-    id: 'riskScore',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='风险评分' />
-    ),
-    cell: ({ row }) => {
-      const riskScore = row.original.riskScore
-      const badgeColor = riskScore >= 70 ? 'text-red-600' : 
-                        riskScore >= 40 ? 'text-yellow-600' : 
-                        'text-green-600'
-      return (
-        <div className={cn('text-nowrap font-medium', badgeColor)}>
-          {riskScore}
-        </div>
-      )
-    },
-    enableSorting: false,
-  },
-  {
-    accessorKey: 'isRealNameVerified',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='实名认证' />
-    ),
-    cell: ({ row }) => {
-      const isVerified = row.original.isRealNameVerified
-      return (
-        <Badge variant='outline' className={cn(
-          'capitalize',
-          isVerified ? 'text-green-600 border-green-200' : 'text-gray-500 border-gray-200'
-        )}>
-          {isVerified ? '已认证' : '未认证'}
-        </Badge>
-      )
-    },
-    filterFn: (row, _id, value) => {
-      return value.includes(row.getValue('isRealNameVerified'))
-    },
-    enableSorting: false,
-  },
-  {
-    accessorKey: 'isBlocked',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='状态' />
-    ),
-    cell: ({ row }) => {
-      const isBlocked = row.original.isBlocked
-      const status = isBlocked ? 'blocked' : 'active'
-      const badgeColor = statusStyles.get(status)
-      return (
-        <Badge variant='outline' className={cn('capitalize', badgeColor)}>
-          {isBlocked ? '封禁' : '正常'}
-        </Badge>
-      )
-    },
-    filterFn: (row, id, value) => {
-      const isBlocked = row.original.isBlocked
-      const status = isBlocked ? 'blocked' : 'active'
-      return value.includes(status)
-    },
-    enableSorting: false,
-    enableHiding: false,
   },
   {
     accessorKey: 'createdAt',
@@ -186,16 +140,34 @@ export const usersColumns: ColumnDef<AdminUser>[] = [
       <DataTableColumnHeader column={column} title='注册时间' />
     ),
     cell: ({ row }) => {
-      const createdAt = row.getValue('createdAt') as string
+      const date = new Date(row.getValue('createdAt'))
       return (
-        <div className='text-nowrap text-muted-foreground'>
-          {format(new Date(createdAt), 'yyyy-MM-dd')}
+        <div className='text-sm'>
+          {date.toLocaleDateString('zh-CN')}
+        </div>
+      )
+    },
+  },
+  {
+    accessorKey: 'lastActiveAt',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='最后活跃' />
+    ),
+    cell: ({ row }) => {
+      const lastActiveAt = row.getValue('lastActiveAt') as string | undefined
+      if (!lastActiveAt) {
+        return <span className='text-muted-foreground text-sm'>从未活跃</span>
+      }
+      const date = new Date(lastActiveAt)
+      return (
+        <div className='text-sm'>
+          {date.toLocaleDateString('zh-CN')}
         </div>
       )
     },
   },
   {
     id: 'actions',
-    cell: DataTableRowActions,
+    cell: ({ row }) => <DataTableRowActions row={row} />,
   },
 ]

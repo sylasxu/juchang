@@ -11,7 +11,7 @@ import {
   unblockUser,
   type UserQueryParams,
   type AdminUserQueryParams,
-} from '../data/users'
+} from '../data/users-api'
 
 // Query Keys
 export const userKeys = {

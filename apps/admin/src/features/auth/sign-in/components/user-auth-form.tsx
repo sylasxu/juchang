@@ -21,9 +21,7 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/password-input'
 
 const formSchema = z.object({
-  email: z.email({
-    error: (iss) => (iss.input === '' ? 'Please enter your email' : undefined),
-  }),
+  email: z.string().email('Please enter a valid email'),
   password: z
     .string()
     .min(1, 'Please enter your password')
@@ -61,9 +59,23 @@ export function UserAuthForm({
 
         // Mock successful authentication with expiry computed at success time
         const mockUser = {
-          accountNo: 'ACC001',
+          id: 'admin-001',
+          username: 'admin',
           email: data.email,
-          role: ['user'],
+          role: {
+            id: 'admin-role',
+            name: 'Administrator',
+            permissions: [
+              {
+                resource: 'users',
+                actions: ['read', 'write', 'delete']
+              },
+              {
+                resource: 'activities',
+                actions: ['read', 'write', 'delete']
+              }
+            ]
+          },
           exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
         }
 

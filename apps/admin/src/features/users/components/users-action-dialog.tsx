@@ -31,7 +31,7 @@ import { type User } from '../data/schema'
 const formSchema = z.object({
   nickname: z.string().max(50, '昵称最多50个字符').optional(),
   bio: z.string().max(200, '简介最多200个字符').optional(),
-  gender: z.enum(['male', 'female', 'unknown']).optional(),
+  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
   membershipType: z.enum(['free', 'pro']).optional(),
   isBlocked: z.boolean().optional(),
 })

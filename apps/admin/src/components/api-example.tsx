@@ -6,6 +6,7 @@ import { useUsersList, useUserDetail, useBlockUser } from '@/hooks/use-users'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import type { User } from '@/features/users/data/schema'
 
 // 用户列表示例
 export function UsersListExample() {
@@ -29,7 +30,7 @@ export function UsersListExample() {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          {users?.data?.map((user: any) => (
+          {Array.isArray(users) ? users.map((user: any) => (
             <div key={user.id} className="flex items-center justify-between p-2 border rounded">
               <div>
                 <div className="font-medium">{user.nickname || '未设置昵称'}</div>
@@ -37,7 +38,7 @@ export function UsersListExample() {
               </div>
               <UserActionExample userId={user.id} />
             </div>
-          ))}
+          )) : null}
         </div>
       </CardContent>
     </Card>
@@ -46,7 +47,7 @@ export function UsersListExample() {
 
 // 用户详情示例
 export function UserDetailExample({ userId }: { userId: string }) {
-  const { data: user, isLoading, error } = useUserDetail(userId)
+  const { data: user, isLoading, error } = useUserDetail(userId) as { data: User | undefined, isLoading: boolean, error: any }
 
   if (isLoading) {
     return <div>加载用户详情中...</div>
@@ -67,13 +68,13 @@ export function UserDetailExample({ userId }: { userId: string }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          <div><strong>ID:</strong> {user.id}</div>
-          <div><strong>昵称:</strong> {user.nickname || '未设置'}</div>
-          <div><strong>手机号:</strong> {user.phoneNumber}</div>
-          <div><strong>性别:</strong> {user.gender}</div>
-          <div><strong>会员类型:</strong> {user.membershipType}</div>
-          <div><strong>是否封禁:</strong> {user.isBlocked ? '是' : '否'}</div>
-          <div><strong>创建时间:</strong> {new Date(user.createdAt).toLocaleString()}</div>
+          <div><strong>ID:</strong> {user?.id}</div>
+          <div><strong>昵称:</strong> {user?.nickname || '未设置'}</div>
+          <div><strong>手机号:</strong> {user?.phoneNumber}</div>
+          <div><strong>性别:</strong> {user?.gender}</div>
+          <div><strong>会员类型:</strong> {user?.membershipType}</div>
+          <div><strong>是否封禁:</strong> {user?.isBlocked ? '是' : '否'}</div>
+          <div><strong>创建时间:</strong> {user?.createdAt ? new Date(user.createdAt).toLocaleString() : '未知'}</div>
         </div>
       </CardContent>
     </Card>

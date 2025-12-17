@@ -1,104 +1,101 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Trash2, UserPen, Ban, CheckCircle, Eye } from 'lucide-react'
-import { useNavigate } from '@tanstack/react-router'
+import { Trash2, Shield, ShieldOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { type AdminUser } from '../data/schema'
-import { useUsersContext } from './users-provider'
+import { statuses } from '../data/data'
+import { userSchema } from '../data/schema'
+import { useUsers } from './users-provider'
 
-type DataTableRowActionsProps = {
-  row: Row<AdminUser>
+type DataTableRowActionsProps<TData> = {
+  row: Row<TData>
 }
 
-export function DataTableRowActions({ row }: DataTableRowActionsProps) {
-  const { setOpen, setCurrentRow } = useUsersContext()
-  const navigate = useNavigate()
-  const { isBlocked } = row.original
+export function DataTableRowActions<TData>({
+  row,
+}: DataTableRowActionsProps<TData>) {
+  const user = userSchema.parse(row.original)
 
-  const handleViewDetail = () => {
-    navigate({ to: '/users/$id', params: { id: row.original.id } })
-  }
+  const { setOpen, setCurrentRow } = useUsers()
 
   return (
-    <>
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant='ghost'
-            className='data-[state=open]:bg-muted flex h-8 w-8 p-0'
-          >
-            <DotsHorizontalIcon className='h-4 w-4' />
-            <span className='sr-only'>打开菜单</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align='end' className='w-[160px]'>
-          <DropdownMenuItem onClick={handleViewDetail}>
-            查看详情
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant='ghost'
+          className='data-[state=open]:bg-muted flex h-8 w-8 p-0'
+        >
+          <DotsHorizontalIcon className='h-4 w-4' />
+          <span className='sr-only'>打开菜单</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align='end' className='w-[160px]'>
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(user)
+            setOpen('update')
+          }}
+        >
+          编辑
+        </DropdownMenuItem>
+        <DropdownMenuItem disabled>查看详情</DropdownMenuItem>
+        <DropdownMenuItem disabled>发送消息</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>更改状态</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup value={user.status}>
+              {statuses.map((status) => (
+                <DropdownMenuRadioItem key={status.value} value={status.value}>
+                  {status.icon && (
+                    <status.icon className='text-muted-foreground size-4 mr-2' />
+                  )}
+                  {status.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        {user.status === 'blocked' ? (
+          <DropdownMenuItem>
+            解除封禁
             <DropdownMenuShortcut>
-              <Eye size={16} />
+              <ShieldOff size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => {
-              setCurrentRow(row.original)
-              setOpen('edit')
-            }}
-          >
-            编辑
+        ) : (
+          <DropdownMenuItem>
+            封禁用户
             <DropdownMenuShortcut>
-              <UserPen size={16} />
+              <Shield size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          {isBlocked ? (
-            <DropdownMenuItem
-              onClick={() => {
-                setCurrentRow(row.original)
-                setOpen('unblock')
-              }}
-            >
-              解封
-              <DropdownMenuShortcut>
-                <CheckCircle size={16} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem
-              onClick={() => {
-                setCurrentRow(row.original)
-                setOpen('block')
-              }}
-              className='text-orange-500!'
-            >
-              封禁
-              <DropdownMenuShortcut>
-                <Ban size={16} />
-              </DropdownMenuShortcut>
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              setCurrentRow(row.original)
-              setOpen('delete')
-            }}
-            className='text-red-500!'
-          >
-            删除
-            <DropdownMenuShortcut>
-              <Trash2 size={16} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+        )}
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(user)
+            setOpen('delete')
+          }}
+        >
+          删除
+          <DropdownMenuShortcut>
+            <Trash2 size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

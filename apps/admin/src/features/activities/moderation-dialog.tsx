@@ -18,7 +18,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, Eye, EyeOff, Flag, Trash2, CheckCircle } from 'lucide-react'
+import { EyeOff, Flag, Trash2, CheckCircle } from 'lucide-react'
 
 interface ModerationDialogProps {
   open: boolean

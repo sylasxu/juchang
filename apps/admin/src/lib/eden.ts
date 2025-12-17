@@ -13,12 +13,15 @@ export const api = treaty<App>(API_BASE_URL, {
     'Content-Type': 'application/json',
   },
   // 请求拦截器 - 添加认证 token
-  onRequest: (options) => {
+  onRequest: (_path, options) => {
     const token = localStorage.getItem('admin_token')
     if (token) {
-      options.headers = {
-        ...options.headers,
-        Authorization: `Bearer ${token}`,
+      return {
+        ...options,
+        headers: {
+          ...options.headers,
+          Authorization: `Bearer ${token}`,
+        },
       }
     }
     return options
