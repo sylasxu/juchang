@@ -68,21 +68,104 @@ export const queryKeys = {
     all: ['dashboard'],
     metrics: () => [...queryKeys.dashboard.all, 'metrics'],
     analytics: () => [...queryKeys.dashboard.all, 'analytics'],
+    kpis: () => [...queryKeys.dashboard.all, 'kpis'],
+    userGrowth: (days: number) => [...queryKeys.dashboard.all, 'userGrowth', days],
+    recentActivities: (limit: number) => [...queryKeys.dashboard.all, 'recentActivities', limit],
+    activityTypes: () => [...queryKeys.dashboard.all, 'activityTypes'],
+    revenue: (days: number) => [...queryKeys.dashboard.all, 'revenue', days],
+    geographic: () => [...queryKeys.dashboard.all, 'geographic'],
   },
   
   // 审核相关
   moderation: {
     all: ['moderation'],
-    queue: () => [...queryKeys.moderation.all, 'queue'],
+    queue: (filters?: any) => [...queryKeys.moderation.all, 'queue', filters],
+    stats: () => [...queryKeys.moderation.all, 'stats'],
+    item: (id: string) => [...queryKeys.moderation.all, 'item', id],
+    moderators: () => [...queryKeys.moderation.all, 'moderators'],
+    history: (targetId: string, targetType: string) => [...queryKeys.moderation.all, 'history', targetId, targetType],
     reports: () => [...queryKeys.moderation.all, 'reports'],
+  },
+  
+  // 风险管理相关
+  risk: {
+    all: ['risk'],
+    assessments: (filters?: any) => [...queryKeys.risk.all, 'assessments', filters],
+    assessment: (id: string) => [...queryKeys.risk.all, 'assessment', id],
+    stats: () => [...queryKeys.risk.all, 'stats'],
+    userReliability: (userId: string) => [...queryKeys.risk.all, 'userReliability', userId],
+    disputes: (filters?: any) => [...queryKeys.risk.all, 'disputes', filters],
+    dispute: (id: string) => [...queryKeys.risk.all, 'dispute', id],
+    fraudDetections: (filters?: any) => [...queryKeys.risk.all, 'fraudDetections', filters],
+    fraudDetection: (id: string) => [...queryKeys.risk.all, 'fraudDetection', id],
+    trends: (timeRange: string) => [...queryKeys.risk.all, 'trends', timeRange],
+    mitigation: () => [...queryKeys.risk.all, 'mitigation'],
+  },
+  
+  // 增值服务相关
+  premiumServices: {
+    all: ['premiumServices'],
+    stats: (timeRange?: string) => [...queryKeys.premiumServices.all, 'stats', timeRange],
+    membership: () => [...queryKeys.premiumServices.all, 'membership'],
+    aiQuota: (timeRange?: string) => [...queryKeys.premiumServices.all, 'aiQuota', timeRange],
+    configs: () => [...queryKeys.premiumServices.all, 'configs'],
+    config: (id: string) => [...queryKeys.premiumServices.all, 'config', id],
+    conversionFunnel: (serviceType?: string) => [...queryKeys.premiumServices.all, 'conversionFunnel', serviceType],
+    userJourney: (timeRange?: string) => [...queryKeys.premiumServices.all, 'userJourney', timeRange],
+    performance: (serviceType: string, timeRange?: string) => [...queryKeys.premiumServices.all, 'performance', serviceType, timeRange],
   },
   
   // 系统相关
   system: {
     all: ['system'],
-    config: () => [...queryKeys.system.all, 'config'],
-    logs: () => [...queryKeys.system.all, 'logs'],
+    configs: (filters?: any) => [...queryKeys.system.all, 'configs', filters],
+    config: (id: string) => [...queryKeys.system.all, 'config', id],
+    businessRules: () => [...queryKeys.system.all, 'businessRules'],
+    businessRule: (id: string) => [...queryKeys.system.all, 'businessRule', id],
+    featureFlags: () => [...queryKeys.system.all, 'featureFlags'],
+    featureFlag: (id: string) => [...queryKeys.system.all, 'featureFlag', id],
     health: () => [...queryKeys.system.all, 'health'],
+    announcements: () => [...queryKeys.system.all, 'announcements'],
+    announcement: (id: string) => [...queryKeys.system.all, 'announcement', id],
+    auditLogs: (filters?: any) => [...queryKeys.system.all, 'auditLogs', filters],
+    maintenance: () => [...queryKeys.system.all, 'maintenance'],
+  },
+  
+  // 地理管理相关
+  geography: {
+    all: ['geography'],
+    heatmap: (filters?: any) => [...queryKeys.geography.all, 'heatmap', filters],
+    userDistribution: (filters?: any) => [...queryKeys.geography.all, 'userDistribution', filters],
+    regionPerformance: (filters?: any) => [...queryKeys.geography.all, 'regionPerformance', filters],
+    locations: (filters?: any) => [...queryKeys.geography.all, 'locations', filters],
+    location: (id: string) => [...queryKeys.geography.all, 'location', id],
+    verifications: (filters?: any) => [...queryKeys.geography.all, 'verifications', filters],
+    verification: (id: string) => [...queryKeys.geography.all, 'verification', id],
+    privacyControls: () => [...queryKeys.geography.all, 'privacyControls'],
+    privacyControl: (userId: string) => [...queryKeys.geography.all, 'privacyControl', userId],
+  },
+  
+  // 沟通管理相关
+  communication: {
+    all: ['communication'],
+    chat: {
+      all: ['communication', 'chat'],
+      messages: (filters?: any) => [...queryKeys.communication.chat.all, 'messages', filters],
+      message: (id: string) => [...queryKeys.communication.chat.all, 'message', id],
+      moderations: (messageId: string) => [...queryKeys.communication.chat.all, 'moderations', messageId],
+    },
+    notifications: {
+      all: ['communication', 'notifications'],
+      list: (filters?: any) => [...queryKeys.communication.notifications.all, 'list', filters],
+      notification: (id: string) => [...queryKeys.communication.notifications.all, 'notification', id],
+    },
+    support: {
+      all: ['communication', 'support'],
+      requests: (filters?: any) => [...queryKeys.communication.support.all, 'requests', filters],
+      request: (id: string) => [...queryKeys.communication.support.all, 'request', id],
+      responses: (requestId: string) => [...queryKeys.communication.support.all, 'responses', requestId],
+    },
+    stats: () => [...queryKeys.communication.all, 'stats'],
   },
 }
 
@@ -125,12 +208,53 @@ export const invalidateQueries = {
     reports: () => queryClient.invalidateQueries({ queryKey: queryKeys.moderation.reports() }),
   },
   
+  // 风险管理相关缓存失效
+  risk: {
+    all: () => queryClient.invalidateQueries({ queryKey: queryKeys.risk.all }),
+    assessments: () => queryClient.invalidateQueries({ queryKey: queryKeys.risk.assessments() }),
+    disputes: () => queryClient.invalidateQueries({ queryKey: queryKeys.risk.disputes() }),
+    fraudDetections: () => queryClient.invalidateQueries({ queryKey: queryKeys.risk.fraudDetections() }),
+  },
+  
+  // 增值服务相关缓存失效
+  premiumServices: {
+    all: () => queryClient.invalidateQueries({ queryKey: queryKeys.premiumServices.all }),
+    stats: () => queryClient.invalidateQueries({ queryKey: queryKeys.premiumServices.stats() }),
+    membership: () => queryClient.invalidateQueries({ queryKey: queryKeys.premiumServices.membership() }),
+    configs: () => queryClient.invalidateQueries({ queryKey: queryKeys.premiumServices.configs() }),
+    aiQuota: () => queryClient.invalidateQueries({ queryKey: queryKeys.premiumServices.aiQuota() }),
+  },
+  
   // 系统相关缓存失效
   system: {
     all: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.all }),
-    config: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.config() }),
-    logs: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.logs() }),
+    configs: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.configs() }),
+    businessRules: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.businessRules() }),
+    featureFlags: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.featureFlags() }),
     health: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.health() }),
+    announcements: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.announcements() }),
+    auditLogs: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.auditLogs() }),
+    maintenance: () => queryClient.invalidateQueries({ queryKey: queryKeys.system.maintenance() }),
+  },
+  
+  // 地理管理相关缓存失效
+  geography: {
+    all: () => queryClient.invalidateQueries({ queryKey: queryKeys.geography.all }),
+    heatmap: () => queryClient.invalidateQueries({ queryKey: queryKeys.geography.heatmap() }),
+    userDistribution: () => queryClient.invalidateQueries({ queryKey: queryKeys.geography.userDistribution() }),
+    regionPerformance: () => queryClient.invalidateQueries({ queryKey: queryKeys.geography.regionPerformance() }),
+    locations: () => queryClient.invalidateQueries({ queryKey: queryKeys.geography.locations() }),
+    verifications: () => queryClient.invalidateQueries({ queryKey: queryKeys.geography.verifications() }),
+    privacyControls: () => queryClient.invalidateQueries({ queryKey: queryKeys.geography.privacyControls() }),
+  },
+  
+  // 沟通管理相关缓存失效
+  communication: {
+    all: () => queryClient.invalidateQueries({ queryKey: queryKeys.communication.all }),
+    chat: () => queryClient.invalidateQueries({ queryKey: queryKeys.communication.chat.all }),
+    notifications: () => queryClient.invalidateQueries({ queryKey: queryKeys.communication.notifications.all }),
+    support: () => queryClient.invalidateQueries({ queryKey: queryKeys.communication.support.all }),
+    stats: () => queryClient.invalidateQueries({ queryKey: queryKeys.communication.stats() }),
   },
 }
 

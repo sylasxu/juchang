@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
@@ -17,8 +18,13 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { Analytics } from './components/analytics'
 import { Overview } from './components/overview'
 import { RecentActivities } from './components/recent-activities'
+import { useDashboardKPIs, useRealTimeUpdates } from '@/hooks/use-dashboard'
+import { RefreshCw } from 'lucide-react'
 
 export function Dashboard() {
+  const { data: kpis, isLoading: kpisLoading, error: kpisError } = useDashboardKPIs()
+  const { refreshAll } = useRealTimeUpdates()
+
   return (
     <>
       {/* ===== Top Heading ===== */}
@@ -37,6 +43,15 @@ export function Dashboard() {
         <div className='mb-2 flex items-center justify-between space-y-2'>
           <h1 className='text-2xl font-bold tracking-tight'>聚场数据概览</h1>
           <div className='flex items-center space-x-2'>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshAll}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              刷新数据
+            </Button>
             <Button>导出报告</Button>
           </div>
         </div>
@@ -59,6 +74,7 @@ export function Dashboard() {
           </div>
           <TabsContent value='overview' className='space-y-4'>
             <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-4'>
+              {/* 总用户数 */}
               <Card>
                 <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                   <CardTitle className='text-sm font-medium'>
@@ -80,12 +96,32 @@ export function Dashboard() {
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>12,543</div>
-                  <p className='text-muted-foreground text-xs'>
-                    +15.2% 较上月
-                  </p>
+                  {kpisLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-20" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  ) : kpisError ? (
+                    <div className="text-sm text-red-500">加载失败</div>
+                  ) : (
+                    <>
+                      <div className='text-2xl font-bold'>
+                        {kpis?.totalUsers?.toLocaleString() || '0'}
+                      </div>
+                      <p className={`text-xs ${
+                        (kpis?.userGrowthRate || 0) >= 0 
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {(kpis?.userGrowthRate || 0) >= 0 ? '+' : ''}
+                        {(kpis?.userGrowthRate || 0).toFixed(1)}% 较上月
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* 活跃用户 */}
               <Card>
                 <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                   <CardTitle className='text-sm font-medium'>
@@ -105,12 +141,32 @@ export function Dashboard() {
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>3,247</div>
-                  <p className='text-muted-foreground text-xs'>
-                    +8.1% 较上周
-                  </p>
+                  {kpisLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-20" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  ) : kpisError ? (
+                    <div className="text-sm text-red-500">加载失败</div>
+                  ) : (
+                    <>
+                      <div className='text-2xl font-bold'>
+                        {kpis?.activeUsers?.toLocaleString() || '0'}
+                      </div>
+                      <p className={`text-xs ${
+                        (kpis?.activeUserGrowthRate || 0) >= 0 
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {(kpis?.activeUserGrowthRate || 0) >= 0 ? '+' : ''}
+                        {(kpis?.activeUserGrowthRate || 0).toFixed(1)}% 较上周
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* 活动总数 */}
               <Card>
                 <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                   <CardTitle className='text-sm font-medium'>活动总数</CardTitle>
@@ -129,12 +185,32 @@ export function Dashboard() {
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>1,892</div>
-                  <p className='text-muted-foreground text-xs'>
-                    +23% 较上月
-                  </p>
+                  {kpisLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-20" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  ) : kpisError ? (
+                    <div className="text-sm text-red-500">加载失败</div>
+                  ) : (
+                    <>
+                      <div className='text-2xl font-bold'>
+                        {kpis?.totalActivities?.toLocaleString() || '0'}
+                      </div>
+                      <p className={`text-xs ${
+                        (kpis?.activityGrowthRate || 0) >= 0 
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {(kpis?.activityGrowthRate || 0) >= 0 ? '+' : ''}
+                        {(kpis?.activityGrowthRate || 0).toFixed(1)}% 较上月
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
+
+              {/* 交易流水 */}
               <Card>
                 <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
                   <CardTitle className='text-sm font-medium'>
@@ -154,10 +230,28 @@ export function Dashboard() {
                   </svg>
                 </CardHeader>
                 <CardContent>
-                  <div className='text-2xl font-bold'>¥89,432</div>
-                  <p className='text-muted-foreground text-xs'>
-                    +12.5% 较上月
-                  </p>
+                  {kpisLoading ? (
+                    <div className="space-y-2">
+                      <Skeleton className="h-8 w-20" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  ) : kpisError ? (
+                    <div className="text-sm text-red-500">加载失败</div>
+                  ) : (
+                    <>
+                      <div className='text-2xl font-bold'>
+                        ¥{(kpis?.totalRevenue || 0).toLocaleString()}
+                      </div>
+                      <p className={`text-xs ${
+                        (kpis?.revenueGrowthRate || 0) >= 0 
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {(kpis?.revenueGrowthRate || 0) >= 0 ? '+' : ''}
+                        {(kpis?.revenueGrowthRate || 0).toFixed(1)}% 较上月
+                      </p>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </div>
@@ -174,7 +268,7 @@ export function Dashboard() {
                 <CardHeader>
                   <CardTitle>最新活动</CardTitle>
                   <CardDescription>
-                    本月创建了 156 个新活动
+                    最近创建的活动列表
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

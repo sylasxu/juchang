@@ -24,12 +24,20 @@ import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authen
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedTransactionsIndexRouteImport } from './routes/_authenticated/transactions/index'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks/index'
+import { Route as AuthenticatedSystemIndexRouteImport } from './routes/_authenticated/system/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedRiskIndexRouteImport } from './routes/_authenticated/risk/index'
+import { Route as AuthenticatedPremiumIndexRouteImport } from './routes/_authenticated/premium/index'
+import { Route as AuthenticatedModerationIndexRouteImport } from './routes/_authenticated/moderation/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
 import { Route as AuthenticatedActivitiesIndexRouteImport } from './routes/_authenticated/activities/index'
 import { Route as AuthenticatedUsersIdRouteImport } from './routes/_authenticated/users/$id'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedRiskFraudRouteImport } from './routes/_authenticated/risk/fraud'
+import { Route as AuthenticatedRiskDisputesRouteImport } from './routes/_authenticated/risk/disputes'
+import { Route as AuthenticatedPremiumAnalysisRouteImport } from './routes/_authenticated/premium/analysis'
+import { Route as AuthenticatedModerationIdRouteImport } from './routes/_authenticated/moderation/$id'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
 import { Route as AuthenticatedActivitiesGhostRouteImport } from './routes/_authenticated/activities/ghost'
 import { Route as AuthenticatedActivitiesIdRouteImport } from './routes/_authenticated/activities/$id'
@@ -110,11 +118,34 @@ const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
   path: '/tasks/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSystemIndexRoute =
+  AuthenticatedSystemIndexRouteImport.update({
+    id: '/system/',
+    path: '/system/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedRiskIndexRoute = AuthenticatedRiskIndexRouteImport.update({
+  id: '/risk/',
+  path: '/risk/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPremiumIndexRoute =
+  AuthenticatedPremiumIndexRouteImport.update({
+    id: '/premium/',
+    path: '/premium/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedModerationIndexRoute =
+  AuthenticatedModerationIndexRouteImport.update({
+    id: '/moderation/',
+    path: '/moderation/',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedHelpCenterIndexRoute =
   AuthenticatedHelpCenterIndexRouteImport.update({
@@ -144,6 +175,29 @@ const AuthenticatedSettingsAccountRoute =
     id: '/account',
     path: '/account',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedRiskFraudRoute = AuthenticatedRiskFraudRouteImport.update({
+  id: '/risk/fraud',
+  path: '/risk/fraud',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedRiskDisputesRoute =
+  AuthenticatedRiskDisputesRouteImport.update({
+    id: '/risk/disputes',
+    path: '/risk/disputes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedPremiumAnalysisRoute =
+  AuthenticatedPremiumAnalysisRouteImport.update({
+    id: '/premium/analysis',
+    path: '/premium/analysis',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedModerationIdRoute =
+  AuthenticatedModerationIdRouteImport.update({
+    id: '/moderation/$id',
+    path: '/moderation/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedErrorsErrorRoute =
   AuthenticatedErrorsErrorRouteImport.update({
@@ -179,12 +233,20 @@ export interface FileRoutesByFullPath {
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
   '/activities/ghost': typeof AuthenticatedActivitiesGhostRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/moderation/$id': typeof AuthenticatedModerationIdRoute
+  '/premium/analysis': typeof AuthenticatedPremiumAnalysisRoute
+  '/risk/disputes': typeof AuthenticatedRiskDisputesRoute
+  '/risk/fraud': typeof AuthenticatedRiskFraudRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
+  '/moderation': typeof AuthenticatedModerationIndexRoute
+  '/premium': typeof AuthenticatedPremiumIndexRoute
+  '/risk': typeof AuthenticatedRiskIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/system': typeof AuthenticatedSystemIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/transactions': typeof AuthenticatedTransactionsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
@@ -203,12 +265,20 @@ export interface FileRoutesByTo {
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
   '/activities/ghost': typeof AuthenticatedActivitiesGhostRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/moderation/$id': typeof AuthenticatedModerationIdRoute
+  '/premium/analysis': typeof AuthenticatedPremiumAnalysisRoute
+  '/risk/disputes': typeof AuthenticatedRiskDisputesRoute
+  '/risk/fraud': typeof AuthenticatedRiskFraudRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
+  '/moderation': typeof AuthenticatedModerationIndexRoute
+  '/premium': typeof AuthenticatedPremiumIndexRoute
+  '/risk': typeof AuthenticatedRiskIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/system': typeof AuthenticatedSystemIndexRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
   '/transactions': typeof AuthenticatedTransactionsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
@@ -230,12 +300,20 @@ export interface FileRoutesById {
   '/_authenticated/activities/$id': typeof AuthenticatedActivitiesIdRoute
   '/_authenticated/activities/ghost': typeof AuthenticatedActivitiesGhostRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
+  '/_authenticated/moderation/$id': typeof AuthenticatedModerationIdRoute
+  '/_authenticated/premium/analysis': typeof AuthenticatedPremiumAnalysisRoute
+  '/_authenticated/risk/disputes': typeof AuthenticatedRiskDisputesRoute
+  '/_authenticated/risk/fraud': typeof AuthenticatedRiskFraudRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/users/$id': typeof AuthenticatedUsersIdRoute
   '/_authenticated/activities/': typeof AuthenticatedActivitiesIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
+  '/_authenticated/moderation/': typeof AuthenticatedModerationIndexRoute
+  '/_authenticated/premium/': typeof AuthenticatedPremiumIndexRoute
+  '/_authenticated/risk/': typeof AuthenticatedRiskIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/system/': typeof AuthenticatedSystemIndexRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
   '/_authenticated/transactions/': typeof AuthenticatedTransactionsIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
@@ -257,12 +335,20 @@ export interface FileRouteTypes {
     | '/activities/$id'
     | '/activities/ghost'
     | '/errors/$error'
+    | '/moderation/$id'
+    | '/premium/analysis'
+    | '/risk/disputes'
+    | '/risk/fraud'
     | '/settings/account'
     | '/settings/appearance'
     | '/users/$id'
     | '/activities'
     | '/help-center'
+    | '/moderation'
+    | '/premium'
+    | '/risk'
     | '/settings/'
+    | '/system'
     | '/tasks'
     | '/transactions'
     | '/users'
@@ -281,12 +367,20 @@ export interface FileRouteTypes {
     | '/activities/$id'
     | '/activities/ghost'
     | '/errors/$error'
+    | '/moderation/$id'
+    | '/premium/analysis'
+    | '/risk/disputes'
+    | '/risk/fraud'
     | '/settings/account'
     | '/settings/appearance'
     | '/users/$id'
     | '/activities'
     | '/help-center'
+    | '/moderation'
+    | '/premium'
+    | '/risk'
     | '/settings'
+    | '/system'
     | '/tasks'
     | '/transactions'
     | '/users'
@@ -307,12 +401,20 @@ export interface FileRouteTypes {
     | '/_authenticated/activities/$id'
     | '/_authenticated/activities/ghost'
     | '/_authenticated/errors/$error'
+    | '/_authenticated/moderation/$id'
+    | '/_authenticated/premium/analysis'
+    | '/_authenticated/risk/disputes'
+    | '/_authenticated/risk/fraud'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/users/$id'
     | '/_authenticated/activities/'
     | '/_authenticated/help-center/'
+    | '/_authenticated/moderation/'
+    | '/_authenticated/premium/'
+    | '/_authenticated/risk/'
     | '/_authenticated/settings/'
+    | '/_authenticated/system/'
     | '/_authenticated/tasks/'
     | '/_authenticated/transactions/'
     | '/_authenticated/users/'
@@ -438,12 +540,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTasksIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/system/': {
+      id: '/_authenticated/system/'
+      path: '/system'
+      fullPath: '/system'
+      preLoaderRoute: typeof AuthenticatedSystemIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
       path: '/'
       fullPath: '/settings/'
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/risk/': {
+      id: '/_authenticated/risk/'
+      path: '/risk'
+      fullPath: '/risk'
+      preLoaderRoute: typeof AuthenticatedRiskIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/premium/': {
+      id: '/_authenticated/premium/'
+      path: '/premium'
+      fullPath: '/premium'
+      preLoaderRoute: typeof AuthenticatedPremiumIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/moderation/': {
+      id: '/_authenticated/moderation/'
+      path: '/moderation'
+      fullPath: '/moderation'
+      preLoaderRoute: typeof AuthenticatedModerationIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/help-center/': {
       id: '/_authenticated/help-center/'
@@ -479,6 +609,34 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/account'
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/risk/fraud': {
+      id: '/_authenticated/risk/fraud'
+      path: '/risk/fraud'
+      fullPath: '/risk/fraud'
+      preLoaderRoute: typeof AuthenticatedRiskFraudRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/risk/disputes': {
+      id: '/_authenticated/risk/disputes'
+      path: '/risk/disputes'
+      fullPath: '/risk/disputes'
+      preLoaderRoute: typeof AuthenticatedRiskDisputesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/premium/analysis': {
+      id: '/_authenticated/premium/analysis'
+      path: '/premium/analysis'
+      fullPath: '/premium/analysis'
+      preLoaderRoute: typeof AuthenticatedPremiumAnalysisRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/moderation/$id': {
+      id: '/_authenticated/moderation/$id'
+      path: '/moderation/$id'
+      fullPath: '/moderation/$id'
+      preLoaderRoute: typeof AuthenticatedModerationIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/errors/$error': {
       id: '/_authenticated/errors/$error'
@@ -528,9 +686,17 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedActivitiesIdRoute: typeof AuthenticatedActivitiesIdRoute
   AuthenticatedActivitiesGhostRoute: typeof AuthenticatedActivitiesGhostRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
+  AuthenticatedModerationIdRoute: typeof AuthenticatedModerationIdRoute
+  AuthenticatedPremiumAnalysisRoute: typeof AuthenticatedPremiumAnalysisRoute
+  AuthenticatedRiskDisputesRoute: typeof AuthenticatedRiskDisputesRoute
+  AuthenticatedRiskFraudRoute: typeof AuthenticatedRiskFraudRoute
   AuthenticatedUsersIdRoute: typeof AuthenticatedUsersIdRoute
   AuthenticatedActivitiesIndexRoute: typeof AuthenticatedActivitiesIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
+  AuthenticatedModerationIndexRoute: typeof AuthenticatedModerationIndexRoute
+  AuthenticatedPremiumIndexRoute: typeof AuthenticatedPremiumIndexRoute
+  AuthenticatedRiskIndexRoute: typeof AuthenticatedRiskIndexRoute
+  AuthenticatedSystemIndexRoute: typeof AuthenticatedSystemIndexRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
   AuthenticatedTransactionsIndexRoute: typeof AuthenticatedTransactionsIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
@@ -542,9 +708,17 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedActivitiesIdRoute: AuthenticatedActivitiesIdRoute,
   AuthenticatedActivitiesGhostRoute: AuthenticatedActivitiesGhostRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
+  AuthenticatedModerationIdRoute: AuthenticatedModerationIdRoute,
+  AuthenticatedPremiumAnalysisRoute: AuthenticatedPremiumAnalysisRoute,
+  AuthenticatedRiskDisputesRoute: AuthenticatedRiskDisputesRoute,
+  AuthenticatedRiskFraudRoute: AuthenticatedRiskFraudRoute,
   AuthenticatedUsersIdRoute: AuthenticatedUsersIdRoute,
   AuthenticatedActivitiesIndexRoute: AuthenticatedActivitiesIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
+  AuthenticatedModerationIndexRoute: AuthenticatedModerationIndexRoute,
+  AuthenticatedPremiumIndexRoute: AuthenticatedPremiumIndexRoute,
+  AuthenticatedRiskIndexRoute: AuthenticatedRiskIndexRoute,
+  AuthenticatedSystemIndexRoute: AuthenticatedSystemIndexRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
   AuthenticatedTransactionsIndexRoute: AuthenticatedTransactionsIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,

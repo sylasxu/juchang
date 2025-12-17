@@ -23,6 +23,10 @@ import {
   GalleryVerticalEnd,
   Calendar,
   CreditCard,
+  Shield,
+  AlertTriangle,
+  Crown,
+  MapPin,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -51,29 +55,18 @@ export const sidebarData: SidebarData = {
   ],
   navGroups: [
     {
-      title: 'General',
+      title: 'Overview',
       items: [
         {
           title: 'Dashboard',
           url: '/',
           icon: LayoutDashboard,
         },
-        {
-          title: 'Tasks',
-          url: '/tasks',
-          icon: ListTodo,
-        },
-        {
-          title: 'Apps',
-          url: '/apps',
-          icon: Package,
-        },
-        {
-          title: 'Chats',
-          url: '/chats',
-          badge: '3',
-          icon: MessagesSquare,
-        },
+      ],
+    },
+    {
+      title: 'JuChang Platform Management',
+      items: [
         {
           title: 'Users',
           url: '/users',
@@ -106,6 +99,107 @@ export const sidebarData: SidebarData = {
               url: '/transactions/revenue',
             },
           ],
+        },
+      ],
+    },
+    {
+      title: 'Content & Safety',
+      items: [
+        {
+          title: 'Moderation',
+          icon: Shield,
+          items: [
+            {
+              title: 'Moderation Queue',
+              url: '/moderation',
+            },
+            {
+              title: 'Moderation Rules',
+              url: '/moderation/rules',
+            },
+            {
+              title: 'Moderation History',
+              url: '/moderation/history',
+            },
+          ],
+        },
+        {
+          title: 'Risk Management',
+          icon: AlertTriangle,
+          items: [
+            {
+              title: 'Risk Assessment',
+              url: '/risk',
+            },
+            {
+              title: 'Dispute Resolution',
+              url: '/risk/disputes',
+            },
+            {
+              title: 'Fraud Detection',
+              url: '/risk/fraud',
+            },
+          ],
+        },
+        {
+          title: 'Communication',
+          url: '/communication',
+          icon: MessagesSquare,
+        },
+      ],
+    },
+    {
+      title: 'Business Intelligence',
+      items: [
+        {
+          title: 'Premium Services',
+          icon: Crown,
+          items: [
+            {
+              title: 'Service Statistics',
+              url: '/premium',
+            },
+            {
+              title: 'Service Analysis',
+              url: '/premium/analysis',
+            },
+          ],
+        },
+        {
+          title: 'Geography Analysis',
+          url: '/geography',
+          icon: MapPin,
+        },
+      ],
+    },
+    {
+      title: 'System Administration',
+      items: [
+        {
+          title: 'System Management',
+          url: '/system',
+          icon: Settings,
+        },
+      ],
+    },
+    {
+      title: 'General Tools',
+      items: [
+        {
+          title: 'Tasks',
+          url: '/tasks',
+          icon: ListTodo,
+        },
+        {
+          title: 'Apps',
+          url: '/apps',
+          icon: Package,
+        },
+        {
+          title: 'Chats',
+          url: '/chats',
+          badge: '3',
+          icon: MessagesSquare,
         },
       ],
     },

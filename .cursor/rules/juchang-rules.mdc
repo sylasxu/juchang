@@ -110,16 +110,60 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
 - **Path**: `apps/admin/src/features/*`
 - **Structure**: Feature-based folder structure:
   - `index.tsx`: Feature page component
-  - `data/schema.ts`: Zod schemas for frontend validation
+  - `data/schema.ts`: TypeBox schemas for frontend validation (NOT Zod)
   - `data/data.ts`: Static data (options, styles)
   - `data/users.ts`: API calls using Eden Treaty
   - `hooks/use-*.ts`: React Query hooks
   - `components/*`: Feature-specific components
+- **CRITICAL: Page Layout Consistency**:
+  - **ALL pages MUST follow the tasks page template pattern**
+  - **Required Structure**:
+    ```typescript
+    export function FeaturePage() {
+      return (
+        <FeatureProvider>
+          <Header fixed>
+            <Search />
+            <div className='ms-auto flex items-center space-x-4'>
+              <ThemeSwitch />
+              <ConfigDrawer />
+              <ProfileDropdown />
+            </div>
+          </Header>
+
+          <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
+            <div className='flex flex-wrap items-end justify-between gap-2'>
+              <div>
+                <h2 className='text-2xl font-bold tracking-tight'>页面标题</h2>
+                <p className='text-muted-foreground'>页面描述</p>
+              </div>
+              <FeaturePrimaryButtons />
+            </div>
+            <FeatureTable />
+          </Main>
+
+          <FeatureDialogs />
+        </FeatureProvider>
+      )
+    }
+    ```
+  - **Required Components**:
+    - `FeatureProvider`: Context provider for state management
+    - `FeaturePrimaryButtons`: Action buttons (refresh, filters, etc.)
+    - `FeatureTable`: Main data table using TanStack Table
+    - `FeatureDialogs`: All modal dialogs
+    - `FeatureColumns`: Column definitions for the table
+    - `FeatureTableToolbar`: Search and filter toolbar
+  - **Table Pattern**: Use TanStack Table with DataTablePagination, NOT custom pagination
+  - **State Management**: Use Context pattern for component communication
+  - **Dialogs**: Centralized in FeatureDialogs component
 - **Mandate**:
   - **Eden Treaty**: Use `import { api } from '@/lib/eden'` for type-safe API calls.
   - **React Query**: Use `useQuery` and `useMutation` for data fetching and mutations.
   - **Type Safety**: Eden Treaty provides full type inference from Elysia API.
   - **No Server Actions**: This is a pure SPA, all API calls go through Eden Treaty.
+  - **TypeBox Only**: Use TypeBox for all schemas, NOT Zod.
+  - **Layout Consistency**: MUST follow tasks page template pattern exactly.
 
 ## 5. apps/web (Deprecated - Use apps/admin)
 - **Status**: Deprecated, migrated to `apps/admin`.
