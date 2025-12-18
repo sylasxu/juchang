@@ -1,102 +1,123 @@
-<t-toast id="t-toast" />
+<!--
+  个人中心页面
+  Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
+-->
+<view class="my-page">
+  <!-- 背景 -->
+  <view class="header-bg"></view>
 
-<view class="my">
-  <image class="nav-bg" src="/static/bg_navbar.png" />
-  <nav title-text="我的" />
-  <view class="my-info">
-    <t-cell-group>
-      <!-- 已登录状态 -->
-      <t-cell wx:if="{{isLoad}}" bordered="{{false}}">
-        <t-avatar 
-          image="{{userInfo.avatarUrl}}" 
-          icon="user" 
-          slot="left-icon" 
-          size="large" 
+  <!-- 导航栏 -->
+  <t-navbar title="我的" t-class="navbar-transparent" />
+
+  <!-- 用户信息卡片 -->
+  <view class="user-card">
+    <!-- 已登录状态 -->
+    <block wx:if="{{isLoad && userInfo}}">
+      <view class="user-header" bind:tap="onNavigateTo">
+        <t-avatar
+          image="{{userInfo.avatarUrl}}"
+          icon="user"
+          size="128rpx"
+          class="user-avatar"
         />
-        <view class="my-info__person" slot="description">
-          <view class="name">{{userInfo.nickname || '聚场用户'}}</view>
-          <view class="tags">
-            <t-tag class="tag" variant="light" icon="star">
-              {{userInfo.participationCount > 0 ? (userInfo.fulfillmentCount / userInfo.participationCount * 100).toFixed(0) + '%' : '新用户'}}
-            </t-tag>
-            <t-tag class="tag" variant="light" icon="crown" wx:if="{{userInfo.membershipType === 'pro'}}">
-              Pro会员
-            </t-tag>
-          </view>
-          <view class="stats">
-            <text class="stat-item">组织 {{userInfo.activitiesCreatedCount}} 场</text>
-            <text class="stat-item">参与 {{userInfo.participationCount}} 场</text>
+        <view class="user-info">
+          <view class="user-name">{{userInfo.nickname || '聚场用户'}}</view>
+          <view class="user-bio" wx:if="{{userInfo.bio}}">{{userInfo.bio}}</view>
+          <!-- 靠谱度标签 (Requirements: 12.1) -->
+          <view class="user-tags">
+            <view class="reliability-tag">
+              <t-icon name="star-filled" size="28rpx" />
+              <text>{{reliabilityLabel}}</text>
+              <text wx:if="{{reliabilityRate > 0}}" class="rate">{{reliabilityRate}}%</text>
+            </view>
+            <view class="member-tag" wx:if="{{userInfo.membershipType === 'pro'}}">
+              <t-icon name="crown-filled" size="28rpx" />
+              <text>Pro会员</text>
+            </view>
           </view>
         </view>
-        <t-icon slot="right-icon" name="edit" size="40rpx" color="#000000e6" bindtap="onNavigateTo" />
-      </t-cell>
-      
-      <!-- 未登录状态 -->
-      <t-cell
-        wx:if="{{!isLoad}}"
-        title="请先登录/注册"
-        bordered="{{false}}"
-        t-class-title="cell-class-title"
-        t-class-center="cell-class-center"
-        bindtap="onLogin"
-      >
-        <t-avatar slot="left-icon" icon="user" size="128rpx" />
-      </t-cell>
-    </t-cell-group>
-    
-    <t-divider t-class="divider-class" />
-    
-    <!-- 功能网格 -->
-    <t-grid t-class="grid-class">
-      <t-grid-item
-        wx:for="{{gridList}}"
-        wx:for-item="gridItem"
-        wx:key="type"
-        text="{{gridItem.name}}"
-        icon="{{gridItem.icon}}"
-        class="grid-item"
-        data-data="{{gridItem}}"
-        bindclick="onEleClick"
-      />
-    </t-grid>
+        <t-icon name="chevron-right" size="44rpx" color="#999" />
+      </view>
+
+      <!-- 统计数据 (Requirements: 12.2) -->
+      <view class="user-stats">
+        <view class="stat-item">
+          <text class="stat-value">{{userInfo.activitiesCreatedCount || 0}}</text>
+          <text class="stat-label">组织场次</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-value">{{userInfo.participationCount || 0}}</text>
+          <text class="stat-label">参与场次</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-value">{{userInfo.fulfillmentCount || 0}}</text>
+          <text class="stat-label">履约次数</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-item">
+          <text class="stat-value {{(userInfo.negativeFeedbackCount || 0) > 0 ? 'warning' : ''}}">
+            {{userInfo.negativeFeedbackCount || 0}}
+          </text>
+          <text class="stat-label">收到差评</text>
+        </view>
+      </view>
+    </block>
+
+    <!-- 未登录状态 (Requirements: 12.5) -->
+    <view wx:else class="login-prompt" bind:tap="onLogin">
+      <t-avatar icon="user" size="128rpx" class="user-avatar" />
+      <view class="login-text">
+        <text class="login-title">登录/注册</text>
+        <text class="login-desc">登录后享受更多功能</text>
+      </view>
+      <t-icon name="chevron-right" size="44rpx" color="#999" />
+    </view>
   </view>
 
-  <view class="my-service">
-    <view class="my-service--tips">推荐服务</view>
-    <t-grid column="{{4}}" class="my-service__list">
-      <t-grid-item
-        class="my-service__list-item"
-        wx:for="{{service}}"
-        wx:key="item"
-        text="{{item.name}}"
-        image="{{item.image}}"
-        url="{{item.url}}"
-        data-data="{{item}}"
-        bindclick="onEleClick"
-      />
-    </t-grid>
-  </view>
-
-  <t-cell-group theme="card">
-    <t-cell
-      wx:for="{{settingList}}"
-      wx:for-item="item"
+  <!-- 功能网格 (Requirements: 12.3, 12.4) -->
+  <view class="function-grid">
+    <view
+      wx:for="{{gridList}}"
       wx:key="type"
-      title="{{item.name}}"
-      leftIcon="{{item.icon}}"
-      hover
-      arrow
+      class="grid-item"
       data-data="{{item}}"
-      bindclick="onEleClick"
-    />
-    
-    <!-- 退出登录 -->
-    <t-cell
-      wx:if="{{isLoad}}"
-      title="退出登录"
-      leftIcon="logout"
-      hover
-      bindtap="onLogout"
-    />
-  </t-cell-group>
+      bind:tap="onEleClick"
+    >
+      <view class="grid-icon">
+        <t-icon name="{{item.icon}}" size="48rpx" />
+        <view class="grid-badge" wx:if="{{item.badge}}">{{item.badge}}</view>
+      </view>
+      <text class="grid-text">{{item.name}}</text>
+    </view>
+  </view>
+
+  <!-- 设置列表 -->
+  <view class="settings-section">
+    <t-cell-group theme="card">
+      <t-cell
+        wx:for="{{settingList}}"
+        wx:key="type"
+        title="{{item.name}}"
+        leftIcon="{{item.icon}}"
+        hover
+        arrow
+        data-data="{{item}}"
+        bind:click="onEleClick"
+      />
+      <!-- 退出登录 -->
+      <t-cell
+        wx:if="{{isLoad}}"
+        title="退出登录"
+        leftIcon="logout"
+        hover
+        bind:click="onLogout"
+        t-class-title="logout-text"
+      />
+    </t-cell-group>
+  </view>
+
+  <!-- 底部安全区 -->
+  <view class="safe-area"></view>
 </view>

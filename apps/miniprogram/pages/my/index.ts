@@ -1,24 +1,60 @@
-import { getUserInfo } from '../../src/api/user'
-import type { User } from '../../src/api/user'
+/**
+ * 个人中心页面
+ * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
+ * - 显示用户头像、昵称、靠谱度等级
+ * - 统计数据展示（组织场次、参与场次、收到差评次数）
+ * - 我发布的/我参与的活动列表入口
+ * - 未登录显示登录入口
+ */
+import { getUsersMe } from '../../src/api/endpoints/users/users';
 
-interface MyPageData {
-  isLoad: boolean
-  userInfo: User | null
-  gridList: Array<{
-    name: string
-    icon: string
-    type: string
-    url: string
-  }>
-  settingList: Array<{
-    name: string
-    icon: string
-    type: string
-    url: string
-  }>
+// ==================== 类型定义 ====================
+
+interface UserInfo {
+  id: string;
+  nickname: string;
+  avatarUrl?: string;
+  bio?: string;
+  phoneNumber?: string;
+  membershipType?: string;
+  reliabilityRate?: number;
+  participationCount: number;
+  fulfillmentCount: number;
+  activitiesCreatedCount: number;
+  negativeFeedbackCount?: number;
 }
 
-Page<MyPageData>({
+interface GridItem {
+  name: string;
+  icon: string;
+  type: string;
+  url: string;
+  badge?: number;
+}
+
+interface SettingItem {
+  name: string;
+  icon: string;
+  type: string;
+  url: string;
+}
+
+interface PageData {
+  /** 是否已登录 */
+  isLoad: boolean;
+  /** 用户信息 */
+  userInfo: UserInfo | null;
+  /** 功能网格 */
+  gridList: GridItem[];
+  /** 设置列表 */
+  settingList: SettingItem[];
+  /** 靠谱度等级文本 */
+  reliabilityLabel: string;
+  /** 靠谱度百分比 */
+  reliabilityRate: number;
+}
+
+Page<PageData, WechatMiniprogram.Page.CustomOption>({
   data: {
     isLoad: false,
     userInfo: null,
@@ -27,19 +63,19 @@ Page<MyPageData>({
         name: '我发布的',
         icon: 'root-list',
         type: 'published',
-        url: '',
+        url: '/subpackages/activity/list/index?type=published',
       },
       {
         name: '我参与的',
         icon: 'user-group',
         type: 'joined',
-        url: '',
+        url: '/subpackages/activity/list/index?type=joined',
       },
       {
         name: '我收藏的',
         icon: 'heart',
         type: 'favorites',
-        url: '',
+        url: '/subpackages/activity/list/index?type=favorites',
       },
       {
         name: '我的数据',
@@ -48,11 +84,13 @@ Page<MyPageData>({
         url: '/pages/dataCenter/index',
       },
     ],
-
     settingList: [
       { name: '个人资料', icon: 'user', type: 'profile', url: '/pages/my/info-edit/index' },
+      { name: '安全中心', icon: 'secured', type: 'safety', url: '/pages/safety/index' },
       { name: '设置', icon: 'setting', type: 'setting', url: '/pages/setting/index' },
     ],
+    reliabilityLabel: '新用户',
+    reliabilityRate: 0,
   },
 
   onLoad() {
@@ -60,132 +98,164 @@ Page<MyPageData>({
   },
 
   onShow() {
-    // 更新 tabbar 选中状态
+    // 更新 TabBar 选中状态
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({
-        value: 'my'
-      })
+      this.getTabBar().setData({ value: 'my' });
     }
-    
+
     // 每次显示时检查登录状态
     this.checkLoginStatus();
   },
 
-  // 检查登录状态
+  // ==================== 登录状态检查 ====================
+
   async checkLoginStatus() {
     const token = wx.getStorageSync('token') as string;
-    
+
     if (!token) {
       this.setData({
         isLoad: false,
-        userInfo: null
+        userInfo: null,
+        reliabilityLabel: '新用户',
+        reliabilityRate: 0,
       });
       return;
     }
 
     try {
-      // 获取最新用户信息
-      const userInfo = await getUserInfo();
-      
-      this.setData({
-        isLoad: true,
-        userInfo: userInfo
-      });
+      const response = await getUsersMe();
 
-      // 更新本地存储
-      wx.setStorageSync('userInfo', userInfo);
-      
-    } catch (error: any) {
+      if (response.status === 200) {
+        const userInfo = response.data as UserInfo;
+
+        // 计算靠谱度 (Requirements: 12.1)
+        const { reliabilityLabel, reliabilityRate } = this.calculateReliability(userInfo);
+
+        this.setData({
+          isLoad: true,
+          userInfo,
+          reliabilityLabel,
+          reliabilityRate,
+        });
+
+        // 更新本地存储
+        wx.setStorageSync('userInfo', userInfo);
+      } else {
+        throw new Error('获取用户信息失败');
+      }
+    } catch (error) {
       console.error('获取用户信息失败:', error);
-      
+
       // Token 可能已过期，清除登录状态
       wx.removeStorageSync('token');
       wx.removeStorageSync('userInfo');
-      
+
       this.setData({
         isLoad: false,
-        userInfo: null
+        userInfo: null,
+        reliabilityLabel: '新用户',
+        reliabilityRate: 0,
       });
     }
   },
 
-  // 计算靠谱度
-  getReliabilityRate(): string {
-    const { userInfo } = this.data;
+  // ==================== 靠谱度计算 (Requirements: 12.1, 12.2) ====================
+
+  calculateReliability(userInfo: UserInfo): { reliabilityLabel: string; reliabilityRate: number } {
     if (!userInfo || userInfo.participationCount === 0) {
-      return '新用户';
+      return { reliabilityLabel: '🆕 新用户', reliabilityRate: 0 };
     }
-    
+
     const rate = Math.round((userInfo.fulfillmentCount / userInfo.participationCount) * 100);
-    
-    if (rate === 100) return '⭐⭐⭐ 非常靠谱';
-    if (rate >= 80) return '⭐⭐ 靠谱';
-    if (rate >= 60) return '⭐ 一般';
-    return '待提升';
+
+    let label: string;
+    if (rate === 100) {
+      label = '⭐⭐⭐ 非常靠谱';
+    } else if (rate >= 80) {
+      label = '⭐⭐ 靠谱';
+    } else if (rate >= 60) {
+      label = '⭐ 一般';
+    } else {
+      label = '待提升';
+    }
+
+    return { reliabilityLabel: label, reliabilityRate: rate };
   },
 
-  // 跳转登录
+  // ==================== 事件处理 ====================
+
+  /** 跳转登录 (Requirements: 12.5) */
   onLogin() {
     wx.navigateTo({
       url: '/pages/login/login',
     });
   },
 
-  // 跳转个人资料编辑
+  /** 跳转个人资料编辑 */
   onNavigateTo() {
     if (!this.data.isLoad) {
       this.onLogin();
       return;
     }
-    
-    wx.navigateTo({ 
-      url: '/pages/my/info-edit/index' 
+
+    wx.navigateTo({
+      url: '/pages/my/info-edit/index',
     });
   },
 
-  // 点击功能项
+  /** 点击功能项 (Requirements: 12.3, 12.4) */
   onEleClick(e: WechatMiniprogram.TouchEvent) {
-    const { data } = e.currentTarget.dataset;
-    
+    const { data } = e.currentTarget.dataset as { data: GridItem | SettingItem };
+
+    // 未登录时跳转登录 (Requirements: 12.5)
     if (!this.data.isLoad) {
       this.onLogin();
       return;
     }
-    
+
     if (data.url) {
       wx.navigateTo({
-        url: data.url
+        url: data.url,
+        fail: () => {
+          wx.showToast({
+            title: `${data.name}功能开发中`,
+            icon: 'none',
+          });
+        },
       });
     } else {
       wx.showToast({
         title: `${data.name}功能开发中`,
-        icon: 'none'
+        icon: 'none',
       });
     }
   },
 
-  // 退出登录
+  /** 退出登录 */
   onLogout() {
     wx.showModal({
       title: '确认退出',
       content: '确定要退出登录吗？',
+      confirmColor: '#FF6B35',
       success: (res) => {
         if (res.confirm) {
           // 清除登录信息
           wx.removeStorageSync('token');
           wx.removeStorageSync('userInfo');
-          
+
           this.setData({
             isLoad: false,
-            userInfo: null
+            userInfo: null,
+            reliabilityLabel: '新用户',
+            reliabilityRate: 0,
           });
-          
+
           wx.showToast({
             title: '已退出登录',
-            icon: 'success'
+            icon: 'success',
           });
         }
-      }
+      },
     });
   },
 });

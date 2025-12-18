@@ -1,0 +1,113 @@
+<!--
+  差评反馈弹窗组件
+  Requirements: 13.1, 13.2, 13.3, 13.4
+-->
+<view class="feedback-dialog-mask" wx:if="{{visible}}" bind:tap="onClose">
+  <view class="feedback-dialog" catch:tap="noop">
+    <!-- 头部 -->
+    <view class="dialog-header">
+      <text class="dialog-title">活动体验如何？</text>
+      <view class="close-btn" bind:tap="onClose">
+        <t-icon name="close" size="44rpx" />
+      </view>
+    </view>
+
+    <!-- 步骤1：选择问题类型 (Requirements: 13.1, 13.2) -->
+    <view class="dialog-content" wx:if="{{step === 1}}">
+      <view class="quick-actions">
+        <view class="good-btn" bind:tap="onGoodFeedback">
+          <t-icon name="thumb-up" size="48rpx" />
+          <text>挺好的</text>
+        </view>
+        <view class="problem-btn" bind:tap="onNextStep" wx:if="{{selectedProblem}}">
+          <t-icon name="thumb-down" size="48rpx" />
+          <text>有问题</text>
+        </view>
+      </view>
+
+      <view class="section-title">遇到什么问题？</view>
+      <view class="problem-options">
+        <view
+          wx:for="{{problemOptions}}"
+          wx:key="value"
+          class="problem-option {{selectedProblem === item.value ? 'selected' : ''}}"
+          data-value="{{item.value}}"
+          bind:tap="onSelectProblem"
+        >
+          <t-icon name="{{item.icon}}" size="44rpx" />
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+
+      <view class="dialog-footer">
+        <t-button
+          theme="primary"
+          size="large"
+          block
+          disabled="{{!selectedProblem}}"
+          bind:tap="onNextStep"
+        >
+          下一步：选择反馈对象
+        </t-button>
+      </view>
+    </view>
+
+    <!-- 步骤2：选择反馈对象 (Requirements: 13.3) -->
+    <view class="dialog-content" wx:if="{{step === 2}}">
+      <view class="step-back" bind:tap="onPrevStep">
+        <t-icon name="chevron-left" size="40rpx" />
+        <text>返回</text>
+      </view>
+
+      <view class="section-title">选择反馈对象</view>
+      <view class="target-list">
+        <view
+          wx:for="{{participants}}"
+          wx:key="userId"
+          class="target-item {{selectedTargets.includes(item.userId) ? 'selected' : ''}}"
+          data-user-id="{{item.userId}}"
+          bind:tap="onToggleTarget"
+        >
+          <image
+            class="target-avatar"
+            src="{{item.avatarUrl || '/static/images/default-avatar.png'}}"
+            mode="aspectFill"
+          />
+          <text class="target-name">{{item.nickname}}</text>
+          <view class="target-checkbox">
+            <t-checkbox
+              checked="{{selectedTargets.includes(item.userId)}}"
+              icon="circle"
+              borderless
+            />
+          </view>
+        </view>
+      </view>
+
+      <view class="description-section">
+        <view class="section-title">补充说明（选填）</view>
+        <textarea
+          class="description-input"
+          placeholder="请描述具体情况..."
+          value="{{description}}"
+          maxlength="200"
+          bindinput="onDescriptionInput"
+        />
+        <view class="char-count">{{description.length}}/200</view>
+      </view>
+
+      <view class="dialog-footer">
+        <t-button
+          theme="primary"
+          size="large"
+          block
+          disabled="{{selectedTargets.length === 0}}"
+          loading="{{submitting}}"
+          bind:tap="onSubmit"
+        >
+          提交反馈
+        </t-button>
+      </view>
+    </view>
+  </view>
+</view>

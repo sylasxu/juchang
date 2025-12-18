@@ -1,58 +1,119 @@
-<wxs src="./index.wxs" module="utils" />
+<!--
+  群聊页面
+  Requirements: 9.1, 9.2, 9.3, 9.4
+-->
+<view class="chat-page">
+  <!-- 活动信息头部 (Requirements: 9.1) -->
+  <view class="activity-header" bind:tap="onActivityTap" wx:if="{{activity}}">
+    <image
+      class="activity-image"
+      src="{{activity.image || '/static/images/default-activity.png'}}"
+      mode="aspectFill"
+    />
+    <view class="activity-info">
+      <view class="activity-title">{{activity.title}}</view>
+      <view class="activity-meta">
+        <t-icon name="location" size="28rpx" />
+        <text>{{activity.locationName}}</text>
+        <text class="separator">·</text>
+        <t-icon name="user" size="28rpx" />
+        <text>{{activity.participantCount}}人</text>
+      </view>
+    </view>
+    <view class="activity-status {{activity.isArchived ? 'archived' : ''}}">
+      {{activity.isArchived ? '已归档' : '进行中'}}
+    </view>
+    <t-icon name="chevron-right" size="40rpx" color="#999" />
+  </view>
 
-<t-navbar class="nav-bar" title="{{ name }}" left-arrow />
+  <!-- 消息列表 -->
+  <scroll-view
+    class="message-list"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    scroll-into-view="{{scrollToMessage}}"
+    scroll-with-animation
+    bindscrolltoupper="onLoadMore"
+    style="padding-bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '0'}}"
+  >
+    <!-- 加载更多提示 -->
+    <view class="load-more" wx:if="{{hasMore}}">
+      <t-loading theme="circular" size="40rpx" />
+      <text>加载更多...</text>
+    </view>
 
-<view class="chat-container">
-  <scroll-view class="content" scroll-y scroll-into-view="{{ anchor }}">
-    <view class="messages">
-      <block wx:for="{{ messages }}" wx:key="index">
-        <view wx:if="{{ index === 0 || item.time - messages[index - 1].time > 120000 }}" class="time" >
-          {{ utils.formatTime(item.time) }}
-        </view>
-
-        <view wx:if="{{ item.from === 0 }}" class="message-area">
-          <view class="message self">
-          <text space="nbsp">{{ item.content }}</text>
-          <t-loading
-            wx:if="{{ item.messageId === null }}"
-            t-class="loading"
-            theme="spinner"
-            size="32rpx"
-            class="wrapper"
+    <!-- 消息列表 -->
+    <block wx:for="{{messages}}" wx:key="id">
+      <view
+        id="msg-{{item.id}}"
+        class="message-item {{item.isSelf ? 'self' : 'other'}}"
+      >
+        <!-- 他人消息 -->
+        <block wx:if="{{!item.isSelf}}">
+          <image
+            class="avatar"
+            src="{{item.senderAvatar || '/static/images/default-avatar.png'}}"
+            mode="aspectFill"
           />
+          <view class="message-content">
+            <view class="sender-name">{{item.senderName}}</view>
+            <view class="message-bubble">
+              <text>{{item.content}}</text>
+            </view>
+            <view class="message-time">{{item.createdAt}}</view>
           </view>
-          <t-avatar image="{{ myAvatar }}" size="small" />
-        </view>
+        </block>
 
-        <view wx:else class="message-area">
-          <t-avatar image="{{ avatar }}" size="small" />
-          <view class="message other">
-          <text space="nbsp">{{ item.content }}</text>
+        <!-- 自己的消息 -->
+        <block wx:else>
+          <view class="message-content">
+            <view class="message-bubble">
+              <text>{{item.content}}</text>
+            </view>
+            <view class="message-time">{{item.createdAt}}</view>
           </view>
-        </view>
-      </block>
-      <view id="bottom" />
+          <image
+            class="avatar"
+            src="{{item.senderAvatar || '/static/images/default-avatar.png'}}"
+            mode="aspectFill"
+          />
+        </block>
+      </view>
+    </block>
+
+    <!-- 空状态 -->
+    <view class="empty-tip" wx:if="{{!loading && messages.length === 0}}">
+      <t-icon name="chat" size="96rpx" color="#ddd" />
+      <text>暂无消息</text>
+      <text class="empty-sub">发送第一条消息开始聊天吧</text>
     </view>
   </scroll-view>
-</view>
 
-<view class="block" style="margin-bottom: {{ keyboardHeight }}px" />
-<view class="bottom" style="margin-bottom: {{ keyboardHeight }}px">
-  <view class="input">
-    <input
-      value="{{ input }}"
-      type="text"
-      confirm-type="send"
-      placeholder="请输入"
-      placeholder-style="color: #00000066"
-      adjust-position="{{ false }}"
-      hold-keyboard
-      confirm-hold
-      bindkeyboardheightchange="handleKeyboardHeightChange"
-      bindblur="handleBlur"
-      bindinput="handleInput"
-      bindconfirm="sendMessage"
-    />
+  <!-- 输入区域 (Requirements: 9.2) -->
+  <view class="input-area" style="bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '0'}}">
+    <view class="input-wrapper">
+      <input
+        class="message-input"
+        type="text"
+        placeholder="{{activity && activity.isArchived ? '群聊已归档' : '输入消息...'}}"
+        placeholder-class="input-placeholder"
+        value="{{inputValue}}"
+        disabled="{{activity && activity.isArchived}}"
+        confirm-type="send"
+        adjust-position="{{false}}"
+        bindinput="onInputChange"
+        bindconfirm="onSendMessage"
+        bindkeyboardheightchange="onKeyboardHeightChange"
+        bindblur="onInputBlur"
+      />
+      <view
+        class="send-btn {{inputValue.trim() ? 'active' : ''}}"
+        bind:tap="onSendMessage"
+      >
+        <t-icon name="send" size="44rpx" />
+      </view>
+    </view>
+    <view class="safe-area"></view>
   </view>
-  <t-button class="send" theme="primary" shape="round" disabled="{{ !input }}" bind:tap="sendMessage">发送</t-button>
 </view>

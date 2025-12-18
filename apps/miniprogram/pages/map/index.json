@@ -1,0 +1,13 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "t-loading": "tdesign-miniprogram/loading/loading",
+    "t-tag": "tdesign-miniprogram/tag/tag",
+    "floating-buttons": "/components/floating-buttons/index",
+    "bottom-drawer": "/components/bottom-drawer/index",
+    "activity-card": "/components/activity-card/index",
+    "filter-panel": "/components/filter-panel/index"
+  }
+}

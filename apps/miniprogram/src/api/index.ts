@@ -18,6 +18,9 @@ export * from './endpoints/ai/ai'
 // 参与者相关
 export * from './endpoints/participants/participants'
 
+// 群聊相关
+export * from './endpoints/chat/chat'
+
 // 仪表板相关
 export * from './endpoints/dashboard/dashboard'
 

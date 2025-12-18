@@ -1,0 +1,42 @@
+@import '/variable.less';
+
+.floating-buttons {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 100;
+}
+
+// 浮动按钮通用样式
+.floating-btn {
+  position: absolute;
+  width: 80rpx;
+  height: 80rpx;
+  background-color: @bg-color-white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.15);
+  pointer-events: auto;
+
+  &:active {
+    opacity: 0.8;
+    transform: scale(0.95);
+  }
+}
+
+// 安全中心按钮 - 左上角
+.safety-btn {
+  left: 24rpx;
+}
+
+// 定位按钮 - 右侧中间
+.location-btn {
+  top: 50%;
+  right: 24rpx;
+  transform: translateY(-50%);
+}

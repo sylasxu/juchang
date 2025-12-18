@@ -30,6 +30,8 @@
     "src/**/*",
     "pages/**/*",
     "components/**/*",
+    "subpackages/**/*",
+    "custom-tab-bar/**/*",
     "app.ts",
     "*.ts"
   ],

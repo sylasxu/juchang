@@ -1,0 +1,125 @@
+<!--
+  履约确认页面
+  Requirements: 10.1, 10.2, 10.3, 10.4
+-->
+<view class="confirm-page">
+  <!-- 导航栏 -->
+  <t-navbar title="履约确认" left-arrow />
+
+  <!-- 加载状态 -->
+  <view class="loading-container" wx:if="{{loading}}">
+    <t-loading theme="circular" size="80rpx" />
+    <text>加载中...</text>
+  </view>
+
+  <block wx:else>
+    <!-- 活动信息头部 -->
+    <view class="activity-header" wx:if="{{activity}}">
+      <view class="activity-title">{{activity.title}}</view>
+      <view class="activity-meta">
+        <view class="meta-item">
+          <t-icon name="time" size="32rpx" />
+          <text>{{activity.startAt}}</text>
+        </view>
+        <view class="meta-item">
+          <t-icon name="location" size="32rpx" />
+          <text>{{activity.locationName}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 提示信息 -->
+    <view class="tips-section">
+      <view class="tips-icon">
+        <t-icon name="info-circle-filled" size="40rpx" color="#FF9500" />
+      </view>
+      <view class="tips-content">
+        <text class="tips-title">请确认参与者的到场情况</text>
+        <text class="tips-desc">默认全部已到场，如有未到场请取消勾选</text>
+      </view>
+    </view>
+
+    <!-- 参与者列表 (Requirements: 10.2) -->
+    <view class="participants-section">
+      <view class="section-header">
+        <text class="section-title">参与者列表 ({{participants.length}}人)</text>
+        <view class="select-all-btn" bind:tap="onSelectAll">
+          <text>全选已到场</text>
+        </view>
+      </view>
+
+      <view class="participants-list">
+        <view
+          wx:for="{{participants}}"
+          wx:key="id"
+          class="participant-item {{item.fulfilled ? '' : 'no-show'}}"
+          data-index="{{index}}"
+          bind:tap="onToggleFulfilled"
+        >
+          <view class="participant-checkbox">
+            <t-checkbox
+              checked="{{item.fulfilled}}"
+              icon="circle"
+              borderless
+            />
+          </view>
+          <image
+            class="participant-avatar"
+            src="{{item.avatarUrl || '/static/images/default-avatar.png'}}"
+            mode="aspectFill"
+          />
+          <view class="participant-info">
+            <view class="participant-name">
+              <text>{{item.nickname}}</text>
+              <view class="fast-pass-tag" wx:if="{{item.isFastPass}}">
+                <t-icon name="flash" size="24rpx" />
+                <text>Fast Pass</text>
+              </view>
+            </view>
+            <view class="participant-reliability">
+              <text>靠谱度 {{item.reliabilityRate}}%</text>
+            </view>
+          </view>
+          <view class="participant-status {{item.fulfilled ? 'fulfilled' : 'no-show'}}">
+            <text>{{item.fulfilled ? '已到场' : '未到场'}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 未到场统计 -->
+    <view class="no-show-summary" wx:if="{{noShowCount > 0}}">
+      <t-icon name="error-circle" size="40rpx" color="#FF4D4F" />
+      <text>您标记了 {{noShowCount}} 人未到场</text>
+    </view>
+
+    <!-- 底部操作栏 -->
+    <view class="bottom-bar">
+      <view class="warning-text" wx:if="{{noShowCount > 0}}">
+        <t-icon name="info-circle" size="28rpx" />
+        <text>标记他人未到场将扣除你 1% 靠谱度</text>
+      </view>
+      <t-button
+        theme="primary"
+        size="large"
+        block
+        loading="{{submitting}}"
+        bind:tap="onSubmit"
+      >
+        确认提交
+      </t-button>
+      <view class="safe-area"></view>
+    </view>
+  </block>
+
+  <!-- 警告弹窗 (Requirements: 10.3) -->
+  <t-dialog
+    visible="{{showWarningDialog}}"
+    title="标记未到场"
+    content="确定要将 {{currentParticipant.nickname}} 标记为未到场吗？\n\n注意：标记他人未到场将扣除你 1% 靠谱度"
+    confirm-btn="确定标记"
+    cancel-btn="取消"
+    bind:confirm="onConfirmNoShow"
+    bind:cancel="onCancelNoShow"
+  />
+</view>

@@ -1,0 +1,352 @@
+<!--
+  创建活动页面
+  Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
+-->
+<wxs module="utils">
+  // 获取活动类型显示文本
+  function getTypeLabel(value, types) {
+    if (!value || !types) return '请选择';
+    for (var i = 0; i < types.length; i++) {
+      if (types[i].value === value) return types[i].label;
+    }
+    return '请选择';
+  }
+  
+  // 获取费用类型显示文本
+  function getFeeTypeLabel(value, types) {
+    if (!value || !types) return 'AA制';
+    for (var i = 0; i < types.length; i++) {
+      if (types[i].value === value) return types[i].label;
+    }
+    return 'AA制';
+  }
+  
+  // 获取加入模式显示文本
+  function getJoinModeLabel(value, modes) {
+    if (!value || !modes) return '需要审批';
+    for (var i = 0; i < modes.length; i++) {
+      if (modes[i].value === value) return modes[i].label;
+    }
+    return '需要审批';
+  }
+  
+  // 格式化时间显示
+  function formatDateTime(dateStr) {
+    if (!dateStr) return '请选择';
+    var date = getDate(dateStr);
+    var month = date.getMonth() + 1;
+    var day = date.getDate();
+    var hours = date.getHours();
+    var minutes = date.getMinutes();
+    var hoursStr = hours < 10 ? '0' + hours : '' + hours;
+    var minutesStr = minutes < 10 ? '0' + minutes : '' + minutes;
+    return month + '月' + day + '日 ' + hoursStr + ':' + minutesStr;
+  }
+  
+  module.exports = {
+    getTypeLabel: getTypeLabel,
+    getFeeTypeLabel: getFeeTypeLabel,
+    getJoinModeLabel: getJoinModeLabel,
+    formatDateTime: formatDateTime
+  };
+</wxs>
+
+<view class="create-activity">
+  <scroll-view scroll-y class="form-scroll">
+    <!-- 基本信息 -->
+    <view class="section">
+      <view class="section-title">基本信息</view>
+      
+      <!-- 活动标题 -->
+      <view class="form-item">
+        <view class="form-label required">活动标题</view>
+        <t-input
+          placeholder="请输入活动标题（最多100字）"
+          value="{{form.title}}"
+          maxlength="{{100}}"
+          bindinput="onTitleInput"
+        />
+      </view>
+      
+      <!-- 活动类型 -->
+      <view class="form-item" bindtap="showTypePicker">
+        <view class="form-label required">活动类型</view>
+        <view class="form-value">
+          <text class="{{form.type ? '' : 'placeholder'}}">
+            {{utils.getTypeLabel(form.type, activityTypes)}}
+          </text>
+          <t-icon name="chevron-right" size="40rpx" color="#ccc" />
+        </view>
+      </view>
+      
+      <!-- 活动描述 -->
+      <view class="form-item">
+        <view class="form-label">活动描述</view>
+        <t-textarea
+          placeholder="介绍一下你的活动吧~"
+          value="{{form.description}}"
+          maxlength="{{500}}"
+          autosize
+          bindinput="onDescriptionInput"
+        />
+      </view>
+      
+      <!-- 活动图片 -->
+      <view class="form-item">
+        <view class="form-label">活动图片</view>
+        <t-upload
+          media-type="{{['image']}}"
+          max="{{maxImageCount}}"
+          files="{{form.images}}"
+          bind:success="onImageSuccess"
+          bind:remove="onImageRemove"
+        />
+      </view>
+    </view>
+    
+    <!-- 时间地点 -->
+    <view class="section">
+      <view class="section-title">时间地点</view>
+      
+      <!-- 开始时间 -->
+      <view class="form-item" bindtap="showStartTimePicker">
+        <view class="form-label required">开始时间</view>
+        <view class="form-value">
+          <text class="{{form.startAt ? '' : 'placeholder'}}">
+            {{utils.formatDateTime(form.startAt)}}
+          </text>
+          <t-icon name="chevron-right" size="40rpx" color="#ccc" />
+        </view>
+      </view>
+      
+      <!-- 结束时间 -->
+      <view class="form-item" bindtap="showEndTimePicker">
+        <view class="form-label">结束时间</view>
+        <view class="form-value">
+          <text class="{{form.endAt ? '' : 'placeholder'}}">
+            {{utils.formatDateTime(form.endAt)}}
+          </text>
+          <t-icon name="chevron-right" size="40rpx" color="#ccc" />
+        </view>
+      </view>
+      
+      <!-- 活动地点 -->
+      <view class="form-item" bindtap="onChooseLocation">
+        <view class="form-label required">活动地点</view>
+        <view class="form-value">
+          <text class="{{form.locationName ? '' : 'placeholder'}}">
+            {{form.locationName || '请选择地点'}}
+          </text>
+          <t-icon name="location" size="40rpx" color="#FF6B35" />
+        </view>
+      </view>
+      
+      <!-- 详细地址显示 -->
+      <view wx:if="{{form.address}}" class="address-detail">
+        <t-icon name="location" size="32rpx" color="#999" />
+        <text>{{form.address}}</text>
+      </view>
+      
+      <!-- 位置备注 (Requirements: 7.2) -->
+      <view wx:if="{{form.latitude}}" class="form-item">
+        <view class="form-label required">位置备注</view>
+        <t-input
+          placeholder="如：4楼平台入口、星巴克门口"
+          value="{{form.locationHint}}"
+          maxlength="{{50}}"
+          bindinput="onLocationHintInput"
+        />
+        <view class="form-hint">帮助参与者更容易找到你</view>
+      </view>
+      
+      <!-- 模糊位置开关 (Requirements: 7.3) -->
+      <view wx:if="{{form.latitude}}" class="form-item switch-item">
+        <view class="switch-content">
+          <view class="form-label">模糊地理位置</view>
+          <view class="form-hint">开启后，未通过审批的用户只能看到大致位置</view>
+        </view>
+        <t-switch value="{{form.isLocationBlurred}}" bind:change="onLocationBlurredChange" />
+      </view>
+    </view>
+    
+    <!-- 活动设置 -->
+    <view class="section">
+      <view class="section-title">活动设置</view>
+      
+      <!-- 参与人数 -->
+      <view class="form-item stepper-item">
+        <view class="form-label required">参与人数</view>
+        <t-stepper
+          value="{{form.maxParticipants}}"
+          min="{{2}}"
+          max="{{100}}"
+          theme="filled"
+          bind:change="onParticipantsChange"
+        />
+      </view>
+      
+      <!-- 费用类型 -->
+      <view class="form-item" bindtap="showFeeTypePicker">
+        <view class="form-label">费用类型</view>
+        <view class="form-value">
+          <text>{{utils.getFeeTypeLabel(form.feeType, feeTypes)}}</text>
+          <t-icon name="chevron-right" size="40rpx" color="#ccc" />
+        </view>
+      </view>
+      
+      <!-- 预估费用 -->
+      <view wx:if="{{form.feeType !== 'free'}}" class="form-item">
+        <view class="form-label">预估费用</view>
+        <t-input
+          placeholder="请输入预估费用（元）"
+          value="{{form.estimatedCost}}"
+          type="digit"
+          bindinput="onEstimatedCostInput"
+        />
+      </view>
+      
+      <!-- 加入模式 -->
+      <view class="form-item" bindtap="showJoinModePicker">
+        <view class="form-label">加入方式</view>
+        <view class="form-value">
+          <text>{{utils.getJoinModeLabel(form.joinMode, joinModes)}}</text>
+          <t-icon name="chevron-right" size="40rpx" color="#ccc" />
+        </view>
+      </view>
+      
+      <!-- 靠谱度门槛 -->
+      <view class="form-item">
+        <view class="form-label">靠谱度门槛</view>
+        <t-input
+          placeholder="不限制请留空（0-100）"
+          value="{{form.minReliabilityRate}}"
+          type="number"
+          bindinput="onMinReliabilityInput"
+        />
+        <view class="form-hint">设置后，靠谱度低于此值的用户无法报名</view>
+      </view>
+    </view>
+    
+    <!-- 增值服务 (Requirements: 7.6) -->
+    <view class="section premium-section">
+      <view class="section-title">
+        <text>推广服务</text>
+        <t-tag size="small" variant="light" theme="warning">可选</t-tag>
+      </view>
+      
+      <!-- Boost服务 -->
+      <view class="premium-item">
+        <view class="premium-header">
+          <t-checkbox value="{{enableBoost}}" bind:change="onBoostChange" />
+          <view class="premium-info">
+            <view class="premium-title">
+              <text class="premium-name">🔥 Boost 强力召唤</text>
+              <text class="premium-price">¥{{boostPrice}}</text>
+            </view>
+            <text class="premium-desc">向周围3km内用户发送推送通知，快速招人</text>
+          </view>
+        </view>
+      </view>
+      
+      <!-- Pin+服务 -->
+      <view class="premium-item">
+        <view class="premium-header">
+          <t-checkbox value="{{enablePinPlus}}" bind:change="onPinPlusChange" />
+          <view class="premium-info">
+            <view class="premium-title">
+              <text class="premium-name">⭐ Pin+ 黄金置顶</text>
+              <text class="premium-price">¥{{pinPlusPrice}}</text>
+            </view>
+            <text class="premium-desc">地图Pin变大变金色，持续24小时，更显眼</text>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部占位 -->
+    <view class="bottom-placeholder"></view>
+  </scroll-view>
+  
+  <!-- 底部提交栏 -->
+  <view class="bottom-bar">
+    <view wx:if="{{enableBoost || enablePinPlus}}" class="price-info">
+      <text class="price-label">增值服务：</text>
+      <text class="price-value">¥{{(enableBoost ? boostPrice : 0) + (enablePinPlus ? pinPlusPrice : 0)}}</text>
+    </view>
+    <t-button
+      theme="primary"
+      size="large"
+      block
+      loading="{{isSubmitting}}"
+      disabled="{{isSubmitting}}"
+      bindtap="onSubmit"
+    >
+      {{isSubmitting ? '发布中...' : '发布活动'}}
+    </t-button>
+  </view>
+  
+  <!-- 活动类型选择器 -->
+  <t-picker
+    visible="{{showTypePicker}}"
+    value="{{[form.type]}}"
+    title="选择活动类型"
+    cancelBtn="取消"
+    confirmBtn="确定"
+    bind:change="onTypeChange"
+    bind:cancel="onTypePickerCancel"
+  >
+    <t-picker-item options="{{activityTypes}}" />
+  </t-picker>
+  
+  <!-- 费用类型选择器 -->
+  <t-picker
+    visible="{{showFeeTypePicker}}"
+    value="{{[form.feeType]}}"
+    title="选择费用类型"
+    cancelBtn="取消"
+    confirmBtn="确定"
+    bind:change="onFeeTypeChange"
+    bind:cancel="onFeeTypePickerCancel"
+  >
+    <t-picker-item options="{{feeTypes}}" />
+  </t-picker>
+  
+  <!-- 加入模式选择器 -->
+  <t-picker
+    visible="{{showJoinModePicker}}"
+    value="{{[form.joinMode]}}"
+    title="选择加入方式"
+    cancelBtn="取消"
+    confirmBtn="确定"
+    bind:change="onJoinModeChange"
+    bind:cancel="onJoinModePickerCancel"
+  >
+    <t-picker-item options="{{joinModes}}" />
+  </t-picker>
+  
+  <!-- 开始时间选择器 -->
+  <t-date-time-picker
+    visible="{{showStartTimePicker}}"
+    mode="minute"
+    value="{{form.startAt}}"
+    title="选择开始时间"
+    cancelBtn="取消"
+    confirmBtn="确定"
+    start="{{Date.now()}}"
+    bind:change="onStartTimeChange"
+    bind:cancel="onStartTimePickerCancel"
+  />
+  
+  <!-- 结束时间选择器 -->
+  <t-date-time-picker
+    visible="{{showEndTimePicker}}"
+    mode="minute"
+    value="{{form.endAt || form.startAt}}"
+    title="选择结束时间"
+    cancelBtn="取消"
+    confirmBtn="确定"
+    start="{{form.startAt || Date.now()}}"
+    bind:change="onEndTimeChange"
+    bind:cancel="onEndTimePickerCancel"
+  />
+</view>

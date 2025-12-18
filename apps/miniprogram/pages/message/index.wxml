@@ -1,25 +1,136 @@
-<wxs src="./index.wxs" module="utils" />
+<!--
+  消息中心页面
+  Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+-->
+<view class="message-page">
+  <!-- 导航栏 -->
+  <t-navbar title="消息" fixed />
 
-<nav nav-type="title" title-text="全部消息"></nav>
-<scroll-view
-  class="message-list"
-  scroll-y
-  refresher-enabled
-  refresher-triggered="{{ loading }}"
-  bindrefresherrefresh="getMessageList"
->
-  <t-cell
-    wx:for="{{ messageList }}"
-    wx:key="index"
-    t-class-image="avatar"
-    t-class-description="content {{ utils.isRead(item.messages) ? '' : 'unread' }}"
-    image="{{ item.avatar }}"
-    title="{{ item.name }}"
-    description="{{ item.messages[item.messages.length - 1].content }}"
-    hover
-    bind:tap="toChat"
-    data-user-id="{{ item.userId }}"
+  <scroll-view
+    class="message-content"
+    scroll-y
+    enhanced
+    show-scrollbar="{{false}}"
+    refresher-enabled
+    refresher-triggered="{{loading}}"
+    bindrefresherrefresh="loadData"
   >
-    <t-badge slot="right-icon" count="{{ utils.computeUnreadNum(item.messages) }}" class="wrapper" />
-  </t-cell>
-</scroll-view>
+    <!-- 系统通知区域 (Requirements: 8.1, 8.2, 8.3) -->
+    <view class="section notification-section">
+      <view class="section-header" bind:tap="toggleNotificationExpand">
+        <view class="section-title">
+          <t-icon name="notification" size="40rpx" />
+          <text>系统通知</text>
+          <t-badge
+            wx:if="{{unreadNotificationCount > 0}}"
+            count="{{unreadNotificationCount}}"
+            class="section-badge"
+          />
+        </view>
+        <t-icon
+          name="{{notificationExpanded ? 'chevron-up' : 'chevron-down'}}"
+          size="40rpx"
+          class="expand-icon"
+        />
+      </view>
+
+      <view class="notification-list" wx:if="{{notificationExpanded}}">
+        <block wx:if="{{notifications.length > 0}}">
+          <view
+            wx:for="{{notifications}}"
+            wx:key="id"
+            class="notification-item {{item.read ? '' : 'unread'}}"
+            data-id="{{item.id}}"
+            data-type="{{item.type}}"
+            data-activity-id="{{item.activityId}}"
+            data-participant-id="{{item.participantId}}"
+            bind:tap="onNotificationTap"
+          >
+            <view class="notification-icon {{item.type}}">
+              <t-icon
+                name="{{item.type === 'join_request' ? 'user-add' : item.type === 'no_show' ? 'error-circle' : 'notification'}}"
+                size="44rpx"
+              />
+            </view>
+            <view class="notification-content">
+              <view class="notification-title">{{item.title}}</view>
+              <view class="notification-desc">{{item.content}}</view>
+              <view class="notification-time">{{item.createdAt}}</view>
+            </view>
+            <!-- 申诉按钮 (Requirements: 8.3, 11.1) -->
+            <view
+              wx:if="{{item.type === 'no_show' && item.canDispute}}"
+              class="dispute-btn"
+              data-activity-id="{{item.activityId}}"
+              data-participant-id="{{item.participantId}}"
+              catch:tap="onDisputeTap"
+            >
+              <t-button size="extra-small" theme="primary" variant="outline">
+                我到场了
+              </t-button>
+            </view>
+            <view wx:else class="notification-arrow">
+              <t-icon name="chevron-right" size="40rpx" color="#999" />
+            </view>
+          </view>
+        </block>
+        <view wx:else class="empty-tip">
+          <text>暂无系统通知</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 群聊列表区域 (Requirements: 8.4) -->
+    <view class="section chat-section">
+      <view class="section-header">
+        <view class="section-title">
+          <t-icon name="chat" size="40rpx" />
+          <text>活动群聊</text>
+        </view>
+      </view>
+
+      <view class="chat-list">
+        <block wx:if="{{chatList.length > 0}}">
+          <view
+            wx:for="{{chatList}}"
+            wx:key="activityId"
+            class="chat-item {{item.isArchived ? 'archived' : ''}}"
+            data-activity-id="{{item.activityId}}"
+            bind:tap="onChatTap"
+          >
+            <view class="chat-avatar">
+              <image
+                src="{{item.activityImage || '/static/images/default-activity.png'}}"
+                mode="aspectFill"
+              />
+              <view wx:if="{{item.isArchived}}" class="archived-badge">已归档</view>
+            </view>
+            <view class="chat-info">
+              <view class="chat-title-row">
+                <text class="chat-title">{{item.activityTitle}}</text>
+                <text class="chat-time">{{item.lastMessageTime}}</text>
+              </view>
+              <view class="chat-desc-row">
+                <text class="chat-desc">{{item.lastMessage || '暂无消息'}}</text>
+                <t-badge
+                  wx:if="{{item.unreadCount > 0}}"
+                  count="{{item.unreadCount}}"
+                  class="chat-badge"
+                />
+              </view>
+              <view class="chat-meta">
+                <t-icon name="user" size="28rpx" color="#999" />
+                <text>{{item.participantCount}}人</text>
+              </view>
+            </view>
+          </view>
+        </block>
+        <view wx:else class="empty-tip">
+          <t-icon name="chat" size="96rpx" color="#ddd" />
+          <text>暂无群聊</text>
+          <text class="empty-sub">参与活动后即可加入群聊</text>
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>

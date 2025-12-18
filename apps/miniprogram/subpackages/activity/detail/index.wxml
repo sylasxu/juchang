@@ -1,0 +1,342 @@
+<!--
+  活动详情页
+  Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
+-->
+<wxs module="utils">
+  // 格式化时间
+  function formatTime(dateStr) {
+    if (!dateStr) return '';
+    var date = getDate(dateStr);
+    var now = getDate();
+    
+    var hours = date.getHours();
+    var minutes = date.getMinutes();
+    var timeStr = (hours < 10 ? '0' + hours : hours) + ':' + (minutes < 10 ? '0' + minutes : minutes);
+    
+    var month = date.getMonth() + 1;
+    var day = date.getDate();
+    var weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+    var weekDay = weekDays[date.getDay()];
+    
+    return month + '月' + day + '日 ' + weekDay + ' ' + timeStr;
+  }
+  
+  // 获取费用类型文本
+  function getFeeTypeText(feeType) {
+    var map = {
+      free: '免费',
+      aa: 'AA制',
+      fixed: '固定费用',
+      treat: '请客'
+    };
+    return map[feeType] || feeType || '';
+  }
+  
+  // 获取活动类型文本
+  function getActivityTypeText(type) {
+    var map = {
+      food: '美食',
+      entertainment: '娱乐',
+      sports: '运动',
+      study: '学习',
+      travel: '旅行',
+      other: '其他'
+    };
+    return map[type] || type || '';
+  }
+  
+  // 计算靠谱度
+  function calculateReliability(user) {
+    if (!user || !user.participationCount || user.participationCount === 0) {
+      return -1;
+    }
+    return Math.round((user.fulfillmentCount / user.participationCount) * 100);
+  }
+  
+  // 获取靠谱度标签
+  function getReliabilityLabel(rate) {
+    if (rate === -1) return '🆕 新用户';
+    if (rate === 100) return '⭐⭐⭐ 非常靠谱';
+    if (rate >= 80) return '⭐⭐ 靠谱';
+    if (rate >= 60) return '⭐ 一般';
+    return '待提升';
+  }
+  
+  // 获取参与状态文本
+  function getStatusText(status) {
+    var map = {
+      pending: '审核中',
+      approved: '已通过',
+      rejected: '已拒绝'
+    };
+    return map[status] || '';
+  }
+  
+  // 获取地址显示
+  function getDisplayAddress(activity, participantStatus, isCreator) {
+    if (!activity) return '';
+    if (isCreator || participantStatus === 'approved') {
+      return activity.address || activity.locationName || '';
+    }
+    if (activity.isLocationBlurred) {
+      return activity.locationHint || '位置待定';
+    }
+    return activity.address || activity.locationName || '';
+  }
+  
+  module.exports = {
+    formatTime: formatTime,
+    getFeeTypeText: getFeeTypeText,
+    getActivityTypeText: getActivityTypeText,
+    calculateReliability: calculateReliability,
+    getReliabilityLabel: getReliabilityLabel,
+    getStatusText: getStatusText,
+    getDisplayAddress: getDisplayAddress
+  };
+</wxs>
+
+<view class="activity-detail">
+  <!-- 加载状态 -->
+  <view wx:if="{{loading}}" class="loading-container">
+    <t-loading theme="circular" size="80rpx" />
+    <text class="loading-text">加载中...</text>
+  </view>
+  
+  <!-- 错误状态 -->
+  <view wx:elif="{{error}}" class="error-container">
+    <t-icon name="error-circle" size="120rpx" color="#ff4d4f" />
+    <text class="error-text">{{errorMsg || '加载失败'}}</text>
+    <t-button theme="primary" size="small" bindtap="onRefresh">重试</t-button>
+  </view>
+  
+  <!-- 活动内容 -->
+  <view wx:else class="content">
+    <!-- 活动图片轮播 -->
+    <view class="image-section">
+      <swiper wx:if="{{activity.images && activity.images.length > 0}}" 
+              class="image-swiper" 
+              indicator-dots="{{activity.images.length > 1}}"
+              autoplay="{{false}}">
+        <swiper-item wx:for="{{activity.images}}" wx:key="index">
+          <image src="{{item}}" mode="aspectFill" class="activity-image" />
+        </swiper-item>
+      </swiper>
+      <view wx:else class="image-placeholder">
+        <t-icon name="image" size="80rpx" color="#ccc" />
+        <text class="placeholder-text">暂无图片</text>
+      </view>
+      
+      <!-- 增值服务标签 -->
+      <view class="service-tags">
+        <view wx:if="{{activity.isPinPlus}}" class="service-tag pinplus">
+          <t-icon name="star-filled" size="24rpx" />
+          <text>Pin+</text>
+        </view>
+        <view wx:if="{{activity.isBoosted}}" class="service-tag boost">
+          <text>🔥急招</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 活动基本信息 -->
+    <view class="info-section">
+      <!-- 标题和类型 -->
+      <view class="title-row">
+        <text class="activity-title">{{activity.title}}</text>
+        <t-tag wx:if="{{activity.type}}" size="small" variant="light" theme="primary">
+          {{utils.getActivityTypeText(activity.type)}}
+        </t-tag>
+      </view>
+      
+      <!-- 活动状态 -->
+      <view wx:if="{{participantStatus}}" class="status-row">
+        <t-tag size="small" variant="light" 
+               theme="{{participantStatus === 'approved' ? 'success' : participantStatus === 'rejected' ? 'danger' : 'warning'}}">
+          {{utils.getStatusText(participantStatus)}}
+        </t-tag>
+        <text wx:if="{{isCreator}}" class="creator-badge">我发起的</text>
+      </view>
+      
+      <!-- 时间 -->
+      <view class="info-row">
+        <t-icon name="time" size="36rpx" color="#FF6B35" />
+        <view class="info-content">
+          <text class="info-label">活动时间</text>
+          <text class="info-value">{{utils.formatTime(activity.startAt)}}</text>
+          <text wx:if="{{activity.endAt}}" class="info-value-sub">至 {{utils.formatTime(activity.endAt)}}</text>
+        </view>
+      </view>
+      
+      <!-- 地点 Requirements: 6.2 -->
+      <view class="info-row">
+        <t-icon name="location" size="36rpx" color="#FF6B35" />
+        <view class="info-content">
+          <text class="info-label">活动地点</text>
+          <text class="info-value">{{utils.getDisplayAddress(activity, participantStatus, isCreator)}}</text>
+          <text wx:if="{{activity.isLocationBlurred && !isCreator && participantStatus !== 'approved'}}" 
+                class="info-hint">报名通过后可查看详细地址</text>
+          <text wx:if="{{activity.locationHint && (isCreator || participantStatus === 'approved')}}" 
+                class="info-hint">{{activity.locationHint}}</text>
+        </view>
+      </view>
+      
+      <!-- 人数 -->
+      <view class="info-row">
+        <t-icon name="user" size="36rpx" color="#FF6B35" />
+        <view class="info-content">
+          <text class="info-label">参与人数</text>
+          <text class="info-value">{{activity.currentParticipants || 0}}/{{activity.maxParticipants}}人</text>
+          <text wx:if="{{isHotActivity}}" class="hot-badge">🔥热门</text>
+        </view>
+      </view>
+      
+      <!-- 费用 -->
+      <view class="info-row">
+        <t-icon name="money-circle" size="36rpx" color="#FF6B35" />
+        <view class="info-content">
+          <text class="info-label">费用</text>
+          <text class="info-value">{{utils.getFeeTypeText(activity.feeType)}}</text>
+          <text wx:if="{{activity.estimatedCost}}" class="info-value-sub">约¥{{activity.estimatedCost}}</text>
+        </view>
+      </view>
+      
+      <!-- 靠谱度门槛 -->
+      <view wx:if="{{activity.minReliabilityRate}}" class="info-row">
+        <t-icon name="secured" size="36rpx" color="#FF6B35" />
+        <view class="info-content">
+          <text class="info-label">靠谱度要求</text>
+          <text class="info-value">≥{{activity.minReliabilityRate}}%</text>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 活动描述 -->
+    <view wx:if="{{activity.description}}" class="description-section">
+      <text class="section-title">活动详情</text>
+      <text class="description-text">{{activity.description}}</text>
+    </view>
+
+    
+    <!-- 发起人信息 Requirements: 6.3 -->
+    <view class="creator-section" bindtap="onCreatorTap">
+      <text class="section-title">发起人</text>
+      <view class="creator-card">
+        <t-avatar 
+          image="{{activity.creator.avatarUrl}}" 
+          size="96rpx"
+          icon="user"
+        />
+        <view class="creator-info">
+          <text class="creator-name">{{activity.creator.nickname || '匿名用户'}}</text>
+          <view class="creator-stats">
+            <text class="stat-item">组织 {{activity.creator.organizationCount || 0}} 场</text>
+            <text class="stat-divider">|</text>
+            <text class="stat-item">参与 {{activity.creator.participationCount || 0}} 场</text>
+          </view>
+        </view>
+        <view class="creator-reliability">
+          <text class="reliability-label">{{utils.getReliabilityLabel(utils.calculateReliability(activity.creator))}}</text>
+          <text wx:if="{{utils.calculateReliability(activity.creator) >= 0}}" class="reliability-rate">
+            {{utils.calculateReliability(activity.creator)}}%
+          </text>
+        </view>
+        <t-icon name="chevron-right" size="32rpx" color="#ccc" />
+      </view>
+    </view>
+    
+    <!-- 参与者列表（仅创建者和已通过审核的用户可见） -->
+    <view wx:if="{{(isCreator || participantStatus === 'approved') && activity.participants && activity.participants.length > 0}}" 
+          class="participants-section">
+      <text class="section-title">参与者 ({{activity.participants.length}})</text>
+      <view class="participants-list">
+        <view wx:for="{{activity.participants}}" wx:key="id" class="participant-item">
+          <t-avatar 
+            image="{{item.user.avatarUrl}}" 
+            size="64rpx"
+            icon="user"
+          />
+          <view class="participant-info">
+            <text class="participant-name">{{item.user.nickname || '匿名用户'}}</text>
+            <t-tag size="small" variant="light" 
+                   theme="{{item.status === 'approved' ? 'success' : item.status === 'rejected' ? 'danger' : 'warning'}}">
+              {{utils.getStatusText(item.status)}}
+            </t-tag>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部操作栏 -->
+    <view class="bottom-bar">
+      <!-- 分享按钮 -->
+      <button class="share-btn" open-type="share">
+        <t-icon name="share" size="40rpx" />
+        <text>分享</text>
+      </button>
+      
+      <!-- 群聊按钮（仅已通过审核的参与者和创建者可见） -->
+      <button wx:if="{{isCreator || participantStatus === 'approved'}}" 
+              class="chat-btn" 
+              bindtap="onEnterChat">
+        <t-icon name="chat" size="40rpx" />
+        <text>群聊</text>
+      </button>
+      
+      <!-- 报名按钮 -->
+      <button wx:if="{{!isCreator && !participantStatus}}" 
+              class="join-btn" 
+              bindtap="onJoinTap">
+        我要报名
+      </button>
+      
+      <!-- 已报名状态 -->
+      <view wx:elif="{{participantStatus && !isCreator}}" class="status-btn">
+        <text>{{utils.getStatusText(participantStatus)}}</text>
+      </view>
+      
+      <!-- 创建者操作 -->
+      <view wx:elif="{{isCreator}}" class="creator-actions">
+        <button class="manage-btn" bindtap="onManageActivity">管理活动</button>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 报名对话框 -->
+  <t-popup visible="{{showJoinDialog}}" placement="bottom" bind:visible-change="onCloseJoinDialog">
+    <view class="join-dialog">
+      <view class="dialog-header">
+        <text class="dialog-title">报名参加</text>
+        <t-icon name="close" size="40rpx" bindtap="onCloseJoinDialog" />
+      </view>
+      
+      <view class="dialog-content">
+        <!-- 留言输入 -->
+        <view class="input-group">
+          <text class="input-label">留言（选填）</text>
+          <textarea class="message-input" 
+                    placeholder="向发起人介绍一下自己吧~" 
+                    value="{{joinMessage}}"
+                    bindinput="onJoinMessageInput"
+                    maxlength="200" />
+        </view>
+        
+        <!-- Fast Pass选项 Requirements: 6.6 -->
+        <view wx:if="{{isHotActivity}}" class="fastpass-group">
+          <view class="fastpass-header">
+            <t-checkbox value="{{useFastPass}}" bind:change="onFastPassChange" />
+            <text class="fastpass-title">优先入场券 (Fast Pass)</text>
+            <text class="fastpass-price">¥{{fastPassPrice}}</text>
+          </view>
+          <text class="fastpass-desc">热门活动，使用Fast Pass可让你的申请在审批列表中置顶显示</text>
+        </view>
+      </view>
+      
+      <view class="dialog-footer">
+        <t-button theme="light" size="large" bindtap="onCloseJoinDialog">取消</t-button>
+        <t-button theme="primary" size="large" loading="{{isJoining}}" bindtap="onConfirmJoin">
+          {{useFastPass ? '支付¥' + fastPassPrice + '并报名' : '确认报名'}}
+        </t-button>
+      </view>
+    </view>
+  </t-popup>
+</view>

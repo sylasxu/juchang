@@ -1,0 +1,86 @@
+<!--
+  地图首页
+  Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1-3.4, 4.1-4.5
+-->
+<view class="map-container">
+  <!-- 加载状态 -->
+  <view wx:if="{{isLoading}}" class="loading-overlay">
+    <t-loading theme="circular" size="80rpx" text="定位中..." />
+  </view>
+
+  <!-- 全屏地图 - Requirements: 2.1 -->
+  <map
+    id="map"
+    class="map"
+    latitude="{{latitude}}"
+    longitude="{{longitude}}"
+    scale="{{scale}}"
+    markers="{{markers}}"
+    show-location="{{locationAuthorized}}"
+    enable-zoom="{{true}}"
+    enable-scroll="{{true}}"
+    enable-rotate="{{false}}"
+    bindmarkertap="onMarkerTap"
+    bindregionchange="onRegionChange"
+  />
+
+  <!-- 浮动按钮组件 - Requirements: 3.1-3.4 -->
+  <floating-buttons
+    bind:locationtap="onLocationTap"
+    bind:safetytap="onSafetyTap"
+  />
+
+  <!-- 底部抽屉组件 - Requirements: 4.1-4.5 -->
+  <bottom-drawer
+    filter-count="{{filterCount}}"
+    activity-count="{{activityCount}}"
+    loading="{{activitiesLoading}}"
+    bind:filtertap="onFilterTap"
+    bind:createtap="onCreateActivity"
+    bind:expand="onDrawerExpand"
+    bind:collapse="onDrawerCollapse"
+  >
+    <!-- 活动列表插槽 -->
+    <view slot="activities">
+      <block wx:for="{{nearbyActivities}}" wx:key="id">
+        <activity-card
+          activity="{{item}}"
+          mode="list"
+          show-distance="{{true}}"
+          bind:tap="onActivityListItemTap"
+          data-activity="{{item}}"
+        />
+      </block>
+      <view wx:if="{{nearbyActivities.length === 0 && !activitiesLoading}}" class="empty-activities">
+        <t-icon name="map" size="80rpx" color="#ccc" />
+        <text class="empty-text">附近暂无活动</text>
+        <text class="empty-hint">成为第一个发起活动的人吧！</text>
+      </view>
+    </view>
+  </bottom-drawer>
+
+  <!-- 活动卡片弹窗 - Requirements: 2.5, 2.6 -->
+  <view wx:if="{{showActivityCard}}" class="activity-card-overlay" bindtap="onCloseActivityCard">
+    <view class="activity-card-popup" catchtap="">
+      <activity-card
+        activity="{{selectedActivity}}"
+        mode="popup"
+        show-distance="{{true}}"
+        bind:tap="onActivityCardTap"
+      />
+      <!-- Boost标签 - Requirements: 2.4 -->
+      <view wx:if="{{selectedActivity.isBoosted}}" class="boost-badge">
+        <text class="boost-icon">🔥</text>
+        <text class="boost-text">急招</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 筛选面板 - Requirements: 5.1, 5.2, 5.3, 5.4 -->
+  <filter-panel
+    visible="{{showFilterPanel}}"
+    filters="{{filters}}"
+    bind:close="onFilterPanelClose"
+    bind:apply="onFilterApply"
+  />
+</view>

@@ -1,9 +1,66 @@
-/**app.wxss**/
+/**
+ * 全局样式
+ * 聚场小程序 - TDesign 主题定制
+ */
+@import './variable.less';
+
 page {
-  background-color: #f3f3f3;
+  background-color: @bg-color-page;
+  
+  // ==================== TDesign 主题变量覆盖 ====================
+  // 品牌色
+  --td-brand-color: @brand-color;
+  --td-brand-color-light: @brand-color-light;
+  --td-brand-color-focus: fade(@brand-color, 20%);
+  --td-brand-color-active: @brand-color-dark;
+  --td-brand-color-disabled: fade(@brand-color, 40%);
+  
+  // 功能色
+  --td-success-color: @success-color;
+  --td-warning-color: @warning-color;
+  --td-error-color: @error-color;
+  
+  // 文字颜色
+  --td-text-color-primary: @text-color-primary;
+  --td-text-color-secondary: @text-color-secondary;
+  --td-text-color-placeholder: @text-color-placeholder;
+  --td-text-color-disabled: @text-color-disabled;
+  
+  // 背景色
+  --td-bg-color-page: @bg-color-page;
+  --td-bg-color-container: @bg-color-container;
+  --td-bg-color-secondarycontainer: @bg-color-secondary;
+  
+  // 边框色
+  --td-border-color: @border-color;
+  --td-component-border: @border-color-light;
+  
+  // 按钮主题
+  --td-button-primary-bg-color: @brand-color;
+  --td-button-primary-border-color: @brand-color;
+  --td-button-primary-active-bg-color: @brand-color-dark;
+  --td-button-primary-active-border-color: @brand-color-dark;
+  
+  // 开关主题
+  --td-switch-on-bg-color: @brand-color;
+  
+  // 复选框主题
+  --td-checkbox-icon-checked-color: @brand-color;
+  --td-checkbox-bg-color: @brand-color;
+  
+  // 单选框主题
+  --td-radio-icon-checked-color: @brand-color;
+  
+  // 输入框主题
+  --td-input-border-color: @border-color-light;
+  --td-input-bg-color: @bg-color-secondary;
+  
+  // 标签主题
+  --td-tag-primary-color: @brand-color;
+  --td-tag-primary-light-color: @brand-color-light;
 }
 
 .page {
   height: 100vh;
-  background-color: #fff;
+  background-color: @bg-color-container;
 }

@@ -1,123 +1,239 @@
-.my {
-  height: calc(100vh - 56px);
-  overflow-y: auto;
+/**
+ * 个人中心页面样式
+ * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
+ */
+@import '../../variable.less';
 
+.my-page {
+  min-height: 100vh;
+  background-color: var(--td-bg-color-page, @bg-color-page);
+  padding-bottom: calc(env(safe-area-inset-bottom) + @tab-bar-height);
+}
+
+// ==================== 头部背景 ====================
+
+.header-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 400rpx;
+  background: linear-gradient(180deg, var(--td-brand-color, @brand-color) 0%, fade(@brand-color, 60%) 100%);
+  border-radius: 0 0 48rpx 48rpx;
+}
+
+.navbar-transparent {
   --td-navbar-bg-color: transparent;
-  .nav-bg {
-    width: 750rpx;
-    height: 200rpx;
-    position: fixed;
-    top: 0;
-  }
+  --td-navbar-title-color: #fff;
+}
 
-  &-info,
-  &-service,
-  &-setting {
-    background-color: #fff;
-  }
+// ==================== 用户卡片 ====================
 
-  &-info {
-    border-radius: 24rpx;
-    margin: 8rpx 32rpx 0rpx 32rpx;
-    padding-bottom: 32rpx;
-    overflow: hidden;
+.user-card {
+  position: relative;
+  margin: 24rpx;
+  margin-top: 20rpx;
+  background-color: var(--td-bg-color-container, @bg-color-container);
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.08);
+}
 
-    .cell-class-title {
-      font-weight: 600 !important;
-    }
+.user-header {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+}
 
-    .cell-class-center {
-      display: flex;
-      align-items: center !important;
-    }
+.user-avatar {
+  flex-shrink: 0;
+  margin-right: 24rpx;
+}
 
-    .divider-class {
-      margin-top: 0 !important;
-      margin-bottom: 0 !important;
-    }
+.user-info {
+  flex: 1;
+  min-width: 0;
+}
 
-    .grid-class {
-      margin-top: 40rpx;
-    }
+.user-name {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary, @text-color-primary);
+  margin-bottom: 8rpx;
+}
 
-    .grid-item .t-grid-item__content {
-      padding: 0px !important;
-    }
+.user-bio {
+  font-size: 26rpx;
+  color: var(--td-text-color-secondary, @text-color-secondary);
+  margin-bottom: 12rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-    .split-line {
-      border-right: 1px solid #e7e7e7;
-    }
+.user-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
 
-    // 头像margin-right
-    --td-spacer-1: 32rpx;
+.reliability-tag,
+.member-tag {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+}
 
-    &__person {
-      .name {
-        line-height: 48rpx;
-        font-size: 32rpx;
-        color: #000000e6;
-        font-weight: 600;
-      }
+.reliability-tag {
+  background-color: fade(@brand-color, 10%);
+  color: var(--td-brand-color, @brand-color);
 
-      .tags {
-        display: flex;
-        margin-top: 16rpx;
-
-        --td-text-color-primary: #000000e6;
-        --td-tag-medium-font-size: 20rpx;
-        --td-tag-medium-icon-size: 24rpx;
-      }
-
-      .tag:not(:last-child) {
-        margin-right: 16rpx;
-      }
-    }
-  }
-
-  &-service {
-    border-radius: 24rpx;
-    margin: 32rpx;
-    padding-bottom: 8rpx;
-    overflow: hidden;
-
-    &__list-item {
-      .t-grid-item__content {
-        padding-bottom: 16rpx !important;
-      }
-      .t-grid-item__text {
-        height: 40rpx !important;
-      }
-    }
-
-    &--tips {
-      height: 44rpx;
-      line-height: 44rpx;
-      padding-left: 40rpx;
-      margin-top: 32rpx;
-      color: #000000e6;
-      font-size: 28rpx;
-      font-weight: 600;
-    }
+  .rate {
+    font-weight: 600;
   }
 }
-/* 聚场个人中心样式 */
-.my-info__person {
-  .stats {
-    margin-top: 8rpx;
-    display: flex;
-    gap: 24rpx;
-    
-    .stat-item {
-      font-size: 24rpx;
-      color: #666;
-    }
+
+.member-tag {
+  background-color: fade(#FFD700, 20%);
+  color: #B8860B;
+}
+
+// ==================== 统计数据 ====================
+
+.user-stats {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  border-top: 1rpx solid var(--td-border-color, @border-color-light);
+}
+
+.stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-value {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary, @text-color-primary);
+
+  &.warning {
+    color: var(--td-error-color, @error-color);
   }
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: var(--td-text-color-secondary, @text-color-secondary);
+  margin-top: 4rpx;
+}
+
+.stat-divider {
+  width: 1rpx;
+  height: 48rpx;
+  background-color: var(--td-border-color, @border-color-light);
+}
+
+// ==================== 未登录状态 ====================
+
+.login-prompt {
+  display: flex;
+  align-items: center;
+  padding: 48rpx 32rpx;
+}
+
+.login-text {
+  flex: 1;
+  margin-left: 24rpx;
+}
+
+.login-title {
+  display: block;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: var(--td-text-color-primary, @text-color-primary);
+  margin-bottom: 8rpx;
+}
+
+.login-desc {
+  display: block;
+  font-size: 26rpx;
+  color: var(--td-text-color-secondary, @text-color-secondary);
+}
+
+// ==================== 功能网格 ====================
+
+.function-grid {
+  display: flex;
+  margin: 24rpx;
+  background-color: var(--td-bg-color-container, @bg-color-container);
+  border-radius: 24rpx;
+  padding: 24rpx 0;
 }
 
 .grid-item {
-  border-radius: 16rpx;
-  
-  &:hover {
-    background-color: #f5f5f5;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16rpx;
+
+  &:active {
+    opacity: 0.7;
   }
+}
+
+.grid-icon {
+  position: relative;
+  width: 88rpx;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: fade(@brand-color, 10%);
+  border-radius: 24rpx;
+  color: var(--td-brand-color, @brand-color);
+  margin-bottom: 12rpx;
+}
+
+.grid-badge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  background-color: var(--td-error-color, @error-color);
+  color: #fff;
+  font-size: 20rpx;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-text {
+  font-size: 26rpx;
+  color: var(--td-text-color-primary, @text-color-primary);
+}
+
+// ==================== 设置列表 ====================
+
+.settings-section {
+  margin: 24rpx;
+}
+
+.logout-text {
+  color: var(--td-error-color, @error-color) !important;
+}
+
+// ==================== 安全区 ====================
+
+.safe-area {
+  height: env(safe-area-inset-bottom);
 }
