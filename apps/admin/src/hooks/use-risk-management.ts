@@ -1,10 +1,10 @@
-// 风险管理相关 Hooks
+// 风险管理相关 Hooks - 使用 Mock 数据
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, apiCall } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
 import { toast } from 'sonner'
+import { mockRiskStats, mockRiskAssessments, mockRiskTrends } from '@/lib/mock-data'
 
-// 风险评估数据类型
+// 类型定义
 export interface RiskAssessment {
   id: string
   targetId: string
@@ -15,14 +15,10 @@ export interface RiskAssessment {
   assessmentDate: string
   lastUpdated: string
   status: 'active' | 'resolved' | 'monitoring'
-  assignedTo?: {
-    id: string
-    nickname: string
-  }
+  assignedTo?: { id: string; nickname: string }
   notes?: string
 }
 
-// 风险因子类型
 export interface RiskFactor {
   id: string
   type: 'behavioral' | 'financial' | 'social' | 'technical'
@@ -32,10 +28,9 @@ export interface RiskFactor {
   weight: number
   detected: boolean
   detectedAt?: string
-  evidence?: any
+  evidence?: unknown
 }
 
-// 用户可靠性指标
 export interface UserReliability {
   userId: string
   reliabilityScore: number
@@ -51,322 +46,191 @@ export interface UserReliability {
   riskFlags: string[]
 }
 
-// 争议处理记录
-export interface DisputeRecord {
-  id: string
-  type: 'payment' | 'activity' | 'behavior' | 'content'
-  status: 'open' | 'investigating' | 'resolved' | 'escalated' | 'closed'
-  priority: 'low' | 'medium' | 'high' | 'urgent'
-  reporterId: string
-  reporterInfo: {
-    id: string
-    nickname: string
-  }
-  targetId: string
-  targetType: 'user' | 'activity' | 'transaction'
-  targetInfo: any
-  description: string
-  evidence?: any[]
-  resolution?: string
-  resolutionDate?: string
-  assignedTo?: {
-    id: string
-    nickname: string
-  }
-  createdAt: string
-  updatedAt: string
-}
-
-// 欺诈检测结果
-export interface FraudDetection {
-  id: string
-  targetId: string
-  targetType: 'user' | 'activity' | 'transaction'
-  fraudType: 'fake_profile' | 'payment_fraud' | 'activity_manipulation' | 'review_fraud'
-  confidence: number
-  detectionMethod: 'rule_based' | 'ml_model' | 'manual_review'
-  indicators: FraudIndicator[]
-  status: 'detected' | 'confirmed' | 'false_positive' | 'investigating'
-  detectedAt: string
-  investigatedBy?: string
-  resolution?: string
-  resolutionDate?: string
-}
-
-// 欺诈指标
-export interface FraudIndicator {
-  type: string
-  description: string
-  severity: 'low' | 'medium' | 'high'
-  evidence: any
-}
-
-// 风险评估查询参数
 export interface RiskAssessmentFilters {
   targetType?: string[]
   riskLevel?: string[]
   status?: string[]
-  assignedTo?: string
-  dateRange?: [string, string]
-  riskScoreRange?: [number, number]
   page?: number
   limit?: number
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
 }
 
-// 获取风险评估列表
-export function useRiskAssessments(filters: RiskAssessmentFilters = {}) {
+
+// 获取风险评估列表 (Mock)
+export function useRiskAssessments(_filters: RiskAssessmentFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.risk.assessments(filters),
+    queryKey: queryKeys.risk.assessments(_filters),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.risk.assessments.get({
-          query: filters
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return mockRiskAssessments
     },
-    staleTime: 2 * 60 * 1000, // 2分钟缓存
-    refetchInterval: 5 * 60 * 1000, // 每5分钟自动刷新
+    staleTime: 2 * 60 * 1000,
   })
 }
 
-// 获取风险评估统计
+// 获取风险评估统计 (Mock)
 export function useRiskStats() {
   return useQuery({
     queryKey: queryKeys.risk.stats(),
     queryFn: async () => {
-      return apiCall(() => api.admin.risk.stats.get())
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return mockRiskStats
     },
-    staleTime: 5 * 60 * 1000, // 5分钟缓存
-    refetchInterval: 5 * 60 * 1000, // 每5分钟自动刷新
+    staleTime: 5 * 60 * 1000,
   })
 }
 
-// 获取单个风险评估详情
+// 获取单个风险评估详情 (Mock)
 export function useRiskAssessment(id: string) {
   return useQuery({
     queryKey: queryKeys.risk.assessment(id),
     queryFn: async () => {
-      return apiCall(() => api.admin.risk.assessments({ id }).get())
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return null
     },
     enabled: !!id,
-    staleTime: 60 * 1000, // 1分钟缓存
+    staleTime: 60 * 1000,
   })
 }
 
-// 获取用户可靠性指标
+// 获取用户可靠性指标 (Mock)
 export function useUserReliability(userId: string) {
   return useQuery({
     queryKey: queryKeys.risk.userReliability(userId),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.risk.users({ id: userId }).reliability.get()
-      )
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return {
+        userId,
+        reliabilityScore: 85,
+        participationRate: 0.92,
+        fulfillmentRate: 0.95,
+        disputeCount: 0,
+        positiveReviews: 12,
+        negativeReviews: 1,
+        accountAge: 180,
+        verificationLevel: 'phone' as const,
+        trustLevel: 'silver' as const,
+        lastActivity: new Date().toISOString(),
+        riskFlags: [],
+      }
     },
     enabled: !!userId,
-    staleTime: 10 * 60 * 1000, // 10分钟缓存
+    staleTime: 10 * 60 * 1000,
   })
 }
 
-// 获取争议处理列表
-export function useDisputeRecords(filters: any = {}) {
+// 获取争议处理列表 (Mock)
+export function useDisputeRecords(_filters: Record<string, unknown> = {}) {
   return useQuery({
-    queryKey: queryKeys.risk.disputes(filters),
+    queryKey: queryKeys.risk.disputes(_filters),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.risk.disputes.get({
-          query: filters
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return { data: [], total: 0, page: 1, limit: 20 }
     },
-    staleTime: 2 * 60 * 1000, // 2分钟缓存
-    refetchInterval: 3 * 60 * 1000, // 每3分钟自动刷新
+    staleTime: 2 * 60 * 1000,
   })
 }
 
-// 获取欺诈检测结果
-export function useFraudDetections(filters: any = {}) {
+// 获取欺诈检测结果 (Mock)
+export function useFraudDetections(_filters: Record<string, unknown> = {}) {
   return useQuery({
-    queryKey: queryKeys.risk.fraudDetections(filters),
+    queryKey: queryKeys.risk.fraudDetections(_filters),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.risk.fraud.get({
-          query: filters
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return { data: [], total: 0, page: 1, limit: 20 }
     },
-    staleTime: 2 * 60 * 1000, // 2分钟缓存
-    refetchInterval: 5 * 60 * 1000, // 每5分钟自动刷新
+    staleTime: 2 * 60 * 1000,
   })
 }
 
-// 创建风险评估
+// 创建风险评估 (Mock)
 export function useCreateRiskAssessment() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async (data: {
-      targetId: string
-      targetType: 'user' | 'activity' | 'transaction'
-      riskFactors: string[]
-      notes?: string
-    }) => {
-      return apiCall(() => 
-        api.admin.risk.assessments.post(data)
-      )
+    mutationFn: async (data: { targetId: string; targetType: string; riskFactors: string[]; notes?: string }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, id: 'new-assessment-id', ...data }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.risk.assessments() })
       queryClient.invalidateQueries({ queryKey: queryKeys.risk.stats() })
-      
       toast.success('风险评估创建成功')
     },
-    onError: (error) => {
-      console.error('创建风险评估失败:', error)
-      toast.error('创建风险评估失败，请重试')
-    },
+    onError: () => toast.error('创建风险评估失败，请重试'),
   })
 }
 
-// 更新风险评估
+// 更新风险评估 (Mock)
 export function useUpdateRiskAssessment() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      data 
-    }: { 
-      id: string
-      data: {
-        status?: 'active' | 'resolved' | 'monitoring'
-        assignedTo?: string
-        notes?: string
-      }
-    }) => {
-      return apiCall(() => 
-        api.admin.risk.assessments({ id }).patch(data)
-      )
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, id, ...data }
     },
-    onSuccess: (_, { id }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.risk.assessments() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.risk.assessment(id) })
-      queryClient.invalidateQueries({ queryKey: queryKeys.risk.stats() })
-      
       toast.success('风险评估更新成功')
     },
-    onError: (error) => {
-      console.error('更新风险评估失败:', error)
-      toast.error('更新风险评估失败，请重试')
-    },
+    onError: () => toast.error('更新风险评估失败，请重试'),
   })
 }
 
-// 处理争议
+// 处理争议 (Mock)
 export function useResolveDispute() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      resolution 
-    }: { 
-      id: string
-      resolution: {
-        status: 'resolved' | 'escalated' | 'closed'
-        resolution: string
-        notes?: string
-      }
-    }) => {
-      return apiCall(() => 
-        api.admin.risk.disputes({ id }).resolve.post(resolution)
-      )
+    mutationFn: async ({ id, resolution }: { id: string; resolution: Record<string, unknown> }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, id, ...resolution }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.risk.disputes() })
-      
       toast.success('争议处理成功')
     },
-    onError: (error) => {
-      console.error('争议处理失败:', error)
-      toast.error('争议处理失败，请重试')
-    },
+    onError: () => toast.error('争议处理失败，请重试'),
   })
 }
 
-// 确认欺诈检测结果
+// 确认欺诈检测结果 (Mock)
 export function useConfirmFraud() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      confirmed,
-      notes 
-    }: { 
-      id: string
-      confirmed: boolean
-      notes?: string
-    }) => {
-      return apiCall(() => 
-        api.admin.risk.fraud({ id }).confirm.post({
-          confirmed,
-          notes
-        })
-      )
+    mutationFn: async ({ id, confirmed, notes }: { id: string; confirmed: boolean; notes?: string }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, id, confirmed, notes }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.risk.fraudDetections() })
-      
       toast.success('欺诈检测结果确认成功')
     },
-    onError: (error) => {
-      console.error('确认欺诈检测结果失败:', error)
-      toast.error('确认欺诈检测结果失败，请重试')
-    },
+    onError: () => toast.error('确认欺诈检测结果失败，请重试'),
   })
 }
 
-// 应用风险缓解措施
+// 应用风险缓解措施 (Mock)
 export function useApplyRiskMitigation() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async (data: {
-      targetId: string
-      targetType: 'user' | 'activity'
-      measures: string[]
-      duration?: number
-      reason: string
-    }) => {
-      return apiCall(() => 
-        api.admin.risk.mitigation.post(data)
-      )
+    mutationFn: async (data: { targetId: string; targetType: string; measures: string[]; reason: string }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, ...data }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.risk.assessments() })
-      
       toast.success('风险缓解措施应用成功')
     },
-    onError: (error) => {
-      console.error('应用风险缓解措施失败:', error)
-      toast.error('应用风险缓解措施失败，请重试')
-    },
+    onError: () => toast.error('应用风险缓解措施失败，请重试'),
   })
 }
 
-// 获取风险趋势数据
-export function useRiskTrends(timeRange: string = '30d') {
+// 获取风险趋势数据 (Mock)
+export function useRiskTrends(_timeRange: string = '30d') {
   return useQuery({
-    queryKey: queryKeys.risk.trends(timeRange),
+    queryKey: queryKeys.risk.trends(_timeRange),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.risk.trends.get({
-          query: { timeRange }
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return mockRiskTrends
     },
-    staleTime: 10 * 60 * 1000, // 10分钟缓存
+    staleTime: 10 * 60 * 1000,
   })
 }

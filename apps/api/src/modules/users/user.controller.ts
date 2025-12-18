@@ -2,7 +2,7 @@
 import { selectUserSchema } from '@juchang/db';
 import { basePlugins, verifyAuth } from '../../setup';
 import { userModel, type ErrorResponse } from './user.model';
-import { Elysia, t } from 'elysia';
+import { Elysia } from 'elysia';
 import { 
   getUserList, 
   getUserById, 

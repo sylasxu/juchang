@@ -1,7 +1,8 @@
-// 仪表板数据 Hooks
+// 仪表板数据 Hooks - 混合使用真实 API 和 Mock 数据
 import { useQuery } from '@tanstack/react-query'
 import { api, apiCall } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
+import { mockUserGrowth, mockRevenueData, mockGeographicDistribution } from '@/lib/mock-data'
 
 // 仪表板 KPI 数据类型
 export interface DashboardKPIs {
@@ -35,117 +36,141 @@ export interface RecentActivity {
   location?: string
 }
 
-// 获取仪表板 KPI 数据
+// 获取仪表板 KPI 数据 - 使用真实 API
 export function useDashboardKPIs() {
   return useQuery({
     queryKey: queryKeys.dashboard.kpis(),
     queryFn: async (): Promise<DashboardKPIs> => {
-      // 并行获取各项统计数据
-      const [userStats, activityStats, transactionStats] = await Promise.all([
-        apiCall(() => api.admin.users.stats.get()),
-        apiCall(() => api.admin.activities.stats.get()),
-        apiCall(() => api.admin.transactions.stats.get()),
-      ])
+      try {
+        const stats = await apiCall(() => api.dashboard.stats.get())
+        const statsData = stats as {
+          totalUsers?: number
+          activeUsers?: number
+          totalActivities?: number
+          totalRevenue?: number
+          userGrowthRate?: number
+          activeUserGrowthRate?: number
+          activityGrowthRate?: number
+          revenueGrowthRate?: number
+        }
 
-      return {
-        totalUsers: userStats.totalUsers || 0,
-        activeUsers: userStats.activeUsers || 0,
-        totalActivities: activityStats.totalActivities || 0,
-        totalRevenue: transactionStats.totalRevenue || 0,
-        userGrowthRate: userStats.growthRate || 0,
-        activeUserGrowthRate: userStats.activeGrowthRate || 0,
-        activityGrowthRate: activityStats.growthRate || 0,
-        revenueGrowthRate: transactionStats.growthRate || 0,
+        return {
+          totalUsers: statsData.totalUsers || 0,
+          activeUsers: statsData.activeUsers || 0,
+          totalActivities: statsData.totalActivities || 0,
+          totalRevenue: statsData.totalRevenue || 0,
+          userGrowthRate: statsData.userGrowthRate || 0,
+          activeUserGrowthRate: statsData.activeUserGrowthRate || 0,
+          activityGrowthRate: statsData.activityGrowthRate || 0,
+          revenueGrowthRate: statsData.revenueGrowthRate || 0,
+        }
+      } catch {
+        // 如果 API 失败，返回默认值
+        return {
+          totalUsers: 0,
+          activeUsers: 0,
+          totalActivities: 0,
+          totalRevenue: 0,
+          userGrowthRate: 0,
+          activeUserGrowthRate: 0,
+          activityGrowthRate: 0,
+          revenueGrowthRate: 0,
+        }
       }
     },
-    staleTime: 5 * 60 * 1000, // 5分钟缓存
-    refetchInterval: 5 * 60 * 1000, // 每5分钟自动刷新
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   })
 }
 
-// 获取用户增长趋势数据
-export function useUserGrowthTrend(days: number = 30) {
+// 获取用户增长趋势数据 - 使用 Mock 数据
+export function useUserGrowthTrend(_days: number = 30) {
   return useQuery({
-    queryKey: queryKeys.dashboard.userGrowth(days),
+    queryKey: queryKeys.dashboard.userGrowth(_days),
     queryFn: async (): Promise<UserGrowthData[]> => {
-      return apiCall(() => 
-        api.admin.analytics.users.growth.get({
-          query: { days }
-        })
-      )
+      // 使用 mock 数据
+      return mockUserGrowth.data.map(item => ({
+        date: item.date,
+        totalUsers: item.users,
+        newUsers: Math.floor(item.users * 0.1),
+        activeUsers: item.activeUsers,
+      }))
     },
-    staleTime: 10 * 60 * 1000, // 10分钟缓存
+    staleTime: 10 * 60 * 1000,
   })
 }
 
-// 获取最新活动列表
+
+// 获取最新活动列表 - 使用真实 API
 export function useRecentActivities(limit: number = 10) {
   return useQuery({
     queryKey: queryKeys.dashboard.recentActivities(limit),
     queryFn: async (): Promise<RecentActivity[]> => {
-      const response = await apiCall(() => 
-        api.admin.activities.get({
-          query: {
-            page: 1,
-            limit,
-            sortBy: 'createdAt',
-            sortOrder: 'desc'
-          }
-        })
-      )
-      
-      // 转换数据格式
-      return response.data.map((activity: any) => ({
-        id: activity.id,
-        title: activity.title,
-        type: activity.type,
-        creatorName: activity.creatorInfo?.nickname || '未知用户',
-        participantCount: activity.participantCount || 0,
-        status: activity.status,
-        createdAt: activity.createdAt,
-        location: activity.locationName,
-      }))
+      try {
+        const response = await apiCall(() => api.dashboard.activities.get())
+        const responseData = response as Array<{
+          id: string
+          title: string
+          type: string
+          creatorInfo?: { nickname: string }
+          participantCount?: number
+          status: string
+          createdAt: string
+          locationName?: string
+        }>
+
+        return responseData.map((activity) => ({
+          id: activity.id,
+          title: activity.title,
+          type: activity.type,
+          creatorName: activity.creatorInfo?.nickname || '未知用户',
+          participantCount: activity.participantCount || 0,
+          status: activity.status,
+          createdAt: activity.createdAt,
+          location: activity.locationName,
+        }))
+      } catch {
+        return []
+      }
     },
-    staleTime: 2 * 60 * 1000, // 2分钟缓存
-    refetchInterval: 2 * 60 * 1000, // 每2分钟自动刷新
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 2 * 60 * 1000,
   })
 }
 
-// 获取活动类型分布数据
+// 获取活动类型分布数据 - 使用 Mock 数据
 export function useActivityTypeDistribution() {
   return useQuery({
     queryKey: queryKeys.dashboard.activityTypes(),
     queryFn: async () => {
-      const stats = await apiCall(() => api.admin.activities.stats.get())
-      return stats.typeStats || {}
+      // Mock 数据
+      return {
+        outdoor: 45,
+        sports: 30,
+        social: 25,
+        learning: 20,
+        entertainment: 15,
+      }
     },
-    staleTime: 10 * 60 * 1000, // 10分钟缓存
+    staleTime: 10 * 60 * 1000,
   })
 }
 
-// 获取收入趋势数据
-export function useRevenueTrend(days: number = 30) {
+// 获取收入趋势数据 - 使用 Mock 数据
+export function useRevenueTrend(_days: number = 30) {
   return useQuery({
-    queryKey: queryKeys.dashboard.revenue(days),
-    queryFn: async () => {
-      return apiCall(() => 
-        api.admin.analytics.transactions.revenue.get({
-          query: { days }
-        })
-      )
-    },
-    staleTime: 10 * 60 * 1000, // 10分钟缓存
+    queryKey: queryKeys.dashboard.revenue(_days),
+    queryFn: async () => mockRevenueData.data,
+    staleTime: 10 * 60 * 1000,
   })
 }
 
-// 获取地理分布数据
+// 获取地理分布数据 - 使用 Mock 数据
 export function useGeographicDistribution() {
   return useQuery({
     queryKey: queryKeys.dashboard.geographic(),
-    queryFn: async () => {
-      return apiCall(() => api.admin.analytics.geographic.distribution.get())
-    },
-    staleTime: 30 * 60 * 1000, // 30分钟缓存
+    queryFn: async () => mockGeographicDistribution.regions,
+    staleTime: 30 * 60 * 1000,
   })
 }
 

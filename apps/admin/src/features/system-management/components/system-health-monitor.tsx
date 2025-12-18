@@ -20,6 +20,7 @@ import {
   Wifi
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { SystemHealthData, SystemService } from '@/types/api'
 
 export function SystemHealthMonitor() {
   const { data: health, isLoading, refetch } = useSystemHealth()
@@ -80,6 +81,14 @@ export function SystemHealthMonitor() {
   }
 
   const healthData = (health && Object.keys(health).length > 0) ? health : mockHealth
+  
+  // 类型保护：确保 metrics 存在
+  const metrics = healthData.metrics || {
+    cpu: 0,
+    memory: 0,
+    disk: 0,
+    network: 0,
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -204,7 +213,17 @@ export function SystemHealthMonitor() {
 
       {/* 各服务状态 */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {Object.entries(healthData.services).map(([serviceKey, service]) => {
+        {Object.entries(healthData.services || {}).map(([serviceKey, serviceData]) => {
+          // 类型保护：确保 service 对象有必要的属性
+          const service: SystemService = serviceData || {
+            status: 'offline' as const,
+            responseTime: 0,
+            errorRate: 0,
+            uptime: 0,
+            lastCheck: new Date().toISOString(),
+            message: ''
+          }
+          
           const IconComponent = serviceIcons[serviceKey as keyof typeof serviceIcons]
           const serviceName = serviceNames[serviceKey as keyof typeof serviceNames]
           const StatusIcon = getStatusIcon(service.status)
@@ -267,11 +286,11 @@ export function SystemHealthMonitor() {
             <Cpu className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{healthData.metrics.cpu.toFixed(1)}%</div>
-            <Progress value={healthData.metrics.cpu} className="mt-2 h-2" />
+            <div className="text-2xl font-bold">{metrics.cpu.toFixed(1)}%</div>
+            <Progress value={metrics.cpu} className="mt-2 h-2" />
             <div className="text-xs text-muted-foreground mt-1">
-              {healthData.metrics.cpu > 80 ? '使用率较高' : 
-               healthData.metrics.cpu > 60 ? '使用率正常' : '使用率较低'}
+              {metrics.cpu > 80 ? '使用率较高' : 
+               metrics.cpu > 60 ? '使用率正常' : '使用率较低'}
             </div>
           </CardContent>
         </Card>
@@ -282,11 +301,11 @@ export function SystemHealthMonitor() {
             <MemoryStick className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{healthData.metrics.memory.toFixed(1)}%</div>
-            <Progress value={healthData.metrics.memory} className="mt-2 h-2" />
+            <div className="text-2xl font-bold">{metrics.memory.toFixed(1)}%</div>
+            <Progress value={metrics.memory} className="mt-2 h-2" />
             <div className="text-xs text-muted-foreground mt-1">
-              {healthData.metrics.memory > 85 ? '使用率较高' : 
-               healthData.metrics.memory > 70 ? '使用率正常' : '使用率较低'}
+              {metrics.memory > 85 ? '使用率较高' : 
+               metrics.memory > 70 ? '使用率正常' : '使用率较低'}
             </div>
           </CardContent>
         </Card>
@@ -297,11 +316,11 @@ export function SystemHealthMonitor() {
             <HardDrive className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{healthData.metrics.disk.toFixed(1)}%</div>
-            <Progress value={healthData.metrics.disk} className="mt-2 h-2" />
+            <div className="text-2xl font-bold">{metrics.disk.toFixed(1)}%</div>
+            <Progress value={metrics.disk} className="mt-2 h-2" />
             <div className="text-xs text-muted-foreground mt-1">
-              {healthData.metrics.disk > 90 ? '空间不足' : 
-               healthData.metrics.disk > 75 ? '空间充足' : '空间充裕'}
+              {metrics.disk > 90 ? '空间不足' : 
+               metrics.disk > 75 ? '空间充足' : '空间充裕'}
             </div>
           </CardContent>
         </Card>
@@ -312,11 +331,11 @@ export function SystemHealthMonitor() {
             <Wifi className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{healthData.metrics.network.toFixed(1)}%</div>
-            <Progress value={healthData.metrics.network} className="mt-2 h-2" />
+            <div className="text-2xl font-bold">{metrics.network.toFixed(1)}%</div>
+            <Progress value={metrics.network} className="mt-2 h-2" />
             <div className="text-xs text-muted-foreground mt-1">
-              {healthData.metrics.network > 80 ? '流量较高' : 
-               healthData.metrics.network > 50 ? '流量正常' : '流量较低'}
+              {metrics.network > 80 ? '流量较高' : 
+               metrics.network > 50 ? '流量正常' : '流量较低'}
             </div>
           </CardContent>
         </Card>

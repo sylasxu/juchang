@@ -43,17 +43,15 @@ import {
   Filter,
   Eye,
   CheckCircle,
-  XCircle,
   Flag,
   Trash2,
-  AlertTriangle,
   User,
   Calendar,
-  Activity,
   Shield,
   Image,
   MapPin
 } from 'lucide-react'
+import type { CommunicationStats } from '@/types/api'
 
 interface ChatFilters {
   activityId?: string
@@ -293,7 +291,7 @@ export function ChatModeration() {
             <MessageSquare className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{communicationStats.totalMessages?.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{((communicationStats as CommunicationStats)?.totalMessages || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               聊天消息总数
             </p>
@@ -306,7 +304,7 @@ export function ChatModeration() {
             <Flag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{communicationStats.flaggedMessages}</div>
+            <div className="text-2xl font-bold">{(communicationStats as CommunicationStats)?.flaggedMessages || 0}</div>
             <p className="text-xs text-muted-foreground">
               标记待审核消息
             </p>
@@ -319,7 +317,7 @@ export function ChatModeration() {
             <Eye className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{communicationStats.hiddenMessages}</div>
+            <div className="text-2xl font-bold">{(communicationStats as CommunicationStats)?.hiddenMessages || 0}</div>
             <p className="text-xs text-muted-foreground">
               隐藏的消息数
             </p>
@@ -332,7 +330,7 @@ export function ChatModeration() {
             <Trash2 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{communicationStats.deletedMessages}</div>
+            <div className="text-2xl font-bold">{(communicationStats as CommunicationStats)?.deletedMessages || 0}</div>
             <p className="text-xs text-muted-foreground">
               删除的消息数
             </p>
@@ -345,7 +343,7 @@ export function ChatModeration() {
             <Shield className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{communicationStats.averageRiskScore?.toFixed(1)}</div>
+            <div className="text-2xl font-bold">{((communicationStats as CommunicationStats)?.averageRiskScore || 0).toFixed(1)}</div>
             <p className="text-xs text-muted-foreground">
               风险评分平均值
             </p>
@@ -590,7 +588,7 @@ export function ChatModeration() {
                         <div className="font-medium truncate">{message.content}</div>
                         {message.flagReasons.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {message.flagReasons.map((reason, index) => (
+                            {message.flagReasons.map((reason: string, index: number) => (
                               <Badge key={index} variant="destructive" className="text-xs">
                                 {reason}
                               </Badge>
@@ -686,7 +684,7 @@ export function ChatModeration() {
                                 <div>
                                   <Label className="text-sm font-medium">标记原因</Label>
                                   <div className="flex flex-wrap gap-1 mt-1">
-                                    {message.flagReasons.map((reason, index) => (
+                                    {message.flagReasons.map((reason: string, index: number) => (
                                       <Badge key={index} variant="destructive" className="text-xs">
                                         {reason}
                                       </Badge>

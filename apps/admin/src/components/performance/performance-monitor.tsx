@@ -132,19 +132,7 @@ export function PerformanceMonitor() {
     }
   }
 
-  // 获取状态颜色
-  const getStatusColor = (grade: string) => {
-    switch (grade) {
-      case 'good':
-        return 'bg-green-500'
-      case 'needs-improvement':
-        return 'bg-yellow-500'
-      case 'poor':
-        return 'bg-red-500'
-      default:
-        return 'bg-gray-500'
-    }
-  }
+
 
   useEffect(() => {
     // 页面加载完成后收集指标

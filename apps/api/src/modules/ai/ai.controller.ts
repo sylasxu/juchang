@@ -1,5 +1,5 @@
 // AI Controller - AI 功能控制器
-import { Elysia, t } from 'elysia';
+import { Elysia } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { aiModel, type ErrorResponse } from './ai.model';
 import { 

@@ -185,7 +185,9 @@ export function useCache<T>(options: CacheOptions = {}) {
       // 如果缓存已满，删除最旧的条目
       if (newCache.size >= maxSize) {
         const firstKey = newCache.keys().next().value
-        newCache.delete(firstKey)
+        if (firstKey) {
+          newCache.delete(firstKey)
+        }
       }
 
       newCache.set(key, { data, timestamp: Date.now() })

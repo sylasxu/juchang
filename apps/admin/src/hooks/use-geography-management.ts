@@ -1,10 +1,10 @@
-// 地理管理相关 Hooks
+// 地理管理相关 Hooks - 使用 Mock 数据
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, apiCall } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
 import { toast } from 'sonner'
+import { mockHeatmapData, mockUserDistribution, mockRegionPerformance } from '@/lib/mock-data'
 
-// 地理位置数据类型
+// 类型定义
 export interface LocationData {
   id: string
   latitude: number
@@ -21,7 +21,6 @@ export interface LocationData {
   updatedAt: string
 }
 
-// 活动热力图数据
 export interface HeatmapData {
   latitude: number
   longitude: number
@@ -31,21 +30,16 @@ export interface HeatmapData {
   region: string
 }
 
-// 用户分布数据
 export interface UserDistribution {
   region: string
   city: string
   userCount: number
   activeUsers: number
   newUsers: number
-  coordinates: {
-    latitude: number
-    longitude: number
-  }
+  coordinates: { latitude: number; longitude: number }
   growthRate: number
 }
 
-// 区域性能数据
 export interface RegionPerformance {
   id: string
   region: string
@@ -58,31 +52,11 @@ export interface RegionPerformance {
     userEngagement: number
     revenuePerUser: number
   }
-  trends: {
-    activityGrowth: number
-    userGrowth: number
-    engagementChange: number
-  }
-  coordinates: {
-    latitude: number
-    longitude: number
-  }
+  trends: { activityGrowth: number; userGrowth: number; engagementChange: number }
+  coordinates: { latitude: number; longitude: number }
   lastUpdated: string
 }
 
-// 位置验证结果
-export interface LocationVerification {
-  id: string
-  originalLocation: LocationData
-  verifiedLocation?: LocationData
-  status: 'pending' | 'verified' | 'rejected' | 'suspicious'
-  confidence: number
-  issues: string[]
-  verifiedBy?: string
-  verifiedAt?: string
-}
-
-// 隐私控制设置
 export interface PrivacyControl {
   id: string
   userId: string
@@ -94,7 +68,6 @@ export interface PrivacyControl {
   updatedAt: string
 }
 
-// 查询参数类型
 export interface GeographyFilters {
   region?: string
   city?: string
@@ -114,206 +87,140 @@ export interface LocationFilters {
   limit?: number
 }
 
-// 获取活动热力图数据
-export function useActivityHeatmap(filters: GeographyFilters = {}) {
+
+// 获取活动热力图数据 (Mock)
+export function useActivityHeatmap(_filters: GeographyFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.geography.heatmap(filters),
+    queryKey: queryKeys.geography.heatmap(_filters),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.geography.heatmap.get({
-          query: filters
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return mockHeatmapData
     },
-    staleTime: 5 * 60 * 1000, // 5分钟缓存
+    staleTime: 5 * 60 * 1000,
   })
 }
 
-// 获取用户分布数据
-export function useUserDistribution(filters: GeographyFilters = {}) {
+// 获取用户分布数据 (Mock)
+export function useUserDistribution(_filters: GeographyFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.geography.userDistribution(filters),
+    queryKey: queryKeys.geography.userDistribution(_filters),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.geography.users.distribution.get({
-          query: filters
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return mockUserDistribution
     },
-    staleTime: 10 * 60 * 1000, // 10分钟缓存
+    staleTime: 10 * 60 * 1000,
   })
 }
 
-// 获取区域性能数据
-export function useRegionPerformance(filters: GeographyFilters = {}) {
+// 获取区域性能数据 (Mock)
+export function useRegionPerformance(_filters: GeographyFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.geography.regionPerformance(filters),
+    queryKey: queryKeys.geography.regionPerformance(_filters),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.geography.regions.performance.get({
-          query: filters
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return mockRegionPerformance
     },
-    staleTime: 15 * 60 * 1000, // 15分钟缓存
+    staleTime: 15 * 60 * 1000,
   })
 }
 
-// 获取位置数据列表
-export function useLocationData(filters: LocationFilters = {}) {
+// 获取位置数据列表 (Mock)
+export function useLocationData(_filters: LocationFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.geography.locations(filters),
+    queryKey: queryKeys.geography.locations(_filters),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.geography.locations.get({
-          query: filters
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return { data: [], total: 0, page: 1, limit: 20 }
     },
-    staleTime: 5 * 60 * 1000, // 5分钟缓存
+    staleTime: 5 * 60 * 1000,
   })
 }
 
-// 获取位置验证列表
-export function useLocationVerifications(filters: LocationFilters = {}) {
+// 获取位置验证列表 (Mock)
+export function useLocationVerifications(_filters: LocationFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.geography.verifications(filters),
+    queryKey: queryKeys.geography.verifications(_filters),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.geography.verifications.get({
-          query: filters
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return { data: [], total: 0, page: 1, limit: 20 }
     },
-    staleTime: 2 * 60 * 1000, // 2分钟缓存
+    staleTime: 2 * 60 * 1000,
   })
 }
 
-// 获取隐私控制设置
+// 获取隐私控制设置 (Mock)
 export function usePrivacyControls() {
   return useQuery({
     queryKey: queryKeys.geography.privacyControls(),
     queryFn: async () => {
-      return apiCall(() => api.admin.geography.privacy.controls.get())
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return {
+        data: [
+          { id: '1', name: '位置模糊化', key: 'location_blur', enabled: true, level: 'medium' },
+          { id: '2', name: '精确位置', key: 'exact_location', enabled: false, level: 'high' },
+        ]
+      }
     },
-    staleTime: 10 * 60 * 1000, // 10分钟缓存
+    staleTime: 10 * 60 * 1000,
   })
 }
 
-// 验证位置数据
+// 验证位置数据 (Mock)
 export function useVerifyLocation() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ 
-      id, 
-      verification 
-    }: { 
-      id: string
-      verification: {
-        status: 'verified' | 'rejected'
-        verifiedLocation?: LocationData
-        issues?: string[]
-      }
-    }) => {
-      return apiCall(() => 
-        api.admin.geography.verifications({ id }).patch(verification)
-      )
+    mutationFn: async ({ id, verification }: { id: string; verification: Record<string, unknown> }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, id, ...verification }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.geography.verifications() })
-      
       toast.success('位置验证更新成功')
     },
-    onError: (error) => {
-      console.error('位置验证失败:', error)
-      toast.error('位置验证失败，请重试')
-    },
+    onError: () => toast.error('位置验证失败，请重试'),
   })
 }
 
-// 更新隐私控制设置
+// 更新隐私控制设置 (Mock)
 export function useUpdatePrivacyControl() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ 
-      userId, 
-      settings 
-    }: { 
-      userId: string
-      settings: Partial<PrivacyControl>
-    }) => {
-      return apiCall(() => 
-        api.admin.geography.privacy.controls({ userId }).patch(settings)
-      )
+    mutationFn: async ({ userId, settings }: { userId: string; settings: Partial<PrivacyControl> }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, userId, ...settings }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.geography.privacyControls() })
-      
       toast.success('隐私设置更新成功')
     },
-    onError: (error) => {
-      console.error('更新隐私设置失败:', error)
-      toast.error('更新隐私设置失败，请重试')
-    },
+    onError: () => toast.error('更新隐私设置失败，请重试'),
   })
 }
 
-// 批量处理位置验证
+// 批量处理位置验证 (Mock)
 export function useBatchVerifyLocations() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ 
-      locationIds, 
-      action 
-    }: { 
-      locationIds: string[]
-      action: 'verify' | 'reject'
-    }) => {
-      return apiCall(() => 
-        api.admin.geography.verifications.batch.post({
-          locationIds,
-          action
-        })
-      )
+    mutationFn: async ({ locationIds, action }: { locationIds: string[]; action: 'verify' | 'reject' }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, processed: locationIds.length, action }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.geography.verifications() })
-      
       toast.success('批量处理完成')
     },
-    onError: (error) => {
-      console.error('批量处理失败:', error)
-      toast.error('批量处理失败，请重试')
-    },
+    onError: () => toast.error('批量处理失败，请重试'),
   })
 }
 
-// 导出地理数据
+// 导出地理数据 (Mock)
 export function useExportGeographyData() {
   return useMutation({
-    mutationFn: async ({ 
-      type, 
-      filters 
-    }: { 
-      type: 'heatmap' | 'distribution' | 'performance' | 'locations'
-      filters: any
-    }) => {
-      return apiCall(() => 
-        api.admin.geography.export.post({
-          type,
-          filters
-        })
-      )
+    mutationFn: async ({ type, filters }: { type: string; filters: Record<string, unknown> }) => {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      return { success: true, exportId: 'export-' + Date.now(), type, filters }
     },
-    onSuccess: () => {
-      toast.success('数据导出请求已提交')
-    },
-    onError: (error) => {
-      console.error('数据导出失败:', error)
-      toast.error('数据导出失败，请重试')
-    },
+    onSuccess: () => toast.success('数据导出请求已提交'),
+    onError: () => toast.error('数据导出失败，请重试'),
   })
 }

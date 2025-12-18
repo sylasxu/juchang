@@ -39,15 +39,13 @@ import {
   Languages, 
   Shield,
   Clock,
-  Calendar,
   TrendingUp,
   Users,
   Settings,
-  RefreshCw,
-  Plus,
-  Minus
+  RefreshCw
 } from 'lucide-react'
 import { toast } from 'sonner'
+import type { AIQuotaData } from '@/types/api'
 
 interface QuotaAdjustmentData {
   userId?: string
@@ -143,7 +141,8 @@ export function AIQuotaManagement() {
 
   if (!quotaUsage) return null
 
-  const usagePercentage = (quotaUsage.usedQuota / quotaUsage.totalQuota) * 100
+  const quotaData = quotaUsage as AIQuotaData
+  const usagePercentage = (quotaData.usedQuota / quotaData.totalQuota) * 100
 
   return (
     <div className="space-y-6">
@@ -156,7 +155,7 @@ export function AIQuotaManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {quotaUsage.totalQuota.toLocaleString()}
+              {quotaData.totalQuota.toLocaleString()}
             </div>
             <div className="text-xs text-muted-foreground">
               AI服务总配额
@@ -171,7 +170,7 @@ export function AIQuotaManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {quotaUsage.usedQuota.toLocaleString()}
+              {quotaData.usedQuota.toLocaleString()}
             </div>
             <div className="text-xs text-muted-foreground">
               使用率 {usagePercentage.toFixed(1)}%
@@ -187,7 +186,7 @@ export function AIQuotaManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {quotaUsage.remainingQuota.toLocaleString()}
+              {quotaData.remainingQuota.toLocaleString()}
             </div>
             <div className="text-xs text-muted-foreground">
               可用配额
@@ -206,10 +205,11 @@ export function AIQuotaManagement() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
-            {Object.entries(quotaUsage.usageByService).map(([service, usage]) => {
+            {Object.entries(quotaData.usageByService).map(([service, usage]) => {
               const IconComponent = serviceIcons[service as keyof typeof serviceIcons]
               const serviceName = serviceNames[service as keyof typeof serviceNames]
-              const percentage = (usage / quotaUsage.totalQuota) * 100
+              const usageNumber = typeof usage === 'number' ? usage : 0
+              const percentage = (usageNumber / quotaData.totalQuota) * 100
               
               return (
                 <div key={service} className="space-y-2">
@@ -219,7 +219,7 @@ export function AIQuotaManagement() {
                       <span className="text-sm font-medium">{serviceName}</span>
                     </div>
                     <Badge variant="outline" className="text-xs">
-                      {usage.toLocaleString()}
+                      {usageNumber.toLocaleString()}
                     </Badge>
                   </div>
                   <Progress value={percentage} className="h-2" />
@@ -244,8 +244,8 @@ export function AIQuotaManagement() {
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {quotaUsage.usagePatterns.daily.slice(-7).map((day, index) => {
-                const maxUsage = Math.max(...quotaUsage.usagePatterns.daily.map(d => d.usage))
+              {quotaData.usagePatterns.slice(-7).map((day, index) => {
+                const maxUsage = Math.max(...quotaData.usagePatterns.map(d => d.usage))
                 const percentage = (day.usage / maxUsage) * 100
                 
                 return (

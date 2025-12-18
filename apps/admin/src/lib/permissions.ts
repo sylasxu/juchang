@@ -258,8 +258,8 @@ export class PermissionChecker {
 // 权限装饰器/HOC 工具
 export function requirePermission(permission: Permission) {
   return function <T extends (...args: any[]) => any>(
-    target: any,
-    propertyKey: string,
+    _target: any,
+    _propertyKey: string,
     descriptor: TypedPropertyDescriptor<T>
   ) {
     const originalMethod = descriptor.value!

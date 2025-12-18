@@ -1,8 +1,12 @@
-// 内容审核相关 Hooks
+// 内容审核相关 Hooks - 使用 Mock 数据
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { api, apiCall } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
 import { toast } from 'sonner'
+import { 
+  mockModerationQueue, 
+  mockModerationStats, 
+  mockModerators 
+} from '@/lib/mock-data'
 
 // 审核队列项目类型
 export interface ModerationQueueItem {
@@ -16,33 +20,30 @@ export interface ModerationQueueItem {
   riskScore: number
   priority: 'low' | 'medium' | 'high' | 'urgent'
   status: 'pending' | 'in_review' | 'approved' | 'rejected' | 'escalated'
-  reportedBy?: {
-    id: string
-    nickname: string
-  }
+  reportedBy?: { id: string; nickname: string }
   reportedAt: string
-  assignedTo?: {
-    id: string
-    nickname: string
-  }
-  metadata?: Record<string, any>
+  assignedTo?: { id: string; nickname: string } | null
+  metadata?: Record<string, unknown>
 }
 
-// 审核队列查询参数
 export interface ModerationQueueFilters {
-  type?: string[]
-  status?: string[]
-  priority?: string[]
+  type?: string
+  status?: string
+  priority?: string
   assignedTo?: string
-  dateRange?: [string, string]
-  riskScoreRange?: [number, number]
+  search?: string
   page?: number
   limit?: number
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
 }
 
-// 审核操作类型
+export interface ModerationQueueResponse {
+  data: ModerationQueueItem[]
+  total: number
+  page: number
+  limit: number
+  hasMore: boolean
+}
+
 export interface ModerationAction {
   action: 'approve' | 'reject' | 'escalate' | 'assign' | 'flag'
   reason: string
@@ -51,171 +52,132 @@ export interface ModerationAction {
   severity?: 'low' | 'medium' | 'high'
 }
 
-// 获取审核队列列表
-export function useModerationQueue(filters: ModerationQueueFilters = {}) {
+
+// 获取审核队列列表 (Mock)
+export function useModerationQueue(_filters: ModerationQueueFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.moderation.queue(filters),
-    queryFn: async () => {
-      return apiCall(() => 
-        api.admin.moderation.queue.get({
-          query: filters
-        })
-      )
+    queryKey: queryKeys.moderation.queue(_filters),
+    queryFn: async (): Promise<ModerationQueueResponse> => {
+      // 模拟网络延迟
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return mockModerationQueue as ModerationQueueResponse
     },
-    staleTime: 30 * 1000, // 30秒缓存
-    refetchInterval: 60 * 1000, // 每分钟自动刷新
+    staleTime: 30 * 1000,
   })
 }
 
-// 获取审核队列统计
+// 获取审核队列统计 (Mock)
 export function useModerationStats() {
   return useQuery({
     queryKey: queryKeys.moderation.stats(),
     queryFn: async () => {
-      return apiCall(() => api.admin.moderation.stats.get())
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return mockModerationStats
     },
-    staleTime: 2 * 60 * 1000, // 2分钟缓存
-    refetchInterval: 2 * 60 * 1000, // 每2分钟自动刷新
+    staleTime: 2 * 60 * 1000,
   })
 }
 
-// 获取单个审核项目详情
+// 获取单个审核项目详情 (Mock)
 export function useModerationItem(id: string) {
   return useQuery({
     queryKey: queryKeys.moderation.item(id),
     queryFn: async () => {
-      return apiCall(() => api.admin.moderation.queue({ id }).get())
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return mockModerationQueue.data.find(item => item.id === id) || null
     },
     enabled: !!id,
-    staleTime: 60 * 1000, // 1分钟缓存
+    staleTime: 60 * 1000,
   })
 }
 
-// 执行审核操作
+// 执行审核操作 (Mock)
 export function useModerationAction() {
   const queryClient = useQueryClient()
-
   return useMutation({
     mutationFn: async ({ itemId, action }: { itemId: string; action: ModerationAction }) => {
-      return apiCall(() => 
-        api.admin.moderation.queue({ id: itemId }).action.post(action)
-      )
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, itemId, action: action.action }
     },
-    onSuccess: (_, { itemId }) => {
-      // 刷新相关查询
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.moderation.queue() })
       queryClient.invalidateQueries({ queryKey: queryKeys.moderation.stats() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.moderation.item(itemId) })
-      
       toast.success('审核操作执行成功')
     },
-    onError: (error) => {
-      console.error('审核操作失败:', error)
+    onError: () => {
       toast.error('审核操作失败，请重试')
     },
   })
 }
 
-// 批量审核操作
+// 批量审核操作 (Mock)
 export function useBulkModerationAction() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ 
-      itemIds, 
-      action 
-    }: { 
-      itemIds: string[]
-      action: ModerationAction 
-    }) => {
-      return apiCall(() => 
-        api.admin.moderation.queue.bulk.post({
-          itemIds,
-          ...action
-        })
-      )
+    mutationFn: async ({ itemIds, action }: { itemIds: string[]; action: ModerationAction }) => {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      return { success: true, processed: itemIds.length }
     },
     onSuccess: () => {
-      // 刷新相关查询
       queryClient.invalidateQueries({ queryKey: queryKeys.moderation.queue() })
       queryClient.invalidateQueries({ queryKey: queryKeys.moderation.stats() })
-      
       toast.success('批量审核操作执行成功')
     },
-    onError: (error) => {
-      console.error('批量审核操作失败:', error)
+    onError: () => {
       toast.error('批量审核操作失败，请重试')
     },
   })
 }
 
-// 分配审核任务
+// 分配审核任务 (Mock)
 export function useAssignModerationTask() {
   const queryClient = useQueryClient()
-
   return useMutation({
-    mutationFn: async ({ 
-      itemIds, 
-      assignTo 
-    }: { 
-      itemIds: string[]
-      assignTo: string 
-    }) => {
-      return apiCall(() => 
-        api.admin.moderation.assign.post({
-          itemIds,
-          assignTo
-        })
-      )
+    mutationFn: async ({ itemIds, assignTo }: { itemIds: string[]; assignTo: string }) => {
+      await new Promise(resolve => setTimeout(resolve, 300))
+      return { success: true, itemIds, assignTo }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.moderation.queue() })
-      queryClient.invalidateQueries({ queryKey: queryKeys.moderation.stats() })
-      
       toast.success('任务分配成功')
     },
-    onError: (error) => {
-      console.error('任务分配失败:', error)
+    onError: () => {
       toast.error('任务分配失败，请重试')
     },
   })
 }
 
-// 获取审核员列表
+// 获取审核员列表 (Mock)
 export function useModerators() {
   return useQuery({
     queryKey: queryKeys.moderation.moderators(),
     queryFn: async () => {
-      return apiCall(() => api.admin.moderators.get())
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return mockModerators
     },
-    staleTime: 10 * 60 * 1000, // 10分钟缓存
+    staleTime: 10 * 60 * 1000,
   })
 }
 
-// 获取审核历史
+// 获取审核历史 (Mock)
 export function useModerationHistory(targetId: string, targetType: string) {
   return useQuery({
     queryKey: queryKeys.moderation.history(targetId, targetType),
     queryFn: async () => {
-      return apiCall(() => 
-        api.admin.moderation.history.get({
-          query: { targetId, targetType }
-        })
-      )
+      await new Promise(resolve => setTimeout(resolve, 200))
+      return { data: [], total: 0 }
     },
     enabled: !!(targetId && targetType),
-    staleTime: 5 * 60 * 1000, // 5分钟缓存
+    staleTime: 5 * 60 * 1000,
   })
 }
 
 // 实时更新 Hook
 export function useRealTimeModerationUpdates() {
   const queryClient = useQueryClient()
-
   const refreshQueue = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.moderation.queue() })
     queryClient.invalidateQueries({ queryKey: queryKeys.moderation.stats() })
   }
-
   return { refreshQueue }
 }

@@ -85,7 +85,7 @@ export function usePermissionGuard() {
  * 根据权限控制按钮的显示和禁用状态
  */
 interface PermissionButtonProps extends PermissionGuardProps {
-  children: React.ReactElement
+  children: React.ReactElement<{ disabled?: boolean; title?: string }>
   disableInsteadOfHide?: boolean
 }
 
@@ -103,6 +103,7 @@ export function PermissionButton({
   if (!hasAccess) {
     if (disableInsteadOfHide) {
       return React.cloneElement(children, {
+        ...children.props,
         disabled: true,
         title: '您没有执行此操作的权限',
       })

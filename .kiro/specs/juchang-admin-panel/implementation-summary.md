@@ -132,6 +132,19 @@ RBAC 权限模型
 - 请求/响应拦截器
 - 缓存和重试策略
 
+### API vs Mock Data 架构
+系统采用双轨数据策略：
+- **DB-Backed Features (Real API)**: users, activities, transactions, participants, chat, dashboard
+- **Management Features (Mock Data)**: moderation, risk-management, premium-services, geography-management, communication-management, system-management
+
+Mock 数据集中管理在 `apps/admin/src/lib/mock-data.ts`，所有 hooks 位于 `apps/admin/src/hooks/use-*.ts`。
+
+**API 架构原则**:
+- API 是角色无关的，不存在 admin-specific controllers
+- 权限在中间件层处理
+- 只有 DB 支持的功能才创建 API 端点
+- 管理功能在后端实现前使用 mock 数据演示
+
 ### 数据表格功能
 - 排序和筛选
 - 分页和虚拟滚动

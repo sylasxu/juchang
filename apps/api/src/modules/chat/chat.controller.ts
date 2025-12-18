@@ -1,5 +1,5 @@
 // Chat Controller - 群聊消息控制器
-import { Elysia, t } from 'elysia';
+import { Elysia } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { chatModel, type ErrorResponse } from './chat.model';
 import { sendMessage, getMessageList, revokeMessage, getMyChats, archiveChat } from './chat.service';
