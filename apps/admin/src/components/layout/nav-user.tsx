@@ -1,11 +1,8 @@
 import { Link } from '@tanstack/react-router'
 import {
   BadgeCheck,
-  Bell,
   ChevronsUpDown,
-  CreditCard,
   LogOut,
-  Sparkles,
 } from 'lucide-react'
 import useDialogState from '@/hooks/use-dialog-state'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -83,12 +80,6 @@ export function NavUser({ user }: NavUserProps) {
                   <Link to='/settings/account'>
                     <BadgeCheck />
                     账户设置
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to='/settings/notifications'>
-                    <Bell />
-                    通知设置
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuGroup>

@@ -29,7 +29,7 @@ export async function generateUploadToken(fileType: 'image' | 'video' = 'image')
 /**
  * 处理直接上传（备用方案）
  */
-export async function handleDirectUpload(file: File): Promise<any> {
+export async function handleDirectUpload(_file: File): Promise<any> {
   // TODO: 实现直接上传到服务器的逻辑
   // MVP阶段可以先用这个方案
   throw new Error('直接上传功能开发中');

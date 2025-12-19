@@ -4,7 +4,6 @@ import { basePlugins, verifyAuth } from '../../setup';
 import { uploadModel, type ErrorResponse } from './upload.model';
 import { 
   generateUploadToken, 
-  handleDirectUpload,
   generateSceneId,
   getShareInfo 
 } from './upload.service';
@@ -62,7 +61,7 @@ export const uploadController = new Elysia({ prefix: '/upload' })
   // 直接上传文件（备用方案）
   .post(
     '/image',
-    async ({ body, set, jwt, headers }) => {
+    async ({ set, jwt, headers }) => {
       // JWT 认证
       const user = await verifyAuth(jwt, headers);
       if (!user) {

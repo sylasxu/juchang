@@ -157,7 +157,7 @@ export async function handleWxPayCallback(callbackData: WxPayCallback) {
  * 下发用户权益
  */
 async function grantUserBenefit(tx: any, transaction: any) {
-  const { userId, productType, relatedId, metadata } = transaction;
+  const { userId, productType, relatedId } = transaction;
 
   switch (productType) {
     case 'boost':
@@ -219,7 +219,7 @@ async function grantUserBenefit(tx: any, transaction: any) {
 /**
  * 创建微信支付订单（模拟实现）
  */
-async function createWxPayOrder(params: {
+async function createWxPayOrder(_params: {
   outTradeNo: string;
   amount: number;
   description: string;

@@ -1,32 +1,13 @@
 import {
-  Construction,
   LayoutDashboard,
-  Monitor,
-  Bug,
-  ListTodo,
-  FileX,
-  HelpCircle,
-  Lock,
-  Bell,
-  Package,
-  Palette,
-  ServerOff,
   Settings,
-  Wrench,
-  UserCog,
-  UserX,
   Users,
-  MessagesSquare,
-  ShieldCheck,
-  AudioWaveform,
-  Command,
-  GalleryVerticalEnd,
   Calendar,
   CreditCard,
-  Shield,
-  AlertTriangle,
-  Crown,
-  MapPin,
+  UserCog,
+  Wrench,
+  Palette,
+  Command,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -78,85 +59,8 @@ export const sidebarData: SidebarData = {
         },
         {
           title: '交易管理',
+          url: '/transactions',
           icon: CreditCard,
-          items: [
-            {
-              title: '交易记录',
-              url: '/transactions',
-            },
-          ],
-        },
-      ],
-    },
-    {
-      title: '内容安全',
-      items: [
-        {
-          title: '内容审核',
-          icon: Shield,
-          items: [
-            {
-              title: '审核队列',
-              url: '/moderation',
-            },
-          ],
-        },
-        {
-          title: '风险管理',
-          icon: AlertTriangle,
-          items: [
-            {
-              title: '风险评估',
-              url: '/risk',
-            },
-            {
-              title: '争议处理',
-              url: '/risk/disputes',
-            },
-            {
-              title: '欺诈检测',
-              url: '/risk/fraud',
-            },
-          ],
-        },
-        {
-          title: '沟通管理',
-          url: '/communication',
-          icon: MessagesSquare,
-        },
-      ],
-    },
-    {
-      title: '商业分析',
-      items: [
-        {
-          title: '增值服务',
-          icon: Crown,
-          items: [
-            {
-              title: '服务统计',
-              url: '/premium',
-            },
-            {
-              title: '服务分析',
-              url: '/premium/analysis',
-            },
-          ],
-        },
-        {
-          title: '地理分析',
-          url: '/geography',
-          icon: MapPin,
-        },
-      ],
-    },
-    {
-      title: '系统管理',
-      items: [
-        {
-          title: '系统设置',
-          url: '/system',
-          icon: Settings,
         },
       ],
     },
@@ -183,11 +87,6 @@ export const sidebarData: SidebarData = {
               icon: Palette,
             },
           ],
-        },
-        {
-          title: '帮助中心',
-          url: '/help-center',
-          icon: HelpCircle,
         },
       ],
     },

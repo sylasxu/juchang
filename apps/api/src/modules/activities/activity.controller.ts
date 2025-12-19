@@ -4,7 +4,6 @@ import { basePlugins, verifyAuth } from '../../setup';
 import { 
   activityModel, 
   MapActivityItem,
-  NearbyResponse,
   type ErrorResponse 
 } from './activity.model';
 import { 

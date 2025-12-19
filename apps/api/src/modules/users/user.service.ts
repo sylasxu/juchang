@@ -67,7 +67,7 @@ export async function getUserById(id: string) {
  */
 export async function blockUser(id: string): Promise<boolean> {
   try {
-    const result = await db
+    await db
       .update(users)
       .set({ isBlocked: true })
       .where(eq(users.id, id));
@@ -84,7 +84,7 @@ export async function blockUser(id: string): Promise<boolean> {
  */
 export async function unblockUser(id: string): Promise<boolean> {
   try {
-    const result = await db
+    await db
       .update(users)
       .set({ isBlocked: false })
       .where(eq(users.id, id));
@@ -164,7 +164,7 @@ export async function getUserReliability(userId: string) {
 /**
  * 获取用户创建的活动列表
  */
-export async function getUserActivities(userId: string, query: any) {
+export async function getUserActivities(_userId: string, query: any) {
   // TODO: 实现查询用户创建的活动
   return {
     data: [],
@@ -177,7 +177,7 @@ export async function getUserActivities(userId: string, query: any) {
 /**
  * 获取用户参与的活动列表
  */
-export async function getUserParticipations(userId: string, query: any) {
+export async function getUserParticipations(_userId: string, query: any) {
   // TODO: 实现查询用户参与的活动
   return {
     data: [],
@@ -199,7 +199,7 @@ export async function reportUser(targetUserId: string, reporterId: string, data:
 /**
  * 获取用户争议记录
  */
-export async function getUserDisputes(userId: string, query: any) {
+export async function getUserDisputes(_userId: string, query: any) {
   // TODO: 查询用户的争议记录
   return {
     data: [],

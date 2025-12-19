@@ -1,5 +1,5 @@
 // Dashboard Service - Pure functions for dashboard data
-import { db, users, activities, participants, eq, sql, and, gte, desc, count } from '@juchang/db';
+import { db, users, activities, participants, eq, gte, desc, count } from '@juchang/db';
 import type { DashboardStats, RecentActivity, RiskUser } from './dashboard.model';
 
 /**

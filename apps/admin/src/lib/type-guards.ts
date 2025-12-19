@@ -29,7 +29,7 @@ export function safeGet<T>(obj: unknown, key: string, defaultValue: T): T {
 // 安全获取数组
 export function safeGetArray<T>(obj: unknown, key: string): T[] {
   const value = isValidObject(obj) ? obj[key] : undefined
-  return isValidArray(value) ? value : []
+  return isValidArray<T>(value) ? value : []
 }
 
 // 安全获取数字

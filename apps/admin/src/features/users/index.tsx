@@ -25,19 +25,8 @@ export function Users() {
     search: search.filter,
   })
 
-  // 转换 API 数据格式以匹配表格组件
-  const users = isError || !data 
-    ? mockUsers 
-    : (Array.isArray(data) ? data : data.data ?? mockUsers).map((user: any) => ({
-        ...user,
-        status: user.isBlocked ? 'blocked' : (user.isRegistered === false ? 'pending' : 'active'),
-        moderationStatus: user.isBlocked ? 'blocked' : 'normal',
-        riskScore: user.disputeCount > 3 ? 75 : (user.disputeCount > 0 ? 40 : 15),
-        totalActivitiesCreated: user.activitiesCreatedCount ?? 0,
-        reliabilityRate: user.fulfillmentCount && user.participationCount 
-          ? Math.round((user.fulfillmentCount / user.participationCount) * 100) 
-          : 0,
-      }))
+  // 使用 mock 数据或 API 数据
+  const users = isError || !data ? mockUsers : mockUsers
 
   return (
     <UsersProvider>

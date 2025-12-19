@@ -463,7 +463,7 @@ export async function consumeAISearchQuota(userId: string): Promise<boolean> {
  * AI 搜索处理
  */
 export async function processSearchWithAI(request: any) {
-  const { query, location, radius } = request;
+  const { query } = request;
   
   try {
     const result = await generateText({

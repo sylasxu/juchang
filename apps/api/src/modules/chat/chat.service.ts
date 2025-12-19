@@ -145,7 +145,7 @@ export async function revokeMessage(messageId: string, userId: string) {
 /**
  * 获取我的群聊列表
  */
-export async function getMyChats(userId: string, query: any) {
+export async function getMyChats(userId: string, _query: any) {
   // 查询用户参与的所有活动
   const myParticipations = await db
     .select({

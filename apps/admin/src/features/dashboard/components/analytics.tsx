@@ -29,7 +29,6 @@ import {
   Legend
 } from 'recharts'
 import { format } from 'date-fns'
-import { zhCN } from 'date-fns/locale'
 
 // 颜色配置
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D']
@@ -180,7 +179,7 @@ function ActivityAnalytics() {
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   outerRadius={80}
                   fill="#8884d8"
                   dataKey="value"
@@ -303,7 +302,7 @@ function FinancialAnalytics() {
 
 // 地理分析组件
 function GeographicAnalytics() {
-  const { data: geoData, isLoading: geoLoading } = useGeographicDistribution()
+  const { isLoading: geoLoading } = useGeographicDistribution()
 
   return (
     <div className="grid gap-4 md:grid-cols-2">

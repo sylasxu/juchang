@@ -78,7 +78,7 @@ export async function joinActivity(userId: string, request: JoinActivityRequest)
  * 发起人审批参与申请
  */
 export async function approveParticipant(creatorId: string, request: ApprovalRequest) {
-  const { participantId, action, reason } = request;
+  const { participantId, action, reason: _reason } = request;
   
   // 查询参与记录和活动信息
   const [participant] = await db
@@ -234,7 +234,7 @@ export async function confirmFulfillment(creatorId: string, request: Fulfillment
  * 用户申诉（被标记为未到场时）
  */
 export async function disputeAbsence(userId: string, request: DisputeRequest) {
-  const { participantId, reason } = request;
+  const { participantId, reason: _reason } = request;
   
   // 查询参与记录
   const [participant] = await db
