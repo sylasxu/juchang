@@ -30,6 +30,8 @@ import { Route as AuthenticatedRiskIndexRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPremiumIndexRouteImport } from './routes/_authenticated/premium/index'
 import { Route as AuthenticatedModerationIndexRouteImport } from './routes/_authenticated/moderation/index'
 import { Route as AuthenticatedHelpCenterIndexRouteImport } from './routes/_authenticated/help-center/index'
+import { Route as AuthenticatedGeographyIndexRouteImport } from './routes/_authenticated/geography/index'
+import { Route as AuthenticatedCommunicationIndexRouteImport } from './routes/_authenticated/communication/index'
 import { Route as AuthenticatedActivitiesIndexRouteImport } from './routes/_authenticated/activities/index'
 import { Route as AuthenticatedUsersIdRouteImport } from './routes/_authenticated/users/$id'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
@@ -153,6 +155,18 @@ const AuthenticatedHelpCenterIndexRoute =
     path: '/help-center/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedGeographyIndexRoute =
+  AuthenticatedGeographyIndexRouteImport.update({
+    id: '/geography/',
+    path: '/geography/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCommunicationIndexRoute =
+  AuthenticatedCommunicationIndexRouteImport.update({
+    id: '/communication/',
+    path: '/communication/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedActivitiesIndexRoute =
   AuthenticatedActivitiesIndexRouteImport.update({
     id: '/activities/',
@@ -241,6 +255,8 @@ export interface FileRoutesByFullPath {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
+  '/communication': typeof AuthenticatedCommunicationIndexRoute
+  '/geography': typeof AuthenticatedGeographyIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/moderation': typeof AuthenticatedModerationIndexRoute
   '/premium': typeof AuthenticatedPremiumIndexRoute
@@ -273,6 +289,8 @@ export interface FileRoutesByTo {
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
+  '/communication': typeof AuthenticatedCommunicationIndexRoute
+  '/geography': typeof AuthenticatedGeographyIndexRoute
   '/help-center': typeof AuthenticatedHelpCenterIndexRoute
   '/moderation': typeof AuthenticatedModerationIndexRoute
   '/premium': typeof AuthenticatedPremiumIndexRoute
@@ -308,6 +326,8 @@ export interface FileRoutesById {
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/users/$id': typeof AuthenticatedUsersIdRoute
   '/_authenticated/activities/': typeof AuthenticatedActivitiesIndexRoute
+  '/_authenticated/communication/': typeof AuthenticatedCommunicationIndexRoute
+  '/_authenticated/geography/': typeof AuthenticatedGeographyIndexRoute
   '/_authenticated/help-center/': typeof AuthenticatedHelpCenterIndexRoute
   '/_authenticated/moderation/': typeof AuthenticatedModerationIndexRoute
   '/_authenticated/premium/': typeof AuthenticatedPremiumIndexRoute
@@ -343,6 +363,8 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/users/$id'
     | '/activities'
+    | '/communication'
+    | '/geography'
     | '/help-center'
     | '/moderation'
     | '/premium'
@@ -375,6 +397,8 @@ export interface FileRouteTypes {
     | '/settings/appearance'
     | '/users/$id'
     | '/activities'
+    | '/communication'
+    | '/geography'
     | '/help-center'
     | '/moderation'
     | '/premium'
@@ -409,6 +433,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/appearance'
     | '/_authenticated/users/$id'
     | '/_authenticated/activities/'
+    | '/_authenticated/communication/'
+    | '/_authenticated/geography/'
     | '/_authenticated/help-center/'
     | '/_authenticated/moderation/'
     | '/_authenticated/premium/'
@@ -582,6 +608,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHelpCenterIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/geography/': {
+      id: '/_authenticated/geography/'
+      path: '/geography'
+      fullPath: '/geography'
+      preLoaderRoute: typeof AuthenticatedGeographyIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/communication/': {
+      id: '/_authenticated/communication/'
+      path: '/communication'
+      fullPath: '/communication'
+      preLoaderRoute: typeof AuthenticatedCommunicationIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/activities/': {
       id: '/_authenticated/activities/'
       path: '/activities'
@@ -692,6 +732,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRiskFraudRoute: typeof AuthenticatedRiskFraudRoute
   AuthenticatedUsersIdRoute: typeof AuthenticatedUsersIdRoute
   AuthenticatedActivitiesIndexRoute: typeof AuthenticatedActivitiesIndexRoute
+  AuthenticatedCommunicationIndexRoute: typeof AuthenticatedCommunicationIndexRoute
+  AuthenticatedGeographyIndexRoute: typeof AuthenticatedGeographyIndexRoute
   AuthenticatedHelpCenterIndexRoute: typeof AuthenticatedHelpCenterIndexRoute
   AuthenticatedModerationIndexRoute: typeof AuthenticatedModerationIndexRoute
   AuthenticatedPremiumIndexRoute: typeof AuthenticatedPremiumIndexRoute
@@ -714,6 +756,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRiskFraudRoute: AuthenticatedRiskFraudRoute,
   AuthenticatedUsersIdRoute: AuthenticatedUsersIdRoute,
   AuthenticatedActivitiesIndexRoute: AuthenticatedActivitiesIndexRoute,
+  AuthenticatedCommunicationIndexRoute: AuthenticatedCommunicationIndexRoute,
+  AuthenticatedGeographyIndexRoute: AuthenticatedGeographyIndexRoute,
   AuthenticatedHelpCenterIndexRoute: AuthenticatedHelpCenterIndexRoute,
   AuthenticatedModerationIndexRoute: AuthenticatedModerationIndexRoute,
   AuthenticatedPremiumIndexRoute: AuthenticatedPremiumIndexRoute,

@@ -40,7 +40,7 @@ export function DataTableBulkActions<TData>({
   // Announce selection changes to screen readers
   useEffect(() => {
     if (selectedCount > 0) {
-      const message = `${selectedCount} ${entityName}${selectedCount > 1 ? 's' : ''} selected. Bulk actions toolbar is available.`
+      const message = `已选择 ${selectedCount} 个${entityName}，批量操作工具栏已显示`
 
       // Use queueMicrotask to defer state update and avoid cascading renders
       queueMicrotask(() => {
@@ -138,7 +138,7 @@ export function DataTableBulkActions<TData>({
       <div
         ref={toolbarRef}
         role='toolbar'
-        aria-label={`Bulk actions for ${selectedCount} selected ${entityName}${selectedCount > 1 ? 's' : ''}`}
+        aria-label={`已选择 ${selectedCount} 个${entityName}的批量操作`}
         aria-describedby='bulk-actions-description'
         tabIndex={-1}
         onKeyDown={handleKeyDown}
@@ -163,15 +163,15 @@ export function DataTableBulkActions<TData>({
                 size='icon'
                 onClick={handleClearSelection}
                 className='size-6 rounded-full'
-                aria-label='Clear selection'
-                title='Clear selection (Escape)'
+                aria-label='取消选择'
+                title='取消选择 (Escape)'
               >
                 <X />
-                <span className='sr-only'>Clear selection</span>
+                <span className='sr-only'>取消选择</span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Clear selection (Escape)</p>
+              <p>取消选择 (Escape)</p>
             </TooltipContent>
           </Tooltip>
 
@@ -188,15 +188,14 @@ export function DataTableBulkActions<TData>({
             <Badge
               variant='default'
               className='min-w-8 rounded-lg'
-              aria-label={`${selectedCount} selected`}
+              aria-label={`已选择 ${selectedCount} 项`}
             >
               {selectedCount}
             </Badge>{' '}
             <span className='hidden sm:inline'>
-              {entityName}
-              {selectedCount > 1 ? 's' : ''}
-            </span>{' '}
-            selected
+              个{entityName}
+            </span>
+            已选择
           </div>
 
           <Separator

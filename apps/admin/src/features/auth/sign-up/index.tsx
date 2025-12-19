@@ -16,16 +16,16 @@ export function SignUp() {
       <Card className='gap-4'>
         <CardHeader>
           <CardTitle className='text-lg tracking-tight'>
-            Create an account
+            创建账户
           </CardTitle>
           <CardDescription>
-            Enter your email and password to create an account. <br />
-            Already have an account?{' '}
+            输入邮箱和密码创建管理员账户。<br />
+            已有账户？{' '}
             <Link
               to='/sign-in'
               className='hover:text-primary underline underline-offset-4'
             >
-              Sign In
+              登录
             </Link>
           </CardDescription>
         </CardHeader>
@@ -34,21 +34,21 @@ export function SignUp() {
         </CardContent>
         <CardFooter>
           <p className='text-muted-foreground px-8 text-center text-sm'>
-            By creating an account, you agree to our{' '}
+            创建账户即表示您同意我们的{' '}
             <a
               href='/terms'
               className='hover:text-primary underline underline-offset-4'
             >
-              Terms of Service
+              服务条款
             </a>{' '}
-            and{' '}
+            和{' '}
             <a
               href='/privacy'
               className='hover:text-primary underline underline-offset-4'
             >
-              Privacy Policy
+              隐私政策
             </a>
-            .
+            。
           </p>
         </CardFooter>
       </Card>

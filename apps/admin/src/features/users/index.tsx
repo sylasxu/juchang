@@ -8,9 +8,37 @@ import { UsersDialogs } from './components/users-dialogs'
 import { UsersPrimaryButtons } from './components/users-primary-buttons'
 import { UsersProvider } from './components/users-provider'
 import { UsersTable } from './components/users-table'
-import { users } from './data/users'
+import { users as mockUsers } from './data/users'
+import { useUsersList } from '@/hooks/use-users'
+import { getRouteApi } from '@tanstack/react-router'
+import { Skeleton } from '@/components/ui/skeleton'
+
+const route = getRouteApi('/_authenticated/users/')
 
 export function Users() {
+  const search = route.useSearch()
+  
+  // 使用 API 获取用户数据，失败时回退到 mock 数据
+  const { data, isLoading, isError } = useUsersList({
+    page: search.page ?? 1,
+    limit: search.pageSize ?? 10,
+    search: search.filter,
+  })
+
+  // 转换 API 数据格式以匹配表格组件
+  const users = isError || !data 
+    ? mockUsers 
+    : (Array.isArray(data) ? data : data.data ?? mockUsers).map((user: any) => ({
+        ...user,
+        status: user.isBlocked ? 'blocked' : (user.isRegistered === false ? 'pending' : 'active'),
+        moderationStatus: user.isBlocked ? 'blocked' : 'normal',
+        riskScore: user.disputeCount > 3 ? 75 : (user.disputeCount > 0 ? 40 : 15),
+        totalActivitiesCreated: user.activitiesCreatedCount ?? 0,
+        reliabilityRate: user.fulfillmentCount && user.participationCount 
+          ? Math.round((user.fulfillmentCount / user.participationCount) * 100) 
+          : 0,
+      }))
+
   return (
     <UsersProvider>
       <Header fixed>
@@ -28,11 +56,19 @@ export function Users() {
             <h2 className='text-2xl font-bold tracking-tight'>用户管理</h2>
             <p className='text-muted-foreground'>
               管理平台用户，查看用户信息和状态
+              {isError && <span className='text-yellow-600 ml-2'>(使用离线数据)</span>}
             </p>
           </div>
           <UsersPrimaryButtons />
         </div>
-        <UsersTable data={users} />
+        {isLoading ? (
+          <div className='space-y-4'>
+            <Skeleton className='h-10 w-full' />
+            <Skeleton className='h-[400px] w-full' />
+          </div>
+        ) : (
+          <UsersTable data={users} />
+        )}
       </Main>
 
       <UsersDialogs />

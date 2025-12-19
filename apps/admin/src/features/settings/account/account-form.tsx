@@ -31,25 +31,18 @@ import {
 import { DatePicker } from '@/components/date-picker'
 
 const languages = [
+  { label: '简体中文', value: 'zh' },
   { label: 'English', value: 'en' },
-  { label: 'French', value: 'fr' },
-  { label: 'German', value: 'de' },
-  { label: 'Spanish', value: 'es' },
-  { label: 'Portuguese', value: 'pt' },
-  { label: 'Russian', value: 'ru' },
-  { label: 'Japanese', value: 'ja' },
-  { label: 'Korean', value: 'ko' },
-  { label: 'Chinese', value: 'zh' },
 ] as const
 
 const accountFormSchema = z.object({
   name: z
     .string()
-    .min(1, 'Please enter your name.')
-    .min(2, 'Name must be at least 2 characters.')
-    .max(30, 'Name must not be longer than 30 characters.'),
-  dob: z.date({ required_error: 'Please select your date of birth.' }),
-  language: z.string({ required_error: 'Please select a language.' }),
+    .min(1, '请输入姓名')
+    .min(2, '姓名至少需要2个字符')
+    .max(30, '姓名不能超过30个字符'),
+  dob: z.date({ required_error: '请选择出生日期' }),
+  language: z.string({ required_error: '请选择语言' }),
 })
 
 type AccountFormValues = z.infer<typeof accountFormSchema>
@@ -77,13 +70,12 @@ export function AccountForm() {
           name='name'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name</FormLabel>
+              <FormLabel>姓名</FormLabel>
               <FormControl>
-                <Input placeholder='Your name' {...field} />
+                <Input placeholder='请输入姓名' {...field} />
               </FormControl>
               <FormDescription>
-                This is the name that will be displayed on your profile and in
-                emails.
+                此姓名将显示在您的个人资料中。
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -94,10 +86,10 @@ export function AccountForm() {
           name='dob'
           render={({ field }) => (
             <FormItem className='flex flex-col'>
-              <FormLabel>Date of birth</FormLabel>
+              <FormLabel>出生日期</FormLabel>
               <DatePicker selected={field.value} onSelect={field.onChange} />
               <FormDescription>
-                Your date of birth is used to calculate your age.
+                用于计算您的年龄。
               </FormDescription>
               <FormMessage />
             </FormItem>
@@ -108,7 +100,7 @@ export function AccountForm() {
           name='language'
           render={({ field }) => (
             <FormItem className='flex flex-col'>
-              <FormLabel>Language</FormLabel>
+              <FormLabel>语言</FormLabel>
               <Popover>
                 <PopoverTrigger asChild>
                   <FormControl>
@@ -124,15 +116,15 @@ export function AccountForm() {
                         ? languages.find(
                             (language) => language.value === field.value
                           )?.label
-                        : 'Select language'}
+                        : '选择语言'}
                       <CaretSortIcon className='ms-2 h-4 w-4 shrink-0 opacity-50' />
                     </Button>
                   </FormControl>
                 </PopoverTrigger>
                 <PopoverContent className='w-[200px] p-0'>
                   <Command>
-                    <CommandInput placeholder='Search language...' />
-                    <CommandEmpty>No language found.</CommandEmpty>
+                    <CommandInput placeholder='搜索语言...' />
+                    <CommandEmpty>未找到语言。</CommandEmpty>
                     <CommandGroup>
                       <CommandList>
                         {languages.map((language) => (
@@ -160,13 +152,13 @@ export function AccountForm() {
                 </PopoverContent>
               </Popover>
               <FormDescription>
-                This is the language that will be used in the dashboard.
+                管理后台显示的语言。
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type='submit'>Update account</Button>
+        <Button type='submit'>保存设置</Button>
       </form>
     </Form>
   )

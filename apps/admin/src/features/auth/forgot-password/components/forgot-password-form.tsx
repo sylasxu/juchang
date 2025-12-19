@@ -18,7 +18,7 @@ import {
 import { Input } from '@/components/ui/input'
 
 const formSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
+  email: z.string().email('请输入有效的邮箱地址'),
 })
 
 export function ForgotPasswordForm({
@@ -39,14 +39,14 @@ export function ForgotPasswordForm({
     console.log(data)
 
     toast.promise(sleep(2000), {
-      loading: 'Sending email...',
+      loading: '发送邮件中...',
       success: () => {
         setIsLoading(false)
         form.reset()
         navigate({ to: '/otp' })
-        return `Email sent to ${data.email}`
+        return `验证邮件已发送至 ${data.email}`
       },
-      error: 'Error',
+      error: '发送失败',
     })
   }
 
@@ -62,7 +62,7 @@ export function ForgotPasswordForm({
           name='email'
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>邮箱</FormLabel>
               <FormControl>
                 <Input placeholder='name@example.com' {...field} />
               </FormControl>
@@ -71,7 +71,7 @@ export function ForgotPasswordForm({
           )}
         />
         <Button className='mt-2' disabled={isLoading}>
-          Continue
+          继续
           {isLoading ? <Loader2 className='animate-spin' /> : <ArrowRight />}
         </Button>
       </form>

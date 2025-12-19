@@ -50,7 +50,7 @@ export function NavUser({ user }: NavUserProps) {
               >
                 <Avatar className='h-8 w-8 rounded-lg'>
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className='rounded-lg'>SN</AvatarFallback>
+                  <AvatarFallback className='rounded-lg'>管</AvatarFallback>
                 </Avatar>
                 <div className='grid flex-1 text-start text-sm leading-tight'>
                   <span className='truncate font-semibold'>{user.name}</span>
@@ -79,29 +79,16 @@ export function NavUser({ user }: NavUserProps) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
-                <DropdownMenuItem>
-                  <Sparkles />
-                  Upgrade to Pro
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              <DropdownMenuSeparator />
-              <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
                   <Link to='/settings/account'>
                     <BadgeCheck />
-                    Account
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to='/settings'>
-                    <CreditCard />
-                    Billing
+                    账户设置
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to='/settings/notifications'>
                     <Bell />
-                    Notifications
+                    通知设置
                   </Link>
                 </DropdownMenuItem>
               </DropdownMenuGroup>
@@ -111,7 +98,7 @@ export function NavUser({ user }: NavUserProps) {
                 onClick={() => setOpen(true)}
               >
                 <LogOut />
-                Sign out
+                退出登录
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

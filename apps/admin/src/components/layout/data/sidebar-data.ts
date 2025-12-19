@@ -32,275 +32,160 @@ import { type SidebarData } from '../types'
 
 export const sidebarData: SidebarData = {
   user: {
-    name: 'satnaing',
-    email: 'satnaingdev@gmail.com',
-    avatar: '/avatars/shadcn.jpg',
+    name: '管理员',
+    email: 'admin@juchang.app',
+    avatar: '/avatars/admin.png',
   },
   teams: [
     {
-      name: 'Shadcn Admin',
+      name: '聚场',
       logo: Command,
-      plan: 'Vite + ShadcnUI',
-    },
-    {
-      name: 'Acme Inc',
-      logo: GalleryVerticalEnd,
-      plan: 'Enterprise',
-    },
-    {
-      name: 'Acme Corp.',
-      logo: AudioWaveform,
-      plan: 'Startup',
+      plan: 'AI碎片化社交',
     },
   ],
   navGroups: [
     {
-      title: 'Overview',
+      title: '概览',
       items: [
         {
-          title: 'Dashboard',
+          title: '仪表盘',
           url: '/',
           icon: LayoutDashboard,
         },
       ],
     },
     {
-      title: 'JuChang Platform Management',
+      title: '平台管理',
       items: [
         {
-          title: 'Users',
+          title: '用户管理',
           url: '/users',
           icon: Users,
         },
         {
-          title: 'Activities',
+          title: '活动管理',
           icon: Calendar,
           items: [
             {
-              title: 'Activity List',
+              title: '活动列表',
               url: '/activities',
             },
             {
-              title: 'Ghost Activities',
+              title: '幽灵锚点',
               url: '/activities/ghost',
             },
           ],
         },
         {
-          title: 'Transactions',
+          title: '交易管理',
           icon: CreditCard,
           items: [
             {
-              title: 'Transaction Records',
+              title: '交易记录',
               url: '/transactions',
-            },
-            {
-              title: 'Revenue Analytics',
-              url: '/transactions/revenue',
             },
           ],
         },
       ],
     },
     {
-      title: 'Content & Safety',
+      title: '内容安全',
       items: [
         {
-          title: 'Moderation',
+          title: '内容审核',
           icon: Shield,
           items: [
             {
-              title: 'Moderation Queue',
+              title: '审核队列',
               url: '/moderation',
-            },
-            {
-              title: 'Moderation Rules',
-              url: '/moderation/rules',
-            },
-            {
-              title: 'Moderation History',
-              url: '/moderation/history',
             },
           ],
         },
         {
-          title: 'Risk Management',
+          title: '风险管理',
           icon: AlertTriangle,
           items: [
             {
-              title: 'Risk Assessment',
+              title: '风险评估',
               url: '/risk',
             },
             {
-              title: 'Dispute Resolution',
+              title: '争议处理',
               url: '/risk/disputes',
             },
             {
-              title: 'Fraud Detection',
+              title: '欺诈检测',
               url: '/risk/fraud',
             },
           ],
         },
         {
-          title: 'Communication',
+          title: '沟通管理',
           url: '/communication',
           icon: MessagesSquare,
         },
       ],
     },
     {
-      title: 'Business Intelligence',
+      title: '商业分析',
       items: [
         {
-          title: 'Premium Services',
+          title: '增值服务',
           icon: Crown,
           items: [
             {
-              title: 'Service Statistics',
+              title: '服务统计',
               url: '/premium',
             },
             {
-              title: 'Service Analysis',
+              title: '服务分析',
               url: '/premium/analysis',
             },
           ],
         },
         {
-          title: 'Geography Analysis',
+          title: '地理分析',
           url: '/geography',
           icon: MapPin,
         },
       ],
     },
     {
-      title: 'System Administration',
+      title: '系统管理',
       items: [
         {
-          title: 'System Management',
+          title: '系统设置',
           url: '/system',
           icon: Settings,
         },
       ],
     },
     {
-      title: 'General Tools',
+      title: '其他',
       items: [
         {
-          title: 'Tasks',
-          url: '/tasks',
-          icon: ListTodo,
-        },
-        {
-          title: 'Apps',
-          url: '/apps',
-          icon: Package,
-        },
-        {
-          title: 'Chats',
-          url: '/chats',
-          badge: '3',
-          icon: MessagesSquare,
-        },
-      ],
-    },
-    {
-      title: 'Pages',
-      items: [
-        {
-          title: 'Auth',
-          icon: ShieldCheck,
-          items: [
-            {
-              title: 'Sign In',
-              url: '/sign-in',
-            },
-            {
-              title: 'Sign In (2 Col)',
-              url: '/sign-in-2',
-            },
-            {
-              title: 'Sign Up',
-              url: '/sign-up',
-            },
-            {
-              title: 'Forgot Password',
-              url: '/forgot-password',
-            },
-            {
-              title: 'OTP',
-              url: '/otp',
-            },
-          ],
-        },
-        {
-          title: 'Errors',
-          icon: Bug,
-          items: [
-            {
-              title: 'Unauthorized',
-              url: '/errors/unauthorized',
-              icon: Lock,
-            },
-            {
-              title: 'Forbidden',
-              url: '/errors/forbidden',
-              icon: UserX,
-            },
-            {
-              title: 'Not Found',
-              url: '/errors/not-found',
-              icon: FileX,
-            },
-            {
-              title: 'Internal Server Error',
-              url: '/errors/internal-server-error',
-              icon: ServerOff,
-            },
-            {
-              title: 'Maintenance Error',
-              url: '/errors/maintenance-error',
-              icon: Construction,
-            },
-          ],
-        },
-      ],
-    },
-    {
-      title: 'Other',
-      items: [
-        {
-          title: 'Settings',
+          title: '设置',
           icon: Settings,
           items: [
             {
-              title: 'Profile',
+              title: '个人资料',
               url: '/settings',
               icon: UserCog,
             },
             {
-              title: 'Account',
+              title: '账户设置',
               url: '/settings/account',
               icon: Wrench,
             },
             {
-              title: 'Appearance',
+              title: '外观设置',
               url: '/settings/appearance',
               icon: Palette,
-            },
-            {
-              title: 'Notifications',
-              url: '/settings/notifications',
-              icon: Bell,
-            },
-            {
-              title: 'Display',
-              url: '/settings/display',
-              icon: Monitor,
             },
           ],
         },
         {
-          title: 'Help Center',
+          title: '帮助中心',
           url: '/help-center',
           icon: HelpCircle,
         },
