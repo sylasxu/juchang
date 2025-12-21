@@ -229,6 +229,18 @@ const CreateGhostRequest = t.Object({
   description: t.Optional(t.String({ description: '幽灵锚点描述' })),
 });
 
+// 分享数据响应
+const ShareDataResponse = t.Object({
+  sceneParam: t.String({ description: '小程序场景参数' }),
+  title: t.String({ description: '活动标题' }),
+  time: t.String({ description: '活动时间（格式化）' }),
+  location: t.String({ description: '活动地点' }),
+  spotsLeft: t.Number({ description: '剩余名额' }),
+  countdown: t.String({ description: '倒计时文案' }),
+  creatorNickname: t.Optional(t.String({ description: '发起人昵称' })),
+  creatorAvatar: t.Optional(t.String({ description: '发起人头像' })),
+});
+
 // 错误响应
 const ErrorResponse = t.Object({
   code: t.Number(),
@@ -251,6 +263,7 @@ export const activityModel = new Elysia({ name: 'activityModel' })
     'activity.joinRequest': JoinRequest,
     'activity.confirmRequest': ConfirmRequest,
     'activity.createGhostRequest': CreateGhostRequest,
+    'activity.shareDataResponse': ShareDataResponse,
     'activity.idParams': IdParams,
     'activity.error': ErrorResponse,
     // 如果其他地方单独需要 User 信息，也可以注册
@@ -275,6 +288,7 @@ export {
   JoinRequest,
   ConfirmRequest,
   CreateGhostRequest,
+  ShareDataResponse,
   IdParams,
   ErrorResponse,
   CreatorInfo,
@@ -295,6 +309,7 @@ export type UpdateActivityRequest = Static<typeof UpdateActivityRequest>;
 export type JoinRequest = Static<typeof JoinRequest>;
 export type ConfirmRequest = Static<typeof ConfirmRequest>;
 export type CreateGhostRequest = Static<typeof CreateGhostRequest>;
+export type ShareDataResponse = Static<typeof ShareDataResponse>;
 export type IdParams = Static<typeof IdParams>;
 export type ErrorResponse = Static<typeof ErrorResponse>;
 export type CreatorInfo = Static<typeof CreatorInfo>;

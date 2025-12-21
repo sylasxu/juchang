@@ -1,21 +1,53 @@
-<t-navbar title="设置" left-arrow />
-<view class="setting">
-  <t-cell-group wx:for="{{menuData}}" wx:for-item="item" wx:key="index" t-class="cell-group-class" theme="card">
-    <t-cell
-      wx:for="{{item}}"
-      wx:for-item="carditem"
-      wx:key="cardkey"
-      title="{{carditem.title}}"
-      hover
-      arrow
-      left-icon="app"
-      url="{{carditem.url}}"
-      bordered="true"
-      leftIcon="{{carditem.icon}}"
-      data-data="{{carditem}}"
-      bindclick="onEleClick"
-    />
-  </t-cell-group>
-</view>
+<view class="setting-page">
+  <!-- 设置分组 -->
+  <view wx:for="{{menuData}}" wx:key="title" class="setting-group">
+    <view class="group-title">{{item.title}}</view>
+    <t-cell-group theme="card">
+      <block wx:for="{{item.items}}" wx:for-item="subItem" wx:for-index="subIndex" wx:key="key">
+        <!-- 开关类型 -->
+        <t-cell 
+          wx:if="{{subItem.type === 'switch'}}"
+          title="{{subItem.title}}"
+          bordered="{{subIndex < item.items.length - 1}}"
+        >
+          <t-switch 
+            slot="note"
+            value="{{subItem.value}}"
+            data-group-index="{{index}}"
+            data-item-index="{{subIndex}}"
+            bind:change="handleSwitchChange"
+          />
+        </t-cell>
+        
+        <!-- 操作/链接类型 -->
+        <t-cell 
+          wx:else
+          title="{{subItem.title}}"
+          arrow
+          hover
+          bordered="{{subIndex < item.items.length - 1}}"
+          data-key="{{subItem.key}}"
+          data-type="{{subItem.type}}"
+          bind:tap="handleItemTap"
+        />
+      </block>
+    </t-cell-group>
+  </view>
 
-<t-toast id="t-toast" />
+  <!-- 退出登录按钮 -->
+  <view wx:if="{{isLoggedIn}}" class="logout-section">
+    <t-button 
+      theme="danger" 
+      variant="outline" 
+      block
+      bind:tap="handleLogout"
+    >
+      退出登录
+    </t-button>
+  </view>
+
+  <!-- 版本信息 -->
+  <view class="version-info">
+    <text>聚场 v1.0.0</text>
+  </view>
+</view>

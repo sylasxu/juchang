@@ -18,7 +18,9 @@ import {
   cancelJoin,
   confirmActivity,
   getActivityParticipants,
-  createGhostAnchor
+  createGhostAnchor,
+  getActivityShareData,
+  parseSceneParam
 } from './activity.service';
 
 export const activityController = new Elysia({ prefix: '/activities' })
@@ -490,6 +492,89 @@ export const activityController = new Elysia({ prefix: '/activities' })
         }),
         401: 'activity.error',
         500: 'activity.error',
+      },
+    }
+  )
+
+  // 🔥 获取活动分享数据
+  .get(
+    '/:id/share',
+    async ({ params, set }) => {
+      const shareData = await getActivityShareData(params.id);
+
+      if (!shareData) {
+        set.status = 404;
+        return {
+          code: 404,
+          msg: '活动不存在',
+        } satisfies ErrorResponse;
+      }
+
+      return shareData;
+    },
+    {
+      detail: {
+        tags: ['Activities'],
+        summary: '获取活动分享数据',
+        description: '获取用于生成分享卡片的活动数据，包含场景参数、标题、时间、地点、剩余名额、倒计时等',
+      },
+      params: 'activity.idParams',
+      response: {
+        200: 'activity.shareDataResponse',
+        404: 'activity.error',
+      },
+    }
+  )
+
+  // 🔥 解析场景参数
+  .get(
+    '/scene/:scene',
+    async ({ params, set }) => {
+      const parsed = parseSceneParam(params.scene);
+
+      if (!parsed) {
+        set.status = 400;
+        return {
+          code: 400,
+          msg: '无效的场景参数',
+        } satisfies ErrorResponse;
+      }
+
+      // 根据类型返回不同的数据
+      if (parsed.type === 'activity') {
+        const activity = await getActivityById(parsed.id);
+        if (!activity) {
+          set.status = 404;
+          return {
+            code: 404,
+            msg: '活动不存在',
+          } satisfies ErrorResponse;
+        }
+        return {
+          type: 'activity',
+          data: activity,
+        };
+      }
+
+      // 其他类型暂时返回解析结果
+      return {
+        type: parsed.type,
+        id: parsed.id,
+      };
+    },
+    {
+      detail: {
+        tags: ['Activities'],
+        summary: '解析场景参数',
+        description: '解析小程序场景参数，返回对应的活动或位置信息',
+      },
+      params: t.Object({
+        scene: t.String({ description: '场景参数' }),
+      }),
+      response: {
+        200: t.Any(),
+        400: 'activity.error',
+        404: 'activity.error',
       },
     }
   );

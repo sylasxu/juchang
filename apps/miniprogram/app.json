@@ -1,7 +1,7 @@
 {
   "pages": [
     "pages/map/index",
-    "pages/message/index", 
+    "pages/message/index",
     "pages/my/index"
   ],
   "usingComponents": {
@@ -34,23 +34,8 @@
       "pages": ["login"]
     },
     {
-      "root": "pages/loginCode",
-      "name": "loginCode",
-      "pages": ["loginCode"]
-    },
-    {
-      "root": "pages/dataCenter",
-      "name": "dataCenter",
-      "pages": ["index"]
-    },
-    {
       "root": "pages/setting",
       "name": "setting",
-      "pages": ["index"]
-    },
-    {
-      "root": "pages/release",
-      "name": "release",
       "pages": ["index"]
     }
   ],
@@ -68,7 +53,7 @@
         "text": "地图"
       },
       {
-        "pagePath": "pages/message/index", 
+        "pagePath": "pages/message/index",
         "text": "消息"
       },
       {

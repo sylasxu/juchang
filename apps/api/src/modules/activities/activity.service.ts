@@ -732,3 +732,146 @@ export async function createGhostAnchor(data: any) {
 
   return ghost;
 }
+
+
+/**
+ * 获取活动分享数据
+ * 用于生成分享卡片
+ */
+export async function getActivityShareData(activityId: string) {
+  // 查询活动详情
+  const [activity] = await db
+    .select({
+      id: activities.id,
+      title: activities.title,
+      startAt: activities.startAt,
+      locationName: activities.locationName,
+      address: activities.address,
+      maxParticipants: activities.maxParticipants,
+      currentParticipants: activities.currentParticipants,
+      creatorId: activities.creatorId,
+    })
+    .from(activities)
+    .where(eq(activities.id, activityId))
+    .limit(1);
+
+  if (!activity) {
+    return null;
+  }
+
+  // 查询创建者信息
+  const [creator] = await db
+    .select({
+      nickname: users.nickname,
+      avatarUrl: users.avatarUrl,
+    })
+    .from(users)
+    .where(eq(users.id, activity.creatorId))
+    .limit(1);
+
+  // 生成场景参数
+  const sceneParam = `activity_${activityId}`;
+
+  // 格式化时间
+  const startDate = new Date(activity.startAt);
+  const time = formatActivityTime(startDate);
+
+  // 计算剩余名额
+  const spotsLeft = activity.maxParticipants - activity.currentParticipants;
+
+  // 计算倒计时
+  const countdown = formatCountdown(startDate);
+
+  // 组装地点信息
+  const location = activity.address || activity.locationName || '待定';
+
+  return {
+    sceneParam,
+    title: activity.title,
+    time,
+    location,
+    spotsLeft,
+    countdown,
+    creatorNickname: creator?.nickname || undefined,
+    creatorAvatar: creator?.avatarUrl || undefined,
+  };
+}
+
+/**
+ * 根据场景参数解析活动ID
+ */
+export function parseSceneParam(scene: string): { type: string; id: string } | null {
+  // 支持的场景格式：
+  // activity_<uuid> - 活动详情
+  // location_<lat>_<lng> - 位置附近活动
+  // invite_<userId> - 用户邀请
+
+  if (scene.startsWith('activity_')) {
+    return { type: 'activity', id: scene.replace('activity_', '') };
+  }
+
+  if (scene.startsWith('location_')) {
+    return { type: 'location', id: scene.replace('location_', '') };
+  }
+
+  if (scene.startsWith('invite_')) {
+    return { type: 'invite', id: scene.replace('invite_', '') };
+  }
+
+  return null;
+}
+
+/**
+ * 格式化活动时间
+ */
+function formatActivityTime(date: Date): string {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+  const activityDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+
+  if (activityDate.getTime() === today.getTime()) {
+    return `今天 ${timeStr}`;
+  }
+
+  if (activityDate.getTime() === tomorrow.getTime()) {
+    return `明天 ${timeStr}`;
+  }
+
+  const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const dayDiff = Math.floor((activityDate.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (dayDiff > 0 && dayDiff < 7) {
+    return `${weekDays[date.getDay()]} ${timeStr}`;
+  }
+
+  return `${date.getMonth() + 1}月${date.getDate()}日 ${timeStr}`;
+}
+
+/**
+ * 格式化倒计时
+ */
+function formatCountdown(date: Date): string {
+  const now = new Date();
+  const diff = date.getTime() - now.getTime();
+
+  if (diff <= 0) {
+    return '已开始';
+  }
+
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((diff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+
+  if (days > 0) {
+    return `还有 ${days} 天 ${hours} 小时`;
+  }
+
+  if (hours > 0) {
+    return `还有 ${hours} 小时 ${minutes} 分钟`;
+  }
+
+  return `还有 ${minutes} 分钟`;
+}

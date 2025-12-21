@@ -19,6 +19,11 @@ import { dashboardController } from './modules/dashboard/dashboard.controller';
 import { chatController } from './modules/chat/chat.controller';
 import { transactionController } from './modules/transactions/transaction.controller';
 import { uploadController } from './modules/upload/upload.controller';
+import { notificationController } from './modules/notifications/notification.controller';
+import { feedbackController } from './modules/feedbacks/feedback.controller';
+
+// 导入定时任务调度器
+import { startScheduler, stopScheduler, getJobStatuses } from './jobs';
 
 // 创建 Elysia 应用
 const app = new Elysia()
@@ -40,6 +45,8 @@ const app = new Elysia()
         { name: 'Transactions', description: '支付交易' },
         { name: 'Upload', description: '文件上传' },
         { name: 'Dashboard', description: '仪表板数据' },
+        { name: 'Notifications', description: '通知系统' },
+        { name: 'Feedbacks', description: '差评反馈' },
       ],
     },
   }))
@@ -53,9 +60,16 @@ const app = new Elysia()
   .use(transactionController)
   .use(uploadController)
   .use(dashboardController)
+  .use(notificationController)
+  .use(feedbackController)
   // 健康检查
   .get('/', () => 'Hello Juchang API')
-  .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+  .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }))
+  // 定时任务状态查询（仅供调试）
+  .get('/jobs/status', () => ({
+    jobs: getJobStatuses(),
+    timestamp: new Date().toISOString(),
+  }));
 
 // 启动服务器
 const port = Number(process.env.API_PORT || 3000);
@@ -63,6 +77,22 @@ app.listen(port, () => {
   console.log(`🚀 API Server is running on http://localhost:${port}`);
   console.log(`🚀 API doc on http://localhost:${port}/openapi`);
   console.log(`📚 OpenAPI JSON: http://localhost:${port}/openapi/json`);
+  
+  // 启动定时任务调度器
+  startScheduler();
+});
+
+// 优雅关闭
+process.on('SIGINT', () => {
+  console.log('\n正在关闭服务器...');
+  stopScheduler();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('\n正在关闭服务器...');
+  stopScheduler();
+  process.exit(0);
 });
 
 // 导出类型给 Eden Treaty
