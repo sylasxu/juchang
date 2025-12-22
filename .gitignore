@@ -194,6 +194,14 @@ project.private.config.json
 # 微信 Ci 密钥 (如果有)
 private.*.key
 
+# 微信开发者工具构建 npm 生成的目录
+miniprogram_npm/
+**/miniprogram_npm/
+
+# macOS 压缩文件残留
+__MACOSX/
+**/__MACOSX/
+
 # Orval 生成的 API 文件 (可以重新生成，不需要提交)
 apps/miniprogram/src/api/endpoints/
 apps/miniprogram/src/api/model/

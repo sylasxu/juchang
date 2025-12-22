@@ -9,9 +9,14 @@ interface TabItem {
   label: string;
 }
 
+interface BadgeProps {
+  count?: number;
+}
+
 interface ComponentData {
   value: string;
   unreadNum: number;
+  badgeProps: BadgeProps;
   list: TabItem[];
 }
 
@@ -31,6 +36,7 @@ Component<ComponentData, WechatMiniprogram.Component.PropertyOption, WechatMinip
   data: {
     value: '',
     unreadNum: 0,
+    badgeProps: {},
     list: [
       {
         icon: 'home',
@@ -82,7 +88,10 @@ Component<ComponentData, WechatMiniprogram.Component.PropertyOption, WechatMinip
     },
 
     setUnreadNum(unreadNum: number) {
-      this.setData({ unreadNum });
+      this.setData({
+        unreadNum,
+        badgeProps: unreadNum > 0 ? { count: unreadNum } : {},
+      });
     },
   },
 });

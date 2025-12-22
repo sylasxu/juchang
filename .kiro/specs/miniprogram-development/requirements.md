@@ -22,6 +22,8 @@
 - **申诉**: 被标记"未到场"的用户可一键申诉的机制（MVP阶段视为争议，双方均不扣分）
 - **幽灵锚点 (Ghost Anchor)**: 运营投放的需求引导Pin（绿色虚线），用于冷启动
 - **位置备注 (Location Hint)**: 重庆地形适配的必填字段，如"4楼平台入口"、"地下通道进"
+- **安全中心 (Safety Center)**: 提供安全须知、举报入口、紧急联系方式的功能页面
+- **设置页面 (Settings)**: 账户管理、隐私设置、通知设置等用户偏好配置页面
 
 ## Requirements
 
@@ -249,3 +251,31 @@
 2. WHEN AI额度用完 THEN 小程序 SHALL 显示"今日AI额度已用完，明天再来"提示
 3. WHEN 用户发布活动 THEN 小程序 SHALL 消耗发布额度（3次/天）
 4. WHEN 发布额度用完 THEN 小程序 SHALL 显示"今日发布额度已用完"提示
+
+### Requirement 20: 设置页面
+
+**User Story:** As a 用户, I want 管理我的账户设置和应用偏好, so that 我可以自定义使用体验并管理隐私。
+
+#### Acceptance Criteria
+
+1. WHEN 用户从个人中心点击设置入口 THEN 小程序 SHALL 跳转到设置页面
+2. WHEN 用户进入设置页面 THEN 小程序 SHALL 显示账户管理、隐私设置、通知设置、关于我们等选项
+3. WHEN 用户点击"通知设置" THEN 小程序 SHALL 显示消息推送开关（活动提醒、系统通知、营销消息）
+4. WHEN 用户点击"隐私设置" THEN 小程序 SHALL 显示位置权限管理、个人信息可见性设置
+5. WHEN 用户点击"清除缓存" THEN 小程序 SHALL 清除本地缓存数据并显示成功提示
+6. WHEN 用户点击"退出登录" THEN 小程序 SHALL 清除登录态并跳转到首页
+7. WHEN 用户点击"关于我们" THEN 小程序 SHALL 显示版本号、用户协议、隐私政策链接
+
+### Requirement 21: 安全中心
+
+**User Story:** As a 用户, I want 访问安全相关功能和信息, so that 我可以保护自己的账户安全并了解平台安全机制。
+
+#### Acceptance Criteria
+
+1. WHEN 用户从首页点击安全中心按钮 THEN 小程序 SHALL 跳转到安全中心页面
+2. WHEN 用户进入安全中心 THEN 小程序 SHALL 显示安全须知、举报入口、紧急联系方式等信息
+3. WHEN 用户点击"安全须知" THEN 小程序 SHALL 显示线下见面安全提示（公共场所见面、告知朋友行程、保持通讯畅通等）
+4. WHEN 用户点击"举报" THEN 小程序 SHALL 显示举报类型选择（虚假信息、骚扰行为、违法内容、其他）
+5. WHEN 用户提交举报 THEN 小程序 SHALL 调用举报API并显示"已收到举报，我们会尽快处理"提示
+6. WHEN 用户点击"紧急联系" THEN 小程序 SHALL 显示平台客服电话和一键拨打按钮
+7. WHEN 用户点击"黑名单管理" THEN 小程序 SHALL 显示已拉黑用户列表并支持解除拉黑操作

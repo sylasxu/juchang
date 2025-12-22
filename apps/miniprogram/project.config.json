@@ -42,14 +42,15 @@
     },
     "disableUseStrict": false,
     "useCompilerPlugins": [
+      "typescript",
       "less"
     ],
-    "condition": false,
+    "condition": true,
     "ignoreUploadUnusedFiles": true,
     "compileWorklet": false,
     "localPlugins": false,
-    "swc": false,
-    "disableSWC": true
+    "swc": true,
+    "disableSWC": false
   },
   "compileType": "miniprogram",
   "libVersion": "3.7.8",
