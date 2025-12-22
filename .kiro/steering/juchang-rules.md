@@ -12,111 +12,86 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
 
 # 🏗️ Monorepo Structure & Responsibilities
 
-## 1. @juchang/db (The Root)
-- **Tech**: Drizzle ORM (PostgreSQL + PostGIS + pgvector) + `drizzle-typebox`.
+## 1. @juchang/db (The Single Source of Truth - V9.2 Integrated)
+- **Tech**: Drizzle ORM (PostgreSQL + PostGIS) + `drizzle-typebox`.
 - **Path**: `packages/db/src/schema/*.ts`
+- **Architecture**: **11 张整合表** (从 13 张优化而来，减少 15% 复杂度)
+  - `users` (整合认证信息 + AI 额度分离)
+  - `activities` (整合群聊状态 + 重庆地形适配 + 幽灵锚点)  
+  - `participants` (履约确认 + 申诉机制)
+  - `chat_messages` (直接关联活动，无需 chat_groups)
+  - `feedbacks` (差评反馈系统)
+  - `notifications` (通知推送系统)
+  - `transactions` (整合 orders + payments 支付逻辑)
+  - `action_logs` (操作审计日志)
+  - `enums` (所有枚举定义)
+  - `relations` (表关系定义)
+  - `index.ts` (统一导出)
+- **V9.2 核心特性**:
+  - **重庆地形适配**: `locationHint` 字段支持 3D 地形位置备注
+  - **AI 额度分离**: `aiCreateQuotaToday` (3次/天) + `aiSearchQuotaToday` (50次/天)
+  - **幽灵锚点完整支持**: `isGhost` + `ghostAnchorType` + `ghostSuggestedType`
+  - **整合支付逻辑**: 一个 `transactions` 表替代 `orders` + `payments`
 - **Mandate**:
   - Define tables using snake_case columns.
-  - **IMMEDIATELY export TypeBox Schemas** (`insert...Schema`, `select...Schema`) using `createInsertSchema` and `createSelectSchema` from `drizzle-typebox`.
-  - **Refine Logic Here**: Add validation (min/max/regex) inside `createInsertSchema`.
-  - **LBS Note**: For `geometry` types, ensure TypeBox schemas allow array `[lon, lat]` input but handle the output format correctly.
-  - **Schema Export Pattern**: Directly use `createInsertSchema` and `createSelectSchema`:
-    ```typescript
-    // ✅ CORRECT: Direct usage
-    export const insertUserSchema = createInsertSchema(users);
-    export const selectUserSchema = createSelectSchema(users);
-    ```
+  - **IMMEDIATELY export TypeBox Schemas** using `createInsertSchema` and `createSelectSchema` from `drizzle-typebox`.
 
-## 2. @juchang/services (The Logic)
-- **Tech**: Pure TypeScript Functions (No Classes, No Frameworks).
-- **Path**: `packages/services/src/*`
-- **Mandate**:
-  - Receive strict types from `@juchang/db`.
-  - Return POJOs (Plain Old JavaScript Objects).
-  - **NO HTTP Logic**: Do not touch `Request`/`Response` objects.
-  - **Function-Based**: Use pure functions, not classes. Example: `export async function getUserById(id: string) { ... }`
-  - **Logic Reuse**: This code runs in both Elysia API and Next.js Server Actions.
-
-## 3. apps/api (The Gateway)
+## 2. apps/api (The Business Logic Gateway - V9.2 8-Module Design)
 - **Tech**: ElysiaJS + `@elysiajs/swagger` + TypeBox (t).
 - **Path**: `apps/api/src/modules/*`
-- **Structure**: Feature-based folder structure (following Elysia best practices):
-  - `index.ts` (Controller): Elysia instance as controller, handles HTTP routing
-  - `service.ts` (Service): Business logic, decoupled from HTTP, pure functions
-  - `model.ts` (Model): TypeBox schemas and types using `typeof model.static`
+- **Architecture**: **8 个核心模块**
+  - `auth`: 认证授权 (整合微信登录)
+  - `users`: 用户管理 (整合认证信息 + AI 额度)
+  - `activities`: 活动管理 (整合群聊状态 + 地形备注 + 幽灵锚点)
+  - `participants`: 参与管理 (履约确认 + 申诉机制)
+  - `ai`: AI 服务 (❌砍掉聊天，✅专注解析/搜索)
+  - `chat`: 群聊消息 (直接关联活动)
+  - `transactions`: 支付交易 (Boost/Pin+)
+  - `dashboard`: 数据面板 (管理后台)
+- **Structure**: Feature-based folder structure:
+  - `*.controller.ts`: Elysia instance as controller
+  - `*.service.ts`: Pure business logic functions
+  - `*.model.ts`: TypeBox schemas using `Static<typeof schema>`
 - **Mandate**:
-  - **Controller**: Use Elysia instance as controller (1 instance = 1 controller)
-  - **Service**: Use pure functions (no HTTP dependencies, no classes)
-  - **Model**: Define TypeBox schemas in `model.ts`, use `Static<typeof schema>` for types
-- **Type Exports**: ❌ **FORBIDDEN** `export namespace`, ✅ **REQUIRED** direct type exports: `export type TypeName = Static<typeof schema>`
+  - **Type Exports**: ❌ **FORBIDDEN** `export namespace`, ✅ **REQUIRED** direct type exports
   - **Schema Derivation**: Derive from `@juchang/db` schemas, avoid manual re-typing
-  - **OpenAPI**: Swagger plugin outputs JSON at `/doc/json` (no UI).
-  - **Strict Responses**: Response types MUST match the TypeBox schema in route definition.
+  - **OpenAPI**: Swagger plugin outputs JSON at `/doc/json`
 
-## 4. apps/miniprogram (The Client)
-- **Tech**: Native Wechat (Skyline/WebView) + Vite + TS.
+## 3. apps/miniprogram (The WeChat Client)
+- **Tech**: Native Wechat (Skyline/WebView) + Vite + TS + Zustand Vanilla.
+- **Navigation**: **3 Tab + AI 输入栏** 设计
+  - Tab 1: 首页 (Home) - 地图 + AI 输入栏综合页
+  - Tab 2: 消息 (Connect) - 社交连接
+  - Tab 3: 我 (Me) - 个人中心
+  - AI 输入栏: 底部常驻悬浮栏 - 全能 CUI 入口
+- **Core Components**:
+  - `ai-input-bar/`: AI 输入栏组件（底部悬浮）
+  - `cui-panel/`: CUI 副驾面板（流式响应展示）
+  - `draft-card/`: 创建草稿卡片
+  - `reliability-badge/`: 靠谱度徽章（🏅超靠谱/✓靠谱/🆕新人）
+  - `activity-card/`: 活动卡片
+  - `filter-panel/`: 筛选面板
 - **Mandate**:
   - **NO Manual Requests**: DO NOT use `wx.request` for business logic.
   - **Use SDK**: Import methods from `@/api/generated.ts` (Generated by Orval).
-  - **Styling**: Use SCSS.
+  - **Styling**: Use LESS.
+  - **Share**: Use native WeChat sharing (wx.onShareAppMessage), NOT Canvas poster.
+  - **Reliability Display**: 简化为徽章展示，不显示百分比
+    - > 90%: 🏅 超靠谱
+    - > 80%: ✓ 靠谱
+    - ≤ 80% 或新人: 🆕 新人
 
-## 5. apps/admin (The Admin Console)
+## 4. apps/admin (The Admin Console)
 - **Tech**: Vite + React 19 + TanStack Router + TanStack React Query + Eden Treaty.
-- **Path**: `apps/admin/src/`
+- **Path**: `apps/admin/src/features/*`
+- **MVP Scope**: 用户管理、活动管理、幽灵锚点、交易管理、仪表板
 - **Mandate**:
   - **Eden Treaty**: Use `import { api } from '@/lib/eden'` for type-safe API calls.
-  - **React Query**: Use `useQuery` and `useMutation` for data fetching and mutations.
-  - **Type Safety**: Eden Treaty provides full type inference from Elysia API.
-- **API Architecture Principle**:
-  - **API is Role-Agnostic**: API does NOT have admin-specific controllers. Permissions are handled at middleware level.
-  - **No Admin Prefix**: ❌ FORBIDDEN: `admin-xxx.controller.ts`, ✅ CORRECT: `xxx.controller.ts`
-  - **DB-Backed Only**: API controllers MUST have corresponding DB schema, model, and service layers
+  - **React Query**: Use `useQuery` and `useMutation` for data fetching.
+  - **TypeBox Only**: Use TypeBox for all schemas, NOT Zod.
 - **API vs Mock Data Strategy**:
-  - **DB-Backed Features**: Use Eden Treaty to call real API endpoints (users, activities, transactions, dashboard)
-  - **Management Features**: Use mock data in `src/lib/mock-data.ts` until backend implementation is ready
-  - **Hooks Location**: All hooks in `src/hooks/use-*.ts` should use React Query with either real API or mock data
-  - **Mock Data Location**: `apps/admin/src/lib/mock-data.ts` - centralized mock data for all management features
-
-## 6. apps/web (Deprecated)
-- **Status**: Deprecated, migrated to `apps/admin`.
-
----
-
-# 📦 DB Schema Writing Guide
-
-## Required Pattern for All Schema Files
-
-Every schema file in `packages/db/src/schema/*.ts` MUST follow this pattern:
-
-```typescript
-import { pgTable, ... } from "drizzle-orm/pg-core";
-import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
-
-// 1. Define the table
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  // ... other columns
-});
-
-// 2. Define relations (if needed)
-export const usersRelations = relations(users, ({ many }) => ({
-  // ... relations
-}));
-
-// 3. Export TypeBox Schemas (使用 drizzle-typebox)
-export const insertUserSchema = createInsertSchema(users);
-export const selectUserSchema = createSelectSchema(users);
-
-// 4. Export TypeScript types (optional but recommended)
-export type User = typeof users.$inferSelect;
-export type NewUser = typeof users.$inferInsert;
-```
-
-## Naming Convention
-
-- **Insert Schema**: `insertXxxSchema` (e.g., `insertUserSchema`, `insertActivitySchema`)
-- **Select Schema**: `selectXxxSchema` (e.g., `selectUserSchema`, `selectActivitySchema`)
-- **Types**: `Xxx` for select type, `NewXxx` for insert type (e.g., `User`, `NewUser`)
+  - **DB-Backed Features**: users, activities, transactions, dashboard
+  - **Mock Data Features**: moderation, risk-management (MVP 后迭代)
 
 ---
 
@@ -124,30 +99,12 @@ export type NewUser = typeof users.$inferInsert;
 
 **When defining API Inputs/Outputs:**
 1.  **FORBIDDEN**: Creating a root-level `t.Object({ ... })` that mirrors a DB table.
-    - *Wrong*: `const UserResponse = t.Object({ id: t.String(), nickname: t.String() });`
 2.  **REQUIRED**: Derive from `@juchang/db` schemas.
     - *Right (Select)*: `import { selectUserSchema } from '@juchang/db';`
-    - *Right (Partial)*: `t.Pick(selectUserSchema, ['id', 'nickname'])` or manually construct with `t.Object({ id: t.String(), nickname: t.String() })`
-    - *Right (Computed)*: `t.Extend(selectUserSchema, { distance: t.Number() })` or manually construct
-    - *Right (List)*: `t.Array(selectUserSchema);`
+    - *Right (Partial)*: `t.Pick(selectUserSchema, ['id', 'nickname'])`
+    - *Right (Computed)*: `t.Intersect([selectUserSchema, t.Object({ distance: t.Number() })])`
 
 **Exception**: purely transient parameters (e.g., `lat/lng` query params, `page`, `limit`) can be manually defined.
-
----
-
-# 📜 Spec-Coding Workflow
-
-When implementing a feature (e.g., "Find Nearby Activities"):
-
-1.  **DB Check**: Define/Update table in `@juchang/db`. Ensure `geometry` column exists. Export TypeBox schemas.
-2.  **Service Logic**: Implement `findNearbyActivities({ lat, lng })` function in `@juchang/services` using PostGIS functions.
-3.  **Contract Definition**:
-    - In `apps/api`, define route using Elysia: `.get('/activities/nearby', handler, { query: ..., response: ... })`.
-    - **Request**: `t.Object({ lat: t.Number(), lng: t.Number() })`.
-    - **Response**: `t.Array(selectActivitySchema)` or derived schema.
-4.  **Route Implementation**:
-    - Call service function -> Return data (Elysia auto-serializes).
-5.  **SDK Gen**: Run `bun run gen:api` to update miniprogram API code in `apps/miniprogram/src/api/`.
 
 ---
 
@@ -156,308 +113,8 @@ When implementing a feature (e.g., "Find Nearby Activities"):
 - **Naming**:
   - Database: `snake_case` (e.g., `user_id`, `created_at`).
   - TypeScript/JSON: `camelCase` (e.g., `userId`, `createdAt`).
-  - *Note*: Drizzle handles the mapping automatically.
-- **Error Handling**:
-  - Use Elysia's error handling or throw standard Error.
-  - Standard Format: `{ code: number, msg: string, data?: any }`.
-- **Package Manager**:
-  - Use **Bun** for all operations: `bun install`, `bun run dev`, etc.
-  - Lockfile: `bun.lockb` (binary, should be committed).
-
----
-
-# 🔧 Elysia Best Practice Example
-
-## Folder Structure
-```
-apps/api/src/modules/
-  users/
-    user.controller.ts  # Controller (Elysia instance)
-    user.service.ts     # Service (business logic)
-    user.model.ts       # Model (TypeBox schemas)
-```
-
-## Model Example (model.ts)
-```typescript
-// Model - TypeBox schemas and types
-import { Elysia, t, type Static } from 'elysia';
-import { selectUserSchema } from '@juchang/db';
-
-/**
- * Model Plugin
- * 遵循 Single Source of Truth 原则：
- * - 从 DB schema 派生字段定义（使用 t.Pick, t.Omit, t.Intersect）
- * - 瞬态参数（如 password、page、limit）可手动定义
- * - 使用 Static<typeof schema> 自动推导类型
- */
-
-// 路径参数（瞬态参数，手动定义）
-const IdParams = t.Object({
-  id: t.String({ format: 'uuid' }),
-});
-
-// 登录请求（从 DB schema 派生 phoneNumber，手动定义 password）
-const LoginRequest = t.Intersect([
-  t.Pick(selectUserSchema, ['phoneNumber']),
-  t.Object({
-    password: t.String({ minLength: 8 }),
-  }),
-]);
-
-// 错误响应（瞬态参数，手动定义）
-const ErrorResponse = t.Object({
-  code: t.Number(),
-  msg: t.String(),
-});
-
-// 注册到 Elysia Model Plugin
-export const userModel = new Elysia({ name: 'userModel' })
-  .model({
-    'user.idParams': IdParams,
-    'user.login': LoginRequest,
-    'user.error': ErrorResponse,
-  });
-
-// 导出 TS 类型（使用 Static<typeof schema> 自动推导）
-// ❌ 禁止使用 export namespace，改为直接导出类型
-export type IdParams = Static<typeof IdParams>;
-export type LoginRequest = Static<typeof LoginRequest>;
-export type ErrorResponse = Static<typeof ErrorResponse>;
-```
-
-## Service Example (service.ts)
-```typescript
-// Service - Pure function, no HTTP dependencies
-import { db, users, eq } from '@juchang/db';
-import type { ErrorResponse } from './user.model';
-
-export async function getUserById(id: string) {
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, id))
-    .limit(1);
-  
-  return user || null;
-}
-```
-
-## Controller Example (controller.ts)
-```typescript
-// Controller - Elysia instance as controller
-import { Elysia } from 'elysia';
-import { selectUserSchema } from '@juchang/db';
-import { userModel, type ErrorResponse } from './user.model';
-import { getUserById } from './user.service';
-
-export const userController = new Elysia({ prefix: '/users' })
-  .use(userModel) // 引入 Model Plugin
-  .get(
-    '/:id',
-    async ({ params, set }) => {
-      const user = await getUserById(params.id);
-      
-      if (!user) {
-        set.status = 404;
-        return {
-          code: 404,
-          msg: '用户不存在',
-        } satisfies ErrorResponse;
-      }
-      
-      return user;
-    },
-    {
-      detail: {
-        tags: ['Users'],
-        summary: '获取用户详情',
-      },
-      params: 'user.idParams', // 引用 Model Plugin 中注册的 schema
-      response: {
-        200: selectUserSchema, // 直接使用 DB schema
-        404: 'user.error',     // 引用 Model Plugin 中注册的 schema
-      },
-    }
-  );
-```
-
-## Schema Derivation Patterns
-
-### 1. 直接使用 DB Schema
-```typescript
-// ✅ 正确：直接使用
-response: {
-  200: selectUserSchema,
-}
-```
-
-### 2. 选择部分字段（Pick）
-```typescript
-// ✅ 正确：从 DB schema 选择字段
-const UserSummary = t.Pick(selectUserSchema, ['id', 'nickname', 'avatarUrl']);
-```
-
-### 3. 排除字段（Omit）
-```typescript
-// ✅ 正确：排除敏感字段
-const PublicUser = t.Omit(selectUserSchema, ['phoneNumber', 'wxOpenId']);
-```
-
-### 4. 扩展字段（Intersect）
-```typescript
-// ✅ 正确：组合 DB schema 和自定义字段
-const UserWithDistance = t.Intersect([
-  selectUserSchema,
-  t.Object({
-    distance: t.Number(), // 计算字段
-  }),
-]);
-```
-
-### 5. 组合多个 Schema
-```typescript
-// ✅ 正确：组合多个派生 schema
-const LoginRequest = t.Intersect([
-  t.Pick(selectUserSchema, ['phoneNumber']), // 从 DB 派生
-  t.Object({
-    password: t.String(), // 瞬态参数
-  }),
-]);
-```
-
-### 6. 数组响应
-```typescript
-// ✅ 正确：数组响应
-const UserListResponse = t.Object({
-  data: t.Array(selectUserSchema),
-  total: t.Number(),
-});
-```
-
-## Model Plugin 使用规范
-
-### 注册 Schema
-```typescript
-// model.ts
-export const userModel = new Elysia({ name: 'userModel' })
-  .model({
-    'user.idParams': IdParams,        // 使用命名空间前缀避免冲突
-    'user.login': LoginRequest,
-    'user.error': ErrorResponse,
-  });
-```
-
-### 在 Controller 中引用
-```typescript
-// controller.ts
-export const userController = new Elysia({ prefix: '/users' })
-  .use(userModel) // 必须先 use Model Plugin
-  .get(
-    '/:id',
-    handler,
-    {
-      params: 'user.idParams',  // 使用字符串引用注册的 schema
-      response: {
-        200: selectUserSchema,  // 可以直接使用 DB schema
-        404: 'user.error',      // 或使用字符串引用注册的 schema
-      },
-    }
-  );
-```
-
-### 类型导出规范
-```typescript
-// ❌ 错误：使用 namespace
-export namespace UserModel {
-  export type idParams = Static<typeof IdParams>;
-}
-
-// ✅ 正确：直接导出类型
-export type IdParams = Static<typeof IdParams>;
-export type ErrorResponse = Static<typeof ErrorResponse>;
-```
-
-### 在 Service 中使用类型
-```typescript
-// service.ts
-import type { ErrorResponse, IdParams } from './user.model';
-
-// 类型可以直接使用，无需通过 namespace
-function handleError(): ErrorResponse {
-  return { code: 404, msg: 'Not found' };
-}
-```
-
----
-
-# 🎯 Admin Hooks Pattern (Mock Data vs Real API)
-
-## Hook Categories
-
-### 1. DB-Backed Hooks (Real API)
-These hooks call real API endpoints that have full DB support:
-```typescript
-// apps/admin/src/hooks/use-users.ts - Real API
-import { api, apiCall } from '@/lib/eden'
-
-export function useUsers(filters = {}) {
-  return useQuery({
-    queryKey: ['users', filters],
-    queryFn: () => apiCall(() => api.users.get({ query: filters })),
-  })
-}
-```
-
-**DB-Backed Features**: users, activities, transactions, participants, chat, dashboard
-
-### 2. Mock Data Hooks (Management Features)
-These hooks use mock data for features without backend implementation:
-```typescript
-// apps/admin/src/hooks/use-moderation.ts - Mock Data
-import { mockModerationQueue, mockModerationStats } from '@/lib/mock-data'
-
-export function useModerationQueue(filters = {}) {
-  return useQuery({
-    queryKey: ['moderation', 'queue', filters],
-    queryFn: async () => mockModerationQueue,
-    staleTime: 5 * 60 * 1000,
-  })
-}
-
-export function useApproveContent() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, action }) => {
-      await new Promise(resolve => setTimeout(resolve, 500)) // Simulate API
-      return { success: true, id, action }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['moderation'] })
-      toast.success('操作成功')
-    },
-  })
-}
-```
-
-**Mock Data Features**: moderation, risk-management, premium-services, geography-management, communication-management, system-management
-
-### 3. Migration Path
-When backend implementation is ready:
-1. Create DB schema in `@juchang/db`
-2. Create API controller with model/service
-3. Update hook to use `apiCall()` instead of mock data
-4. Remove corresponding mock data from `mock-data.ts`
-
----
-
-# 🤖 Instruction for AI Generation
-
-When I ask for a feature:
-1.  **Plan**: Analyze `@juchang/db` first. Do we need new columns?
-2.  **Schema**: Show me the `drizzle-typebox` derivation strategy (e.g., "I'll use `t.Pick(selectUserSchema, ['id', 'nickname'])`" or "I'll manually construct with `t.Object()`").
-3.  **Service**: Write pure function (not class): `export async function getUserById(id: string) { ... }`
-4.  **API**: Write the Elysia route with TypeBox schemas.
-5.  **Frontend**: If asked for UI, show how to call the **Eden Treaty** (Web) or **Orval SDK** (MiniProgram), not raw fetch.
+- **Error Handling**: Standard Format: `{ code: number, msg: string, data?: any }`.
+- **Package Manager**: Use **Bun** for all operations: `bun install`, `bun run dev`, etc.
 
 ---
 
@@ -467,5 +124,11 @@ When I ask for a feature:
 - **Elysia vs Hono**: We use ElysiaJS, NOT Hono. Elysia is optimized for Bun.
 - **Bun Runtime**: All scripts use `bun run`, not `npm` or `pnpm`.
 - **Function-Based Services**: Services are pure functions, not classes.
-- **Eden Treaty**: Web clients use Eden Treaty for type-safe API calls (zero code generation).
-- **Orval SDK**: MiniProgram uses Orval-generated SDK (because Proxy is not supported).
+- **Eden Treaty**: Admin uses Eden Treaty for type-safe API calls.
+- **Orval SDK**: MiniProgram uses Orval-generated SDK.
+- **V9.2 Architecture**:
+  - **11 张整合表**: 从 13 张优化而来
+  - **8 个 API 模块**: auth/users/activities/participants/ai/chat/transactions/dashboard
+  - **AI 功能重定位**: 砍掉聊天，专注解析和搜索
+  - **重庆本地化**: 强制 `locationHint`，支持 3D 地形
+  - **幽灵锚点**: 完整的冷启动运营支持
