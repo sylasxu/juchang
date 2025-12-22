@@ -1,14 +1,14 @@
 <!--
-  地图首页
-  Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1-3.4, 4.1-4.5
+  首页（地图 + AI输入栏）
+  Requirements: 1.1, 1.2, 2.1-2.6, 3.1-3.7, 4.1-4.7, 5.1-5.4
 -->
-<view class="map-container">
+<view class="home-container">
   <!-- 加载状态 -->
   <view wx:if="{{isLoading}}" class="loading-overlay">
     <t-loading theme="circular" size="80rpx" text="定位中..." />
   </view>
 
-  <!-- 全屏地图 - Requirements: 2.1 -->
+  <!-- 全屏地图 - Requirements: 4.1 -->
   <map
     id="map"
     class="map"
@@ -24,13 +24,25 @@
     bindregionchange="onRegionChange"
   />
 
-  <!-- 浮动按钮组件 - Requirements: 3.1-3.4 -->
+  <!-- 浮动按钮组件 - Requirements: 6.1-6.4 -->
   <floating-buttons
     bind:locationtap="onLocationTap"
     bind:safetytap="onSafetyTap"
   />
 
-  <!-- 底部抽屉组件 - Requirements: 4.1-4.5 -->
+  <!-- AI 输入栏 - Requirements: 2.1, 2.2 -->
+  <ai-input-bar
+    id="aiInputBar"
+    placeholder="本周想玩什么..."
+    prefill-text="{{aiPrefillText}}"
+    prefill-type="{{aiPrefillType}}"
+    prefill-location="{{aiPrefillLocation}}"
+    bind:expand="onAIInputExpand"
+    bind:collapse="onAIInputCollapse"
+    bind:parse="onAIParse"
+  />
+
+  <!-- 底部抽屉组件 -->
   <bottom-drawer
     filter-count="{{filterCount}}"
     activity-count="{{activityCount}}"
@@ -59,7 +71,7 @@
     </view>
   </bottom-drawer>
 
-  <!-- 活动卡片弹窗 - Requirements: 2.5, 2.6 -->
+  <!-- 活动卡片弹窗 - Requirements: 4.5, 4.6 -->
   <view wx:if="{{showActivityCard}}" class="activity-card-overlay" bindtap="onCloseActivityCard">
     <view class="activity-card-popup" catchtap="">
       <activity-card
@@ -68,7 +80,7 @@
         show-distance="{{true}}"
         bind:tap="onActivityCardTap"
       />
-      <!-- Boost标签 - Requirements: 2.4 -->
+      <!-- Boost急招标签 - Requirements: 4.4 -->
       <view wx:if="{{selectedActivity.isBoosted}}" class="boost-badge">
         <text class="boost-icon">🔥</text>
         <text class="boost-text">急招</text>
@@ -76,11 +88,21 @@
     </view>
   </view>
 
-  <!-- 筛选面板 - Requirements: 5.1, 5.2, 5.3, 5.4 -->
+  <!-- 筛选面板 -->
   <filter-panel
     visible="{{showFilterPanel}}"
     filters="{{filters}}"
     bind:close="onFilterPanelClose"
     bind:apply="onFilterApply"
+  />
+
+  <!-- CUI 副驾面板 - Requirements: 3.1-3.7 -->
+  <cui-panel
+    id="cuiPanel"
+    visible="{{showCUIPanel}}"
+    bind:close="onCUIPanelClose"
+    bind:location="onCUILocation"
+    bind:selectActivities="onCUISelectActivities"
+    bind:createDraft="onCUICreateDraft"
   />
 </view>

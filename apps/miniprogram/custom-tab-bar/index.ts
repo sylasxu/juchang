@@ -1,6 +1,6 @@
 /**
  * 自定义TabBar组件
- * Requirements: 1.1, 1.2, 1.3
+ * Requirements: 1.1, 1.2, 1.3, 1.4
  */
 
 interface TabItem {
@@ -33,9 +33,9 @@ Component<ComponentData, WechatMiniprogram.Component.PropertyOption, WechatMinip
     unreadNum: 0,
     list: [
       {
-        icon: 'location',
-        value: 'map',
-        label: '地图',
+        icon: 'home',
+        value: 'home',
+        label: '首页',
       },
       {
         icon: 'chat',
@@ -61,10 +61,12 @@ Component<ComponentData, WechatMiniprogram.Component.PropertyOption, WechatMinip
         }
       }
 
+      // 初始化未读消息数 - Requirements: 1.4
       if (app.globalData?.unreadNum !== undefined) {
         this.setUnreadNum(app.globalData.unreadNum);
       }
 
+      // 监听未读消息变化
       if (app.eventBus) {
         app.eventBus.on('unread-num-change', (unreadNum: number) => {
           this.setUnreadNum(unreadNum);

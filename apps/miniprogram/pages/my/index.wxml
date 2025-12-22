@@ -23,13 +23,9 @@
         <view class="user-info">
           <view class="user-name">{{userInfo.nickname || '聚场用户'}}</view>
           <view class="user-bio" wx:if="{{userInfo.bio}}">{{userInfo.bio}}</view>
-          <!-- 靠谱度标签 (Requirements: 12.1) -->
+          <!-- 靠谱度徽章 (Requirements: 14.1, 14.2, 14.3, 14.4) -->
           <view class="user-tags">
-            <view class="reliability-tag">
-              <t-icon name="star-filled" size="28rpx" />
-              <text>{{reliabilityLabel}}</text>
-              <text wx:if="{{reliabilityRate > 0}}" class="rate">{{reliabilityRate}}%</text>
-            </view>
+            <reliability-badge rate="{{reliabilityRate}}" show-label="{{true}}" />
             <view class="member-tag" wx:if="{{userInfo.membershipType === 'pro'}}">
               <t-icon name="crown-filled" size="28rpx" />
               <text>Pro会员</text>

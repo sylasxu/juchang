@@ -1,12 +1,13 @@
 /**
  * 创建活动页面
- * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
+ * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 19.3, 19.4
  * - 实现表单字段（标题/描述/时间/地点/人数/费用等）
  * - 位置选择强制填写位置备注
  * - 隐私设置（模糊地理位置）
  * - 必填字段校验
  * - 调用创建活动API
  * - 推广选项（Boost/Pin+）
+ * - 活动发布额度检查
  */
 import { postActivities } from '../../../src/api/index';
 import {
@@ -14,6 +15,11 @@ import {
   postTransactionsPinPlus,
 } from '../../../src/api/endpoints/transactions/transactions';
 import type { ActivityCreateRequest } from '../../../src/api/model';
+import {
+  checkActivityCreateQuota,
+  consumeActivityCreateQuota,
+  showActivityCreateQuotaExhaustedTip,
+} from '../../../src/services/quota';
 
 // 类型定义
 interface PickerOption {
@@ -64,6 +70,14 @@ interface PageOptions {
   lat?: string;
   lng?: string;
   ghostType?: string;
+  // AI 预填数据 - Requirements: 8.7
+  title?: string;
+  type?: string;
+  startAt?: string;
+  maxParticipants?: string;
+  locationName?: string;
+  description?: string;
+  aiText?: string;
 }
 
 interface WxPaymentParams {
@@ -162,12 +176,42 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       return;
     }
 
-    // 如果有预设位置，设置位置信息
+    // 处理预填数据 - Requirements: 8.7
+    const updates: Partial<ActivityForm> = {};
+
+    // 位置信息
     if (options.lat && options.lng) {
-      this.setData({
-        'form.latitude': parseFloat(options.lat),
-        'form.longitude': parseFloat(options.lng),
-      });
+      updates.latitude = parseFloat(options.lat);
+      updates.longitude = parseFloat(options.lng);
+    }
+    if (options.locationName) {
+      updates.locationName = decodeURIComponent(options.locationName);
+    }
+
+    // AI 预填数据
+    if (options.title) {
+      updates.title = decodeURIComponent(options.title);
+    }
+    if (options.type) {
+      updates.type = options.type;
+    }
+    if (options.startAt) {
+      updates.startAt = decodeURIComponent(options.startAt);
+    }
+    if (options.maxParticipants) {
+      updates.maxParticipants = parseInt(options.maxParticipants, 10);
+    }
+    if (options.description) {
+      updates.description = decodeURIComponent(options.description);
+    }
+
+    // 应用预填数据
+    if (Object.keys(updates).length > 0) {
+      const formUpdates: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(updates)) {
+        formUpdates[`form.${key}`] = value;
+      }
+      this.setData(formUpdates as Partial<PageData>);
     }
   },
 
@@ -412,11 +456,20 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       return;
     }
 
+    // 检查活动发布额度 - Requirements: 19.3, 19.4
+    if (!checkActivityCreateQuota()) {
+      showActivityCreateQuotaExhaustedTip();
+      return;
+    }
+
     const { form, enableBoost, enablePinPlus } = this.data;
 
     this.setData({ isSubmitting: true });
 
     try {
+      // 消耗活动发布额度
+      consumeActivityCreateQuota();
+
       const requestData: ActivityCreateRequest = {
         title: form.title.trim(),
         description: form.description?.trim() || undefined,
@@ -578,7 +631,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   onShareAppMessage(): WechatMiniprogram.Page.ICustomShareContent {
     return {
       title: '我在聚场创建了一个活动，快来参加吧！',
-      path: '/pages/map/index',
+      path: '/pages/home/index',
     };
   },
 });

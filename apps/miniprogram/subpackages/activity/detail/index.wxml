@@ -217,7 +217,7 @@
     </view>
 
     
-    <!-- 发起人信息 Requirements: 6.3 -->
+    <!-- 发起人信息 Requirements: 6.3, 14.1-14.4 -->
     <view class="creator-section" bindtap="onCreatorTap">
       <text class="section-title">发起人</text>
       <view class="creator-card">
@@ -234,12 +234,7 @@
             <text class="stat-item">参与 {{activity.creator.participationCount || 0}} 场</text>
           </view>
         </view>
-        <view class="creator-reliability">
-          <text class="reliability-label">{{utils.getReliabilityLabel(utils.calculateReliability(activity.creator))}}</text>
-          <text wx:if="{{utils.calculateReliability(activity.creator) >= 0}}" class="reliability-rate">
-            {{utils.calculateReliability(activity.creator)}}%
-          </text>
-        </view>
+        <reliability-badge rate="{{utils.calculateReliability(activity.creator)}}" show-label="{{true}}" />
         <t-icon name="chevron-right" size="32rpx" color="#ccc" />
       </view>
     </view>

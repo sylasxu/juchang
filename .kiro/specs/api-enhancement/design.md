@@ -319,15 +319,15 @@ Response: { msg: string, activity: Activity }
 GET /activities/:id/status-history
 Response: Array<{ status: string, changedAt: string, changedBy: string }>
 
-// 生成分享数据
+// 生成分享数据（用于微信原生分享）
 GET /activities/:id/share
 Response: {
-  sceneParam: string,
-  title: string,
-  time: string,
-  location: string,
-  spotsLeft: number,
-  countdown: string,
+  title: string,           // 分享标题，如 "周五火锅局 | 还缺2人"
+  path: string,            // 小程序路径，如 "/subpackages/activity/detail/index?id=xxx"
+  imageUrl?: string,       // 分享图片（活动封面）
+  time: string,            // 活动时间
+  location: string,        // 活动地点
+  spotsLeft: number,       // 剩余名额
 }
 
 // 获取增值服务状态
@@ -351,7 +351,11 @@ Response: {
   participationCount: number,
   fulfillmentCount: number,
   reliabilityRate: number,
-  reliabilityLevel: string,
+  reliabilityBadge: {
+    icon: string,    // '🏅' | '✓' | '🆕'
+    label: string,   // '超靠谱' | '靠谱' | '新人'
+    type: 'super' | 'normal' | 'new',
+  },
   feedbackCount: number,
   disputeCount: number,
 }
@@ -360,7 +364,11 @@ Response: {
 GET /users/me/reliability
 Response: {
   rate: number,
-  level: string,
+  badge: {
+    icon: string,    // '🏅' | '✓' | '🆕'
+    label: string,   // '超靠谱' | '靠谱' | '新人'
+    type: 'super' | 'normal' | 'new',
+  },
   participationCount: number,
   fulfillmentCount: number,
   recentHistory: Array<{
@@ -487,16 +495,19 @@ export const activityStatusHistory = pgTable("activity_status_history", {
 *For any* 用户统计查询，返回的组织场次、参与场次、履约率应与实际数据一致
 **Validates: Requirements 7.1**
 
-### Property 17: 靠谱度计算正确性
-*For any* 用户，靠谱度应等于 fulfillmentCount / participationCount * 100
+### Property 17: 靠谱度徽章计算正确性
+*For any* 用户，靠谱度徽章应根据履约率正确计算：
+- rate > 90% → { icon: '🏅', label: '超靠谱', type: 'super' }
+- 80% < rate ≤ 90% → { icon: '✓', label: '靠谱', type: 'normal' }
+- rate ≤ 80% 或新用户 → { icon: '🆕', label: '新人', type: 'new' }
 **Validates: Requirements 7.2**
 
-### Property 18: 分享参数往返一致性
-*For any* 活动，生成的分享参数通过解析后应能正确返回该活动详情
+### Property 18: 分享数据完整性
+*For any* 活动分享数据请求，返回数据应包含 title、path、time、location、spotsLeft，且 path 格式正确可用于微信原生分享
 **Validates: Requirements 9.1, 9.2**
 
-### Property 19: 分享卡片数据完整性
-*For any* 活动分享卡片请求，返回数据应包含标题、时间、地点、缺人数、倒计时
+### Property 19: 分享路径往返一致性
+*For any* 活动，生成的分享 path 通过小程序打开后应能正确加载该活动详情
 **Validates: Requirements 9.3**
 
 ### Property 20: 增值服务状态查询准确性

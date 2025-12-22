@@ -1,0 +1,60 @@
+<!--
+  AI 输入栏组件
+  Requirements: 2.1, 2.2, 2.5
+  
+  位置：Tabbar上方悬浮
+  外观：类似灵动岛的黑色长条
+  左侧：AI图标
+  中间：提示文案/输入框
+  右侧：语音按钮
+-->
+<view class="ai-input-bar {{isExpanded ? 'expanded' : ''}}">
+  <!-- 收起状态：点击展开 -->
+  <view wx:if="{{!isExpanded}}" class="bar-collapsed" bindtap="onBarTap">
+    <view class="ai-icon">
+      <text class="icon-emoji">🤖</text>
+    </view>
+    <view class="placeholder-text">{{placeholder}}</view>
+    <view class="voice-btn" catchtap="onVoiceTap">
+      <t-icon name="sound" size="40rpx" color="#fff" />
+    </view>
+  </view>
+
+  <!-- 展开状态：输入框 -->
+  <view wx:else class="bar-expanded">
+    <view class="ai-icon">
+      <text class="icon-emoji">🤖</text>
+    </view>
+    
+    <view class="input-wrapper">
+      <input
+        class="input-field"
+        type="text"
+        placeholder="{{placeholder}}"
+        placeholder-class="input-placeholder"
+        value="{{inputValue}}"
+        focus="{{isExpanded}}"
+        confirm-type="send"
+        bindinput="onInputChange"
+        bindfocus="onInputFocus"
+        bindblur="onInputBlur"
+        bindconfirm="onInputConfirm"
+      />
+      
+      <!-- 清空按钮 -->
+      <view wx:if="{{inputValue}}" class="clear-btn" catchtap="onClearTap">
+        <t-icon name="close-circle-filled" size="36rpx" color="#999" />
+      </view>
+    </view>
+
+    <!-- 语音/发送按钮 -->
+    <view class="action-btn" catchtap="{{inputValue ? 'onInputConfirm' : 'onVoiceTap'}}">
+      <view wx:if="{{isRecording}}" class="recording-indicator">
+        <view class="recording-dot"></view>
+        <text class="recording-time">{{recordingDuration}}s</text>
+      </view>
+      <t-icon wx:elif="{{inputValue}}" name="send" size="44rpx" color="#fff" />
+      <t-icon wx:else name="sound" size="44rpx" color="#fff" />
+    </view>
+  </view>
+</view>

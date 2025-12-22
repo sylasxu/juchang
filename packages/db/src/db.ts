@@ -16,6 +16,7 @@ const client = postgres(connectionString, {
   host: 'localhost',
   port: 5432,
   database: 'juchang',
+  
 });
 
 // 👈 核心修改：把 schema 传进去

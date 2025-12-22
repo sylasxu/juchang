@@ -1,0 +1,13 @@
+<!--
+  靠谱度徽章组件
+  Requirements: 14.1, 14.2, 14.3, 14.4
+  
+  简化的徽章式靠谱度展示
+  - rate > 90% → 🏅 超靠谱
+  - 80% < rate ≤ 90% → ✓ 靠谱
+  - rate ≤ 80% 或新用户 → 🆕 新人
+-->
+<view class="reliability-badge badge-{{badgeType}}">
+  <text class="badge-icon">{{badgeIcon}}</text>
+  <text class="badge-label" wx:if="{{showLabel}}">{{badgeLabel}}</text>
+</view>

@@ -95,7 +95,7 @@ The JuChang Admin Panel is a comprehensive management system for the LBS-based P
 
 #### Acceptance Criteria
 
-1. WHEN managing premium features, THE Admin_System SHALL display usage statistics for boost, pin plus, fast pass, and AI services
+1. WHEN managing premium features, THE Admin_System SHALL display usage statistics for boost, pin plus, and AI services
 2. WHEN reviewing memberships, THE Admin_System SHALL show membership distribution, renewal rates, and revenue attribution
 3. WHEN adjusting service parameters, THE Admin_System SHALL allow modification of pricing, quotas, and feature availability
 4. WHEN analyzing premium adoption, THE Admin_System SHALL provide conversion funnels and user journey analytics

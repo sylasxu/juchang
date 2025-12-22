@@ -189,7 +189,7 @@ Page({
 
           // 返回首页
           setTimeout(() => {
-            wx.switchTab({ url: '/pages/map/index' });
+            wx.switchTab({ url: '/pages/home/index' });
           }, 1500);
         }
       },

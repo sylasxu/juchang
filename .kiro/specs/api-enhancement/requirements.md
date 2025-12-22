@@ -88,8 +88,8 @@
 
 #### Acceptance Criteria
 
-1. WHEN 用户请求个人统计 THEN API_System SHALL 返回组织场次、参与场次、履约率、差评次数
-2. WHEN 用户请求靠谱度详情 THEN API_System SHALL 返回靠谱度计算明细和等级
+1. WHEN 用户请求个人统计 THEN API_System SHALL 返回组织场次、参与场次、履约率、靠谱度徽章、差评次数
+2. WHEN 用户请求靠谱度详情 THEN API_System SHALL 返回靠谱度计算明细和徽章（🏅超靠谱/✓靠谱/🆕新人）
 3. WHEN 用户请求活动历史 THEN API_System SHALL 支持按状态（已完成、进行中、已取消）筛选
 
 ### Requirement 8: 管理后台 API 增强
@@ -103,15 +103,15 @@
 3. WHEN 管理员处理用户举报 THEN API_System SHALL 更新举报状态并记录处理结果
 4. WHEN 管理员查询平台统计 THEN API_System SHALL 返回用户增长、活动数量、收入等核心指标
 
-### Requirement 9: 分享和场景参数
+### Requirement 9: 分享功能
 
-**User Story:** As a 用户, I want 通过分享链接直接进入活动详情, so that 我可以快速查看朋友分享的活动。
+**User Story:** As a 用户, I want 通过微信原生分享功能分享活动, so that 我可以快速邀请朋友参与活动。
 
 #### Acceptance Criteria
 
-1. WHEN 用户请求生成分享参数 THEN API_System SHALL 返回包含活动ID的场景参数
-2. WHEN 用户通过场景参数访问 THEN API_System SHALL 解析参数并返回对应活动详情
-3. WHEN 生成分享卡片数据 THEN API_System SHALL 返回活动标题、时间、地点、缺人数、倒计时等信息
+1. WHEN 用户请求活动分享数据 THEN API_System SHALL 返回适用于微信原生分享的数据（标题、路径、图片）
+2. WHEN 用户通过分享链接访问 THEN API_System SHALL 解析路径参数并返回对应活动详情
+3. WHEN 生成分享数据 THEN API_System SHALL 返回活动标题、时间、地点、缺人数等信息
 
 ### Requirement 10: 增值服务状态查询
 

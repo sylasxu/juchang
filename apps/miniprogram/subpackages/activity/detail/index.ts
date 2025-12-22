@@ -312,12 +312,26 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     });
   },
 
+  /**
+   * 微信原生分享 - Requirements: 17.1, 17.2, 17.3, 17.4
+   */
   onShareAppMessage(): WechatMiniprogram.Page.ICustomShareContent {
     const { activity } = this.data;
+    if (!activity) {
+      return {
+        title: '聚场活动',
+        path: `/subpackages/activity/detail/index?id=${this.data.activityId}`,
+      };
+    }
+
+    // 计算空位数
+    const vacancy = (activity.maxParticipants || 0) - (activity.currentParticipants || 0);
+    const vacancyText = vacancy > 0 ? `还缺${vacancy}人` : '已满员';
+
     return {
-      title: activity?.title || '聚场活动',
+      title: `${activity.title} | ${vacancyText}`,
       path: `/subpackages/activity/detail/index?id=${this.data.activityId}`,
-      imageUrl: activity?.images?.[0] || '',
+      imageUrl: activity.images?.[0] || '',
     };
   },
 

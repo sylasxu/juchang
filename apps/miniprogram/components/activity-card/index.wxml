@@ -143,7 +143,7 @@
           icon="user"
         />
         <text class="creator-name">{{activityDetail.creator.nickname || '匿名用户'}}</text>
-        <text class="creator-reliability">{{utils.getReliabilityLabel(utils.calculateReliability(activityDetail.creator))}}</text>
+        <reliability-badge rate="{{utils.calculateReliability(activityDetail.creator)}}" show-label="{{true}}" />
       </view>
     </view>
     

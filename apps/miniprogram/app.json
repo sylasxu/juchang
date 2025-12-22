@@ -1,6 +1,6 @@
 {
   "pages": [
-    "pages/map/index",
+    "pages/home/index",
     "pages/message/index",
     "pages/my/index"
   ],
@@ -49,8 +49,8 @@
     "custom": true,
     "list": [
       {
-        "pagePath": "pages/map/index",
-        "text": "地图"
+        "pagePath": "pages/home/index",
+        "text": "首页"
       },
       {
         "pagePath": "pages/message/index",

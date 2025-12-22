@@ -1,8 +1,13 @@
 /**
- * 地图首页
- * Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4, 4.1-4.5, 5.1-5.4
+ * 首页（地图 + AI输入栏）
+ * Requirements: 1.1, 1.2, 2.1-2.6, 3.1-3.7, 4.1-4.7, 5.1-5.4, 19.1, 19.2
  */
 import { getActivitiesNearby } from '../../src/api/index';
+import {
+  checkAISearchQuota,
+  consumeAISearchQuota,
+  showAIQuotaExhaustedTip,
+} from '../../src/services/quota';
 
 // 类型定义
 interface PinSize {
@@ -37,6 +42,7 @@ interface NearbyItem {
   creatorReliabilityRate?: number;
   count?: number;
   ghostType?: string;
+  displayText?: string; // 幽灵锚点引导文案
 }
 
 interface ActivityListItem {
@@ -105,9 +111,15 @@ interface PageData {
   selectedActivity: SelectedActivity | null;
   showFilterPanel: boolean;
   filters: FilterOptions;
+  // AI 输入栏相关
+  aiPrefillText: string;
+  aiPrefillType: string;
+  aiPrefillLocation: number[] | null;
+  // CUI 副驾面板相关
+  showCUIPanel: boolean;
 }
 
-// Pin图标路径配置
+// Pin图标路径配置 - Requirements: 4.3, 4.4, 4.7
 const PIN_ICONS: Record<string, string> = {
   activity: '/static/pins/activity.png',
   activity_pinplus: '/static/pins/activity_gold.png',
@@ -138,8 +150,8 @@ const DEFAULT_FILTERS: FilterOptions = {
 
 Page<PageData, WechatMiniprogram.Page.CustomOption>({
   data: {
-    latitude: 39.908823,
-    longitude: 116.397470,
+    latitude: 29.563009,
+    longitude: 106.551556,
     scale: 14,
     markers: [],
     locationAuthorized: false,
@@ -153,6 +165,12 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     selectedActivity: null,
     showFilterPanel: false,
     filters: { ...DEFAULT_FILTERS },
+    // AI 输入栏相关
+    aiPrefillText: '',
+    aiPrefillType: '',
+    aiPrefillLocation: null,
+    // CUI 副驾面板相关
+    showCUIPanel: false,
   },
 
   mapCtx: null as WechatMiniprogram.MapContext | null,
@@ -166,8 +184,9 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   },
 
   onShow() {
+    // 更新TabBar选中状态 - Requirements: 1.3
     if (typeof this.getTabBar === 'function' && this.getTabBar()) {
-      this.getTabBar().setData({ value: 'map' });
+      this.getTabBar().setData({ value: 'home' });
     }
   },
 
@@ -217,7 +236,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   showLocationPermissionModal() {
     wx.showModal({
       title: '需要位置权限',
-      content: '请在设置中开启位置权限以使用地图功能',
+      content: '聚场需要获取您的位置来显示附近活动',
       confirmText: '去设置',
       success: (res) => {
         if (res.confirm) {
@@ -356,18 +375,29 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         height: markerConfig.height,
         activityId: item.id,
         itemType: item.type,
+        // 幽灵锚点显示引导文案 - Requirements: 5.3
         callout:
-          item.type === 'cluster'
+          item.type === 'ghost'
             ? {
-                content: `${item.count}个活动`,
+                content: item.displayText || '这里缺一个活动',
                 display: 'ALWAYS',
                 fontSize: 12,
                 borderRadius: 8,
                 padding: 6,
-                bgColor: '#FF6B35',
+                bgColor: '#4CAF50',
                 color: '#FFFFFF',
               }
-            : undefined,
+            : item.type === 'cluster'
+              ? {
+                  content: `${item.count}个活动`,
+                  display: 'ALWAYS',
+                  fontSize: 12,
+                  borderRadius: 8,
+                  padding: 6,
+                  bgColor: '#FF6B35',
+                  color: '#FFFFFF',
+                }
+              : undefined,
         customCallout: item.isPinPlus
           ? {
               display: 'ALWAYS',
@@ -387,14 +417,17 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       return { iconPath: PIN_ICONS.cluster, ...PIN_SIZES.cluster };
     }
 
+    // 幽灵锚点 - 绿色虚线Pin - Requirements: 4.7, 5.1
     if (item.type === 'ghost') {
       return { iconPath: PIN_ICONS.ghost, ...PIN_SIZES.ghost };
     }
 
+    // Pin+ - 金色1.5倍大小 - Requirements: 4.3
     if (item.isPinPlus) {
       return { iconPath: PIN_ICONS.activity_pinplus, ...PIN_SIZES.pinplus };
     }
 
+    // Boost - 橙色闪烁 - Requirements: 4.4
     if (item.isBoosted) {
       return { iconPath: PIN_ICONS.activity_boosted, ...PIN_SIZES.boosted };
     }
@@ -402,8 +435,8 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     return { iconPath: PIN_ICONS.activity, ...PIN_SIZES.normal };
   },
 
-  onMarkerTap(e: WechatMiniprogram.MarkerTap) {
-    const markerId = e.markerId;
+  onMarkerTap(e: WechatMiniprogram.CustomEvent<{ markerId: number }>) {
+    const markerId = e.detail.markerId;
     const marker = this.data.markers.find((m) => m.id === markerId);
 
     if (!marker) return;
@@ -418,14 +451,19 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       return;
     }
 
+    // 幽灵锚点点击 - 唤起AI输入栏并预填数据 - Requirements: 5.2
     if (marker.itemType === 'ghost') {
       const token = wx.getStorageSync('token');
       if (!token) {
         wx.navigateTo({ url: '/pages/login/login' });
         return;
       }
-      wx.navigateTo({
-        url: `/subpackages/activity/create/index?lat=${marker.latitude}&lng=${marker.longitude}&ghostType=${marker._data?.ghostType || ''}`,
+      
+      // 唤起 AI 输入栏并预填锚点数据
+      this.openAIInputWithPrefill({
+        text: marker._data?.displayText || '',
+        type: marker._data?.activityType || '',
+        location: [marker.longitude, marker.latitude],
       });
       return;
     }
@@ -565,6 +603,164 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   onRegionChange(e: WechatMiniprogram.RegionChange) {
     if (e.type === 'end' && e.causedBy === 'drag') {
       // 可以在这里加载新区域的活动
+    }
+  },
+
+  // 地图飞向指定位置 - Requirements: 3.2
+  flyToLocation(lat: number, lng: number) {
+    if (this.mapCtx) {
+      this.mapCtx.moveToLocation({
+        latitude: lat,
+        longitude: lng,
+      });
+      this.setData({
+        latitude: lat,
+        longitude: lng,
+      });
+    }
+  },
+
+  // ==================== AI 输入栏相关 ====================
+
+  /**
+   * AI 输入栏展开 - Requirements: 2.2
+   */
+  onAIInputExpand() {
+    console.log('AI 输入栏展开');
+  },
+
+  /**
+   * AI 输入栏收起
+   */
+  onAIInputCollapse() {
+    console.log('AI 输入栏收起');
+    // 清空预填数据
+    this.setData({
+      aiPrefillText: '',
+      aiPrefillType: '',
+      aiPrefillLocation: null,
+    });
+  },
+
+  /**
+   * AI 解析请求 - Requirements: 2.3, 2.6, 19.1, 19.2
+   */
+  onAIParse(e: WechatMiniprogram.CustomEvent<{ text: string; prefillType?: string; prefillLocation?: number[] }>) {
+    const { text, prefillType, prefillLocation } = e.detail;
+    console.log('AI 解析请求:', text, prefillType, prefillLocation);
+
+    // 检查登录状态
+    const token = wx.getStorageSync('token');
+    if (!token) {
+      wx.navigateTo({ url: '/pages/login/login' });
+      return;
+    }
+
+    // 检查 AI 额度 - Requirements: 19.1, 19.2
+    if (!checkAISearchQuota()) {
+      showAIQuotaExhaustedTip();
+      return;
+    }
+
+    // 消耗 AI 额度
+    consumeAISearchQuota();
+
+    // 显示 CUI 副驾面板
+    this.setData({ showCUIPanel: true });
+
+    // 获取 CUI 面板组件实例并开始解析
+    const cuiPanel = this.selectComponent('#cuiPanel');
+    if (cuiPanel) {
+      // 使用模拟方法进行开发调试
+      // TODO: 替换为真实 AI API 调用
+      cuiPanel.simulateAIResponse(text);
+    }
+  },
+
+  // ==================== CUI 副驾面板相关 ====================
+
+  /**
+   * CUI 面板关闭
+   */
+  onCUIPanelClose() {
+    this.setData({ showCUIPanel: false });
+  },
+
+  /**
+   * CUI 面板位置联动 - Requirements: 3.2
+   * AI 定位到地点时，地图同步飞向目标位置
+   */
+  onCUILocation(e: WechatMiniprogram.CustomEvent<{ name: string; lat: number; lng: number }>) {
+    const { lat, lng } = e.detail;
+    this.flyToLocation(lat, lng);
+  },
+
+  /**
+   * CUI 面板选择活动 - Requirements: 3.4
+   * 用户点击"发现X个局"卡片
+   */
+  onCUISelectActivities(e: WechatMiniprogram.CustomEvent<{ activities: Array<{ id: string }> }>) {
+    const { activities } = e.detail;
+    
+    // 关闭 CUI 面板
+    this.setData({ showCUIPanel: false });
+    
+    // 如果只有一个活动，直接跳转详情页
+    if (activities.length === 1) {
+      wx.navigateTo({
+        url: `/subpackages/activity/detail/index?id=${activities[0].id}`,
+      });
+      return;
+    }
+    
+    // 多个活动时，可以展示列表或在地图上高亮
+    // TODO: 实现多活动展示逻辑
+    wx.showToast({ title: `发现 ${activities.length} 个活动`, icon: 'none' });
+  },
+
+  /**
+   * CUI 面板创建草稿 - Requirements: 3.7
+   * 用户点击"立即发布"按钮
+   */
+  onCUICreateDraft(e: WechatMiniprogram.CustomEvent<{ draft: { title: string; type: string; startAt: string; location: { name: string; coords: [number, number] }; maxParticipants: number; description?: string } }>) {
+    const { draft } = e.detail;
+    
+    // 关闭 CUI 面板
+    this.setData({ showCUIPanel: false });
+    
+    // 跳转到创建页并预填数据
+    const params = new URLSearchParams();
+    if (draft.title) params.append('title', draft.title);
+    if (draft.type) params.append('type', draft.type);
+    if (draft.startAt) params.append('startAt', draft.startAt);
+    if (draft.maxParticipants) params.append('maxParticipants', String(draft.maxParticipants));
+    if (draft.location?.name) params.append('locationName', draft.location.name);
+    if (draft.location?.coords) {
+      params.append('lng', String(draft.location.coords[0]));
+      params.append('lat', String(draft.location.coords[1]));
+    }
+    if (draft.description) params.append('description', draft.description);
+
+    wx.navigateTo({
+      url: `/subpackages/activity/create/index?${params.toString()}`,
+    });
+  },
+
+  /**
+   * 唤起 AI 输入栏并预填数据 - Requirements: 5.2
+   * 供幽灵锚点等场景调用
+   */
+  openAIInputWithPrefill(data: { text?: string; type?: string; location?: number[] }) {
+    this.setData({
+      aiPrefillText: data.text || '',
+      aiPrefillType: data.type || '',
+      aiPrefillLocation: data.location || null,
+    });
+
+    // 获取 AI 输入栏组件实例并调用方法
+    const aiInputBar = this.selectComponent('#aiInputBar');
+    if (aiInputBar) {
+      aiInputBar.setPrefillData(data);
     }
   },
 });

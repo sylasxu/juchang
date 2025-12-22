@@ -8,6 +8,8 @@
     "floating-buttons": "/components/floating-buttons/index",
     "bottom-drawer": "/components/bottom-drawer/index",
     "activity-card": "/components/activity-card/index",
-    "filter-panel": "/components/filter-panel/index"
+    "filter-panel": "/components/filter-panel/index",
+    "ai-input-bar": "/components/ai-input-bar/index",
+    "cui-panel": "/components/cui-panel/index"
   }
 }
