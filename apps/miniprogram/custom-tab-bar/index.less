@@ -1,6 +1,11 @@
-@import '/variable.less';
+/**
+ * 自定义TabBar样式
+ * 使用 TDesign t-tab-bar 组件
+ */
+@import '/styles/tokens.less';
 
 :host {
   --td-tab-bar-height: @tab-bar-height;
   --td-tab-bar-bg-color: #ffffff;
+  --td-tab-bar-active-color: @brand-color;
 }

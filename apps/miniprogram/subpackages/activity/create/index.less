@@ -1,275 +1,88 @@
 /**
  * 创建活动页面样式
- * Requirements: 7.1, 7.2, 7.3, 7.6
- * 使用 TDesign CSS 变量实现主题一致性
+ * 仅保留原子类无法实现的特殊样式
  */
-@import '/variable.less';
+@import '/styles/tokens.less';
 
-.create-activity {
-  min-height: 100vh;
-  background-color: var(--td-bg-color-page, @bg-color-page);
-  display: flex;
-  flex-direction: column;
-}
-
+// 表单滚动区域高度
 .form-scroll {
-  flex: 1;
   height: calc(100vh - 140rpx);
 }
 
-// ==================== 区块样式 ====================
-.section {
-  background-color: var(--td-bg-color-container, @bg-color-container);
-  margin-bottom: 20rpx;
-  padding: 32rpx;
+// 必填标记
+.required::before {
+  content: '*';
+  color: @error-color;
+  margin-right: 4rpx;
 }
 
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--td-text-color-primary, @text-color-primary);
-  margin-bottom: 24rpx;
-  padding-bottom: 16rpx;
-  border-bottom: 1rpx solid var(--td-component-border, @border-color-light);
+// 占位符文字颜色
+.placeholder {
+  color: @gray-400;
 }
 
-// ==================== 表单项样式 ====================
-.form-item {
-  margin-bottom: 24rpx;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-.form-label {
-  display: block;
-  font-size: 28rpx;
-  color: var(--td-text-color-primary, @text-color-primary);
-  margin-bottom: 12rpx;
-  font-weight: 500;
-
-  &.required::before {
-    content: '*';
-    color: var(--td-error-color, @error-color);
-    margin-right: 4rpx;
-  }
-}
-
-.form-value {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24rpx;
-  background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  border-radius: 12rpx;
-  font-size: 28rpx;
-  color: var(--td-text-color-primary, @text-color-primary);
-
-  .placeholder {
-    color: var(--td-text-color-placeholder, @text-color-placeholder);
-  }
-}
-
-.form-hint {
-  font-size: 24rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-  margin-top: 8rpx;
-  line-height: 1.5;
-}
-
-.address-detail {
-  display: flex;
-  align-items: flex-start;
-  gap: 8rpx;
-  padding: 16rpx 24rpx;
-  background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  border-radius: 8rpx;
-  margin-top: -12rpx;
-  margin-bottom: 24rpx;
-
-  text {
-    flex: 1;
-    font-size: 24rpx;
-    color: var(--td-text-color-secondary, @text-color-secondary);
-    line-height: 1.5;
-  }
-}
-
-// ==================== 开关项样式 ====================
-.switch-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16rpx 0;
-  border-top: 1rpx solid var(--td-component-border, @border-color-light);
-  margin-top: 16rpx;
-  padding-top: 24rpx;
-}
-
-.switch-content {
-  flex: 1;
-  margin-right: 24rpx;
-
-  .form-label {
-    margin-bottom: 4rpx;
-  }
-
-  .form-hint {
-    margin-top: 0;
-  }
-}
-
-// ==================== 步进器项样式 ====================
-.stepper-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-
-  .form-label {
-    margin-bottom: 0;
-  }
-}
-
-// ==================== 增值服务样式 ====================
-.premium-section {
-  .section-title {
-    justify-content: space-between;
-  }
-}
-
+// 增值服务卡片
 .premium-item {
-  padding: 24rpx;
-  background-color: var(--td-brand-color-light, @brand-color-light);
-  border-radius: 12rpx;
+  background-color: @brand-color-light;
   border: 1rpx solid fade(@brand-color, 20%);
-  margin-bottom: 16rpx;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
 }
 
-.premium-header {
-  display: flex;
-  align-items: flex-start;
-}
-
-.premium-info {
-  flex: 1;
-  margin-left: 16rpx;
-}
-
-.premium-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8rpx;
-}
-
-.premium-name {
-  font-size: 30rpx;
-  font-weight: 500;
-  color: var(--td-text-color-primary, @text-color-primary);
-}
-
-.premium-price {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--td-brand-color, @brand-color);
-}
-
-.premium-desc {
-  font-size: 24rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-  line-height: 1.5;
-}
-
-// ==================== 底部栏样式 ====================
-.bottom-placeholder {
-  height: 160rpx;
-}
-
+// 底部栏
 .bottom-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20rpx 32rpx;
-  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
-  background-color: var(--td-bg-color-container, @bg-color-container);
+  background-color: #fff;
   box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.05);
   z-index: 100;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
 }
 
-.price-info {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  margin-bottom: 16rpx;
+// 底部占位
+.bottom-placeholder {
+  height: 160rpx;
 }
 
-.price-label {
-  font-size: 26rpx;
-  color: var(--td-text-color-secondary, @text-color-secondary);
-}
-
-.price-value {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: var(--td-brand-color, @brand-color);
-  margin-left: 8rpx;
-}
-
-// ==================== TDesign 组件样式覆盖 ====================
-// 使用 CSS 变量覆盖，保持主题一致性
+// TDesign 组件样式覆盖
 .t-input {
-  --td-input-bg-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  --td-input-border-radius: 12rpx;
+  --td-input-bg-color: @gray-100;
+  --td-input-border-radius: @rounded-md;
   --td-input-vertical-padding: 20rpx;
 }
 
 .t-textarea {
-  --td-textarea-bg-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  --td-textarea-border-radius: 12rpx;
+  --td-textarea-bg-color: @gray-100;
+  --td-textarea-border-radius: @rounded-md;
   --td-textarea-padding: 20rpx 24rpx;
   min-height: 160rpx;
 }
 
-.t-upload {
-  margin-top: 12rpx;
-}
-
 .t-button--primary {
-  --td-button-primary-bg-color: var(--td-brand-color, @brand-color);
-  --td-button-primary-border-color: var(--td-brand-color, @brand-color);
+  --td-button-primary-bg-color: @brand-color;
+  --td-button-primary-border-color: @brand-color;
   --td-button-border-radius: 44rpx;
-  
-  // 渐变背景
   background: linear-gradient(135deg, @brand-color, @brand-color-dark) !important;
   border: none !important;
 }
 
 .t-stepper {
-  --td-stepper-input-bg-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
+  --td-stepper-input-bg-color: @gray-100;
   --td-stepper-input-width: 100rpx;
 }
 
 .t-switch {
-  --td-switch-on-bg-color: var(--td-brand-color, @brand-color);
+  --td-switch-on-bg-color: @brand-color;
 }
 
 .t-checkbox {
-  --td-checkbox-icon-checked-color: var(--td-brand-color, @brand-color);
+  --td-checkbox-icon-checked-color: @brand-color;
 }
 
 .t-picker {
-  --td-picker-confirm-color: var(--td-brand-color, @brand-color);
+  --td-picker-confirm-color: @brand-color;
 }
 
 .t-date-time-picker {
-  --td-date-time-picker-confirm-color: var(--td-brand-color, @brand-color);
+  --td-date-time-picker-confirm-color: @brand-color;
 }

@@ -1,15 +1,4 @@
-@import '/variable.less';
-
-.home-container {
-  position: relative;
-  width: 100%;
-  height: 100vh;
-}
-
-.map {
-  width: 100%;
-  height: 100%;
-}
+@import '/styles/tokens.less';
 
 // 加载状态遮罩
 .loading-overlay {
@@ -25,28 +14,7 @@
   z-index: 1000;
 }
 
-// 空状态
-.empty-activities {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60rpx 0;
-  
-  .empty-text {
-    margin-top: 20rpx;
-    font-size: 28rpx;
-    color: #999;
-  }
-  
-  .empty-hint {
-    margin-top: 8rpx;
-    font-size: 24rpx;
-    color: #ccc;
-  }
-}
-
-// 活动卡片弹窗遮罩 - Requirements: 4.5
+// 活动卡片弹窗遮罩
 .activity-card-overlay {
   position: fixed;
   top: 0;
@@ -67,65 +35,36 @@
   width: 90%;
   max-width: 640rpx;
   background-color: #fff;
-  border-radius: 24rpx;
+  border-radius: @rounded-lg;
   overflow: hidden;
-  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   animation: slideUp 0.3s ease-out;
 }
 
-// Boost急招标签 - Requirements: 4.4
+// Boost急招标签
 .boost-badge {
   position: absolute;
-  top: 16rpx;
-  right: 16rpx;
+  top: @spacing-2;
+  right: @spacing-2;
   display: flex;
   align-items: center;
-  padding: 8rpx 16rpx;
-  background: linear-gradient(135deg, #FF6B35, #FF4500);
-  border-radius: 20rpx;
+  padding: @spacing-1 @spacing-2;
+  background: linear-gradient(135deg, @brand-color, @brand-color-dark);
+  border-radius: @rounded-full;
   animation: pulse 1.5s infinite;
-  
-  .boost-icon {
-    font-size: 24rpx;
-    margin-right: 4rpx;
-  }
-  
-  .boost-text {
-    font-size: 22rpx;
-    color: #fff;
-    font-weight: 600;
-  }
 }
 
-// 动画
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 @keyframes slideUp {
-  from {
-    transform: translateY(40rpx);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+  from { transform: translateY(40rpx); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-// Boost闪烁动效 - Requirements: 4.4
 @keyframes pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(255, 107, 53, 0.4);
-  }
-  50% {
-    transform: scale(1.05);
-    box-shadow: 0 0 0 8rpx rgba(255, 107, 53, 0);
-  }
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 fade(@brand-color, 40%); }
+  50% { transform: scale(1.05); box-shadow: 0 0 0 8rpx fade(@brand-color, 0%); }
 }

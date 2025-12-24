@@ -1,281 +1,59 @@
 /**
  * 消息中心页面样式
- * Requirements: 8.1, 8.2, 8.3, 8.4, 8.5
+ * 仅保留原子类无法实现的特殊样式
  */
-@import '../../variable.less';
+@import '/styles/tokens.less';
 
-.message-page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background-color: var(--td-bg-color-page, @bg-color-page);
-}
+// 固定尺寸类（原子类未覆盖）
+.w-80 { width: 80rpx; }
+.h-80 { height: 80rpx; }
+.w-100 { width: 100rpx; }
+.h-100 { height: 100rpx; }
 
-.message-content {
-  flex: 1;
+// 底部安全区 + TabBar 高度
+.pb-safe {
   padding-bottom: calc(env(safe-area-inset-bottom) + @tab-bar-height);
 }
 
-// ==================== 区域通用样式 ====================
-
-.section {
-  margin: 24rpx;
-  background-color: var(--td-bg-color-container, @bg-color-container);
-  border-radius: 16rpx;
-  overflow: hidden;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24rpx 32rpx;
-  border-bottom: 1rpx solid var(--td-border-color, @border-color-light);
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-  font-size: 32rpx;
-  font-weight: 500;
-  color: var(--td-text-color-primary, @text-color-primary);
-}
-
-.section-badge {
-  margin-left: 8rpx;
-}
-
-.expand-icon {
-  color: var(--td-text-color-secondary, @text-color-secondary);
-}
-
-// ==================== 系统通知样式 ====================
-
-.notification-list {
-  padding: 0;
-}
-
-.notification-item {
-  display: flex;
-  align-items: flex-start;
-  padding: 24rpx 32rpx;
-  border-bottom: 1rpx solid var(--td-border-color, @border-color-light);
-  transition: background-color 0.2s;
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:active {
-    background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  }
-
-  &.unread {
-    background-color: var(--td-brand-color-light, @brand-color-light);
-  }
-}
-
+// 通知图标颜色（根据类型变化）
 .notification-icon {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-right: 24rpx;
-  background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  color: var(--td-text-color-secondary, @text-color-secondary);
+  background-color: @gray-100;
+  color: @gray-600;
 
   &.join_request {
     background-color: fade(@brand-color, 15%);
-    color: var(--td-brand-color, @brand-color);
+    color: @brand-color;
   }
 
   &.join_approved {
     background-color: fade(@success-color, 15%);
-    color: var(--td-success-color, @success-color);
+    color: @success-color;
   }
 
-  &.join_rejected {
-    background-color: fade(@error-color, 15%);
-    color: var(--td-error-color, @error-color);
-  }
-
+  &.join_rejected,
   &.no_show {
     background-color: fade(@error-color, 15%);
-    color: var(--td-error-color, @error-color);
+    color: @error-color;
   }
 
   &.fulfillment {
     background-color: fade(@info-color, 15%);
-    color: var(--td-info-color, @info-color);
+    color: @info-color;
   }
 }
 
-.notification-content {
-  flex: 1;
-  min-width: 0;
+// 点击态
+.notification-item:active,
+.chat-item:active {
+  background-color: @gray-50;
 }
 
-.notification-title {
-  font-size: 30rpx;
-  font-weight: 500;
-  color: var(--td-text-color-primary, @text-color-primary);
-  margin-bottom: 8rpx;
+// 归档徽章
+.archived-badge {
+  background-color: rgba(0, 0, 0, 0.6);
 }
 
-.notification-desc {
-  font-size: 26rpx;
-  color: var(--td-text-color-secondary, @text-color-secondary);
-  margin-bottom: 8rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.notification-time {
-  font-size: 24rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-}
-
-.notification-arrow {
-  display: flex;
-  align-items: center;
-  margin-left: 16rpx;
-}
-
-.dispute-btn {
-  display: flex;
-  align-items: center;
-  margin-left: 16rpx;
-}
-
-// ==================== 群聊列表样式 ====================
-
-.chat-list {
-  padding: 0;
-}
-
-.chat-item {
-  display: flex;
-  align-items: center;
-  padding: 24rpx 32rpx;
-  border-bottom: 1rpx solid var(--td-border-color, @border-color-light);
-  transition: background-color 0.2s;
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:active {
-    background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  }
-
-  &.archived {
-    opacity: 0.6;
-  }
-}
-
-.chat-avatar {
-  position: relative;
-  width: 100rpx;
-  height: 100rpx;
-  border-radius: 16rpx;
-  overflow: hidden;
-  flex-shrink: 0;
-  margin-right: 24rpx;
-
-  image {
-    width: 100%;
-    height: 100%;
-  }
-
-  .archived-badge {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    font-size: 20rpx;
-    text-align: center;
-    padding: 4rpx 0;
-  }
-}
-
-.chat-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.chat-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8rpx;
-}
-
-.chat-title {
-  font-size: 30rpx;
-  font-weight: 500;
-  color: var(--td-text-color-primary, @text-color-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  margin-right: 16rpx;
-}
-
-.chat-time {
-  font-size: 24rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-  flex-shrink: 0;
-}
-
-.chat-desc-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8rpx;
-}
-
-.chat-desc {
-  font-size: 26rpx;
-  color: var(--td-text-color-secondary, @text-color-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  margin-right: 16rpx;
-}
-
-.chat-badge {
-  flex-shrink: 0;
-}
-
-.chat-meta {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  font-size: 24rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-}
-
-// ==================== 空状态样式 ====================
-
-.empty-tip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 64rpx 32rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-  font-size: 28rpx;
-
-  .empty-sub {
-    font-size: 24rpx;
-    margin-top: 8rpx;
-  }
+// 半透明背景
+.bg-opacity-60 {
+  background-color: rgba(0, 0, 0, 0.6);
 }

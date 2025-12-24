@@ -1,157 +1,21 @@
-@import '/variable.less';
+@import '/styles/tokens.less';
 
-.filter-panel {
-  background-color: @bg-color-white;
-  border-radius: 32rpx 32rpx 0 0;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-}
-
-// 头部
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 32rpx 32rpx 24rpx;
-  border-bottom: 1rpx solid @gray3;
-}
-
-.panel-title {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: @gy1;
-}
-
-.close-btn {
-  width: 64rpx;
-  height: 64rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  
-  &:active {
-    background-color: @bg-color;
-  }
-}
-
-// 内容区域
-.panel-content {
-  flex: 1;
-  padding: 0 32rpx;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-// 筛选区块
-.filter-section {
-  padding: 24rpx 0;
-  border-bottom: 1rpx solid @gray3;
-  
-  &:last-child {
-    border-bottom: none;
-  }
-}
-
-.section-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: @font-size-default;
-  font-weight: 500;
-  color: @gy1;
-  margin-bottom: 20rpx;
-}
-
-.section-value {
-  font-size: @font-size-small;
-  font-weight: normal;
-  color: @brand7-normal;
-}
-
-// 选项列表
-.option-list {
-  display: flex;
-  gap: 16rpx;
-  
-  &.wrap {
-    flex-wrap: wrap;
-  }
-}
-
+// 选项按钮样式
 .option-item {
-  padding: 16rpx 28rpx;
-  background-color: @bg-color;
-  border-radius: 32rpx;
-  font-size: @font-size-small;
-  color: @gy2;
+  padding: @spacing-2 @spacing-4;
+  background-color: @gray-100;
+  border-radius: @rounded-full;
+  font-size: @text-sm;
+  color: @gray-600;
   transition: all 0.2s;
-  
+
   &:active {
     opacity: 0.7;
   }
-  
+
   &.active {
-    background-color: rgba(0, 82, 217, 0.1);
-    color: @brand7-normal;
+    background-color: fade(@brand-color, 10%);
+    color: @brand-color;
     font-weight: 500;
-  }
-}
-
-// 滑块容器
-.slider-container {
-  padding: 16rpx 8rpx 0;
-}
-
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8rpx;
-  font-size: @font-size-mini;
-  color: @gy3;
-}
-
-// 底部按钮
-.panel-footer {
-  display: flex;
-  gap: 24rpx;
-  padding: 24rpx 32rpx;
-  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
-  border-top: 1rpx solid @gray3;
-  background-color: @bg-color-white;
-}
-
-.reset-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  padding: 24rpx 0;
-  background-color: @bg-color;
-  border-radius: 48rpx;
-  font-size: @font-size-default;
-  color: @gy2;
-  
-  &:active {
-    opacity: 0.7;
-  }
-}
-
-.apply-btn {
-  flex: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24rpx 0;
-  background-color: @brand7-normal;
-  border-radius: 48rpx;
-  font-size: @font-size-default;
-  color: @bg-color-white;
-  font-weight: 500;
-  
-  &:active {
-    opacity: 0.8;
   }
 }

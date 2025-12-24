@@ -1,6 +1,10 @@
-<view class="search-page">
+<!--
+  搜索页面
+  TDesign + Atomic Less 重构
+-->
+<view class="min-h-screen bg-gray-50">
   <!-- 搜索框 -->
-  <view class="search-header">
+  <view class="p-3 bg-white">
     <t-search
       value="{{searchValue}}"
       placeholder="搜索活动"
@@ -13,47 +17,50 @@
   </view>
 
   <!-- 搜索结果 -->
-  <view wx:if="{{hasSearched}}" class="search-results">
-    <t-loading wx:if="{{loading}}" theme="circular" size="40rpx" text="搜索中..." />
+  <view wx:if="{{hasSearched}}" class="p-3">
+    <view wx:if="{{loading}}" class="flex justify-center py-12">
+      <t-loading theme="circular" size="40rpx" text="搜索中..." />
+    </view>
     
-    <view wx:elif="{{searchResults.length === 0}}" class="empty-result">
+    <view wx:elif="{{searchResults.length === 0}}" class="py-12 text-center">
       <t-empty icon="search" description="未找到相关活动" />
     </view>
     
-    <view wx:else class="result-list">
+    <view wx:else class="bg-white rounded-lg overflow-hidden">
       <view 
         wx:for="{{searchResults}}" 
         wx:key="id" 
-        class="result-item"
+        class="result-item px-3 py-3 border-b border-gray-100"
         data-id="{{item.id}}"
         bind:tap="handleResultTap"
       >
-        <view class="result-title">{{item.title}}</view>
-        <view class="result-info">
-          <text class="result-location">📍 {{item.locationName}}</text>
-          <text class="result-distance" wx:if="{{item.distance}}">{{item.distance < 1000 ? item.distance + 'm' : (item.distance / 1000).toFixed(1) + 'km'}}</text>
+        <view class="text-lg font-medium text-gray-900 mb-2">{{item.title}}</view>
+        <view class="flex justify-between items-center mb-1">
+          <text class="text-sm text-gray-600">📍 {{item.locationName}}</text>
+          <text class="text-xs text-gray-400" wx:if="{{item.distance}}">
+            {{item.distance < 1000 ? item.distance + 'm' : (item.distance / 1000).toFixed(1) + 'km'}}
+          </text>
         </view>
-        <view class="result-meta">
-          <text class="result-time">🕐 {{item.startAt}}</text>
-          <text class="result-participants">👥 {{item.currentParticipants}}/{{item.maxParticipants}}</text>
+        <view class="flex gap-3 text-xs text-gray-400">
+          <text>🕐 {{item.startAt}}</text>
+          <text>👥 {{item.currentParticipants}}/{{item.maxParticipants}}</text>
         </view>
       </view>
     </view>
   </view>
 
   <!-- 历史记录和热门搜索 -->
-  <view wx:else class="search-suggestions">
+  <view wx:else class="p-3">
     <!-- 历史记录 -->
-    <view wx:if="{{historyWords.length > 0}}" class="history-section">
-      <view class="section-header">
-        <text class="section-title">搜索历史</text>
-        <t-icon name="delete" size="40rpx" bind:tap="handleClearHistory" />
+    <view wx:if="{{historyWords.length > 0}}" class="bg-white rounded-lg p-3 mb-3">
+      <view class="flex justify-between items-center mb-3">
+        <text class="text-sm font-medium text-gray-900">搜索历史</text>
+        <t-icon name="delete" size="40rpx" color="#9CA3AF" bind:tap="handleClearHistory" />
       </view>
-      <view class="tag-list">
+      <view class="flex flex-wrap gap-2">
         <view 
           wx:for="{{historyWords}}" 
           wx:key="*this" 
-          class="tag-item"
           data-index="{{index}}"
           bind:tap="handleHistoryTap"
           bindlongpress="deleteHistory"
@@ -64,15 +71,14 @@
     </view>
 
     <!-- 热门搜索 -->
-    <view class="popular-section">
-      <view class="section-header">
-        <text class="section-title">热门搜索</text>
+    <view class="bg-white rounded-lg p-3">
+      <view class="flex justify-between items-center mb-3">
+        <text class="text-sm font-medium text-gray-900">热门搜索</text>
       </view>
-      <view class="tag-list">
+      <view class="flex flex-wrap gap-2">
         <view 
           wx:for="{{popularWords}}" 
           wx:key="*this" 
-          class="tag-item"
           data-index="{{index}}"
           bind:tap="handlePopularTap"
         >

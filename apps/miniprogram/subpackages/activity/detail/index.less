@@ -1,482 +1,112 @@
 /**
  * 活动详情页样式
- * Requirements: 6.1, 6.2, 6.3
+ * 仅保留原子类无法实现的特殊样式
  */
-@import '/variable.less';
+@import '/styles/tokens.less';
 
-.activity-detail {
-  min-height: 100vh;
-  background-color: #f5f5f5;
-  padding-bottom: 140rpx; // 为底部操作栏留空间
+// 底部操作栏高度预留
+.pb-bottom-bar {
+  padding-bottom: 140rpx;
 }
 
-// ==================== 加载和错误状态 ====================
-.loading-container,
-.error-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 60vh;
-  padding: 40rpx;
-}
+// 图片区域高度
+.h-480 { height: 480rpx; }
 
-.loading-text,
-.error-text {
-  margin-top: 24rpx;
-  font-size: 28rpx;
-  color: #999;
-}
-
-.error-container {
-  .error-text {
-    margin-bottom: 32rpx;
-  }
-}
-
-// ==================== 图片区域 ====================
-.image-section {
-  position: relative;
-  width: 100%;
-  height: 480rpx;
-  background-color: #f0f0f0;
-}
-
-.image-swiper {
-  width: 100%;
-  height: 100%;
-}
-
-.activity-image {
-  width: 100%;
-  height: 100%;
-}
-
-.image-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-  background-color: #f5f5f5;
-  
-  .placeholder-text {
-    margin-top: 16rpx;
-    font-size: 26rpx;
-    color: #ccc;
-  }
-}
-
-.service-tags {
-  position: absolute;
-  top: 24rpx;
-  left: 24rpx;
-  display: flex;
-  gap: 12rpx;
-}
-
+// 增值服务标签渐变
 .service-tag {
-  display: flex;
-  align-items: center;
-  gap: 6rpx;
-  padding: 8rpx 16rpx;
-  border-radius: 8rpx;
-  font-size: 24rpx;
-  
   &.pinplus {
     background: linear-gradient(135deg, #FFD700, #FFA500);
-    color: #fff;
   }
   
   &.boost {
-    background: linear-gradient(135deg, #FF6B35, #FF4500);
-    color: #fff;
+    background: linear-gradient(135deg, @brand-color, @brand-color-dark);
   }
 }
 
-// ==================== 信息区域 ====================
-.info-section {
-  background-color: #fff;
-  padding: 32rpx;
-  margin-bottom: 16rpx;
-}
-
-.title-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 24rpx;
-}
-
-.activity-title {
-  flex: 1;
-  font-size: 40rpx;
-  font-weight: 600;
-  color: #333;
-  line-height: 1.4;
-  margin-right: 16rpx;
-}
-
-.status-row {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  margin-bottom: 24rpx;
-}
-
-.creator-badge {
-  font-size: 24rpx;
-  color: #FF6B35;
-  padding: 4rpx 12rpx;
-  background-color: rgba(255, 107, 53, 0.1);
-  border-radius: 4rpx;
-}
-
+// 信息行边框
 .info-row {
-  display: flex;
-  align-items: flex-start;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #f5f5f5;
+  border-bottom: 1rpx solid @gray-100;
   
   &:last-child {
     border-bottom: none;
   }
 }
 
-.info-content {
-  flex: 1;
-  margin-left: 20rpx;
-}
-
-.info-label {
-  display: block;
-  font-size: 24rpx;
-  color: #999;
-  margin-bottom: 8rpx;
-}
-
-.info-value {
-  display: block;
-  font-size: 30rpx;
-  color: #333;
-  font-weight: 500;
-}
-
-.info-value-sub {
-  display: block;
-  font-size: 26rpx;
-  color: #666;
-  margin-top: 4rpx;
-}
-
-.info-hint {
-  display: block;
-  font-size: 24rpx;
-  color: #FF6B35;
-  margin-top: 8rpx;
-}
-
-.hot-badge {
-  display: inline-block;
-  font-size: 24rpx;
-  color: #FF4500;
-  margin-left: 12rpx;
-}
-
-// ==================== 描述区域 ====================
-.description-section {
-  background-color: #fff;
-  padding: 32rpx;
-  margin-bottom: 16rpx;
-}
-
-.section-title {
-  display: block;
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 20rpx;
-}
-
-.description-text {
-  font-size: 28rpx;
-  color: #666;
-  line-height: 1.8;
-  white-space: pre-wrap;
-}
-
-
-// ==================== 发起人区域 ====================
-.creator-section {
-  background-color: #fff;
-  padding: 32rpx;
-  margin-bottom: 16rpx;
-}
-
+// 发起人卡片背景
 .creator-card {
-  display: flex;
-  align-items: center;
-  padding: 20rpx;
-  background-color: #fafafa;
-  border-radius: 12rpx;
+  background-color: @gray-50;
 }
 
-.creator-info {
-  flex: 1;
-  margin-left: 20rpx;
-}
-
-.creator-name {
-  display: block;
-  font-size: 30rpx;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 8rpx;
-}
-
-.creator-stats {
-  display: flex;
-  align-items: center;
-}
-
-.stat-item {
-  font-size: 24rpx;
-  color: #999;
-}
-
-.stat-divider {
-  margin: 0 12rpx;
-  color: #e0e0e0;
-}
-
-.creator-reliability {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  margin-right: 12rpx;
-}
-
-.reliability-label {
-  font-size: 24rpx;
-  color: #FF6B35;
-}
-
-.reliability-rate {
-  font-size: 28rpx;
-  font-weight: 600;
-  color: #FF6B35;
-}
-
-// ==================== 参与者区域 ====================
-.participants-section {
-  background-color: #fff;
-  padding: 32rpx;
-  margin-bottom: 16rpx;
-}
-
-.participants-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24rpx;
-}
-
+// 参与者项宽度
 .participant-item {
-  display: flex;
-  align-items: center;
   width: calc(50% - 12rpx);
-  padding: 16rpx;
-  background-color: #fafafa;
-  border-radius: 8rpx;
+  background-color: @gray-50;
 }
 
-.participant-info {
-  flex: 1;
-  margin-left: 16rpx;
-  min-width: 0;
-}
-
-.participant-name {
-  display: block;
-  font-size: 26rpx;
-  color: #333;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-bottom: 4rpx;
-}
-
-// ==================== 底部操作栏 ====================
+// 底部操作栏
 .bottom-bar {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
-  display: flex;
-  align-items: center;
-  padding: 20rpx 32rpx;
-  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background-color: #fff;
   box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.05);
   z-index: 100;
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
 }
 
+// 分享/群聊按钮重置
 .share-btn,
 .chat-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100rpx;
-  height: 100rpx;
   background: none;
   border: none;
   padding: 0;
   margin: 0;
-  font-size: 22rpx;
-  color: #666;
   
   &::after {
     display: none;
   }
 }
 
-.chat-btn {
-  margin-left: 16rpx;
-}
-
+// 报名按钮渐变
 .join-btn {
-  flex: 1;
-  height: 88rpx;
-  margin-left: 32rpx;
-  background: linear-gradient(135deg, #FF6B35, #FF4500);
-  color: #fff;
-  font-size: 32rpx;
-  font-weight: 500;
+  background: linear-gradient(135deg, @brand-color, @brand-color-dark);
   border: none;
-  border-radius: 44rpx;
   
   &::after {
     display: none;
   }
 }
 
-.status-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 88rpx;
-  margin-left: 32rpx;
-  background-color: #f5f5f5;
-  color: #999;
-  font-size: 32rpx;
-  border-radius: 44rpx;
-}
-
-.creator-actions {
-  flex: 1;
-  margin-left: 32rpx;
-}
-
+// 管理按钮
 .manage-btn {
-  width: 100%;
-  height: 88rpx;
-  background-color: #FF6B35;
-  color: #fff;
-  font-size: 32rpx;
-  font-weight: 500;
+  background-color: @brand-color;
   border: none;
-  border-radius: 44rpx;
   
   &::after {
     display: none;
   }
 }
 
-// ==================== 报名对话框 ====================
+// 报名对话框
 .join-dialog {
-  background-color: #fff;
   border-radius: 24rpx 24rpx 0 0;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-.dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 32rpx;
-  border-bottom: 1rpx solid #f0f0f0;
+// Fast Pass 区域
+.fastpass-group {
+  background-color: @brand-color-light;
+  border: 1rpx solid fade(@brand-color, 30%);
 }
 
-.dialog-title {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: #333;
-}
-
-.dialog-content {
-  padding: 32rpx;
-}
-
-.input-group {
-  margin-bottom: 32rpx;
-}
-
-.input-label {
-  display: block;
-  font-size: 28rpx;
-  color: #333;
-  margin-bottom: 16rpx;
-}
-
+// 消息输入框
 .message-input {
   width: 100%;
   height: 200rpx;
   padding: 20rpx;
-  background-color: #f5f5f5;
-  border-radius: 12rpx;
-  font-size: 28rpx;
+  background-color: @gray-100;
+  border-radius: @rounded-md;
+  font-size: @text-base;
   box-sizing: border-box;
-}
-
-.fastpass-group {
-  padding: 24rpx;
-  background-color: #FFF8F5;
-  border-radius: 12rpx;
-  border: 1rpx solid #FFE0D5;
-}
-
-.fastpass-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12rpx;
-}
-
-.fastpass-title {
-  flex: 1;
-  font-size: 28rpx;
-  font-weight: 500;
-  color: #333;
-  margin-left: 12rpx;
-}
-
-.fastpass-price {
-  font-size: 32rpx;
-  font-weight: 600;
-  color: #FF6B35;
-}
-
-.fastpass-desc {
-  font-size: 24rpx;
-  color: #999;
-  line-height: 1.5;
-  margin-left: 52rpx;
-}
-
-.dialog-footer {
-  display: flex;
-  gap: 24rpx;
-  padding: 24rpx 32rpx;
-  border-top: 1rpx solid #f0f0f0;
 }

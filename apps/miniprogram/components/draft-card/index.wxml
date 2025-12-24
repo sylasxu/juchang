@@ -1,45 +1,37 @@
 <!--
   创建草稿卡片组件
   Requirements: 3.5, 3.7
-  
-  显示 AI 解析的活动草稿预览
-  点击"立即发布"跳转创建页并预填数据
 -->
 <view class="draft-card" bindtap="onCardTap">
   <!-- 头部：图标 + 类型标签 -->
-  <view class="draft-header">
-    <view class="draft-icon">{{typeIcon}}</view>
-    <view class="draft-type">{{typeLabel}}</view>
+  <view class="flex items-center mb-3">
+    <view class="text-2xl mr-2">{{typeIcon}}</view>
+    <view class="text-sm text-brand bg-brand-light px-2 py-1 rounded">{{typeLabel}}</view>
   </view>
   
   <!-- 标题 -->
-  <view class="draft-title">{{draft.title}}</view>
+  <view class="text-xl font-semibold text-gray-900 mb-2">{{draft.title}}</view>
   
   <!-- 信息列表 -->
-  <view class="draft-info">
-    <!-- 时间 -->
-    <view class="info-item" wx:if="{{draft.startAt}}">
-      <t-icon name="time" size="32rpx" class="info-icon" />
+  <view class="flex flex-col gap-2 mb-3">
+    <view wx:if="{{draft.startAt}}" class="flex items-center text-base text-gray-600">
+      <t-icon name="time" size="32rpx" color="#999" class="mr-2" />
       <text>{{draft.startAt}}</text>
     </view>
-    
-    <!-- 地点 -->
-    <view class="info-item" wx:if="{{draft.location.name}}">
-      <t-icon name="location" size="32rpx" class="info-icon" />
+    <view wx:if="{{draft.location.name}}" class="flex items-center text-base text-gray-600">
+      <t-icon name="location" size="32rpx" color="#999" class="mr-2" />
       <text>{{draft.location.name}}</text>
     </view>
-    
-    <!-- 人数 -->
-    <view class="info-item" wx:if="{{draft.maxParticipants}}">
-      <t-icon name="user" size="32rpx" class="info-icon" />
+    <view wx:if="{{draft.maxParticipants}}" class="flex items-center text-base text-gray-600">
+      <t-icon name="user" size="32rpx" color="#999" class="mr-2" />
       <text>{{draft.maxParticipants}}人</text>
     </view>
   </view>
   
   <!-- 发布按钮 -->
-  <view class="draft-footer">
+  <view class="flex justify-end">
     <view class="publish-btn" catchtap="onPublishTap">
-      <text class="publish-icon">🚀</text>
+      <text class="text-lg">🚀</text>
       <text>立即发布</text>
     </view>
   </view>

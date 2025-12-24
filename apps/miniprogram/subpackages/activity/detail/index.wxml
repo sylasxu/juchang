@@ -1,86 +1,45 @@
 <!--
   活动详情页
-  Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
+  TDesign + Atomic Less 重构
 -->
 <wxs module="utils">
-  // 格式化时间
   function formatTime(dateStr) {
     if (!dateStr) return '';
     var date = getDate(dateStr);
-    var now = getDate();
-    
     var hours = date.getHours();
     var minutes = date.getMinutes();
     var timeStr = (hours < 10 ? '0' + hours : hours) + ':' + (minutes < 10 ? '0' + minutes : minutes);
-    
     var month = date.getMonth() + 1;
     var day = date.getDate();
     var weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
     var weekDay = weekDays[date.getDay()];
-    
     return month + '月' + day + '日 ' + weekDay + ' ' + timeStr;
   }
   
-  // 获取费用类型文本
   function getFeeTypeText(feeType) {
-    var map = {
-      free: '免费',
-      aa: 'AA制',
-      fixed: '固定费用',
-      treat: '请客'
-    };
+    var map = { free: '免费', aa: 'AA制', fixed: '固定费用', treat: '请客' };
     return map[feeType] || feeType || '';
   }
   
-  // 获取活动类型文本
   function getActivityTypeText(type) {
-    var map = {
-      food: '美食',
-      entertainment: '娱乐',
-      sports: '运动',
-      study: '学习',
-      travel: '旅行',
-      other: '其他'
-    };
+    var map = { food: '美食', entertainment: '娱乐', sports: '运动', study: '学习', travel: '旅行', other: '其他' };
     return map[type] || type || '';
   }
   
-  // 计算靠谱度
   function calculateReliability(user) {
-    if (!user || !user.participationCount || user.participationCount === 0) {
-      return -1;
-    }
+    if (!user || !user.participationCount || user.participationCount === 0) return -1;
     return Math.round((user.fulfillmentCount / user.participationCount) * 100);
   }
   
-  // 获取靠谱度标签
-  function getReliabilityLabel(rate) {
-    if (rate === -1) return '🆕 新用户';
-    if (rate === 100) return '⭐⭐⭐ 非常靠谱';
-    if (rate >= 80) return '⭐⭐ 靠谱';
-    if (rate >= 60) return '⭐ 一般';
-    return '待提升';
-  }
-  
-  // 获取参与状态文本
   function getStatusText(status) {
-    var map = {
-      pending: '审核中',
-      approved: '已通过',
-      rejected: '已拒绝'
-    };
+    var map = { pending: '审核中', approved: '已通过', rejected: '已拒绝' };
     return map[status] || '';
   }
   
-  // 获取地址显示
   function getDisplayAddress(activity, participantStatus, isCreator) {
     if (!activity) return '';
-    if (isCreator || participantStatus === 'approved') {
-      return activity.address || activity.locationName || '';
-    }
-    if (activity.isLocationBlurred) {
-      return activity.locationHint || '位置待定';
-    }
+    if (isCreator || participantStatus === 'approved') return activity.address || activity.locationName || '';
+    if (activity.isLocationBlurred) return activity.locationHint || '位置待定';
     return activity.address || activity.locationName || '';
   }
   
@@ -89,169 +48,161 @@
     getFeeTypeText: getFeeTypeText,
     getActivityTypeText: getActivityTypeText,
     calculateReliability: calculateReliability,
-    getReliabilityLabel: getReliabilityLabel,
     getStatusText: getStatusText,
     getDisplayAddress: getDisplayAddress
   };
 </wxs>
 
-<view class="activity-detail">
+<view class="min-h-screen bg-gray-50 pb-bottom-bar">
   <!-- 加载状态 -->
-  <view wx:if="{{loading}}" class="loading-container">
+  <view wx:if="{{loading}}" class="flex flex-col items-center justify-center min-h-screen py-5">
     <t-loading theme="circular" size="80rpx" />
-    <text class="loading-text">加载中...</text>
+    <text class="mt-3 text-sm text-gray-400">加载中...</text>
   </view>
   
   <!-- 错误状态 -->
-  <view wx:elif="{{error}}" class="error-container">
-    <t-icon name="error-circle" size="120rpx" color="#ff4d4f" />
-    <text class="error-text">{{errorMsg || '加载失败'}}</text>
+  <view wx:elif="{{error}}" class="flex flex-col items-center justify-center min-h-screen py-5">
+    <t-icon name="error-circle" size="120rpx" color="#FF4D4F" />
+    <text class="mt-3 mb-4 text-sm text-gray-400">{{errorMsg || '加载失败'}}</text>
     <t-button theme="primary" size="small" bindtap="onRefresh">重试</t-button>
   </view>
   
   <!-- 活动内容 -->
-  <view wx:else class="content">
+  <view wx:else>
     <!-- 活动图片轮播 -->
-    <view class="image-section">
+    <view class="relative w-full h-480 bg-gray-100">
       <swiper wx:if="{{activity.images && activity.images.length > 0}}" 
-              class="image-swiper" 
+              class="w-full h-full" 
               indicator-dots="{{activity.images.length > 1}}"
               autoplay="{{false}}">
         <swiper-item wx:for="{{activity.images}}" wx:key="index">
-          <image src="{{item}}" mode="aspectFill" class="activity-image" />
+          <image src="{{item}}" mode="aspectFill" class="w-full h-full" />
         </swiper-item>
       </swiper>
-      <view wx:else class="image-placeholder">
-        <t-icon name="image" size="80rpx" color="#ccc" />
-        <text class="placeholder-text">暂无图片</text>
+      <view wx:else class="flex flex-col items-center justify-center w-full h-full bg-gray-100">
+        <t-icon name="image" size="80rpx" color="#D1D5DB" />
+        <text class="mt-2 text-sm text-gray-300">暂无图片</text>
       </view>
       
       <!-- 增值服务标签 -->
-      <view class="service-tags">
-        <view wx:if="{{activity.isPinPlus}}" class="service-tag pinplus">
+      <view class="absolute top-3 left-3 flex gap-2">
+        <view wx:if="{{activity.isPinPlus}}" class="service-tag pinplus flex items-center gap-1 px-2 py-1 rounded-sm text-xs text-white">
           <t-icon name="star-filled" size="24rpx" />
           <text>Pin+</text>
         </view>
-        <view wx:if="{{activity.isBoosted}}" class="service-tag boost">
+        <view wx:if="{{activity.isBoosted}}" class="service-tag boost px-2 py-1 rounded-sm text-xs text-white">
           <text>🔥急招</text>
         </view>
       </view>
     </view>
     
     <!-- 活动基本信息 -->
-    <view class="info-section">
+    <view class="bg-white p-4 mb-2">
       <!-- 标题和类型 -->
-      <view class="title-row">
-        <text class="activity-title">{{activity.title}}</text>
+      <view class="flex items-start justify-between mb-3">
+        <text class="flex-1 text-xl font-semibold text-gray-900 leading-relaxed mr-2">{{activity.title}}</text>
         <t-tag wx:if="{{activity.type}}" size="small" variant="light" theme="primary">
           {{utils.getActivityTypeText(activity.type)}}
         </t-tag>
       </view>
       
       <!-- 活动状态 -->
-      <view wx:if="{{participantStatus}}" class="status-row">
+      <view wx:if="{{participantStatus}}" class="flex items-center gap-2 mb-3">
         <t-tag size="small" variant="light" 
                theme="{{participantStatus === 'approved' ? 'success' : participantStatus === 'rejected' ? 'danger' : 'warning'}}">
           {{utils.getStatusText(participantStatus)}}
         </t-tag>
-        <text wx:if="{{isCreator}}" class="creator-badge">我发起的</text>
+        <text wx:if="{{isCreator}}" class="text-xs text-brand bg-brand-light px-2 py-1 rounded-sm">我发起的</text>
       </view>
       
       <!-- 时间 -->
-      <view class="info-row">
+      <view class="info-row flex items-start py-3">
         <t-icon name="time" size="36rpx" color="#FF6B35" />
-        <view class="info-content">
-          <text class="info-label">活动时间</text>
-          <text class="info-value">{{utils.formatTime(activity.startAt)}}</text>
-          <text wx:if="{{activity.endAt}}" class="info-value-sub">至 {{utils.formatTime(activity.endAt)}}</text>
+        <view class="flex-1 ml-3">
+          <text class="block text-xs text-gray-400 mb-1">活动时间</text>
+          <text class="block text-base font-medium text-gray-900">{{utils.formatTime(activity.startAt)}}</text>
+          <text wx:if="{{activity.endAt}}" class="block text-sm text-gray-600 mt-1">至 {{utils.formatTime(activity.endAt)}}</text>
         </view>
       </view>
       
-      <!-- 地点 Requirements: 6.2 -->
-      <view class="info-row">
+      <!-- 地点 -->
+      <view class="info-row flex items-start py-3">
         <t-icon name="location" size="36rpx" color="#FF6B35" />
-        <view class="info-content">
-          <text class="info-label">活动地点</text>
-          <text class="info-value">{{utils.getDisplayAddress(activity, participantStatus, isCreator)}}</text>
+        <view class="flex-1 ml-3">
+          <text class="block text-xs text-gray-400 mb-1">活动地点</text>
+          <text class="block text-base font-medium text-gray-900">{{utils.getDisplayAddress(activity, participantStatus, isCreator)}}</text>
           <text wx:if="{{activity.isLocationBlurred && !isCreator && participantStatus !== 'approved'}}" 
-                class="info-hint">报名通过后可查看详细地址</text>
+                class="block text-xs text-brand mt-1">报名通过后可查看详细地址</text>
           <text wx:if="{{activity.locationHint && (isCreator || participantStatus === 'approved')}}" 
-                class="info-hint">{{activity.locationHint}}</text>
+                class="block text-xs text-brand mt-1">{{activity.locationHint}}</text>
         </view>
       </view>
       
       <!-- 人数 -->
-      <view class="info-row">
+      <view class="info-row flex items-start py-3">
         <t-icon name="user" size="36rpx" color="#FF6B35" />
-        <view class="info-content">
-          <text class="info-label">参与人数</text>
-          <text class="info-value">{{activity.currentParticipants || 0}}/{{activity.maxParticipants}}人</text>
-          <text wx:if="{{isHotActivity}}" class="hot-badge">🔥热门</text>
+        <view class="flex-1 ml-3">
+          <text class="block text-xs text-gray-400 mb-1">参与人数</text>
+          <text class="block text-base font-medium text-gray-900">
+            {{activity.currentParticipants || 0}}/{{activity.maxParticipants}}人
+            <text wx:if="{{isHotActivity}}" class="text-xs text-error ml-2">🔥热门</text>
+          </text>
         </view>
       </view>
       
       <!-- 费用 -->
-      <view class="info-row">
+      <view class="info-row flex items-start py-3">
         <t-icon name="money-circle" size="36rpx" color="#FF6B35" />
-        <view class="info-content">
-          <text class="info-label">费用</text>
-          <text class="info-value">{{utils.getFeeTypeText(activity.feeType)}}</text>
-          <text wx:if="{{activity.estimatedCost}}" class="info-value-sub">约¥{{activity.estimatedCost}}</text>
+        <view class="flex-1 ml-3">
+          <text class="block text-xs text-gray-400 mb-1">费用</text>
+          <text class="block text-base font-medium text-gray-900">{{utils.getFeeTypeText(activity.feeType)}}</text>
+          <text wx:if="{{activity.estimatedCost}}" class="block text-sm text-gray-600 mt-1">约¥{{activity.estimatedCost}}</text>
         </view>
       </view>
       
       <!-- 靠谱度门槛 -->
-      <view wx:if="{{activity.minReliabilityRate}}" class="info-row">
+      <view wx:if="{{activity.minReliabilityRate}}" class="info-row flex items-start py-3">
         <t-icon name="secured" size="36rpx" color="#FF6B35" />
-        <view class="info-content">
-          <text class="info-label">靠谱度要求</text>
-          <text class="info-value">≥{{activity.minReliabilityRate}}%</text>
+        <view class="flex-1 ml-3">
+          <text class="block text-xs text-gray-400 mb-1">靠谱度要求</text>
+          <text class="block text-base font-medium text-gray-900">≥{{activity.minReliabilityRate}}%</text>
         </view>
       </view>
     </view>
     
     <!-- 活动描述 -->
-    <view wx:if="{{activity.description}}" class="description-section">
-      <text class="section-title">活动详情</text>
-      <text class="description-text">{{activity.description}}</text>
+    <view wx:if="{{activity.description}}" class="bg-white p-4 mb-2">
+      <text class="block text-lg font-semibold text-gray-900 mb-3">活动详情</text>
+      <text class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{{activity.description}}</text>
     </view>
-
     
-    <!-- 发起人信息 Requirements: 6.3, 14.1-14.4 -->
-    <view class="creator-section" bindtap="onCreatorTap">
-      <text class="section-title">发起人</text>
-      <view class="creator-card">
-        <t-avatar 
-          image="{{activity.creator.avatarUrl}}" 
-          size="96rpx"
-          icon="user"
-        />
-        <view class="creator-info">
-          <text class="creator-name">{{activity.creator.nickname || '匿名用户'}}</text>
-          <view class="creator-stats">
-            <text class="stat-item">组织 {{activity.creator.organizationCount || 0}} 场</text>
-            <text class="stat-divider">|</text>
-            <text class="stat-item">参与 {{activity.creator.participationCount || 0}} 场</text>
+    <!-- 发起人信息 -->
+    <view class="bg-white p-4 mb-2" bindtap="onCreatorTap">
+      <text class="block text-lg font-semibold text-gray-900 mb-3">发起人</text>
+      <view class="creator-card flex items-center p-3 rounded-md">
+        <t-avatar image="{{activity.creator.avatarUrl}}" size="96rpx" icon="user" />
+        <view class="flex-1 ml-3 min-w-0">
+          <text class="block text-base font-medium text-gray-900 mb-1">{{activity.creator.nickname || '匿名用户'}}</text>
+          <view class="flex items-center text-xs text-gray-400">
+            <text>组织 {{activity.creator.organizationCount || 0}} 场</text>
+            <text class="mx-2 text-gray-200">|</text>
+            <text>参与 {{activity.creator.participationCount || 0}} 场</text>
           </view>
         </view>
         <reliability-badge rate="{{utils.calculateReliability(activity.creator)}}" show-label="{{true}}" />
-        <t-icon name="chevron-right" size="32rpx" color="#ccc" />
+        <t-icon name="chevron-right" size="32rpx" color="#D1D5DB" />
       </view>
     </view>
     
-    <!-- 参与者列表（仅创建者和已通过审核的用户可见） -->
+    <!-- 参与者列表 -->
     <view wx:if="{{(isCreator || participantStatus === 'approved') && activity.participants && activity.participants.length > 0}}" 
-          class="participants-section">
-      <text class="section-title">参与者 ({{activity.participants.length}})</text>
-      <view class="participants-list">
-        <view wx:for="{{activity.participants}}" wx:key="id" class="participant-item">
-          <t-avatar 
-            image="{{item.user.avatarUrl}}" 
-            size="64rpx"
-            icon="user"
-          />
-          <view class="participant-info">
-            <text class="participant-name">{{item.user.nickname || '匿名用户'}}</text>
+          class="bg-white p-4 mb-2">
+      <text class="block text-lg font-semibold text-gray-900 mb-3">参与者 ({{activity.participants.length}})</text>
+      <view class="flex flex-wrap gap-3">
+        <view wx:for="{{activity.participants}}" wx:key="id" class="participant-item flex items-center p-2 rounded-sm">
+          <t-avatar image="{{item.user.avatarUrl}}" size="64rpx" icon="user" />
+          <view class="flex-1 ml-2 min-w-0">
+            <text class="block text-sm text-gray-900 truncate mb-1">{{item.user.nickname || '匿名用户'}}</text>
             <t-tag size="small" variant="light" 
                    theme="{{item.status === 'approved' ? 'success' : item.status === 'rejected' ? 'danger' : 'warning'}}">
               {{utils.getStatusText(item.status)}}
@@ -262,52 +213,47 @@
     </view>
     
     <!-- 底部操作栏 -->
-    <view class="bottom-bar">
-      <!-- 分享按钮 -->
-      <button class="share-btn" open-type="share">
+    <view class="bottom-bar flex items-center px-4 py-3">
+      <button class="share-btn flex flex-col items-center justify-center w-100 h-100 text-xs text-gray-600" open-type="share">
         <t-icon name="share" size="40rpx" />
         <text>分享</text>
       </button>
       
-      <!-- 群聊按钮（仅已通过审核的参与者和创建者可见） -->
       <button wx:if="{{isCreator || participantStatus === 'approved'}}" 
-              class="chat-btn" 
+              class="chat-btn flex flex-col items-center justify-center w-100 h-100 text-xs text-gray-600 ml-2" 
               bindtap="onEnterChat">
         <t-icon name="chat" size="40rpx" />
         <text>群聊</text>
       </button>
       
-      <!-- 报名按钮 -->
       <button wx:if="{{!isCreator && !participantStatus}}" 
-              class="join-btn" 
+              class="join-btn flex-1 h-88 ml-4 text-white text-lg font-medium rounded-full" 
               bindtap="onJoinTap">
         我要报名
       </button>
       
-      <!-- 已报名状态 -->
-      <view wx:elif="{{participantStatus && !isCreator}}" class="status-btn">
+      <view wx:elif="{{participantStatus && !isCreator}}" 
+            class="flex-1 flex items-center justify-center h-88 ml-4 bg-gray-100 text-gray-400 text-lg rounded-full">
         <text>{{utils.getStatusText(participantStatus)}}</text>
       </view>
       
-      <!-- 创建者操作 -->
-      <view wx:elif="{{isCreator}}" class="creator-actions">
-        <button class="manage-btn" bindtap="onManageActivity">管理活动</button>
+      <view wx:elif="{{isCreator}}" class="flex-1 ml-4">
+        <button class="manage-btn w-full h-88 text-white text-lg font-medium rounded-full" bindtap="onManageActivity">管理活动</button>
       </view>
     </view>
   </view>
   
   <!-- 报名对话框 -->
   <t-popup visible="{{showJoinDialog}}" placement="bottom" bind:visible-change="onCloseJoinDialog">
-    <view class="join-dialog">
-      <view class="dialog-header">
-        <text class="dialog-title">报名参加</text>
+    <view class="join-dialog bg-white">
+      <view class="flex items-center justify-between p-4 border-b border-gray-100">
+        <text class="text-xl font-semibold text-gray-900">报名参加</text>
         <t-icon name="close" size="40rpx" bindtap="onCloseJoinDialog" />
       </view>
       
-      <view class="dialog-content">
-        <!-- 留言输入 -->
-        <view class="input-group">
-          <text class="input-label">留言（选填）</text>
+      <view class="p-4">
+        <view class="mb-4">
+          <text class="block text-sm text-gray-900 mb-2">留言（选填）</text>
           <textarea class="message-input" 
                     placeholder="向发起人介绍一下自己吧~" 
                     value="{{joinMessage}}"
@@ -315,20 +261,19 @@
                     maxlength="200" />
         </view>
         
-        <!-- Fast Pass选项 Requirements: 6.6 -->
-        <view wx:if="{{isHotActivity}}" class="fastpass-group">
-          <view class="fastpass-header">
+        <view wx:if="{{isHotActivity}}" class="fastpass-group p-3 rounded-md">
+          <view class="flex items-center mb-2">
             <t-checkbox value="{{useFastPass}}" bind:change="onFastPassChange" />
-            <text class="fastpass-title">优先入场券 (Fast Pass)</text>
-            <text class="fastpass-price">¥{{fastPassPrice}}</text>
+            <text class="flex-1 text-sm font-medium text-gray-900 ml-2">优先入场券 (Fast Pass)</text>
+            <text class="text-lg font-semibold text-brand">¥{{fastPassPrice}}</text>
           </view>
-          <text class="fastpass-desc">热门活动，使用Fast Pass可让你的申请在审批列表中置顶显示</text>
+          <text class="block text-xs text-gray-400 leading-normal ml-6">热门活动，使用Fast Pass可让你的申请在审批列表中置顶显示</text>
         </view>
       </view>
       
-      <view class="dialog-footer">
-        <t-button theme="light" size="large" bindtap="onCloseJoinDialog">取消</t-button>
-        <t-button theme="primary" size="large" loading="{{isJoining}}" bindtap="onConfirmJoin">
+      <view class="flex gap-3 p-4 border-t border-gray-100">
+        <t-button theme="light" size="large" class="flex-1" bindtap="onCloseJoinDialog">取消</t-button>
+        <t-button theme="primary" size="large" class="flex-1" loading="{{isJoining}}" bindtap="onConfirmJoin">
           {{useFastPass ? '支付¥' + fastPassPrice + '并报名' : '确认报名'}}
         </t-button>
       </view>

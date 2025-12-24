@@ -1,8 +1,8 @@
-<view class="home-card">
-  <t-image t-class="home-card__image" src="{{url}}" mode="aspectFill" />
-  <view class="home-card__info">
-    <text>{{desc}}</text>
-    <view class="home-card__tag-group">
+<view class="inline-flex flex-col bg-white rounded-lg overflow-hidden" style="width: 340rpx; height: 488rpx;">
+  <t-image t-class="card-image" src="{{url}}" mode="aspectFill" />
+  <view class="p-4 text-sm">
+    <text class="text-gray-900">{{desc}}</text>
+    <view class="flex gap-2 mt-2">
       <t-tag wx:for="{{tags}}" wx:key="index" size="small" variant="light" theme="{{item.theme}}">{{item.text}}</t-tag>
     </view>
   </view>

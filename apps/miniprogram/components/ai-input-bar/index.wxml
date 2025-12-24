@@ -4,17 +4,14 @@
   
   位置：Tabbar上方悬浮
   外观：类似灵动岛的黑色长条
-  左侧：AI图标
-  中间：提示文案/输入框
-  右侧：语音按钮
 -->
 <view class="ai-input-bar {{isExpanded ? 'expanded' : ''}}">
   <!-- 收起状态：点击展开 -->
   <view wx:if="{{!isExpanded}}" class="bar-collapsed" bindtap="onBarTap">
     <view class="ai-icon">
-      <text class="icon-emoji">🤖</text>
+      <text>🤖</text>
     </view>
-    <view class="placeholder-text">{{placeholder}}</view>
+    <view class="flex-1 text-sm text-white opacity-60 truncate">{{placeholder}}</view>
     <view class="voice-btn" catchtap="onVoiceTap">
       <t-icon name="sound" size="40rpx" color="#fff" />
     </view>
@@ -23,15 +20,15 @@
   <!-- 展开状态：输入框 -->
   <view wx:else class="bar-expanded">
     <view class="ai-icon">
-      <text class="icon-emoji">🤖</text>
+      <text>🤖</text>
     </view>
     
     <view class="input-wrapper">
       <input
-        class="input-field"
+        class="flex-1 h-full text-sm text-white"
         type="text"
         placeholder="{{placeholder}}"
-        placeholder-class="input-placeholder"
+        placeholder-class="text-white opacity-40"
         value="{{inputValue}}"
         focus="{{isExpanded}}"
         confirm-type="send"
@@ -42,16 +39,16 @@
       />
       
       <!-- 清空按钮 -->
-      <view wx:if="{{inputValue}}" class="clear-btn" catchtap="onClearTap">
+      <view wx:if="{{inputValue}}" class="flex items-center justify-center flex-shrink-0" style="width: 48rpx; height: 48rpx;" catchtap="onClearTap">
         <t-icon name="close-circle-filled" size="36rpx" color="#999" />
       </view>
     </view>
 
     <!-- 语音/发送按钮 -->
     <view class="action-btn" catchtap="{{inputValue ? 'onInputConfirm' : 'onVoiceTap'}}">
-      <view wx:if="{{isRecording}}" class="recording-indicator">
+      <view wx:if="{{isRecording}}" class="flex flex-col items-center justify-center">
         <view class="recording-dot"></view>
-        <text class="recording-time">{{recordingDuration}}s</text>
+        <text class="text-xs text-white mt-1">{{recordingDuration}}s</text>
       </view>
       <t-icon wx:elif="{{inputValue}}" name="send" size="44rpx" color="#fff" />
       <t-icon wx:else name="sound" size="44rpx" color="#fff" />

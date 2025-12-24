@@ -1,82 +1,72 @@
 <!--
   筛选面板组件
   Requirements: 5.1, 5.2, 5.3, 5.4
-  - 5.1: 显示筛选选项（时间、类型、人群、靠谱度、距离、状态、费用）
-  - 5.2: 根据条件过滤活动并重新渲染地图Pin和列表
-  - 5.3: 点击重置按钮清除所有筛选条件并显示全部活动
-  - 5.4: 筛选条件生效时显示已选条件数量的角标
 -->
 <t-popup
   visible="{{visible}}"
   placement="bottom"
   bind:visible-change="onClose"
 >
-  <view class="filter-panel" catchtap="preventBubble">
+  <view class="bg-white rounded-t-xl flex flex-col" style="max-height: 80vh;" catchtap="preventBubble">
     <!-- 头部 -->
-    <view class="panel-header">
-      <text class="panel-title">筛选活动</text>
-      <view class="close-btn" bindtap="onClose">
+    <view class="flex justify-between items-center px-4 pt-4 pb-3 border-b">
+      <text class="text-xl font-semibold text-gray-900">筛选活动</text>
+      <view class="flex items-center justify-center rounded-full" style="width: 64rpx; height: 64rpx;" bindtap="onClose">
         <t-icon name="close" size="40rpx" />
       </view>
     </view>
 
     <!-- 筛选内容 -->
-    <scroll-view class="panel-content" scroll-y enhanced show-scrollbar="{{false}}">
+    <scroll-view class="flex-1 px-4" style="max-height: 60vh;" scroll-y enhanced show-scrollbar="{{false}}">
       <!-- 时间筛选 -->
-      <view class="filter-section">
-        <view class="section-title">时间</view>
-        <view class="option-list">
+      <view class="py-3 border-b">
+        <view class="text-base font-medium text-gray-900 mb-3">时间</view>
+        <view class="flex gap-2">
           <view
             wx:for="{{timeOptions}}"
             wx:key="value"
             class="option-item {{localFilters.time === item.value ? 'active' : ''}}"
             data-value="{{item.value}}"
             bindtap="onTimeSelect"
-          >
-            <text>{{item.label}}</text>
-          </view>
+          >{{item.label}}</view>
         </view>
       </view>
 
       <!-- 活动类型 -->
-      <view class="filter-section">
-        <view class="section-title">类型</view>
-        <view class="option-list wrap">
+      <view class="py-3 border-b">
+        <view class="text-base font-medium text-gray-900 mb-3">类型</view>
+        <view class="flex flex-wrap gap-2">
           <view
             wx:for="{{typeOptions}}"
             wx:key="value"
             class="option-item {{localFilters.type === item.value ? 'active' : ''}}"
             data-value="{{item.value}}"
             bindtap="onTypeSelect"
-          >
-            <text>{{item.label}}</text>
-          </view>
+          >{{item.label}}</view>
         </view>
       </view>
 
       <!-- 人群筛选 -->
-      <view class="filter-section">
-        <view class="section-title">人群</view>
-        <view class="option-list">
+      <view class="py-3 border-b">
+        <view class="text-base font-medium text-gray-900 mb-3">人群</view>
+        <view class="flex gap-2">
           <view
             wx:for="{{genderOptions}}"
             wx:key="value"
             class="option-item {{localFilters.gender === item.value ? 'active' : ''}}"
             data-value="{{item.value}}"
             bindtap="onGenderSelect"
-          >
-            <text>{{item.label}}</text>
-          </view>
+          >{{item.label}}</view>
         </view>
       </view>
 
       <!-- 靠谱度筛选 -->
-      <view class="filter-section">
-        <view class="section-title">
+      <view class="py-3 border-b">
+        <view class="flex justify-between items-center text-base font-medium text-gray-900 mb-3">
           <text>靠谱度</text>
-          <text class="section-value">{{localFilters.minReliability === 0 ? '不限' : '≥' + localFilters.minReliability + '%'}}</text>
+          <text class="text-sm font-normal text-brand">{{localFilters.minReliability === 0 ? '不限' : '≥' + localFilters.minReliability + '%'}}</text>
         </view>
-        <view class="slider-container">
+        <view class="px-1 pt-2">
           <t-slider
             value="{{localFilters.minReliability}}"
             min="{{0}}"
@@ -84,7 +74,7 @@
             step="{{10}}"
             bind:change="onReliabilityChange"
           />
-          <view class="slider-labels">
+          <view class="flex justify-between mt-1 text-xs text-gray-400">
             <text>不限</text>
             <text>60%</text>
             <text>80%</text>
@@ -94,63 +84,55 @@
       </view>
 
       <!-- 距离筛选 -->
-      <view class="filter-section">
-        <view class="section-title">距离</view>
-        <view class="option-list">
+      <view class="py-3 border-b">
+        <view class="text-base font-medium text-gray-900 mb-3">距离</view>
+        <view class="flex gap-2">
           <view
             wx:for="{{distanceOptions}}"
             wx:key="value"
             class="option-item {{localFilters.distance === item.value ? 'active' : ''}}"
             data-value="{{item.value}}"
             bindtap="onDistanceSelect"
-          >
-            <text>{{item.label}}</text>
-          </view>
+          >{{item.label}}</view>
         </view>
       </view>
 
       <!-- 活动状态 -->
-      <view class="filter-section">
-        <view class="section-title">状态</view>
-        <view class="option-list">
+      <view class="py-3 border-b">
+        <view class="text-base font-medium text-gray-900 mb-3">状态</view>
+        <view class="flex gap-2">
           <view
             wx:for="{{statusOptions}}"
             wx:key="value"
             class="option-item {{localFilters.status === item.value ? 'active' : ''}}"
             data-value="{{item.value}}"
             bindtap="onStatusSelect"
-          >
-            <text>{{item.label}}</text>
-          </view>
+          >{{item.label}}</view>
         </view>
       </view>
 
       <!-- 费用类型 -->
-      <view class="filter-section">
-        <view class="section-title">费用</view>
-        <view class="option-list">
+      <view class="py-3">
+        <view class="text-base font-medium text-gray-900 mb-3">费用</view>
+        <view class="flex gap-2">
           <view
             wx:for="{{feeTypeOptions}}"
             wx:key="value"
             class="option-item {{localFilters.feeType === item.value ? 'active' : ''}}"
             data-value="{{item.value}}"
             bindtap="onFeeTypeSelect"
-          >
-            <text>{{item.label}}</text>
-          </view>
+          >{{item.label}}</view>
         </view>
       </view>
     </scroll-view>
 
     <!-- 底部按钮 -->
-    <view class="panel-footer">
-      <!-- 重置按钮 - Requirements: 5.3 -->
-      <view class="reset-btn" bindtap="onReset">
+    <view class="flex gap-3 px-4 py-3 border-t bg-white safe-bottom">
+      <view class="flex-1 flex items-center justify-center gap-1 py-3 bg-gray-100 rounded-full text-base text-gray-600" bindtap="onReset">
         <t-icon name="refresh" size="32rpx" />
         <text>重置</text>
       </view>
-      <!-- 确定按钮 - Requirements: 5.2 -->
-      <view class="apply-btn" bindtap="onApply">
+      <view class="flex-1 flex items-center justify-center py-3 bg-brand rounded-full text-base text-white font-medium" style="flex: 2;" bindtap="onApply">
         <text>确定</text>
       </view>
     </view>

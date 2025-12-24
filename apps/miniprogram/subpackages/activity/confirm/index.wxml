@@ -1,27 +1,27 @@
 <!--
   履约确认页面
-  Requirements: 10.1, 10.2, 10.3, 10.4
+  TDesign + Atomic Less 重构
 -->
-<view class="confirm-page">
+<view class="min-h-screen bg-gray-50 pb-bottom-bar">
   <!-- 导航栏 -->
   <t-navbar title="履约确认" left-arrow />
 
   <!-- 加载状态 -->
-  <view class="loading-container" wx:if="{{loading}}">
+  <view class="flex flex-col items-center justify-center py-12 text-gray-400 text-sm gap-3" wx:if="{{loading}}">
     <t-loading theme="circular" size="80rpx" />
     <text>加载中...</text>
   </view>
 
   <block wx:else>
     <!-- 活动信息头部 -->
-    <view class="activity-header" wx:if="{{activity}}">
-      <view class="activity-title">{{activity.title}}</view>
-      <view class="activity-meta">
-        <view class="meta-item">
+    <view class="bg-white p-4 mb-3" wx:if="{{activity}}">
+      <view class="text-xl font-semibold text-gray-900 mb-2">{{activity.title}}</view>
+      <view class="flex flex-col gap-2">
+        <view class="flex items-center gap-2 text-sm text-gray-600">
           <t-icon name="time" size="32rpx" />
           <text>{{activity.startAt}}</text>
         </view>
-        <view class="meta-item">
+        <view class="flex items-center gap-2 text-sm text-gray-600">
           <t-icon name="location" size="32rpx" />
           <text>{{activity.locationName}}</text>
         </view>
@@ -29,58 +29,52 @@
     </view>
 
     <!-- 提示信息 -->
-    <view class="tips-section">
-      <view class="tips-icon">
-        <t-icon name="info-circle-filled" size="40rpx" color="#FF9500" />
-      </view>
-      <view class="tips-content">
-        <text class="tips-title">请确认参与者的到场情况</text>
-        <text class="tips-desc">默认全部已到场，如有未到场请取消勾选</text>
+    <view class="tips-section flex items-start p-3 mx-3 mb-3 rounded-md">
+      <t-icon name="info-circle-filled" size="40rpx" color="#FF9500" class="flex-shrink-0 mr-2" />
+      <view class="flex flex-col gap-1">
+        <text class="text-sm font-medium text-gray-900">请确认参与者的到场情况</text>
+        <text class="text-xs text-gray-600">默认全部已到场，如有未到场请取消勾选</text>
       </view>
     </view>
 
-    <!-- 参与者列表 (Requirements: 10.2) -->
-    <view class="participants-section">
-      <view class="section-header">
-        <text class="section-title">参与者列表 ({{participants.length}}人)</text>
-        <view class="select-all-btn" bind:tap="onSelectAll">
+    <!-- 参与者列表 -->
+    <view class="bg-white mx-3 rounded-lg overflow-hidden">
+      <view class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <text class="text-base font-medium text-gray-900">参与者列表 ({{participants.length}}人)</text>
+        <view class="select-all-btn text-sm text-brand px-2 py-1" bind:tap="onSelectAll">
           <text>全选已到场</text>
         </view>
       </view>
 
-      <view class="participants-list">
+      <view>
         <view
           wx:for="{{participants}}"
           wx:key="id"
-          class="participant-item {{item.fulfilled ? '' : 'no-show'}}"
+          class="participant-item flex items-center px-4 py-3 border-b border-gray-100 {{item.fulfilled ? '' : 'no-show'}}"
           data-index="{{index}}"
           bind:tap="onToggleFulfilled"
         >
-          <view class="participant-checkbox">
-            <t-checkbox
-              checked="{{item.fulfilled}}"
-              icon="circle"
-              borderless
-            />
+          <view class="mr-2">
+            <t-checkbox checked="{{item.fulfilled}}" icon="circle" borderless />
           </view>
           <image
-            class="participant-avatar"
+            class="w-88 h-88 rounded-full flex-shrink-0 mr-3"
             src="{{item.avatarUrl || '/static/images/default-avatar.png'}}"
             mode="aspectFill"
           />
-          <view class="participant-info">
-            <view class="participant-name">
+          <view class="flex-1 min-w-0">
+            <view class="flex items-center gap-2 text-base font-medium text-gray-900 mb-1">
               <text>{{item.nickname}}</text>
-              <view class="fast-pass-tag" wx:if="{{item.isFastPass}}">
+              <view class="fast-pass-tag flex items-center gap-1 text-xs text-brand px-2 py-1 rounded-sm" wx:if="{{item.isFastPass}}">
                 <t-icon name="flash" size="24rpx" />
                 <text>Fast Pass</text>
               </view>
             </view>
-            <view class="participant-reliability">
+            <view class="text-xs text-gray-600">
               <text>靠谱度 {{item.reliabilityRate}}%</text>
             </view>
           </view>
-          <view class="participant-status {{item.fulfilled ? 'fulfilled' : 'no-show'}}">
+          <view class="text-sm px-3 py-1 rounded-sm flex-shrink-0 {{item.fulfilled ? 'status-fulfilled' : 'status-no-show'}}">
             <text>{{item.fulfilled ? '已到场' : '未到场'}}</text>
           </view>
         </view>
@@ -88,14 +82,14 @@
     </view>
 
     <!-- 未到场统计 -->
-    <view class="no-show-summary" wx:if="{{noShowCount > 0}}">
+    <view class="no-show-summary flex items-center justify-center gap-2 p-3 mx-3 mt-3 rounded-md text-sm text-error" wx:if="{{noShowCount > 0}}">
       <t-icon name="error-circle" size="40rpx" color="#FF4D4F" />
       <text>您标记了 {{noShowCount}} 人未到场</text>
     </view>
 
     <!-- 底部操作栏 -->
-    <view class="bottom-bar">
-      <view class="warning-text" wx:if="{{noShowCount > 0}}">
+    <view class="bottom-bar px-4 py-3">
+      <view class="flex items-center justify-center gap-1 text-xs text-warning mb-2" wx:if="{{noShowCount > 0}}">
         <t-icon name="info-circle" size="28rpx" />
         <text>标记他人未到场将扣除你 1% 靠谱度</text>
       </view>
@@ -108,11 +102,11 @@
       >
         确认提交
       </t-button>
-      <view class="safe-area"></view>
+      <view class="safe-bottom"></view>
     </view>
   </block>
 
-  <!-- 警告弹窗 (Requirements: 10.3) -->
+  <!-- 警告弹窗 -->
   <t-dialog
     visible="{{showWarningDialog}}"
     title="标记未到场"

@@ -1,0 +1,89 @@
+/**
+ * Design Token 系统
+ * 聚场小程序 - Atomic Less Architecture
+ * 
+ * 所有设计变量的单一来源，修改此文件即可实现全局换肤
+ */
+
+// ==================== 间距系统 (Spacing) ====================
+// 基于 Tailwind 4px 基数，转换为 8rpx（750rpx 设计稿标准）
+// 公式：Tailwind n = n * 8rpx
+
+@spacing-0: 0;
+@spacing-1: 8rpx;    // 4px - 最小间距
+@spacing-2: 16rpx;   // 8px - 紧凑间距
+@spacing-3: 24rpx;   // 12px
+@spacing-4: 32rpx;   // 16px - 标准间距
+@spacing-5: 40rpx;   // 20px
+@spacing-6: 48rpx;   // 24px - 宽松间距
+@spacing-8: 64rpx;   // 32px - 区块间距
+@spacing-10: 80rpx;  // 40px
+@spacing-12: 96rpx;  // 48px - 大区块间距
+
+// ==================== 字号系统 (Font Size) ====================
+// 微信小程序最小可识别字号约为 20rpx
+
+@text-xs: 20rpx;     // 12px - 辅助文字、标签
+@text-sm: 24rpx;     // 14px - 次要文字
+@text-base: 28rpx;   // 16px - 正文
+@text-lg: 32rpx;     // 18px - 小标题
+@text-xl: 36rpx;     // 20px - 标题
+@text-2xl: 44rpx;    // 24px - 大标题
+
+// ==================== 品牌色 (Brand Colors) ====================
+@brand-color: #FF6B35;        // 活力橙 - 主色
+@brand-color-light: #FFF8F5;  // 浅橙 - 背景
+@brand-color-dark: #FF4500;   // 深橙 - 按下态
+
+// ==================== 功能色 (Functional Colors) ====================
+@success-color: #00B578;      // 成功
+@warning-color: #FF9500;      // 警告
+@error-color: #FF4D4F;        // 错误
+@info-color: #1677FF;         // 信息
+
+// ==================== 灰度色阶 (Gray Scale) ====================
+// 参照 Tailwind gray 色板
+@gray-50: #F9FAFB;
+@gray-100: #F3F4F6;
+@gray-200: #E5E7EB;
+@gray-300: #D1D5DB;
+@gray-400: #9CA3AF;
+@gray-500: #6B7280;
+@gray-600: #4B5563;
+@gray-700: #374151;
+@gray-800: #1F2937;
+@gray-900: #111827;
+
+// ==================== 圆角系统 (Border Radius) ====================
+// rounded-full 使用 px 确保完美圆形
+@rounded-none: 0;
+@rounded-sm: 8rpx;      // 微圆角
+@rounded: 12rpx;        // 默认圆角
+@rounded-md: 16rpx;     // 中等圆角
+@rounded-lg: 24rpx;     // 大圆角
+@rounded-xl: 32rpx;     // 超大圆角
+@rounded-full: 9999px;  // 完美圆形
+
+// ==================== 兼容旧变量 (Legacy Support) ====================
+// 保持与旧 variable.less 的兼容性，逐步废弃
+@bg-color: @gray-100;
+@bg-color-white: #ffffff;
+@bg-color-page: @gray-50;
+@bg-color-container: #ffffff;
+@bg-color-secondary: @gray-100;
+
+@text-color-primary: @gray-900;
+@text-color-secondary: @gray-600;
+@text-color-placeholder: @gray-400;
+@text-color-disabled: @gray-300;
+
+@border-color: @gray-200;
+@border-color-light: @gray-100;
+
+// 旧变量映射
+@navbar-padding-top: 20px;
+@nav-bar-height: 60px;
+@tab-bar-height: 112rpx;
+@font-size-default: @text-base;
+@font-size-small: @text-sm;
+@font-size-mini: @text-xs;

@@ -1,66 +1,54 @@
 /**
- * 全局样式
- * 聚场小程序 - TDesign 主题定制
+ * 全局样式入口
+ * 聚场小程序 - Atomic Less Architecture
+ * 
+ * 加载顺序：
+ * 1. tokens.less - Design Token 变量定义
+ * 2. utilities.less - Tailwind 风格原子类
+ * 3. tdesign-theme.less - TDesign 主题覆盖
  */
-@import './variable.less';
+
+// 1. Design Token 系统
+@import './styles/tokens.less';
+
+// 2. 原子类系统
+@import './styles/utilities.less';
+
+// 3. TDesign 主题覆盖
+@import './styles/tdesign-theme.less';
+
+// ==================== 全局基础样式 ====================
 
 page {
-  background-color: @bg-color-page;
-  
-  // ==================== TDesign 主题变量覆盖 ====================
-  // 品牌色
-  --td-brand-color: @brand-color;
-  --td-brand-color-light: @brand-color-light;
-  --td-brand-color-focus: fade(@brand-color, 20%);
-  --td-brand-color-active: @brand-color-dark;
-  --td-brand-color-disabled: fade(@brand-color, 40%);
-  
-  // 功能色
-  --td-success-color: @success-color;
-  --td-warning-color: @warning-color;
-  --td-error-color: @error-color;
-  
-  // 文字颜色
-  --td-text-color-primary: @text-color-primary;
-  --td-text-color-secondary: @text-color-secondary;
-  --td-text-color-placeholder: @text-color-placeholder;
-  --td-text-color-disabled: @text-color-disabled;
-  
-  // 背景色
-  --td-bg-color-page: @bg-color-page;
-  --td-bg-color-container: @bg-color-container;
-  --td-bg-color-secondarycontainer: @bg-color-secondary;
-  
-  // 边框色
-  --td-border-color: @border-color;
-  --td-component-border: @border-color-light;
-  
-  // 按钮主题
-  --td-button-primary-bg-color: @brand-color;
-  --td-button-primary-border-color: @brand-color;
-  --td-button-primary-active-bg-color: @brand-color-dark;
-  --td-button-primary-active-border-color: @brand-color-dark;
-  
-  // 开关主题
-  --td-switch-on-bg-color: @brand-color;
-  
-  // 复选框主题
-  --td-checkbox-icon-checked-color: @brand-color;
-  --td-checkbox-bg-color: @brand-color;
-  
-  // 单选框主题
-  --td-radio-icon-checked-color: @brand-color;
-  
-  // 输入框主题
-  --td-input-border-color: @border-color-light;
-  --td-input-bg-color: @bg-color-secondary;
-  
-  // 标签主题
-  --td-tag-primary-color: @brand-color;
-  --td-tag-primary-light-color: @brand-color-light;
+  background-color: @gray-50;
+  font-size: @text-base;
+  color: @gray-900;
+  line-height: 1.5;
 }
 
 .page {
-  height: 100vh;
-  background-color: @bg-color-container;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+// ==================== 全局辅助类 ====================
+
+// 清除浮动
+.clearfix::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
+// 禁用状态
+.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+// 点击态
+.clickable {
+  &:active {
+    opacity: 0.7;
+  }
 }

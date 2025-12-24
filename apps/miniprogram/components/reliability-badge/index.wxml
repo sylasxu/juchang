@@ -7,7 +7,7 @@
   - 80% < rate ≤ 90% → ✓ 靠谱
   - rate ≤ 80% 或新用户 → 🆕 新人
 -->
-<view class="reliability-badge badge-{{badgeType}}">
-  <text class="badge-icon">{{badgeIcon}}</text>
-  <text class="badge-label" wx:if="{{showLabel}}">{{badgeLabel}}</text>
+<view class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs whitespace-nowrap badge-{{badgeType}}">
+  <text>{{badgeIcon}}</text>
+  <text wx:if="{{showLabel}}">{{badgeLabel}}</text>
 </view>

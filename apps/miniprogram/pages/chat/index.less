@@ -1,208 +1,52 @@
 /**
  * 群聊页面样式
- * Requirements: 9.1, 9.2, 9.3, 9.4
+ * 仅保留原子类无法实现的特殊样式
  */
-@import '../../variable.less';
+@import '/styles/tokens.less';
 
-.chat-page {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  background-color: var(--td-bg-color-page, @bg-color-page);
-}
+// 固定尺寸
+.w-80 { width: 80rpx; }
+.h-80 { height: 80rpx; }
+.w-88 { width: 88rpx; }
+.h-88 { height: 88rpx; }
+.max-w-70 { max-width: 70%; }
+.pb-140 { padding-bottom: 140rpx; }
 
-// ==================== 活动头部 ====================
-
-.activity-header {
-  display: flex;
-  align-items: center;
-  padding: 24rpx 32rpx;
-  background-color: var(--td-bg-color-container, @bg-color-container);
-  border-bottom: 1rpx solid var(--td-border-color, @border-color-light);
-
-  &:active {
-    background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  }
-}
-
-.activity-image {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 12rpx;
-  flex-shrink: 0;
-  margin-right: 20rpx;
-}
-
-.activity-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.activity-title {
-  font-size: 30rpx;
-  font-weight: 500;
-  color: var(--td-text-color-primary, @text-color-primary);
-  margin-bottom: 8rpx;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.activity-meta {
-  display: flex;
-  align-items: center;
-  gap: 8rpx;
-  font-size: 24rpx;
-  color: var(--td-text-color-secondary, @text-color-secondary);
-
-  .separator {
-    margin: 0 4rpx;
-  }
-}
-
+// 活动状态标签
 .activity-status {
-  font-size: 24rpx;
-  color: var(--td-success-color, @success-color);
-  padding: 4rpx 16rpx;
   background-color: fade(@success-color, 10%);
-  border-radius: 8rpx;
-  margin-right: 16rpx;
+  color: @success-color;
 
   &.archived {
-    color: var(--td-text-color-placeholder, @text-color-placeholder);
-    background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
+    background-color: @gray-100;
+    color: @gray-400;
   }
 }
 
-// ==================== 消息列表 ====================
-
-.message-list {
-  flex: 1;
-  padding: 24rpx 32rpx;
-  padding-bottom: 140rpx;
+// 点击态
+.activity-header:active {
+  background-color: @gray-50;
 }
 
-.load-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16rpx;
-  padding: 24rpx;
-  font-size: 24rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
+// 消息气泡
+.self-bubble {
+  background-color: @brand-color;
+  color: #fff;
+  border-radius: 24rpx 8rpx 24rpx 24rpx;
 }
 
-.message-item {
-  display: flex;
-  align-items: flex-start;
-  margin-bottom: 32rpx;
-
-  &.self {
-    flex-direction: row-reverse;
-
-    .message-content {
-      align-items: flex-end;
-    }
-
-    .message-bubble {
-      background-color: var(--td-brand-color, @brand-color);
-      color: #fff;
-      border-radius: 24rpx 8rpx 24rpx 24rpx;
-    }
-
-    .sender-name {
-      display: none;
-    }
-  }
-
-  &.other {
-    .message-bubble {
-      background-color: var(--td-bg-color-container, @bg-color-container);
-      color: var(--td-text-color-primary, @text-color-primary);
-      border-radius: 8rpx 24rpx 24rpx 24rpx;
-    }
-  }
+.other-bubble {
+  background-color: #fff;
+  color: @gray-900;
+  border-radius: 8rpx 24rpx 24rpx 24rpx;
 }
 
-.avatar {
-  width: 80rpx;
-  height: 80rpx;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.message-content {
-  display: flex;
-  flex-direction: column;
-  max-width: 70%;
-  margin: 0 20rpx;
-}
-
-.sender-name {
-  font-size: 24rpx;
-  color: var(--td-text-color-secondary, @text-color-secondary);
-  margin-bottom: 8rpx;
-}
-
-.message-bubble {
-  padding: 20rpx 28rpx;
-  font-size: 30rpx;
-  line-height: 1.5;
-  word-break: break-all;
-}
-
-.message-time {
-  font-size: 22rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-  margin-top: 8rpx;
-}
-
-// ==================== 输入区域 ====================
-
-.input-area {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--td-bg-color-container, @bg-color-container);
-  border-top: 1rpx solid var(--td-border-color, @border-color-light);
-  transition: bottom 0.2s;
-}
-
-.input-wrapper {
-  display: flex;
-  align-items: center;
-  padding: 20rpx 32rpx;
-  gap: 20rpx;
-}
-
-.message-input {
-  flex: 1;
-  height: 80rpx;
-  padding: 0 28rpx;
-  background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  border-radius: 40rpx;
-  font-size: 30rpx;
-  color: var(--td-text-color-primary, @text-color-primary);
-}
-
-.input-placeholder {
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-}
-
+// 发送按钮
 .send-btn {
-  width: 80rpx;
-  height: 80rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background-color: var(--td-bg-color-secondarycontainer, @bg-color-secondary);
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
   transition: all 0.2s;
 
   &.active {
-    background-color: var(--td-brand-color, @brand-color);
+    background-color: @brand-color;
     color: #fff;
   }
 
@@ -211,23 +55,7 @@
   }
 }
 
-.safe-area {
-  height: env(safe-area-inset-bottom);
-}
-
-// ==================== 空状态 ====================
-
-.empty-tip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 120rpx 32rpx;
-  color: var(--td-text-color-placeholder, @text-color-placeholder);
-  font-size: 28rpx;
-
-  .empty-sub {
-    font-size: 24rpx;
-    margin-top: 8rpx;
-  }
+// 输入区域过渡
+.input-area {
+  transition: bottom 0.2s;
 }

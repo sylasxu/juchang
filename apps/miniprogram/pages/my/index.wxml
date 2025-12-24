@@ -1,96 +1,96 @@
 <!--
   个人中心页面
-  Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
+  TDesign + Atomic Less 重构
 -->
-<view class="my-page">
-  <!-- 背景 -->
+<view class="my-page min-h-screen bg-gray-50 pb-safe">
+  <!-- 背景渐变 -->
   <view class="header-bg"></view>
 
   <!-- 导航栏 -->
   <t-navbar title="我的" t-class="navbar-transparent" />
 
   <!-- 用户信息卡片 -->
-  <view class="user-card">
+  <view class="user-card relative mx-3 mt-2 bg-white rounded-xl overflow-hidden shadow-md">
     <!-- 已登录状态 -->
     <block wx:if="{{isLoad && userInfo}}">
-      <view class="user-header" bind:tap="onNavigateTo">
+      <view class="flex items-center p-4" bind:tap="onNavigateTo">
         <t-avatar
           image="{{userInfo.avatarUrl}}"
           icon="user"
           size="128rpx"
-          class="user-avatar"
+          class="flex-shrink-0 mr-3"
         />
-        <view class="user-info">
-          <view class="user-name">{{userInfo.nickname || '聚场用户'}}</view>
-          <view class="user-bio" wx:if="{{userInfo.bio}}">{{userInfo.bio}}</view>
-          <!-- 靠谱度徽章 (Requirements: 14.1, 14.2, 14.3, 14.4) -->
-          <view class="user-tags">
+        <view class="flex-1 min-w-0">
+          <view class="text-xl font-semibold text-gray-900 mb-1">{{userInfo.nickname || '聚场用户'}}</view>
+          <view class="text-sm text-gray-600 truncate mb-2" wx:if="{{userInfo.bio}}">{{userInfo.bio}}</view>
+          <!-- 靠谱度徽章 -->
+          <view class="flex flex-wrap gap-2">
             <reliability-badge rate="{{reliabilityRate}}" show-label="{{true}}" />
-            <view class="member-tag" wx:if="{{userInfo.membershipType === 'pro'}}">
+            <view class="member-tag flex items-center gap-1 px-2 py-1 rounded-sm text-xs" wx:if="{{userInfo.membershipType === 'pro'}}">
               <t-icon name="crown-filled" size="28rpx" />
               <text>Pro会员</text>
             </view>
           </view>
         </view>
-        <t-icon name="chevron-right" size="44rpx" color="#999" />
+        <t-icon name="chevron-right" size="44rpx" color="#9CA3AF" />
       </view>
 
-      <!-- 统计数据 (Requirements: 12.2) -->
-      <view class="user-stats">
-        <view class="stat-item">
-          <text class="stat-value">{{userInfo.activitiesCreatedCount || 0}}</text>
-          <text class="stat-label">组织场次</text>
+      <!-- 统计数据 -->
+      <view class="flex items-center px-4 py-3 border-t border-gray-100">
+        <view class="flex-1 flex flex-col items-center">
+          <text class="text-xl font-semibold text-gray-900">{{userInfo.activitiesCreatedCount || 0}}</text>
+          <text class="text-xs text-gray-600 mt-1">组织场次</text>
         </view>
         <view class="stat-divider"></view>
-        <view class="stat-item">
-          <text class="stat-value">{{userInfo.participationCount || 0}}</text>
-          <text class="stat-label">参与场次</text>
+        <view class="flex-1 flex flex-col items-center">
+          <text class="text-xl font-semibold text-gray-900">{{userInfo.participationCount || 0}}</text>
+          <text class="text-xs text-gray-600 mt-1">参与场次</text>
         </view>
         <view class="stat-divider"></view>
-        <view class="stat-item">
-          <text class="stat-value">{{userInfo.fulfillmentCount || 0}}</text>
-          <text class="stat-label">履约次数</text>
+        <view class="flex-1 flex flex-col items-center">
+          <text class="text-xl font-semibold text-gray-900">{{userInfo.fulfillmentCount || 0}}</text>
+          <text class="text-xs text-gray-600 mt-1">履约次数</text>
         </view>
         <view class="stat-divider"></view>
-        <view class="stat-item">
-          <text class="stat-value {{(userInfo.negativeFeedbackCount || 0) > 0 ? 'warning' : ''}}">
+        <view class="flex-1 flex flex-col items-center">
+          <text class="text-xl font-semibold {{(userInfo.negativeFeedbackCount || 0) > 0 ? 'text-error' : 'text-gray-900'}}">
             {{userInfo.negativeFeedbackCount || 0}}
           </text>
-          <text class="stat-label">收到差评</text>
+          <text class="text-xs text-gray-600 mt-1">收到差评</text>
         </view>
       </view>
     </block>
 
-    <!-- 未登录状态 (Requirements: 12.5) -->
-    <view wx:else class="login-prompt" bind:tap="onLogin">
-      <t-avatar icon="user" size="128rpx" class="user-avatar" />
-      <view class="login-text">
-        <text class="login-title">登录/注册</text>
-        <text class="login-desc">登录后享受更多功能</text>
+    <!-- 未登录状态 -->
+    <view wx:else class="flex items-center px-4 py-6" bind:tap="onLogin">
+      <t-avatar icon="user" size="128rpx" class="flex-shrink-0" />
+      <view class="flex-1 ml-3">
+        <text class="block text-lg font-semibold text-gray-900 mb-1">登录/注册</text>
+        <text class="block text-sm text-gray-600">登录后享受更多功能</text>
       </view>
-      <t-icon name="chevron-right" size="44rpx" color="#999" />
+      <t-icon name="chevron-right" size="44rpx" color="#9CA3AF" />
     </view>
   </view>
 
-  <!-- 功能网格 (Requirements: 12.3, 12.4) -->
-  <view class="function-grid">
+  <!-- 功能网格 -->
+  <view class="flex mx-3 mt-3 bg-white rounded-xl py-3">
     <view
       wx:for="{{gridList}}"
       wx:key="type"
-      class="grid-item"
+      class="grid-item flex-1 flex flex-col items-center px-2 py-2"
       data-data="{{item}}"
       bind:tap="onEleClick"
     >
-      <view class="grid-icon">
+      <view class="grid-icon relative w-88 h-88 flex items-center justify-center rounded-xl mb-2">
         <t-icon name="{{item.icon}}" size="48rpx" />
         <view class="grid-badge" wx:if="{{item.badge}}">{{item.badge}}</view>
       </view>
-      <text class="grid-text">{{item.name}}</text>
+      <text class="text-sm text-gray-900">{{item.name}}</text>
     </view>
   </view>
 
   <!-- 设置列表 -->
-  <view class="settings-section">
+  <view class="mx-3 mt-3">
     <t-cell-group theme="card">
       <t-cell
         wx:for="{{settingList}}"
@@ -113,7 +113,4 @@
       />
     </t-cell-group>
   </view>
-
-  <!-- 底部安全区 -->
-  <view class="safe-area"></view>
 </view>

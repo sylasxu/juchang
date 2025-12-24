@@ -1,44 +1,48 @@
 <!--
   群聊页面
-  Requirements: 9.1, 9.2, 9.3, 9.4
+  TDesign + Atomic Less 重构
 -->
-<view class="chat-page">
-  <!-- 活动信息头部 (Requirements: 9.1) -->
-  <view class="activity-header" bind:tap="onActivityTap" wx:if="{{activity}}">
+<view class="flex flex-col h-screen bg-gray-50">
+  <!-- 活动信息头部 -->
+  <view 
+    class="activity-header flex items-center px-4 py-3 bg-white border-b border-gray-100" 
+    bind:tap="onActivityTap" 
+    wx:if="{{activity}}"
+  >
     <image
-      class="activity-image"
+      class="w-88 h-88 rounded-md flex-shrink-0 mr-3"
       src="{{activity.image || '/static/images/default-activity.png'}}"
       mode="aspectFill"
     />
-    <view class="activity-info">
-      <view class="activity-title">{{activity.title}}</view>
-      <view class="activity-meta">
+    <view class="flex-1 min-w-0">
+      <view class="text-base font-medium text-gray-900 truncate mb-1">{{activity.title}}</view>
+      <view class="flex items-center gap-1 text-xs text-gray-600">
         <t-icon name="location" size="28rpx" />
         <text>{{activity.locationName}}</text>
-        <text class="separator">·</text>
+        <text class="mx-1">·</text>
         <t-icon name="user" size="28rpx" />
         <text>{{activity.participantCount}}人</text>
       </view>
     </view>
-    <view class="activity-status {{activity.isArchived ? 'archived' : ''}}">
+    <view class="activity-status text-xs px-2 py-1 rounded-sm mr-2 {{activity.isArchived ? 'archived' : ''}}">
       {{activity.isArchived ? '已归档' : '进行中'}}
     </view>
-    <t-icon name="chevron-right" size="40rpx" color="#999" />
+    <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
   </view>
 
   <!-- 消息列表 -->
   <scroll-view
-    class="message-list"
+    class="flex-1 px-4 py-3 pb-140"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
     scroll-into-view="{{scrollToMessage}}"
     scroll-with-animation
     bindscrolltoupper="onLoadMore"
-    style="padding-bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '0'}}"
+    style="padding-bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '140rpx'}}"
   >
     <!-- 加载更多提示 -->
-    <view class="load-more" wx:if="{{hasMore}}">
+    <view class="flex items-center justify-center gap-2 py-3 text-xs text-gray-400" wx:if="{{hasMore}}">
       <t-loading theme="circular" size="40rpx" />
       <text>加载更多...</text>
     </view>
@@ -47,57 +51,41 @@
     <block wx:for="{{messages}}" wx:key="id">
       <view
         id="msg-{{item.id}}"
-        class="message-item {{item.isSelf ? 'self' : 'other'}}"
+        class="message-item flex items-start mb-4 {{item.isSelf ? 'self flex-row-reverse' : 'other'}}"
       >
-        <!-- 他人消息 -->
-        <block wx:if="{{!item.isSelf}}">
-          <image
-            class="avatar"
-            src="{{item.senderAvatar || '/static/images/default-avatar.png'}}"
-            mode="aspectFill"
-          />
-          <view class="message-content">
-            <view class="sender-name">{{item.senderName}}</view>
-            <view class="message-bubble">
-              <text>{{item.content}}</text>
-            </view>
-            <view class="message-time">{{item.createdAt}}</view>
+        <!-- 头像 -->
+        <image
+          class="avatar w-80 h-80 rounded-full flex-shrink-0"
+          src="{{item.senderAvatar || '/static/images/default-avatar.png'}}"
+          mode="aspectFill"
+        />
+        <!-- 消息内容 -->
+        <view class="message-content flex flex-col mx-3 max-w-70 {{item.isSelf ? 'items-end' : 'items-start'}}">
+          <view class="text-xs text-gray-600 mb-1" wx:if="{{!item.isSelf}}">{{item.senderName}}</view>
+          <view class="message-bubble px-4 py-3 text-base leading-normal {{item.isSelf ? 'self-bubble' : 'other-bubble'}}">
+            <text>{{item.content}}</text>
           </view>
-        </block>
-
-        <!-- 自己的消息 -->
-        <block wx:else>
-          <view class="message-content">
-            <view class="message-bubble">
-              <text>{{item.content}}</text>
-            </view>
-            <view class="message-time">{{item.createdAt}}</view>
-          </view>
-          <image
-            class="avatar"
-            src="{{item.senderAvatar || '/static/images/default-avatar.png'}}"
-            mode="aspectFill"
-          />
-        </block>
+          <view class="text-xs text-gray-400 mt-1">{{item.createdAt}}</view>
+        </view>
       </view>
     </block>
 
     <!-- 空状态 -->
-    <view class="empty-tip" wx:if="{{!loading && messages.length === 0}}">
-      <t-icon name="chat" size="96rpx" color="#ddd" />
-      <text>暂无消息</text>
-      <text class="empty-sub">发送第一条消息开始聊天吧</text>
+    <view class="flex flex-col items-center justify-center py-12 text-gray-400" wx:if="{{!loading && messages.length === 0}}">
+      <t-icon name="chat" size="96rpx" color="#E5E7EB" />
+      <text class="text-sm mt-2">暂无消息</text>
+      <text class="text-xs mt-1">发送第一条消息开始聊天吧</text>
     </view>
   </scroll-view>
 
-  <!-- 输入区域 (Requirements: 9.2) -->
-  <view class="input-area" style="bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '0'}}">
-    <view class="input-wrapper">
+  <!-- 输入区域 -->
+  <view class="input-area fixed left-0 right-0 bottom-0 bg-white border-t border-gray-100" style="bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '0'}}">
+    <view class="flex items-center px-4 py-3 gap-3">
       <input
-        class="message-input"
+        class="message-input flex-1 h-80 px-4 bg-gray-100 rounded-full text-base text-gray-900"
         type="text"
         placeholder="{{activity && activity.isArchived ? '群聊已归档' : '输入消息...'}}"
-        placeholder-class="input-placeholder"
+        placeholder-class="text-gray-400"
         value="{{inputValue}}"
         disabled="{{activity && activity.isArchived}}"
         confirm-type="send"
@@ -108,12 +96,12 @@
         bindblur="onInputBlur"
       />
       <view
-        class="send-btn {{inputValue.trim() ? 'active' : ''}}"
+        class="send-btn w-80 h-80 flex items-center justify-center rounded-full {{inputValue.trim() ? 'active' : 'bg-gray-100 text-gray-400'}}"
         bind:tap="onSendMessage"
       >
         <t-icon name="send" size="44rpx" />
       </view>
     </view>
-    <view class="safe-area"></view>
+    <view class="safe-bottom"></view>
   </view>
 </view>

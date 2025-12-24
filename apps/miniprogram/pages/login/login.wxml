@@ -1,99 +1,101 @@
+<!--
+  登录页面
+  TDesign + Atomic Less 重构
+-->
 <t-navbar left-arrow />
-<view class="page login">
-  <view class="login__title"> 欢迎登录 TDsign </view>
-  <view class="login__content">
-    <view class="login__input">
-      <view class="login__password" wx:if="{{isPasswordLogin}}">
-        <t-input
-          label="账号"
-          placeholder="请输入手机号/邮箱"
-          value="{{passwordInfo.account}}"
-          bindchange="onAccountChange"
-        ></t-input>
-        <t-input
-          label="密码"
-          placeholder="请输入密码"
-          type="password"
-          clearable
-          value="{{passwordInfo.password}}"
-          bindchange="onPasswordChange"
-        />
-      </view>
+<view class="min-h-screen bg-white px-4">
+  <!-- 标题 -->
+  <view class="text-2xl font-semibold text-gray-900 pt-2 pb-5">欢迎登录聚场</view>
 
-      <t-input wx:else value="{{phoneNumber}}" placeholder="请输入手机号" type="number" bindchange="onPhoneInput">
-        <view slot="label" class="input-label">
-          <text>+86</text>
-          <t-icon name="caret-down-small" size="40rpx" class="input-iconl"></t-icon>
-        </view>
-      </t-input>
-    </view>
-
-    <view class="login__tips">未注册的手机号验证通过后将自动注册</view>
-
-    <t-radio-group allow-uncheck borderless value="{{radioValue}}" bind:change="onCheckChange">
-      <t-radio
-        label="同意《协议条款》"
-        value="agree"
-        t-class="radio-class"
-        t-class-icon="radio-class-icon"
-        t-class-label="radio-class-label"
+  <!-- 输入区域 -->
+  <view class="login-input">
+    <view wx:if="{{isPasswordLogin}}">
+      <t-input
+        label="账号"
+        placeholder="请输入手机号/邮箱"
+        value="{{passwordInfo.account}}"
+        bindchange="onAccountChange"
       />
-    </t-radio-group>
-
-    <view class="login__button">
-      <t-button 
-        theme="primary" 
-        size="large" 
-        block 
-        disabled="{{!isCheck}}" 
-        loading="{{isLoading}}"
-        bindtap="login"
-      >
-        微信快速登录
-      </t-button>
-      
-      <t-button 
-        wx:if="{{isPhoneNumber}}"
-        theme="light" 
-        size="large" 
-        block 
-        disabled="{{!isSubmit}}" 
-        bindtap="loginWithCode"
-        style="margin-top: 16rpx;"
-      >
-        手机号验证登录
-      </t-button>
+      <t-input
+        label="密码"
+        placeholder="请输入密码"
+        type="password"
+        clearable
+        value="{{passwordInfo.password}}"
+        bindchange="onPasswordChange"
+      />
     </view>
 
-    <view class="login__password--forget" wx:if="{{isPasswordLogin}}">
-      <text>忘记密码？</text>
-      <t-link theme="primary" size="small">找回密码</t-link>
-    </view>
+    <t-input 
+      wx:else 
+      value="{{phoneNumber}}" 
+      placeholder="请输入手机号" 
+      type="number" 
+      bindchange="onPhoneInput"
+    >
+      <view slot="label" class="flex items-center pr-4 border-r border-gray-200">
+        <text>+86</text>
+        <t-icon name="caret-down-small" size="40rpx" class="ml-1" />
+      </view>
+    </t-input>
   </view>
 
-  <view class="login__others">
-    <text class="login__others-label">其他方式</text>
-    <view class="login__others-buttons">
-      <t-button class="button" variant="outline" theme="default" size="medium" shape="round" bindtap="changeLogin">
+  <!-- 提示文字 -->
+  <view class="text-xs text-gray-400 my-3">未注册的手机号验证通过后将自动注册</view>
+
+  <!-- 协议勾选 -->
+  <t-radio-group allow-uncheck borderless value="{{radioValue}}" bind:change="onCheckChange">
+    <t-radio
+      label="同意《协议条款》"
+      value="agree"
+      t-class="radio-class"
+      t-class-icon="radio-class-icon"
+      t-class-label="radio-class-label"
+    />
+  </t-radio-group>
+
+  <!-- 登录按钮 -->
+  <view class="mt-4">
+    <t-button 
+      theme="primary" 
+      size="large" 
+      block 
+      disabled="{{!isCheck}}" 
+      loading="{{isLoading}}"
+      bindtap="login"
+    >
+      微信快速登录
+    </t-button>
+    
+    <t-button 
+      wx:if="{{isPhoneNumber}}"
+      theme="light" 
+      size="large" 
+      block 
+      disabled="{{!isSubmit}}" 
+      bindtap="loginWithCode"
+      class="mt-2"
+    >
+      手机号验证登录
+    </t-button>
+  </view>
+
+  <!-- 忘记密码 -->
+  <view class="flex items-center text-xs mt-4" wx:if="{{isPasswordLogin}}">
+    <text class="text-gray-600">忘记密码？</text>
+    <t-link theme="primary" size="small">找回密码</t-link>
+  </view>
+
+  <!-- 其他登录方式 -->
+  <view class="flex items-center justify-between mt-8">
+    <text class="text-xs text-gray-600">其他方式</text>
+    <view class="flex items-center gap-4">
+      <t-button variant="outline" theme="default" size="medium" shape="round" bindtap="changeLogin">
         {{isPasswordLogin ? '验证码登录' : '密码登录' }}
       </t-button>
-      <t-button
-        class="button"
-        variant="outline"
-        theme="default"
-        size="medium"
-        icon="logo-wechat-stroke"
-        shape="circle"
-      ></t-button>
-      <t-button class="button" variant="outline" theme="default" size="medium" icon="logo-qq" shape="circle"></t-button>
-      <t-button
-        class="button"
-        variant="outline"
-        theme="default"
-        size="medium"
-        icon="logo-wecom"
-        shape="circle"
-      ></t-button>
+      <t-button variant="outline" theme="default" size="medium" icon="logo-wechat-stroke" shape="circle" />
+      <t-button variant="outline" theme="default" size="medium" icon="logo-qq" shape="circle" />
+      <t-button variant="outline" theme="default" size="medium" icon="logo-wecom" shape="circle" />
     </view>
   </view>
 </view>

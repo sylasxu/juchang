@@ -3,180 +3,124 @@
   Requirements: 2.5, 2.6 - 点击Pin显示活动简要信息，点击卡片跳转详情页
 -->
 <wxs module="utils">
-  // 格式化时间
   function formatTime(dateStr) {
     if (!dateStr) return '';
     var date = getDate(dateStr);
     var now = getDate();
-    
     var hours = date.getHours();
     var minutes = date.getMinutes();
     var timeStr = (hours < 10 ? '0' + hours : hours) + ':' + (minutes < 10 ? '0' + minutes : minutes);
-    
-    // 简单判断是否今天
-    if (date.getFullYear() === now.getFullYear() && 
-        date.getMonth() === now.getMonth() && 
-        date.getDate() === now.getDate()) {
+    if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate()) {
       return '今天 ' + timeStr;
     }
-    
     var month = date.getMonth() + 1;
     var day = date.getDate();
     return month + '月' + day + '日 ' + timeStr;
   }
-  
-  // 获取费用类型文本
   function getFeeTypeText(feeType) {
-    var map = {
-      free: '免费',
-      aa: 'AA制',
-      fixed: '固定费用',
-      treat: '请客'
-    };
+    var map = { free: '免费', aa: 'AA制', fixed: '固定费用', treat: '请客' };
     return map[feeType] || feeType || '';
   }
-  
-  // 获取活动类型文本
   function getActivityTypeText(type) {
-    var map = {
-      food: '美食',
-      entertainment: '娱乐',
-      sports: '运动',
-      study: '学习',
-      travel: '旅行',
-      other: '其他'
-    };
+    var map = { food: '美食', entertainment: '娱乐', sports: '运动', study: '学习', travel: '旅行', other: '其他' };
     return map[type] || type || '';
   }
-  
-  // 计算靠谱度
   function calculateReliability(creator) {
-    if (!creator || !creator.participationCount || creator.participationCount === 0) {
-      return -1;
-    }
+    if (!creator || !creator.participationCount || creator.participationCount === 0) return -1;
     return Math.round((creator.fulfillmentCount / creator.participationCount) * 100);
   }
-  
-  // 获取靠谱度标签
-  function getReliabilityLabel(rate) {
-    if (rate === -1) return '🆕 新用户';
-    if (rate === 100) return '⭐⭐⭐';
-    if (rate >= 80) return '⭐⭐';
-    if (rate >= 60) return '⭐';
-    return '待提升';
-  }
-  
-  module.exports = {
-    formatTime: formatTime,
-    getFeeTypeText: getFeeTypeText,
-    getActivityTypeText: getActivityTypeText,
-    calculateReliability: calculateReliability,
-    getReliabilityLabel: getReliabilityLabel
-  };
+  module.exports = { formatTime: formatTime, getFeeTypeText: getFeeTypeText, getActivityTypeText: getActivityTypeText, calculateReliability: calculateReliability };
 </wxs>
 
 <!-- 弹窗模式 -->
-<view wx:if="{{mode === 'popup'}}" class="activity-card popup" bindtap="onCardTap">
+<view wx:if="{{mode === 'popup'}}" class="bg-white rounded-lg overflow-hidden w-full" bindtap="onCardTap">
   <!-- 加载状态 -->
-  <view wx:if="{{loading}}" class="card-loading">
-    <view class="loading-spinner"></view>
-    <text class="loading-text">加载中...</text>
+  <view wx:if="{{loading}}" class="flex flex-col items-center justify-center py-10">
+    <t-loading theme="circular" size="48rpx" />
+    <text class="mt-2 text-sm text-gray-400">加载中...</text>
   </view>
   
   <!-- 错误状态 -->
-  <view wx:elif="{{error}}" class="card-error">
+  <view wx:elif="{{error}}" class="flex flex-col items-center justify-center py-10">
     <t-icon name="error-circle" size="48rpx" color="#ff4d4f" />
-    <text class="error-text">加载失败</text>
+    <text class="mt-2 text-sm text-gray-400">加载失败</text>
   </view>
   
   <!-- 活动内容 -->
-  <view wx:else class="card-content">
+  <view wx:else class="flex flex-col">
     <!-- 活动图片 -->
-    <view wx:if="{{activityDetail.images && activityDetail.images.length > 0}}" class="card-image">
-      <image src="{{activityDetail.images[0]}}" mode="aspectFill" />
+    <view wx:if="{{activityDetail.images && activityDetail.images.length > 0}}" class="w-full bg-gray-100" style="height: 280rpx;">
+      <image src="{{activityDetail.images[0]}}" mode="aspectFill" class="w-full h-full" />
     </view>
-    <view wx:else class="card-image placeholder">
+    <view wx:else class="w-full bg-gray-100 flex items-center justify-center" style="height: 280rpx;">
       <t-icon name="image" size="64rpx" color="#ccc" />
     </view>
     
     <!-- 活动信息 -->
-    <view class="card-info">
+    <view class="p-3">
       <!-- 标题和标签 -->
-      <view class="card-header">
-        <text class="card-title">{{activityDetail.title || activity.title}}</text>
-        <view class="card-tags">
-          <t-tag wx:if="{{activityDetail.type}}" size="small" variant="light" theme="primary">
-            {{utils.getActivityTypeText(activityDetail.type)}}
-          </t-tag>
-          <t-tag wx:if="{{activityDetail.isPinPlus}}" size="small" variant="light" theme="warning">
-            Pin+
-          </t-tag>
+      <view class="flex items-start justify-between mb-2">
+        <text class="flex-1 text-lg font-semibold text-gray-900 line-clamp-2">{{activityDetail.title || activity.title}}</text>
+        <view class="flex gap-1 ml-2 flex-shrink-0">
+          <t-tag wx:if="{{activityDetail.type}}" size="small" variant="light" theme="primary">{{utils.getActivityTypeText(activityDetail.type)}}</t-tag>
+          <t-tag wx:if="{{activityDetail.isPinPlus}}" size="small" variant="light" theme="warning">Pin+</t-tag>
         </view>
       </view>
       
       <!-- 时间 -->
-      <view class="card-row">
+      <view class="flex items-center mb-2">
         <t-icon name="time" size="28rpx" color="#666" />
-        <text class="card-text">{{utils.formatTime(activityDetail.startAt)}}</text>
+        <text class="ml-1 text-sm text-gray-600">{{utils.formatTime(activityDetail.startAt)}}</text>
       </view>
       
       <!-- 地点 -->
-      <view class="card-row">
+      <view class="flex items-center mb-2">
         <t-icon name="location" size="28rpx" color="#666" />
-        <text class="card-text">{{activityDetail.locationName || activity.locationHint || '位置待定'}}</text>
+        <text class="ml-1 text-sm text-gray-600">{{activityDetail.locationName || activity.locationHint || '位置待定'}}</text>
       </view>
       
       <!-- 人数和费用 -->
-      <view class="card-row">
+      <view class="flex items-center mb-2">
         <t-icon name="user" size="28rpx" color="#666" />
-        <text class="card-text">{{activityDetail.currentParticipants || 0}}/{{activityDetail.maxParticipants || '?'}}人</text>
-        <view class="card-divider"></view>
-        <text class="card-text fee-text">{{utils.getFeeTypeText(activityDetail.feeType)}}</text>
-        <text wx:if="{{activityDetail.estimatedCost}}" class="card-text fee-amount">约¥{{activityDetail.estimatedCost}}</text>
+        <text class="ml-1 text-sm text-gray-600">{{activityDetail.currentParticipants || 0}}/{{activityDetail.maxParticipants || '?'}}人</text>
+        <view class="w-px h-3 bg-gray-200 mx-2"></view>
+        <text class="text-sm text-brand">{{utils.getFeeTypeText(activityDetail.feeType)}}</text>
+        <text wx:if="{{activityDetail.estimatedCost}}" class="text-sm text-gray-400 ml-1">约¥{{activityDetail.estimatedCost}}</text>
       </view>
       
       <!-- 发起人信息 -->
-      <view wx:if="{{activityDetail.creator}}" class="card-creator" catchtap="onCreatorTap">
-        <t-avatar 
-          image="{{activityDetail.creator.avatarUrl}}" 
-          size="48rpx"
-          icon="user"
-        />
-        <text class="creator-name">{{activityDetail.creator.nickname || '匿名用户'}}</text>
-        <reliability-badge rate="{{utils.calculateReliability(activityDetail.creator)}}" show-label="{{true}}" />
+      <view wx:if="{{activityDetail.creator}}" class="flex items-center mt-3 pt-3 border-t" catchtap="onCreatorTap">
+        <t-avatar image="{{activityDetail.creator.avatarUrl}}" size="48rpx" icon="user" />
+        <text class="ml-2 text-sm text-gray-900">{{activityDetail.creator.nickname || '匿名用户'}}</text>
+        <view class="ml-auto">
+          <reliability-badge rate="{{utils.calculateReliability(activityDetail.creator)}}" show-label="{{true}}" />
+        </view>
       </view>
     </view>
     
     <!-- 查看详情提示 -->
-    <view class="card-footer">
-      <text class="footer-text">点击查看详情</text>
+    <view class="flex items-center justify-center py-3 bg-gray-50 border-t">
+      <text class="text-sm text-gray-400 mr-1">点击查看详情</text>
       <t-icon name="chevron-right" size="28rpx" color="#999" />
     </view>
   </view>
 </view>
 
 <!-- 列表模式 -->
-<view wx:else class="activity-card list" bindtap="onCardTap">
-  <view class="list-content">
-    <!-- 左侧信息 -->
-    <view class="list-info">
-      <view class="list-header">
-        <text class="list-title">{{activity.title}}</text>
-        <t-tag wx:if="{{activity.isBoosted}}" size="small" variant="light" theme="danger">
-          🔥急招
-        </t-tag>
-        <t-tag wx:if="{{activity.isPinPlus}}" size="small" variant="light" theme="warning">
-          Pin+
-        </t-tag>
+<view wx:else class="bg-white rounded-lg shadow-sm mb-2 overflow-hidden" bindtap="onCardTap">
+  <view class="flex items-center p-3">
+    <view class="flex-1 min-w-0">
+      <view class="flex items-center gap-1 mb-1">
+        <text class="text-base font-medium text-gray-900 truncate" style="max-width: 400rpx;">{{activity.title}}</text>
+        <t-tag wx:if="{{activity.isBoosted}}" size="small" variant="light" theme="danger">🔥急招</t-tag>
+        <t-tag wx:if="{{activity.isPinPlus}}" size="small" variant="light" theme="warning">Pin+</t-tag>
       </view>
-      <view class="list-row">
+      <view class="flex items-center">
         <t-icon name="location" size="24rpx" color="#999" />
-        <text class="list-text">{{activity.locationHint || '位置待定'}}</text>
+        <text class="ml-1 text-xs text-gray-400 truncate">{{activity.locationHint || '位置待定'}}</text>
       </view>
     </view>
-    
-    <!-- 右侧箭头 -->
-    <view class="list-arrow">
+    <view class="flex-shrink-0 ml-2">
       <t-icon name="chevron-right" size="32rpx" color="#ccc" />
     </view>
   </view>
