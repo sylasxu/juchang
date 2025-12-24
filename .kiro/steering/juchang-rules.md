@@ -79,7 +79,8 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   - **Services**: 必须是纯函数，禁止使用 class
 
 ## 3. apps/miniprogram (The WeChat Client)
-- **Tech**: Native Wechat (Skyline/WebView) + weapp-vite + TS + Zustand Vanilla.
+- **Tech**: Native WeChat MiniProgram + 微信开发者工具 + TypeScript + Zustand Vanilla + LESS.
+- **Build**: 通过微信开发者工具直接构建，**不使用 weapp-vite**。
 - **Navigation**: **3 Tab + AI 输入栏** 设计
   - Tab 1: 首页 (Home) - 地图 + AI 输入栏综合页
   - Tab 2: 消息 (Connect) - 社交连接

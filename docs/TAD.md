@@ -6,7 +6,7 @@
 
 ## 1. 核心设计理念
 
-1. **原生极致性能**：小程序端完全放弃 React/Vue 运行时，使用 **weapp-vite** 编译原生 `WXML/WXSS/TS`。零运行时开销、直接调用微信原生 API，确保启动速度和运行性能达到"天花板"级别。
+1. **原生极致性能**：小程序端完全放弃 React/Vue 运行时，使用**微信开发者工具**直接构建原生 `WXML/LESS/TS`。零运行时开销、直接调用微信原生 API，确保启动速度和运行性能达到"天花板"级别。
 2. **数据库优先 (Database First)**：`@juchang/db` (Drizzle ORM) 是绝对的数据源。所有 TypeBox Schema 必须通过 `drizzle-typebox` 自动生成，**禁止手动定义 TypeBox**（除非是纯瞬态参数）。
 3. **Spec-Coding 契约驱动**：使用 Elysia 的 TypeBox 定义路由契约，集成 **@elysiajs/openapi** 提供 API 文档，使用 **Orval** 自动生成客户端 SDK。
 4. **双轨架构 (Dual-Track)**：
@@ -24,7 +24,7 @@
 | :------------- | :----------------------------- | :--------------------------------------------------------------------------- |
 | **代码管理**   | **Turborepo + Bun Workspaces** | 任务编排与依赖管理，支持源码引用的 Workspace 模式，Bun 提供毫秒级启动速度。  |
 | **代码质量**   | **Biome**                      | 极速的 Linter + Formatter，替代 ESLint + Prettier。                         |
-| **小程序构建** | **weapp-vite (Native)**        | 使用 Vite 编译原生小程序，支持 TS、SCSS，零运行时开销。                      |
+| **小程序构建** | **微信开发者工具 (Native)**    | 直接使用微信开发者工具构建原生小程序，支持 TS、LESS，零运行时开销。          |
 | **小程序状态** | **Zustand (Vanilla)**          | 极简状态管理，使用 `zustand/vanilla` 模式，无 React 依赖。                   |
 | **Admin后台**  | **Vite + TanStack Router + React Query** | 现代化 SPA 架构，通过 Eden Treaty 调用 API，shadcn/ui 组件库。 |
 | **API网关**    | **Elysia**                     | Bun 原生高性能后端框架，TypeBox 类型推断极致，内置 OpenAPI 支持。            |
@@ -285,23 +285,33 @@ graph TD
 ```text
 /root
   ├── apps/
-  │    ├── miniprogram/             # [WeChat 原生] Vite+TS 工程
-  │    │    ├── src/
-  │    │    │    ├── pages/
-  │    │    │    │    ├── home/     # 首页 (地图 + AI 输入栏综合页)
-  │    │    │    │    ├── message/  # 消息列表/聊天
-  │    │    │    │    ├── my/       # 个人中心
-  │    │    │    │    ├── activity/ # 活动详情/创建 (AI 解析集成)
-  │    │    │    │    ├── search/   # 独立搜索页
-  │    │    │    │    └── webview/  # 仅协议/政策承载
-  │    │    │    ├── components/
-  │    │    │    │    ├── ai-input-bar/   # AI 输入栏组件
-  │    │    │    │    ├── cui-panel/      # CUI 副驾面板
-  │    │    │    │    ├── draft-card/     # 创建草稿卡片
-  │    │    │    │    └── activity-form/  # 智能活动表单 (AI 解析集成)
-  │    │    │    ├── lib/            # 使用 Orval 生成的 SDK
-  │    │    │    └── utils/          # 直接 import @juchang/utils
-  │    │    ├── vite.config.ts
+  │    ├── miniprogram/             # [WeChat 原生] 微信开发者工具 + TS 工程
+  │    │    ├── pages/              # 主包页面
+  │    │    │    ├── home/          # 首页 (地图 + AI 输入栏综合页)
+  │    │    │    ├── message/       # 消息列表
+  │    │    │    ├── chat/          # 聊天页面
+  │    │    │    ├── my/            # 个人中心
+  │    │    │    ├── search/        # 独立搜索页
+  │    │    │    └── setting/       # 设置页面
+  │    │    ├── subpackages/        # 分包
+  │    │    │    ├── activity/      # 活动相关 (create/detail/confirm)
+  │    │    │    └── safety/        # 安全相关
+  │    │    ├── components/         # 自定义组件
+  │    │    │    ├── ai-input-bar/  # AI 输入栏组件
+  │    │    │    ├── cui-panel/     # CUI 副驾面板
+  │    │    │    ├── draft-card/    # 创建草稿卡片
+  │    │    │    ├── activity-card/ # 活动卡片
+  │    │    │    ├── filter-panel/  # 筛选面板
+  │    │    │    └── ...
+  │    │    ├── src/                # 源码目录
+  │    │    │    ├── api/           # Orval 生成的 SDK
+  │    │    │    ├── stores/        # Zustand Vanilla 状态管理
+  │    │    │    ├── services/      # 业务服务
+  │    │    │    ├── types/         # 类型定义
+  │    │    │    └── utils/         # 工具函数
+  │    │    ├── custom-tab-bar/     # 自定义 TabBar
+  │    │    ├── app.ts              # 应用入口
+  │    │    ├── app.json            # 应用配置
   │    │    └── tsconfig.json
   │    │
   │    ├── admin/                   # [Vite + React] 管理后台
