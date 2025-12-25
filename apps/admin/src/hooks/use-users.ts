@@ -1,21 +1,14 @@
-// 用户管理相关 Hooks
+// 用户管理相关 Hooks (MVP 简化版)
 import { useQuery } from '@tanstack/react-query'
-import { api } from '@/lib/eden'
+import { api, apiCall } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
 import { useApiList, useApiDetail, useApiUpdate } from './use-api'
 import type { PaginationQuery } from '@/lib/typebox'
 
-// 用户筛选参数类型
+// MVP 用户筛选参数类型 (简化版)
 export interface UserFilters extends PaginationQuery {
   search?: string
-  membershipType?: string[]
-  isBlocked?: boolean
-  isRealNameVerified?: boolean
-  registrationDateRange?: [string, string]
-  locationRadius?: {
-    center: [number, number]
-    radius: number
-  }
+  hasPhone?: boolean
 }
 
 // 获取用户列表
@@ -30,16 +23,22 @@ export function useUsersList(filters: UserFilters = { page: 1, limit: 20 }) {
   )
 }
 
-// 获取用户详情
+// 获取用户详情 (Admin 视图)
+export function useAdminUser(userId: string) {
+  return useQuery({
+    queryKey: [...queryKeys.users.details(), userId],
+    queryFn: async () => {
+      const result = await apiCall<any>(() => api.users({ id: userId }).get())
+      return result
+    },
+    enabled: !!userId,
+    staleTime: 5 * 60 * 1000, // 5 分钟
+  })
+}
+
+// 获取用户详情 (兼容旧接口)
 export function useUserDetail(userId: string) {
-  return useApiDetail(
-    [...queryKeys.users.details(), userId],
-    (id) => api.users({ id }).get(),
-    userId,
-    {
-      staleTime: 5 * 60 * 1000, // 5 分钟
-    }
-  )
+  return useAdminUser(userId)
 }
 
 // 更新用户信息
@@ -55,56 +54,12 @@ export function useUpdateUser() {
   )
 }
 
-// 封禁用户
-export function useBlockUser() {
-  return useApiUpdate(
-    (id, _data) => api.users({ id }).block.post(),
-    {
-      invalidateKeys: [
-        queryKeys.users.all,
-        queryKeys.dashboard.all,
-      ],
-    }
-  )
-}
-
-// 解封用户
-export function useUnblockUser() {
-  return useApiUpdate(
-    (id, _data) => api.users({ id }).unblock.post(),
-    {
-      invalidateKeys: [
-        queryKeys.users.all,
-        queryKeys.dashboard.all,
-      ],
-    }
-  )
-}
-
-// 获取用户可靠性信息 - TODO: 实现API端点
-export function useUserReliability(userId: string) {
-  return useQuery({
-    queryKey: ['users', userId, 'reliability'],
-    queryFn: async () => {
-      // Mock data - 替换为实际API调用
-      return {
-        score: 95,
-        totalActivities: 12,
-        completedActivities: 11,
-        disputes: 0
-      }
-    },
-    enabled: !!userId,
-    staleTime: 10 * 60 * 1000, // 10 分钟
-  })
-}
-
-// 获取用户活动历史 - TODO: 实现API端点
+// 获取用户活动历史
 export function useUserActivities(userId: string, filters: PaginationQuery = { page: 1, limit: 10 }) {
   return useQuery({
     queryKey: ['users', userId, 'activities', filters],
     queryFn: async () => {
-      // Mock data - 替换为实际API调用
+      // TODO: 实现 API 端点
       return {
         data: [],
         total: 0,
@@ -117,12 +72,12 @@ export function useUserActivities(userId: string, filters: PaginationQuery = { p
   })
 }
 
-// 获取用户参与记录 - TODO: 实现API端点
+// 获取用户参与记录
 export function useUserParticipations(userId: string, filters: PaginationQuery = { page: 1, limit: 10 }) {
   return useQuery({
     queryKey: ['users', userId, 'participations', filters],
     queryFn: async () => {
-      // Mock data - 替换为实际API调用
+      // TODO: 实现 API 端点
       return {
         data: [],
         total: 0,

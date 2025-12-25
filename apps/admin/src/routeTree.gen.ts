@@ -22,14 +22,12 @@ import { Route as authOtpRouteImport } from './routes/(auth)/otp'
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
-import { Route as AuthenticatedTransactionsIndexRouteImport } from './routes/_authenticated/transactions/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedActivitiesIndexRouteImport } from './routes/_authenticated/activities/index'
 import { Route as AuthenticatedUsersIdRouteImport } from './routes/_authenticated/users/$id'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
-import { Route as AuthenticatedActivitiesGhostRouteImport } from './routes/_authenticated/activities/ghost'
 import { Route as AuthenticatedActivitiesIdRouteImport } from './routes/_authenticated/activities/$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -97,12 +95,6 @@ const AuthenticatedUsersIndexRoute = AuthenticatedUsersIndexRouteImport.update({
   path: '/users/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedTransactionsIndexRoute =
-  AuthenticatedTransactionsIndexRouteImport.update({
-    id: '/transactions/',
-    path: '/transactions/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
@@ -138,12 +130,6 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedActivitiesGhostRoute =
-  AuthenticatedActivitiesGhostRouteImport.update({
-    id: '/activities/ghost',
-    path: '/activities/ghost',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
 const AuthenticatedActivitiesIdRoute =
   AuthenticatedActivitiesIdRouteImport.update({
     id: '/activities/$id',
@@ -164,14 +150,12 @@ export interface FileRoutesByFullPath {
   '/503': typeof errors503Route
   '/': typeof AuthenticatedIndexRoute
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
-  '/activities/ghost': typeof AuthenticatedActivitiesGhostRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
-  '/transactions': typeof AuthenticatedTransactionsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
 }
 export interface FileRoutesByTo {
@@ -186,14 +170,12 @@ export interface FileRoutesByTo {
   '/503': typeof errors503Route
   '/': typeof AuthenticatedIndexRoute
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
-  '/activities/ghost': typeof AuthenticatedActivitiesGhostRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
-  '/transactions': typeof AuthenticatedTransactionsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
 }
 export interface FileRoutesById {
@@ -211,14 +193,12 @@ export interface FileRoutesById {
   '/(errors)/503': typeof errors503Route
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/activities/$id': typeof AuthenticatedActivitiesIdRoute
-  '/_authenticated/activities/ghost': typeof AuthenticatedActivitiesGhostRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/users/$id': typeof AuthenticatedUsersIdRoute
   '/_authenticated/activities/': typeof AuthenticatedActivitiesIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
-  '/_authenticated/transactions/': typeof AuthenticatedTransactionsIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
 }
 export interface FileRouteTypes {
@@ -236,14 +216,12 @@ export interface FileRouteTypes {
     | '/503'
     | '/'
     | '/activities/$id'
-    | '/activities/ghost'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
     | '/users/$id'
     | '/activities'
     | '/settings/'
-    | '/transactions'
     | '/users'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -258,14 +236,12 @@ export interface FileRouteTypes {
     | '/503'
     | '/'
     | '/activities/$id'
-    | '/activities/ghost'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
     | '/users/$id'
     | '/activities'
     | '/settings'
-    | '/transactions'
     | '/users'
   id:
     | '__root__'
@@ -282,14 +258,12 @@ export interface FileRouteTypes {
     | '/(errors)/503'
     | '/_authenticated/'
     | '/_authenticated/activities/$id'
-    | '/_authenticated/activities/ghost'
     | '/_authenticated/errors/$error'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/users/$id'
     | '/_authenticated/activities/'
     | '/_authenticated/settings/'
-    | '/_authenticated/transactions/'
     | '/_authenticated/users/'
   fileRoutesById: FileRoutesById
 }
@@ -399,13 +373,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUsersIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/transactions/': {
-      id: '/_authenticated/transactions/'
-      path: '/transactions'
-      fullPath: '/transactions'
-      preLoaderRoute: typeof AuthenticatedTransactionsIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
       path: '/'
@@ -448,13 +415,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/activities/ghost': {
-      id: '/_authenticated/activities/ghost'
-      path: '/activities/ghost'
-      fullPath: '/activities/ghost'
-      preLoaderRoute: typeof AuthenticatedActivitiesGhostRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/activities/$id': {
       id: '/_authenticated/activities/$id'
       path: '/activities/$id'
@@ -487,11 +447,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedActivitiesIdRoute: typeof AuthenticatedActivitiesIdRoute
-  AuthenticatedActivitiesGhostRoute: typeof AuthenticatedActivitiesGhostRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedUsersIdRoute: typeof AuthenticatedUsersIdRoute
   AuthenticatedActivitiesIndexRoute: typeof AuthenticatedActivitiesIndexRoute
-  AuthenticatedTransactionsIndexRoute: typeof AuthenticatedTransactionsIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
 }
 
@@ -499,11 +457,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedActivitiesIdRoute: AuthenticatedActivitiesIdRoute,
-  AuthenticatedActivitiesGhostRoute: AuthenticatedActivitiesGhostRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedUsersIdRoute: AuthenticatedUsersIdRoute,
   AuthenticatedActivitiesIndexRoute: AuthenticatedActivitiesIndexRoute,
-  AuthenticatedTransactionsIndexRoute: AuthenticatedTransactionsIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
 }
 

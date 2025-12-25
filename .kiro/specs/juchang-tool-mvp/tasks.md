@@ -147,29 +147,29 @@
 
 ### Phase 3: Admin 后台重构
 
-- [-] 5. 精简 Admin 功能
-  - [-] 5.1 移除 MVP 不需要的 features
+- [x] 5. 精简 Admin 功能
+  - [x] 5.1 移除 MVP 不需要的 features
     - 移除或简化 transactions 相关页面
     - 移除或简化 feedbacks 相关页面
     - 保留：users, activities, notifications, dashboard
     - _Requirements: Admin_
 
-  - [ ] 5.2 更新 Admin 类型定义
+  - [x] 5.2 更新 Admin 类型定义
     - 更新 `apps/admin/src/types/` 与新 DB schema 对齐
     - 移除不需要的类型
     - _Requirements: Admin_
 
-  - [ ] 5.3 更新 Admin API 调用
+  - [x] 5.3 更新 Admin API 调用
     - 更新 Eden Treaty 调用与新 API 接口对齐
     - 移除不存在的接口调用
     - _Requirements: Admin_
 
-  - [ ] 5.4 简化 Dashboard
+  - [x] 5.4 简化 Dashboard
     - 只显示核心指标：用户数、活动数、今日活跃
     - 移除复杂的图表和分析
     - _Requirements: Admin_
 
-- [ ] 6. Checkpoint - Admin 验证
+- [x] 6. Checkpoint - Admin 验证
   - 运行 TypeScript 编译检查，确保 `apps/admin` 无 TS 错误
   - 如有问题请询问用户
 

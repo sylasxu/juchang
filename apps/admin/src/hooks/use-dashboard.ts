@@ -2,18 +2,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, apiCall } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
-import { mockUserGrowth, mockRevenueData, mockGeographicDistribution } from '@/lib/mock-data'
+import { mockUserGrowth, mockGeographicDistribution } from '@/lib/mock-data'
 
-// 仪表板 KPI 数据类型
+// 仪表板 KPI 数据类型 (MVP 简化版)
 export interface DashboardKPIs {
   totalUsers: number
   activeUsers: number
   totalActivities: number
-  totalRevenue: number
   userGrowthRate: number
   activeUserGrowthRate: number
   activityGrowthRate: number
-  revenueGrowthRate: number
 }
 
 // 用户增长趋势数据类型
@@ -47,22 +45,18 @@ export function useDashboardKPIs() {
           totalUsers?: number
           activeUsers?: number
           totalActivities?: number
-          totalRevenue?: number
           userGrowthRate?: number
           activeUserGrowthRate?: number
           activityGrowthRate?: number
-          revenueGrowthRate?: number
         }
 
         return {
           totalUsers: statsData.totalUsers || 0,
           activeUsers: statsData.activeUsers || 0,
           totalActivities: statsData.totalActivities || 0,
-          totalRevenue: statsData.totalRevenue || 0,
           userGrowthRate: statsData.userGrowthRate || 0,
           activeUserGrowthRate: statsData.activeUserGrowthRate || 0,
           activityGrowthRate: statsData.activityGrowthRate || 0,
-          revenueGrowthRate: statsData.revenueGrowthRate || 0,
         }
       } catch {
         // 如果 API 失败，返回默认值
@@ -70,11 +64,9 @@ export function useDashboardKPIs() {
           totalUsers: 0,
           activeUsers: 0,
           totalActivities: 0,
-          totalRevenue: 0,
           userGrowthRate: 0,
           activeUserGrowthRate: 0,
           activityGrowthRate: 0,
-          revenueGrowthRate: 0,
         }
       }
     },
@@ -143,24 +135,15 @@ export function useActivityTypeDistribution() {
   return useQuery({
     queryKey: queryKeys.dashboard.activityTypes(),
     queryFn: async () => {
-      // Mock 数据
+      // Mock 数据 - MVP 活动类型
       return {
-        outdoor: 45,
+        food: 45,
         sports: 30,
-        social: 25,
-        learning: 20,
-        entertainment: 15,
+        entertainment: 25,
+        boardgame: 20,
+        other: 15,
       }
     },
-    staleTime: 10 * 60 * 1000,
-  })
-}
-
-// 获取收入趋势数据 - 使用 Mock 数据
-export function useRevenueTrend(_days: number = 30) {
-  return useQuery({
-    queryKey: queryKeys.dashboard.revenue(_days),
-    queryFn: async () => mockRevenueData.data,
     staleTime: 10 * 60 * 1000,
   })
 }

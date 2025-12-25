@@ -1,70 +1,34 @@
 import {
   CheckCircledIcon,
   CrossCircledIcon,
-  StopwatchIcon,
-  QuestionMarkCircledIcon,
 } from '@radix-ui/react-icons'
 
+// MVP 用户状态 (简化版)
 export const statuses = [
   {
     value: 'active',
-    label: '正常',
+    label: '活跃',
     icon: CheckCircledIcon,
   },
   {
-    value: 'blocked',
-    label: '封禁',
+    value: 'inactive',
+    label: '不活跃',
     icon: CrossCircledIcon,
   },
-  {
-    value: 'pending',
-    label: '待审核',
-    icon: StopwatchIcon,
-  },
-  {
-    value: 'unknown',
-    label: '未知',
-    icon: QuestionMarkCircledIcon,
-  },
 ]
 
-export const membershipTypes = [
+// MVP 手机号绑定状态
+export const phoneBindStatus = [
   {
-    value: 'free',
-    label: '免费用户',
+    value: 'bound',
+    label: '已绑定',
   },
   {
-    value: 'pro',
-    label: 'Pro用户',
-  },
-]
-
-export const verificationStatus = [
-  {
-    value: 'verified',
-    label: '已认证',
-  },
-  {
-    value: 'unverified',
-    label: '未认证',
+    value: 'unbound',
+    label: '未绑定',
   },
 ]
 
 // Export options for form components
-export const genderOptions = [
-  { value: 'male', label: '男' },
-  { value: 'female', label: '女' },
-  { value: 'other', label: '其他' },
-]
-
-export const membershipOptions = membershipTypes
-
 export const statusOptions = statuses
-
-// Gender labels mapping
-export const genderLabels = {
-  male: '男',
-  female: '女',
-  other: '其他',
-  unknown: '未知',
-}
+export const phoneBindOptions = phoneBindStatus

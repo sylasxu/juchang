@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { statuses, membershipTypes } from '../data/data'
+import { phoneBindStatus } from '../data/data'
 import { type User } from '../data/schema'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 import { usersColumns as columns } from './users-columns'
@@ -54,10 +54,7 @@ export function UsersTable({ data }: DataTableProps) {
     navigate: route.useNavigate(),
     pagination: { defaultPage: 1, defaultPageSize: 10 },
     globalFilter: { enabled: true, key: 'filter' },
-    columnFilters: [
-      { columnId: 'status', searchKey: 'status', type: 'array' },
-      { columnId: 'membershipType', searchKey: 'membership', type: 'array' },
-    ],
+    columnFilters: [],
   })
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -78,7 +75,7 @@ export function UsersTable({ data }: DataTableProps) {
     onColumnVisibilityChange: setColumnVisibility,
     globalFilterFn: (row, _columnId, filterValue) => {
       const id = String(row.getValue('id')).toLowerCase()
-      const nickname = String(row.getValue('nickname')).toLowerCase()
+      const nickname = String(row.getValue('nickname') || '').toLowerCase()
       const phoneNumber = String(row.getValue('phoneNumber') || '').toLowerCase()
       const searchValue = String(filterValue).toLowerCase()
 
@@ -110,18 +107,7 @@ export function UsersTable({ data }: DataTableProps) {
       <DataTableToolbar
         table={table}
         searchPlaceholder='按昵称、ID或手机号搜索...'
-        filters={[
-          {
-            columnId: 'status',
-            title: '状态',
-            options: statuses,
-          },
-          {
-            columnId: 'membershipType',
-            title: '会员类型',
-            options: membershipTypes,
-          },
-        ]}
+        filters={[]}
       />
       <div className='overflow-hidden rounded-md border'>
         <Table>
@@ -191,3 +177,6 @@ export function UsersTable({ data }: DataTableProps) {
     </div>
   )
 }
+
+// Suppress unused variable warning
+void phoneBindStatus

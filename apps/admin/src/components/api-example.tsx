@@ -1,11 +1,9 @@
-// API 使用示例组件
+// API 使用示例组件 (MVP 简化版)
 // 演示如何使用 Eden Treaty 集成的 API hooks
 
 import React from 'react'
-import { useUsersList, useUserDetail, useBlockUser } from '@/hooks/use-users'
-import { Button } from '@/components/ui/button'
+import { useUsersList, useUserDetail } from '@/hooks/use-users'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { toast } from 'sonner'
 import type { User } from '@/features/users/data/schema'
 
 // 用户列表示例
@@ -33,10 +31,12 @@ export function UsersListExample() {
           {Array.isArray(users) ? users.map((user: any) => (
             <div key={user.id} className="flex items-center justify-between p-2 border rounded">
               <div>
-                <div className="font-medium">{user.nickname || '未设置昵称'}</div>
-                <div className="text-sm text-gray-500">{user.phoneNumber}</div>
+                <div className="font-medium">{user.nickname || '匿名搭子'}</div>
+                <div className="text-sm text-gray-500">{user.phoneNumber || '未绑定手机'}</div>
               </div>
-              <UserActionExample userId={user.id} />
+              <div className="text-sm text-gray-400">
+                创建: {user.activitiesCreatedCount || 0} | 参与: {user.participationCount || 0}
+              </div>
             </div>
           )) : null}
         </div>
@@ -69,44 +69,15 @@ export function UserDetailExample({ userId }: { userId: string }) {
       <CardContent>
         <div className="space-y-2">
           <div><strong>ID:</strong> {user?.id}</div>
-          <div><strong>昵称:</strong> {user?.nickname || '未设置'}</div>
-          <div><strong>手机号:</strong> {user?.phoneNumber}</div>
-          <div><strong>性别:</strong> {user?.gender}</div>
-          <div><strong>会员类型:</strong> {user?.membershipType}</div>
-          <div><strong>是否封禁:</strong> {user?.isBlocked ? '是' : '否'}</div>
+          <div><strong>昵称:</strong> {user?.nickname || '匿名搭子'}</div>
+          <div><strong>手机号:</strong> {user?.phoneNumber || '未绑定'}</div>
+          <div><strong>创建活动:</strong> {user?.activitiesCreatedCount || 0}</div>
+          <div><strong>参与活动:</strong> {user?.participationCount || 0}</div>
+          <div><strong>今日AI额度:</strong> {user?.aiCreateQuotaToday || 3}</div>
           <div><strong>创建时间:</strong> {user?.createdAt ? new Date(user.createdAt).toLocaleString() : '未知'}</div>
         </div>
       </CardContent>
     </Card>
-  )
-}
-
-// 用户操作示例
-export function UserActionExample({ userId }: { userId: string }) {
-  const blockUser = useBlockUser()
-
-  const handleBlockUser = async () => {
-    try {
-      await blockUser.mutateAsync({
-        id: userId,
-        data: {} // 封禁操作不需要额外数据
-      })
-      toast.success('用户已封禁')
-    } catch (error) {
-      // 错误已经在 hook 中处理，这里可以添加额外的处理逻辑
-      console.error('封禁用户失败:', error)
-    }
-  }
-
-  return (
-    <Button
-      variant="destructive"
-      size="sm"
-      onClick={handleBlockUser}
-      disabled={blockUser.isPending}
-    >
-      {blockUser.isPending ? '处理中...' : '封禁用户'}
-    </Button>
   )
 }
 

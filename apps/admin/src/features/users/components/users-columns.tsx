@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { DataTableColumnHeader } from '@/components/data-table'
-import { statuses, membershipTypes } from '../data/data'
+import { statuses } from '../data/data'
 import { type User } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
 
@@ -37,7 +37,7 @@ export const usersColumns: ColumnDef<User>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='ID' />
     ),
-    cell: ({ row }) => <div className='w-[80px] font-mono text-xs'>{row.getValue('id')}</div>,
+    cell: ({ row }) => <div className='w-[80px] font-mono text-xs'>{(row.getValue('id') as string).slice(0, 8)}...</div>,
     enableSorting: false,
     enableHiding: false,
   },
@@ -49,27 +49,19 @@ export const usersColumns: ColumnDef<User>[] = [
     meta: { className: 'ps-1', tdClassName: 'ps-4' },
     cell: ({ row }) => {
       const user = row.original
-      const membershipType = membershipTypes.find(
-        (type) => type.value === user.membershipType
-      )
 
       return (
         <div className='flex items-center space-x-3'>
           <Avatar className='h-8 w-8'>
-            <AvatarImage src={user.avatarUrl} alt={user.nickname} />
-            <AvatarFallback>{user.nickname.charAt(0)}</AvatarFallback>
+            <AvatarImage src={user.avatarUrl || undefined} alt={user.nickname || '匿名'} />
+            <AvatarFallback>{(user.nickname || '匿')[0]}</AvatarFallback>
           </Avatar>
           <div className='flex flex-col'>
             <div className='flex items-center space-x-2'>
-              <span className='font-medium'>{user.nickname}</span>
-              {membershipType && (
-                <Badge variant={user.membershipType === 'pro' ? 'default' : 'secondary'}>
-                  {membershipType.label}
-                </Badge>
-              )}
-              {user.isRealNameVerified && (
+              <span className='font-medium'>{user.nickname || '匿名搭子'}</span>
+              {user.phoneNumber && (
                 <Badge variant='outline' className='text-green-600'>
-                  已认证
+                  已绑定
                 </Badge>
               )}
             </div>
@@ -82,56 +74,38 @@ export const usersColumns: ColumnDef<User>[] = [
     },
   },
   {
-    accessorKey: 'status',
+    accessorKey: 'phoneNumber',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='状态' />
+      <DataTableColumnHeader column={column} title='手机号' />
     ),
     meta: { className: 'ps-1', tdClassName: 'ps-4' },
     cell: ({ row }) => {
-      const status = statuses.find(
-        (status) => status.value === row.getValue('status')
-      )
-
-      if (!status) {
-        return null
-      }
-
+      const phoneNumber = row.getValue('phoneNumber') as string | undefined
       return (
-        <div className='flex w-[100px] items-center gap-2'>
-          {status.icon && (
-            <status.icon className='text-muted-foreground size-4' />
-          )}
-          <span>{status.label}</span>
-        </div>
+        <span className={phoneNumber ? '' : 'text-muted-foreground'}>
+          {phoneNumber || '未绑定'}
+        </span>
       )
-    },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
     },
   },
   {
-    accessorKey: 'membershipType',
+    accessorKey: 'activitiesCreatedCount',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='会员类型' />
+      <DataTableColumnHeader column={column} title='创建活动' />
     ),
-    meta: { className: 'ps-1', tdClassName: 'ps-3' },
     cell: ({ row }) => {
-      const membershipType = membershipTypes.find(
-        (type) => type.value === row.getValue('membershipType')
-      )
-
-      if (!membershipType) {
-        return null
-      }
-
-      return (
-        <Badge variant={row.getValue('membershipType') === 'pro' ? 'default' : 'secondary'}>
-          {membershipType.label}
-        </Badge>
-      )
+      const count = row.getValue('activitiesCreatedCount') as number
+      return <span className='font-medium'>{count || 0}</span>
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id))
+  },
+  {
+    accessorKey: 'participationCount',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='参与活动' />
+    ),
+    cell: ({ row }) => {
+      const count = row.getValue('participationCount') as number
+      return <span className='font-medium'>{count || 0}</span>
     },
   },
   {
@@ -149,25 +123,10 @@ export const usersColumns: ColumnDef<User>[] = [
     },
   },
   {
-    accessorKey: 'lastActiveAt',
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='最后活跃' />
-    ),
-    cell: ({ row }) => {
-      const lastActiveAt = row.getValue('lastActiveAt') as string | undefined
-      if (!lastActiveAt) {
-        return <span className='text-muted-foreground text-sm'>从未活跃</span>
-      }
-      const date = new Date(lastActiveAt)
-      return (
-        <div className='text-sm'>
-          {date.toLocaleDateString('zh-CN')}
-        </div>
-      )
-    },
-  },
-  {
     id: 'actions',
     cell: ({ row }) => <DataTableRowActions row={row} />,
   },
 ]
+
+// Suppress unused variable warning
+void statuses

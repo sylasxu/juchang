@@ -3,7 +3,6 @@ import {
   Settings,
   Users,
   Calendar,
-  CreditCard,
   UserCog,
   Wrench,
   Palette,
@@ -21,7 +20,7 @@ export const sidebarData: SidebarData = {
     {
       name: '聚场',
       logo: Command,
-      plan: 'AI碎片化社交',
+      plan: 'MVP 工具版',
     },
   ],
   navGroups: [
@@ -45,22 +44,8 @@ export const sidebarData: SidebarData = {
         },
         {
           title: '活动管理',
+          url: '/activities',
           icon: Calendar,
-          items: [
-            {
-              title: '活动列表',
-              url: '/activities',
-            },
-            {
-              title: '幽灵锚点',
-              url: '/activities/ghost',
-            },
-          ],
-        },
-        {
-          title: '交易管理',
-          url: '/transactions',
-          icon: CreditCard,
         },
       ],
     },

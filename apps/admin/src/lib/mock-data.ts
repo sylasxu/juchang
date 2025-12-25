@@ -7,7 +7,6 @@
 export const mockAnalyticsOverview = {
   users: { total: 12500, active: 8900, growth: 12.5 },
   activities: { total: 3500, active: 280, growth: 8.2 },
-  transactions: { total: 45000, revenue: 125000, growth: 15.3 },
   engagement: { avgSessionTime: 25, avgActivitiesPerUser: 2.3 },
 }
 
@@ -16,14 +15,6 @@ export const mockUserGrowth = {
     date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     users: Math.floor(Math.random() * 100) + 50,
     activeUsers: Math.floor(Math.random() * 80) + 30,
-  }))
-}
-
-export const mockRevenueData = {
-  data: Array.from({ length: 30 }, (_, i) => ({
-    date: new Date(Date.now() - (29 - i) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    revenue: Math.floor(Math.random() * 10000) + 5000,
-    transactions: Math.floor(Math.random() * 100) + 20,
   }))
 }
 

@@ -1,4 +1,4 @@
-// API 响应类型定义
+// API 响应类型定义 (MVP 简化版)
 
 export interface ApiResponse<T = unknown> {
   data: T
@@ -18,28 +18,15 @@ export interface PaginatedResponse<T> {
   hasMore: boolean
 }
 
-// 统计数据类型
+// 统计数据类型 (MVP 简化版 - 移除 revenue)
 export interface StatsResponse {
   totalUsers?: number
   activeUsers?: number
   totalActivities?: number
-  totalRevenue?: number
   growthRate?: number
   activeGrowthRate?: number
   activityGrowthRate?: number
-  revenueGrowthRate?: number
   [key: string]: number | undefined
-}
-
-// 沟通管理统计
-export interface CommunicationStats {
-  totalMessages: number
-  flaggedMessages: number
-  hiddenMessages: number
-  deletedMessages: number
-  averageRiskScore: number
-  notifications: number
-  supportRequests: number
 }
 
 // 系统健康数据
@@ -65,61 +52,6 @@ export interface SystemHealthData {
   metrics: SystemHealthMetrics
 }
 
-// 审核相关类型
-export interface ModerationQueueItem {
-  id: string
-  type: string
-  targetId: string
-  targetType: string
-  status: 'pending' | 'approved' | 'rejected'
-  priority: 'low' | 'medium' | 'high'
-  createdAt: string
-  assignee?: string
-  content?: string
-  reason?: string
-}
-
-export interface ModerationQueueFilters {
-  status?: string
-  type?: string
-  priority?: string
-  assignee?: string
-  search?: string
-}
-
-export interface ModerationStats {
-  pending: number
-  approved: number
-  rejected: number
-  total: number
-}
-
-export interface Moderator {
-  id: string
-  name: string
-  workload: number
-}
-
-export interface ModerationHistory {
-  id: string
-  action: string
-  moderator: string
-  timestamp: string
-  reason?: string
-}
-
-// 增值服务类型
-export interface AIQuotaData {
-  usedQuota: number
-  totalQuota: number
-  remainingQuota: number
-  usageByService: Record<string, number>
-  usagePatterns: Array<{
-    date: string
-    usage: number
-  }>
-}
-
 // 地理数据类型
 export interface HeatmapPoint {
   lat: number
@@ -141,9 +73,24 @@ export interface ChartDataPoint {
   label?: string
 }
 
+// MVP 分析数据类型 (移除 revenue)
 export interface AnalyticsData {
   userGrowth: ChartDataPoint[]
   activityStats: Record<string, number>
-  revenueData: ChartDataPoint[]
   geographicDistribution: RegionData[]
 }
+
+// MVP 活动类型
+export type ActivityType = 'food' | 'sports' | 'entertainment' | 'boardgame' | 'other'
+
+// MVP 活动状态
+export type ActivityStatus = 'active' | 'completed' | 'cancelled'
+
+// MVP 参与者状态
+export type ParticipantStatus = 'joined' | 'quit'
+
+// MVP 消息类型
+export type MessageType = 'text' | 'system'
+
+// MVP 通知类型
+export type NotificationType = 'join' | 'quit' | 'activity_start' | 'completed' | 'cancelled'

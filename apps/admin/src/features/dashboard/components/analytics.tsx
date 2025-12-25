@@ -10,12 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { 
   useUserGrowthTrend, 
   useActivityTypeDistribution, 
-  useRevenueTrend,
   useGeographicDistribution 
 } from '@/hooks/use-dashboard'
 import { 
-  BarChart, 
-  Bar, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -40,7 +37,6 @@ export function Analytics() {
         <TabsList>
           <TabsTrigger value="users">用户分析</TabsTrigger>
           <TabsTrigger value="activities">活动分析</TabsTrigger>
-          <TabsTrigger value="financial">财务分析</TabsTrigger>
           <TabsTrigger value="geographic">地理分布</TabsTrigger>
         </TabsList>
 
@@ -50,10 +46,6 @@ export function Analytics() {
 
         <TabsContent value="activities" className="space-y-4">
           <ActivityAnalytics />
-        </TabsContent>
-
-        <TabsContent value="financial" className="space-y-4">
-          <FinancialAnalytics />
         </TabsContent>
 
         <TabsContent value="geographic" className="space-y-4">
@@ -139,10 +131,6 @@ function UserAnalytics() {
             <span className="text-sm font-medium">平均会话时长</span>
             <span className="text-2xl font-bold">12m 34s</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">用户留存率 (7天)</span>
-            <span className="text-2xl font-bold">78.9%</span>
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -218,82 +206,6 @@ function ActivityAnalytics() {
             <span className="text-sm font-medium">热门时段</span>
             <span className="text-2xl font-bold">19:00-21:00</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">平均活动时长</span>
-            <span className="text-2xl font-bold">2.5小时</span>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-// 财务分析组件
-function FinancialAnalytics() {
-  const { data: revenueData, isLoading: revenueLoading } = useRevenueTrend(30)
-
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-      {/* 收入趋势 */}
-      <Card className="col-span-4">
-        <CardHeader>
-          <CardTitle>收入趋势</CardTitle>
-          <CardDescription>过去30天的收入变化</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {revenueLoading ? (
-            <Skeleton className="h-[300px] w-full" />
-          ) : (
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={revenueData?.map(item => ({
-                date: format(new Date(item.date), 'MM/dd'),
-                revenue: item.revenue,
-                transactions: item.transactions,
-              }))}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value, name) => [
-                    name === 'revenue' ? `¥${value}` : value,
-                    name === 'revenue' ? '收入' : '交易数'
-                  ]}
-                />
-                <Legend />
-                <Bar dataKey="revenue" fill="#8884d8" name="收入" />
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 财务关键指标 */}
-      <Card className="col-span-3">
-        <CardHeader>
-          <CardTitle>财务关键指标</CardTitle>
-          <CardDescription>重要的财务数据</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">月收入</span>
-            <span className="text-2xl font-bold">¥89,432</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">平均客单价</span>
-            <span className="text-2xl font-bold">¥23.5</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">付费用户率</span>
-            <span className="text-2xl font-bold">15.8%</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">退款率</span>
-            <span className="text-2xl font-bold">2.3%</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">会员转化率</span>
-            <span className="text-2xl font-bold">8.9%</span>
-          </div>
         </CardContent>
       </Card>
     </div>
@@ -319,11 +231,11 @@ function GeographicAnalytics() {
             <div className="space-y-4">
               <SimpleBarList
                 items={[
-                  { name: '北京', value: 2543 },
-                  { name: '上海', value: 1876 },
-                  { name: '深圳', value: 1234 },
-                  { name: '广州', value: 987 },
-                  { name: '杭州', value: 765 },
+                  { name: '重庆', value: 3500 },
+                  { name: '成都', value: 2200 },
+                  { name: '贵阳', value: 1200 },
+                  { name: '昆明', value: 800 },
+                  { name: '其他', value: 500 },
                 ]}
                 barClass="bg-primary"
                 valueFormatter={(n) => `${n}人`}
@@ -343,11 +255,11 @@ function GeographicAnalytics() {
           <div className="space-y-4">
             <SimpleBarList
               items={[
-                { name: '朝阳区', value: 456 },
-                { name: '海淀区', value: 389 },
-                { name: '西城区', value: 234 },
-                { name: '东城区', value: 198 },
-                { name: '丰台区', value: 156 },
+                { name: '渝中区', value: 456 },
+                { name: '江北区', value: 389 },
+                { name: '南岸区', value: 234 },
+                { name: '沙坪坝区', value: 198 },
+                { name: '九龙坡区', value: 156 },
               ]}
               barClass="bg-green-500"
               valueFormatter={(n) => `${n}个活动`}
@@ -362,13 +274,10 @@ function GeographicAnalytics() {
 // 工具函数
 function getActivityTypeName(type: string): string {
   const typeNames: Record<string, string> = {
-    sports: '运动健身',
     food: '美食聚餐',
+    sports: '运动健身',
     entertainment: '娱乐休闲',
-    study: '学习交流',
-    travel: '旅游出行',
-    social: '社交聚会',
-    business: '商务活动',
+    boardgame: '桌游棋牌',
     other: '其他',
   }
   return typeNames[type] || type

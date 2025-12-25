@@ -53,16 +53,6 @@ export const queryKeys = {
     moderation: () => [...queryKeys.activities.all, 'moderation'],
   },
   
-  // 交易相关
-  transactions: {
-    all: ['transactions'],
-    lists: () => [...queryKeys.transactions.all, 'list'],
-    list: (filters: Record<string, any>) => [...queryKeys.transactions.lists(), filters],
-    details: () => [...queryKeys.transactions.all, 'detail'],
-    detail: (id: string) => [...queryKeys.transactions.details(), id],
-    analytics: () => [...queryKeys.transactions.all, 'analytics'],
-  },
-  
   // 仪表板相关
   dashboard: {
     all: ['dashboard'],
@@ -184,14 +174,6 @@ export const invalidateQueries = {
     lists: () => queryClient.invalidateQueries({ queryKey: queryKeys.activities.lists() }),
     detail: (id: string) => queryClient.invalidateQueries({ queryKey: queryKeys.activities.detail(id) }),
     moderation: () => queryClient.invalidateQueries({ queryKey: queryKeys.activities.moderation() }),
-  },
-  
-  // 交易相关缓存失效
-  transactions: {
-    all: () => queryClient.invalidateQueries({ queryKey: queryKeys.transactions.all }),
-    lists: () => queryClient.invalidateQueries({ queryKey: queryKeys.transactions.lists() }),
-    detail: (id: string) => queryClient.invalidateQueries({ queryKey: queryKeys.transactions.detail(id) }),
-    analytics: () => queryClient.invalidateQueries({ queryKey: queryKeys.transactions.analytics() }),
   },
   
   // 仪表板相关缓存失效
