@@ -1,48 +1,16 @@
-// Notification Model - TypeBox schemas 派生自 DB Schema
+// Notification Model - MVP 简化版
 import { Elysia, t, type Static } from 'elysia';
 import { selectNotificationSchema } from '@juchang/db';
 
 /**
- * Notification Model Plugin
- * 遵循 Single Source of Truth 原则：
- * - 从 DB schema 派生字段定义
- * - 瞬态参数（如 page、limit）手动定义
+ * Notification Model Plugin - MVP 版本
+ * 只保留基础通知功能
  */
 
 // 通知列表查询参数
 const NotificationListQuery = t.Object({
-  page: t.Optional(t.Number({
-    minimum: 1,
-    default: 1,
-    description: '页码',
-  })),
-  limit: t.Optional(t.Number({
-    minimum: 1,
-    maximum: 100,
-    default: 20,
-    description: '每页数量',
-  })),
-  isRead: t.Optional(t.Boolean({
-    description: '是否已读',
-  })),
-  type: t.Optional(t.String({
-    description: '通知类型',
-  })),
-});
-
-// 批量标记已读请求
-const MarkReadRequest = t.Object({
-  ids: t.Array(t.String({ format: 'uuid' }), {
-    description: '通知ID列表',
-    minItems: 1,
-  }),
-});
-
-// 未读数量响应
-const UnreadCountResponse = t.Object({
-  count: t.Number({
-    description: '未读通知数量',
-  }),
+  page: t.Optional(t.Number({ minimum: 1, default: 1 })),
+  limit: t.Optional(t.Number({ minimum: 1, maximum: 50, default: 20 })),
 });
 
 // 通知列表响应
@@ -53,12 +21,14 @@ const NotificationListResponse = t.Object({
   totalPages: t.Number(),
 });
 
+// 未读数量响应
+const UnreadCountResponse = t.Object({
+  count: t.Number(),
+});
+
 // 路径参数
 const IdParams = t.Object({
-  id: t.String({
-    format: 'uuid',
-    description: '通知ID',
-  }),
+  id: t.String({ format: 'uuid' }),
 });
 
 // 错误响应
@@ -77,9 +47,8 @@ const SuccessResponse = t.Object({
 export const notificationModel = new Elysia({ name: 'notificationModel' })
   .model({
     'notification.listQuery': NotificationListQuery,
-    'notification.markRead': MarkReadRequest,
-    'notification.unreadCount': UnreadCountResponse,
     'notification.listResponse': NotificationListResponse,
+    'notification.unreadCount': UnreadCountResponse,
     'notification.response': selectNotificationSchema,
     'notification.idParams': IdParams,
     'notification.error': ErrorResponse,
@@ -88,9 +57,8 @@ export const notificationModel = new Elysia({ name: 'notificationModel' })
 
 // 导出 TS 类型
 export type NotificationListQuery = Static<typeof NotificationListQuery>;
-export type MarkReadRequest = Static<typeof MarkReadRequest>;
-export type UnreadCountResponse = Static<typeof UnreadCountResponse>;
 export type NotificationListResponse = Static<typeof NotificationListResponse>;
+export type UnreadCountResponse = Static<typeof UnreadCountResponse>;
 export type IdParams = Static<typeof IdParams>;
 export type ErrorResponse = Static<typeof ErrorResponse>;
 export type SuccessResponse = Static<typeof SuccessResponse>;

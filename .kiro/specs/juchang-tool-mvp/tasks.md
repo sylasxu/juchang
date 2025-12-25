@@ -69,27 +69,27 @@
 
 ### Phase 2: API 模块重构
 
-- [ ] 3. 精简 API 模块结构
-  - [ ] 3.1 移除 MVP 不需要的模块
+- [x] 3. 精简 API 模块结构
+  - [x] 3.1 移除 MVP 不需要的模块
     - 删除 `apps/api/src/modules/transactions/`（支付功能）
     - 删除 `apps/api/src/modules/feedbacks/`（反馈系统）
     - 删除 `apps/api/src/modules/upload/`（图片上传 MVP 不做）
     - 更新 `apps/api/src/index.ts` 移除相关路由注册
     - _Requirements: 全局_
 
-  - [ ] 3.2 重构 `auth` 模块
+  - [x] 3.2 重构 `auth` 模块
     - 简化 `auth.model.ts`：只保留 login 和 bindPhone 的 schema
     - 简化 `auth.service.ts`：移除复杂的会员逻辑
     - 更新 `auth.controller.ts`：只保留 `/auth/login` 和 `/auth/bindPhone`
     - _Requirements: 13_
 
-  - [ ] 3.3 重构 `users` 模块
+  - [x] 3.3 重构 `users` 模块
     - 简化 `user.model.ts`：从 DB schema 派生，移除不需要的字段
     - 简化 `user.service.ts`：只保留 getMe, updateProfile, getQuota
     - 更新 `user.controller.ts`：只保留 `/users/me`, `PATCH /users/me`, `/users/me/quota`
     - _Requirements: 12, 14_
 
-  - [ ] 3.4 重构 `activities` 模块
+  - [x] 3.4 重构 `activities` 模块
     - 简化 `activity.model.ts`：从 DB schema 派生，添加 isArchived 计算字段
     - 重写 `activity.service.ts`：
       - `getMyActivities()` - 获取我相关的活动（发布的 + 参与的）
@@ -102,12 +102,12 @@
     - 更新 `activity.controller.ts`：实现上述接口
     - _Requirements: 4, 5, 7, 10_
 
-  - [ ] 3.5 重构 `participants` 模块
+  - [x] 3.5 重构 `participants` 模块
     - 简化为辅助模块，主要逻辑移到 activities 模块
     - 或合并到 activities 模块
     - _Requirements: 7_
 
-  - [ ] 3.6 重构 `chat` 模块
+  - [x] 3.6 重构 `chat` 模块
     - 简化 `chat.model.ts`：只保留 getMessages 和 sendMessage 的 schema
     - 重写 `chat.service.ts`：
       - `getMessages(activityId, since)` - 获取消息列表（轮询）
@@ -116,7 +116,7 @@
     - 更新 `chat.controller.ts`：只保留 `GET /chat/:activityId/messages` 和 `POST /chat/:activityId/messages`
     - _Requirements: 9_
 
-  - [ ] 3.7 重构 `ai` 模块
+  - [x] 3.7 重构 `ai` 模块
     - 简化 `ai.model.ts`：只保留 parse 的 schema
     - 重写 `ai.service.ts`：
       - `parseText(text, location)` - AI 解析自然语言
@@ -125,7 +125,7 @@
     - 更新 `ai.controller.ts`：只保留 `POST /ai/parse`（SSE）
     - _Requirements: 2, 3_
 
-  - [ ] 3.8 重构 `notifications` 模块
+  - [x] 3.8 重构 `notifications` 模块
     - 简化 `notification.model.ts`：只保留 MVP 通知类型
     - 简化 `notification.service.ts`：
       - `getNotifications(userId)` - 获取通知列表
@@ -134,12 +134,12 @@
     - 更新 `notification.controller.ts`
     - _Requirements: 11_
 
-  - [ ] 3.9 简化 `dashboard` 模块
+  - [x] 3.9 简化 `dashboard` 模块
     - 只保留 Admin 需要的基础统计接口
     - 移除复杂的数据分析功能
     - _Requirements: Admin_
 
-- [ ] 4. Checkpoint - API 验证
+- [x] 4. Checkpoint - API 验证
   - 运行 TypeScript 编译检查，确保 `apps/api` 无 TS 错误
   - 如有问题请询问用户
 
@@ -147,8 +147,8 @@
 
 ### Phase 3: Admin 后台重构
 
-- [ ] 5. 精简 Admin 功能
-  - [ ] 5.1 移除 MVP 不需要的 features
+- [-] 5. 精简 Admin 功能
+  - [-] 5.1 移除 MVP 不需要的 features
     - 移除或简化 transactions 相关页面
     - 移除或简化 feedbacks 相关页面
     - 保留：users, activities, notifications, dashboard

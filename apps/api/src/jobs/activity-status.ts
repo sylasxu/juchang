@@ -1,68 +1,15 @@
 /**
- * 活动状态自动更新任务
+ * 活动状态自动更新任务 (MVP 简化版)
  * 
- * PRD 7.3: 根据活动时间自动更新状态
+ * MVP 状态流转简化：
+ * - active 状态保持不变，由发起人手动确认成局或取消
+ * - 群聊归档通过 API 动态计算 (startAt + 24h)，不需要定时任务
  * 
- * 状态流转：
- * - published/full -> ongoing: 当 startAt <= now
- * - ongoing -> finished: 当 endAt <= now
+ * 此任务在 MVP 中暂时保留但不执行实际操作
  */
 
-import { db, activities, eq, and, lt, lte, or } from '@juchang/db';
-
 export async function updateActivityStatuses(): Promise<void> {
-  const now = new Date();
-
-  // 1. 更新已开始的活动为 ongoing
-  const startedCount = await updateToOngoing(now);
-
-  // 2. 更新已结束的活动为 finished
-  const finishedCount = await updateToFinished(now);
-
-  if (startedCount > 0 || finishedCount > 0) {
-    console.log(`[ActivityStatus] 状态更新完成: ${startedCount} 个活动开始, ${finishedCount} 个活动结束`);
-  }
-}
-
-async function updateToOngoing(now: Date): Promise<number> {
-  // 查找应该变为 ongoing 的活动
-  // 条件：(status = published OR status = full) AND startAt <= now
-  const result = await db
-    .update(activities)
-    .set({
-      status: 'ongoing',
-      updatedAt: now,
-    })
-    .where(
-      and(
-        or(
-          eq(activities.status, 'published'),
-          eq(activities.status, 'full')
-        ),
-        lte(activities.startAt, now)
-      )
-    )
-    .returning({ id: activities.id });
-
-  return result.length;
-}
-
-async function updateToFinished(now: Date): Promise<number> {
-  // 查找应该变为 finished 的活动
-  // 条件：status = ongoing AND endAt <= now AND endAt IS NOT NULL
-  const result = await db
-    .update(activities)
-    .set({
-      status: 'finished',
-      updatedAt: now,
-    })
-    .where(
-      and(
-        eq(activities.status, 'ongoing'),
-        lt(activities.endAt, now)
-      )
-    )
-    .returning({ id: activities.id });
-
-  return result.length;
+  // MVP 简化：活动状态由发起人手动管理
+  // 群聊归档状态在 API 层动态计算，不需要定时任务
+  // console.log('[ActivityStatus] MVP 版本：活动状态由用户手动管理');
 }

@@ -17,10 +17,7 @@ import { aiController } from './modules/ai/ai.controller';
 import { participantController } from './modules/participants/participant.controller';
 import { dashboardController } from './modules/dashboard/dashboard.controller';
 import { chatController } from './modules/chat/chat.controller';
-import { transactionController } from './modules/transactions/transaction.controller';
-import { uploadController } from './modules/upload/upload.controller';
 import { notificationController } from './modules/notifications/notification.controller';
-import { feedbackController } from './modules/feedbacks/feedback.controller';
 
 // 导入定时任务调度器
 import { startScheduler, stopScheduler, getJobStatuses } from './jobs';
@@ -33,7 +30,7 @@ const app = new Elysia()
       info: {
         title: '聚场 API',
         version: '1.0.0',
-        description: 'LBS-based P2P social platform API',
+        description: 'LBS-based P2P social platform API - MVP Version',
       },
       tags: [
         { name: 'Auth', description: '认证相关' },
@@ -42,11 +39,8 @@ const app = new Elysia()
         { name: 'AI', description: 'AI 功能' },
         { name: 'Participants', description: '参与者管理' },
         { name: 'Chat', description: '群聊消息' },
-        { name: 'Transactions', description: '支付交易' },
-        { name: 'Upload', description: '文件上传' },
         { name: 'Dashboard', description: '仪表板数据' },
         { name: 'Notifications', description: '通知系统' },
-        { name: 'Feedbacks', description: '差评反馈' },
       ],
     },
   }))
@@ -57,11 +51,8 @@ const app = new Elysia()
   .use(aiController)
   .use(participantController)
   .use(chatController)
-  .use(transactionController)
-  .use(uploadController)
   .use(dashboardController)
   .use(notificationController)
-  .use(feedbackController)
   // 健康检查
   .get('/', () => 'Hello Juchang API')
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }))

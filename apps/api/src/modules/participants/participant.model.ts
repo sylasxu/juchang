@@ -1,65 +1,36 @@
-// Participant Model - 参与者相关的 TypeBox Schema
+// Participant Model - TypeBox schemas (MVP 简化版)
+// 主要逻辑已移到 activities 模块，此模块仅保留辅助功能
 import { Elysia, t, type Static } from 'elysia';
-import { selectParticipantSchema, insertParticipantSchema, selectUserSchema } from '@juchang/db';
 
 /**
- * Participant Model Plugin
- * 处理活动参与相关的请求和响应模型
+ * Participant Model Plugin (MVP 简化版)
+ * 
+ * MVP 中参与者管理已整合到 activities 模块：
+ * - POST /activities/:id/join - 报名
+ * - POST /activities/:id/quit - 退出
+ * 
+ * 此模块仅保留获取参与者列表的辅助接口
  */
 
-// 报名请求（从 insertParticipantSchema 派生）
-const JoinActivityRequest = t.Intersect([
-  t.Pick(insertParticipantSchema, ['applicationMsg']),
-  t.Object({
-    activityId: t.String({ format: 'uuid', description: '活动ID' }),
-    useFastPass: t.Optional(t.Boolean({ description: '是否使用优先入场券' })),
-  }),
-]);
-
-// 审批请求
-const ApprovalRequest = t.Object({
-  participantId: t.String({ format: 'uuid', description: '参与者ID' }),
-  action: t.Union([
-    t.Literal('approve'),
-    t.Literal('reject'),
+// 参与者信息
+const ParticipantInfo = t.Object({
+  id: t.String(),
+  userId: t.String(),
+  status: t.String(),
+  joinedAt: t.Union([t.String(), t.Null()]),
+  user: t.Union([
+    t.Object({
+      id: t.String(),
+      nickname: t.Union([t.String(), t.Null()]),
+      avatarUrl: t.Union([t.String(), t.Null()]),
+    }),
+    t.Null(),
   ]),
-  reason: t.Optional(t.String({ description: '拒绝原因' })),
-});
-
-// 参与者详情（包含用户信息）
-const ParticipantDetail = t.Intersect([
-  selectParticipantSchema,
-  t.Object({
-    user: t.Pick(selectUserSchema, [
-      'id',
-      'nickname',
-      'avatarUrl',
-      'participationCount',
-      'fulfillmentCount',
-      'gender',
-      'interestTags',
-    ]),
-  }),
-]);
-
-// 履约确认请求
-const FulfillmentRequest = t.Object({
-  activityId: t.String({ format: 'uuid', description: '活动ID' }),
-  participants: t.Array(t.Object({
-    userId: t.String({ format: 'uuid' }),
-    fulfilled: t.Boolean({ description: '是否履约' }),
-  })),
-});
-
-// 申诉请求
-const DisputeRequest = t.Object({
-  participantId: t.String({ format: 'uuid', description: '参与者记录ID' }),
-  reason: t.Optional(t.String({ description: '申诉理由' })),
 });
 
 // 路径参数
 const IdParams = t.Object({
-  id: t.String({ format: 'uuid', description: 'ID' }),
+  id: t.String({ format: 'uuid', description: '活动ID' }),
 });
 
 // 错误响应
@@ -68,42 +39,15 @@ const ErrorResponse = t.Object({
   msg: t.String(),
 });
 
-// 成功响应
-const SuccessResponse = t.Object({
-  msg: t.String(),
-});
-
 // 注册到 Elysia
 export const participantModel = new Elysia({ name: 'participantModel' })
   .model({
-    'participant.joinRequest': JoinActivityRequest,
-    'participant.approvalRequest': ApprovalRequest,
-    'participant.detail': ParticipantDetail,
-    'participant.fulfillmentRequest': FulfillmentRequest,
-    'participant.disputeRequest': DisputeRequest,
+    'participant.info': ParticipantInfo,
     'participant.idParams': IdParams,
     'participant.error': ErrorResponse,
-    'participant.success': SuccessResponse,
   });
 
-// 导出 Schema 对象和 TS 类型
-export {
-  JoinActivityRequest,
-  ApprovalRequest,
-  ParticipantDetail,
-  FulfillmentRequest,
-  DisputeRequest,
-  IdParams,
-  ErrorResponse,
-  SuccessResponse
-};
-
 // 导出 TS 类型
-export type JoinActivityRequest = Static<typeof JoinActivityRequest>;
-export type ApprovalRequest = Static<typeof ApprovalRequest>;
-export type ParticipantDetail = Static<typeof ParticipantDetail>;
-export type FulfillmentRequest = Static<typeof FulfillmentRequest>;
-export type DisputeRequest = Static<typeof DisputeRequest>;
+export type ParticipantInfo = Static<typeof ParticipantInfo>;
 export type IdParams = Static<typeof IdParams>;
 export type ErrorResponse = Static<typeof ErrorResponse>;
-export type SuccessResponse = Static<typeof SuccessResponse>;
