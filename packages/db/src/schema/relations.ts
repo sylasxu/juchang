@@ -2,28 +2,21 @@ import { relations } from "drizzle-orm";
 import { users } from "./users";
 import { activities } from "./activities";
 import { participants } from "./participants";
-import { feedbacks } from "./feedbacks";
 import { notifications } from "./notifications";
 import { chatMessages } from "./chat_messages";
-import { transactions } from "./transactions";
-import { actionLogs } from "./action_logs";
 
 // ==========================================
-// User Relations
+// User Relations (MVP 精简版)
 // ==========================================
 export const usersRelations = relations(users, ({ many }) => ({
   activitiesCreated: many(activities),
   participations: many(participants),
-  feedbacksReceived: many(feedbacks, { relationName: "target" }),
-  feedbacksGiven: many(feedbacks, { relationName: "reporter" }),
   notifications: many(notifications),
-  transactions: many(transactions),
-  actionLogs: many(actionLogs),
   chatMessages: many(chatMessages),
 }));
 
 // ==========================================
-// Activity Relations
+// Activity Relations (MVP 精简版)
 // ==========================================
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   creator: one(users, {
@@ -31,8 +24,8 @@ export const activitiesRelations = relations(activities, ({ one, many }) => ({
     references: [users.id],
   }),
   participants: many(participants),
-  chatMessages: many(chatMessages), // 直接关联消息
-  feedbacks: many(feedbacks),
+  chatMessages: many(chatMessages),
+  notifications: many(notifications),
 }));
 
 // ==========================================
@@ -50,26 +43,6 @@ export const participantsRelations = relations(participants, ({ one }) => ({
 }));
 
 // ==========================================
-// Feedback Relations
-// ==========================================
-export const feedbacksRelations = relations(feedbacks, ({ one }) => ({
-  activity: one(activities, {
-    fields: [feedbacks.activityId],
-    references: [activities.id],
-  }),
-  reporter: one(users, {
-    fields: [feedbacks.reporterId],
-    references: [users.id],
-    relationName: "reporter",
-  }),
-  target: one(users, {
-    fields: [feedbacks.targetId],
-    references: [users.id],
-    relationName: "target",
-  }),
-}));
-
-// ==========================================
 // Notification Relations
 // ==========================================
 export const notificationsRelations = relations(notifications, ({ one }) => ({
@@ -77,10 +50,14 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     fields: [notifications.userId],
     references: [users.id],
   }),
+  activity: one(activities, {
+    fields: [notifications.activityId],
+    references: [activities.id],
+  }),
 }));
 
 // ==========================================
-// Chat Relations (简化)
+// Chat Message Relations
 // ==========================================
 export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
   activity: one(activities, {
@@ -94,21 +71,8 @@ export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
 }));
 
 // ==========================================
-// Transaction Relations (整合支付)
+// MVP 移除的关系：
+// - feedbacksRelations (复杂反馈系统)
+// - transactionsRelations (支付功能)
+// - actionLogsRelations (审计日志)
 // ==========================================
-export const transactionsRelations = relations(transactions, ({ one }) => ({
-  user: one(users, {
-    fields: [transactions.userId],
-    references: [users.id],
-  }),
-}));
-
-// ==========================================
-// Action Log Relations
-// ==========================================
-export const actionLogsRelations = relations(actionLogs, ({ one }) => ({
-  user: one(users, {
-    fields: [actionLogs.userId],
-    references: [users.id],
-  }),
-}));

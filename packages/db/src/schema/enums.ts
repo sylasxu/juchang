@@ -1,124 +1,58 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
 // ==========================================
-// 1. 👤 用户与身份 (User & Identity)
+// MVP 精简版枚举定义
 // ==========================================
 
-export const genderEnum = pgEnum("gender", ["unknown", "male", "female"]);
-
-// 认证方式枚举已整合到 users 表，不再需要单独枚举
-
-// 会员类型
-export const membershipTypeEnum = pgEnum("membership_type", [
-  "free",
-  "pro"
-]);
-
 // ==========================================
-// 2. 📍 活动业务 (Activity Domain)
+// 1. 📍 活动业务 (Activity Domain)
 // ==========================================
 
+// 活动类型 (保持不变，但移除 study)
 export const activityTypeEnum = pgEnum("activity_type", [
   "food",
   "entertainment",
   "sports",
-  "study",
+  "boardgame",
   "other"
 ]);
 
-export const joinModeEnum = pgEnum("join_mode", ["instant", "approval"]);
-
+// 活动状态 (MVP 简化为 3 种)
 export const activityStatusEnum = pgEnum("activity_status", [
-  "published",
-  "full",
-  "ongoing",
-  "finished",
-  "cancelled"
+  "active",     // 进行中
+  "completed",  // 已成局
+  "cancelled"   // 已取消
 ]);
 
-export const feeTypeEnum = pgEnum("fee_type", ["free", "aa", "treat"]);
-
-export const riskLevelEnum = pgEnum("risk_level", ["low", "medium", "high"]);
-
 // ==========================================
-// 3. 👥 参与者 (Participant Domain)
+// 2. 👥 参与者 (Participant Domain)
 // ==========================================
 
+// 参与者状态 (MVP 简化为 2 种)
 export const participantStatusEnum = pgEnum("participant_status", [
-  "pending",
-  "approved",
-  "rejected",
-  "fulfilled",   // 履约成功
-  "absent",      // 违约（未到场）
-  "quit"         // 主动退出
+  "joined",  // 已加入
+  "quit"     // 已退出
 ]);
 
 // ==========================================
-// 4. 💬 消息 (Chat Domain) - 群聊状态已整合到 activities
+// 3. 💬 消息 (Chat Domain)
 // ==========================================
 
+// 消息类型 (MVP 简化为 2 种)
 export const messageTypeEnum = pgEnum("message_type", [
-  "text",
-  "image",
-  "system",
-  "location"
+  "text",    // 文本消息
+  "system"   // 系统消息
 ]);
 
 // ==========================================
-// 5. 🔔 通知 (Notification Domain)
+// 4. 🔔 通知 (Notification Domain)
 // ==========================================
 
+// 通知类型 (MVP 简化为 5 种)
 export const notificationTypeEnum = pgEnum("notification_type", [
-  "application",
-  "approved",
-  "rejected",
-  "activity_remind",
-  "feedback_received",
-  "system"
-]);
-
-// ==========================================
-// 6. 👎 差评反馈 (Feedback Domain)
-// ==========================================
-
-export const feedbackReasonEnum = pgEnum("feedback_reason", [
-  "late",           // 迟到
-  "no_show",        // 放鸽子
-  "bad_attitude",   // 态度不好
-  "not_as_described", // 与描述不符
-  "other"           // 其他
-]);
-
-// ==========================================
-// 7. 💸 交易 (Transaction Domain) - 整合支付状态
-// ==========================================
-
-export const transactionStatusEnum = pgEnum("transaction_status", [
-  "pending",
-  "paid", 
-  "failed",
-  "refunded"
-]);
-
-// ==========================================
-// 8. 📊 申诉 (Dispute Domain)
-// ==========================================
-
-export const disputeStatusEnum = pgEnum("dispute_status", [
-  "pending",      // 待处理（24h内）
-  "accepted",     // 申诉成功
-  "expired"       // 超时未申诉
-]);
-
-// ==========================================
-// 9. 💎 增值服务 (Premium Services)
-// ==========================================
-
-export const premiumServiceTypeEnum = pgEnum("premium_service_type", [
-  "boost",        // 强力召唤
-  "pin_plus",     // 黄金置顶
-  "fast_pass",    // 优先入场券
-  "ai_report",    // AI深度报告
-  "ai_pack",      // AI额度包
-  "pro_monthly"   // Pro月费会员
+  "join",           // 有人报名
+  "quit",           // 有人退出
+  "activity_start", // 活动即将开始
+  "completed",      // 活动成局
+  "cancelled"       // 活动取消
 ]);
