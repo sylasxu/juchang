@@ -84,13 +84,13 @@ app.listen(port, () => {
 
 // 优雅关闭
 process.on('SIGINT', () => {
-  console.log('\n🛑 正在关闭服务器...');
+  console.log('\n正在关闭服务器...');
   stopScheduler();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n🛑 正在关闭服务器...');
+  console.log('\n正在关闭服务器...');
   stopScheduler();
   process.exit(0);
 });

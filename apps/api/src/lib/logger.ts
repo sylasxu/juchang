@@ -1,10 +1,12 @@
 /**
  * 聚场 API 日志系统
  * 
- * 使用 pino + pino-pretty + chalk 实现美观的日志输出
- * - 全中文输出，结构化格式 [模块]描述
- * - 彩色 HTTP 方法显示
- * - 请求响应时间统计
+ * 设计原则：
+ * - 模块标签统一青色，作为分类标识
+ * - HTTP 方法按语义着色：GET绿/POST黄/PUT蓝/PATCH青/DELETE红
+ * - 状态码按语义着色：2xx绿/3xx青/4xx黄/5xx红
+ * - 耗时按性能着色：正常灰/<500ms / 慢黄/>500ms / 很慢红/>1000ms
+ * - 成功/失败图标：v绿 / x红
  */
 
 import { Elysia } from 'elysia';
@@ -29,26 +31,78 @@ export const isDev = process.env.NODE_ENV !== 'production';
 // ============ Pino Logger 配置 ============
 
 const logger = pino({
-  level: 'info',
+  level: 'debug',
   transport: {
     target: 'pino-pretty',
     options: {
       colorize: true,
-      translateTime: true,
+      translateTime: 'HH:MM:ss',
+      messageFormat: '{msg}',
+      ignore: 'pid,hostname',
+      // 使用 Admin 主题 chart 色板
+      customColors: 'info:greenBright,debug:blueBright,warn:yellowBright,error:redBright',
     },
   },
 });
 
-// ============ 颜色配置 ============
+// ============ 颜色系统 (基于 Admin 主题 OKLCH) ============
+// 设计原则：与 Admin 主题保持一致，深色模式色板
 
-const methodColors: Record<string, (s: string) => string> = {
-  GET: chalk.green,
-  POST: chalk.yellow,
-  PUT: chalk.blue,
-  PATCH: chalk.cyan,
-  DELETE: chalk.red,
-  OPTIONS: chalk.gray,
-  HEAD: chalk.gray,
+// 从 Admin theme.css 提取的 OKLCH 转 HEX (dark mode)
+const c = {
+  // 灰度系统 (基于 264 色相的蓝灰)
+  bg: '#1a1625',           // oklch(0.129 0.042 264.695) - background
+  fg: '#fafafa',           // oklch(0.984 0.003 247.858) - foreground  
+  muted: '#3d3654',        // oklch(0.279 0.041 260.031) - muted
+  mutedFg: '#9f93b8',      // oklch(0.704 0.04 256.788) - muted-foreground
+  border: '#e5e5e5',       // oklch(0.929 0.013 255.508) - primary (light)
+  
+  // 语义色
+  destructive: '#e85c5c',  // oklch(0.704 0.191 22.216) - destructive
+  
+  // Chart 色板 (用于点缀)
+  chart1: '#6366f1',       // oklch(0.488 0.243 264.376) - 靛蓝
+  chart2: '#22c55e',       // oklch(0.696 0.17 162.48) - 绿
+  chart3: '#eab308',       // oklch(0.769 0.188 70.08) - 黄
+  chart4: '#a855f7',       // oklch(0.627 0.265 303.9) - 紫
+  chart5: '#ef4444',       // oklch(0.645 0.246 16.439) - 红
+};
+
+// 模块标签 - muted-foreground
+const tag = (name: string) => chalk.hex(c.mutedFg)(`[${name}]`);
+
+// HTTP 方法颜色
+function colorMethod(method: string): string {
+  const m = method.trim();
+  switch (m) {
+    case 'GET':    return chalk.hex(c.chart2)(m.padEnd(7));  // 绿
+    case 'POST':   return chalk.hex(c.chart3)(m.padEnd(7));  // 黄
+    case 'PUT':    return chalk.hex(c.chart1)(m.padEnd(7));  // 靛蓝
+    case 'PATCH':  return chalk.hex(c.chart4)(m.padEnd(7));  // 紫
+    case 'DELETE': return chalk.hex(c.chart5)(m.padEnd(7));  // 红
+    default:       return chalk.hex(c.mutedFg)(m.padEnd(7));
+  }
+}
+
+// 状态码颜色
+function colorStatus(status: number): string {
+  if (status >= 500) return chalk.hex(c.destructive)(String(status));
+  if (status >= 400) return chalk.hex(c.chart3)(String(status));  // 黄
+  if (status >= 300) return chalk.hex(c.mutedFg)(String(status));
+  return chalk.hex(c.chart2)(String(status));  // 绿
+}
+
+// 耗时颜色
+function colorDuration(ms: number): string {
+  if (ms > 1000) return chalk.hex(c.destructive)(`${ms}ms`);
+  if (ms > 500)  return chalk.hex(c.chart3)(`${ms}ms`);  // 黄
+  return chalk.hex(c.mutedFg)(`${ms}ms`);
+}
+
+// 结果图标
+const icon = {
+  ok: chalk.hex(c.chart2)('✓'),
+  fail: chalk.hex(c.destructive)('✗'),
 };
 
 // ============ Logger Plugin ============
@@ -62,89 +116,100 @@ export const loggerPlugin = new Elysia({ name: 'logger' })
     const { method, url } = request;
     const pathname = new URL(url).pathname;
     
-    // 跳过健康检查和静态资源的入站日志
+    // 跳过噪音路由
     if (pathname === '/health' || pathname === '/favicon.ico' || pathname.startsWith('/openapi')) {
       return;
     }
     
-    // 彩色方法名
-    const methodColored = chalk.bold(
-      method === 'GET' ? chalk.green(method) :
-      method === 'POST' ? chalk.yellow(method) :
-      method === 'PUT' ? chalk.blue(method) :
-      method === 'PATCH' ? chalk.cyan(method) :
-      method === 'DELETE' ? chalk.red(method) :
-      chalk.magenta(method)
-    );
+    const requestId = crypto.randomUUID().slice(0, 8);
+    const userAgent = request.headers.get('user-agent') || '-';
+    const ip = request.headers.get('x-forwarded-for') || 
+               request.headers.get('x-real-ip') || 
+               'unknown';
     
-    log.info(`${chalk.cyan('[请求]')} ← ${methodColored} ${pathname}`);
+    log.info({
+      requestId,
+      method,
+      path: pathname,
+      ip,
+      userAgent: userAgent.slice(0, 50)
+    }, `${tag('请求')} ${colorMethod(method)} ${chalk.hex(c.fg)(pathname)}`);
   })
-  .onAfterResponse(({ request, set, startTime, log, response }) => {
+  .onAfterResponse(({ request, set, startTime, log }) => {
     const { method, url } = request;
     const pathname = new URL(url).pathname;
-    const elapsed = Date.now() - (startTime || 0);
+    const duration = Date.now() - (startTime || 0);
     const status = typeof set.status === 'number' ? set.status : (typeof set.status === 'string' ? parseInt(set.status) : 200);
     
-    // 跳过健康检查和静态资源
+    // 跳过噪音路由
     if (pathname === '/health' || pathname === '/favicon.ico' || pathname.startsWith('/openapi')) {
       return;
     }
     
-    // 状态颜色
-    const statusColor = status >= 500 ? chalk.red :
-                       status >= 400 ? chalk.yellow :
-                       status >= 300 ? chalk.cyan :
-                       chalk.green;
+    const contentLength = set.headers?.['content-length'] || '-';
+    const userId = (request as any).userId || '-';
+    const statusIcon = status >= 400 ? icon.fail : icon.ok;
     
-    // 方法颜色
-    const methodColored = chalk.bold(
-      method === 'GET' ? chalk.green(method) :
-      method === 'POST' ? chalk.yellow(method) :
-      method === 'PUT' ? chalk.blue(method) :
-      method === 'PATCH' ? chalk.cyan(method) :
-      method === 'DELETE' ? chalk.red(method) :
-      chalk.magenta(method)
-    );
-    
-    const statusIcon = status >= 400 ? '×' : '√';
-    
-    // 记录响应信息
-    log.info({
+    const logData = {
+      method,
+      path: pathname,
       status,
-      headers: set.headers,
-      elapsed: `${elapsed}ms`
-    }, `${chalk.cyan('[请求]')} ${statusIcon} ${methodColored} ${pathname.padEnd(35)} ${statusColor(String(status))} ${chalk.gray(`${elapsed}ms`)}`);
+      duration,
+      contentLength,
+      userId
+    };
+    const logMsg = `${tag('响应')} ${statusIcon} ${colorMethod(method)} ${chalk.hex(c.fg)(pathname)} ${colorStatus(status)} ${colorDuration(duration)}`;
+    
+    if (status >= 500) {
+      log.error(logData, logMsg);
+    } else if (status >= 400 || duration > 1000) {
+      log.warn(logData, logMsg);
+    } else {
+      log.info(logData, logMsg);
+    }
   })
   .onError(({ request, error, set, startTime, log }) => {
     const { method, url } = request;
     const pathname = new URL(url).pathname;
-    const elapsed = Date.now() - (startTime || 0);
+    const duration = Date.now() - (startTime || 0);
     const status = typeof set.status === 'number' ? set.status : (typeof set.status === 'string' ? parseInt(set.status) : 500);
     const errorMsg = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
     
-    // 跳过健康检查和静态资源
+    // 跳过噪音路由
     if (pathname === '/health' || pathname === '/favicon.ico' || pathname.startsWith('/openapi')) {
       return;
     }
     
-    const methodColored = chalk.bold(chalk.red(method));
+    const userId = (request as any).userId || '-';
     
-    log.error(`${chalk.cyan('[请求]')} × ${methodColored} ${pathname.padEnd(35)} ${chalk.red(String(status))} ${chalk.gray(`${elapsed}ms`)} ${chalk.red(`• ${errorMsg}`)}`);
+    log.error({
+      method,
+      path: pathname,
+      status,
+      duration,
+      userId,
+      error: errorMsg,
+      stack: errorStack
+    }, `${tag('错误')} ${icon.fail} ${colorMethod(method)} ${chalk.hex(c.fg)(pathname)} ${colorStatus(status)} ${colorDuration(duration)} ${chalk.hex(c.destructive)(errorMsg)}`);
   });
 
-// ============ 启动 Banner ============
+// ============ 启动日志 ============
 
 export function printBanner(appName: string, version: string): void {
   if (!isDev) return;
-
-  const banner = `
-${chalk.cyan('┌─────────────────────────────────────────────────────────────┐')}
-${chalk.cyan('│')}                    ${chalk.bold.magenta(`🚀 ${appName}`)} ${chalk.gray(`v${version}`)}                     ${chalk.cyan('│')}
-${chalk.cyan('│')}                    ${chalk.gray('Powered by Elysia + Bun')}                   ${chalk.cyan('│')}
-${chalk.cyan('└─────────────────────────────────────────────────────────────┘')}
-`;
-  console.log(banner);
+  logger.info(`${tag('启动')} ${chalk.hex(c.fg).bold(appName)} ${chalk.hex(c.mutedFg)(`v${version}`)}`);
+  logger.info(`${tag('环境')} ${chalk.hex(c.mutedFg)('Elysia + Bun')}`);
 }
+
+export function printStartupInfo(port: number, openapiPath?: string): void {
+  if (!isDev) return;
+  logger.info({ port }, `${tag('服务')} 运行在 ${chalk.hex(c.fg).underline(`http://localhost:${port}`)}`);
+  if (openapiPath) {
+    logger.info({ openapiPath }, `${tag('文档')} OpenAPI ${chalk.hex(c.mutedFg).underline(`http://localhost:${port}${openapiPath}`)}`);
+  }
+}
+
 // ============ 路由打印 ============
 
 export function printRoutes(app: ElysiaAppWithRoutes): void {
@@ -152,36 +217,31 @@ export function printRoutes(app: ElysiaAppWithRoutes): void {
 
   const routes = app.routes;
   if (!routes || routes.length === 0) {
-    console.log(chalk.yellow('[路由] 未发现任何路由'));
+    logger.warn(`${tag('路由')} 未发现任何路由`);
     return;
   }
 
-  // 按模块分组（根据路径第一段）
+  // 按模块分组
   const grouped = new Map<string, RouteInfo[]>();
+  const moduleNameMap: Record<string, string> = {
+    'ROOT': '根路径',
+    'auth': '认证',
+    'users': '用户', 
+    'activities': '活动',
+    'ai': 'AI',
+    'participants': '参与者',
+    'chat': '聊天',
+    'dashboard': '仪表板',
+    'notifications': '通知',
+    'health': '健康检查',
+    'jobs': '任务状态'
+  };
   
   for (const route of routes) {
-    // 跳过 OpenAPI 相关路由和 OPTIONS（CORS 预检）
-    if (route.path.startsWith('/openapi')) continue;
-    if (route.method === 'OPTIONS') continue;
+    if (route.path.startsWith('/openapi') || route.method === 'OPTIONS') continue;
     
     const segments = route.path.split('/').filter(Boolean);
     const module = segments[0] || 'ROOT';
-    
-    // 模块名映射为中文
-    const moduleNameMap: Record<string, string> = {
-      'ROOT': '根路径',
-      'auth': '认证模块',
-      'users': '用户模块', 
-      'activities': '活动模块',
-      'ai': 'AI模块',
-      'participants': '参与者模块',
-      'chat': '聊天模块',
-      'dashboard': '仪表板',
-      'notifications': '通知模块',
-      'health': '健康检查',
-      'jobs': '任务状态'
-    };
-    
     const moduleName = moduleNameMap[module] || module.toUpperCase();
     
     if (!grouped.has(moduleName)) {
@@ -189,8 +249,8 @@ export function printRoutes(app: ElysiaAppWithRoutes): void {
     }
     grouped.get(moduleName)!.push(route);
   }
-  // 定义模块显示顺序
-  const moduleOrder = ['根路径', '认证模块', '用户模块', '活动模块', 'AI模块', '参与者模块', '聊天模块', '仪表板', '通知模块', '健康检查', '任务状态'];
+
+  const moduleOrder = ['根路径', '认证', '用户', '活动', 'AI', '参与者', '聊天', '仪表板', '通知', '健康检查', '任务状态'];
   const sortedModules = [...grouped.keys()].sort((a, b) => {
     const aIndex = moduleOrder.indexOf(a);
     const bIndex = moduleOrder.indexOf(b);
@@ -200,108 +260,74 @@ export function printRoutes(app: ElysiaAppWithRoutes): void {
     return aIndex - bIndex;
   });
 
-  console.log(chalk.blue('[路由] 注册路由列表:'));
+  logger.info(`${tag('路由')} 注册列表:`);
   
-  // 打印每个模块的路由
   for (const module of sortedModules) {
     const moduleRoutes = grouped.get(module);
     if (!moduleRoutes) continue;
-    
-    // 跳过只有通配符路由的模块
     if (moduleRoutes.every(r => r.path.endsWith('/*'))) continue;
     
-    console.log(`  ${chalk.cyan(`[${module}]`)}`);
+    logger.info(`  ${chalk.dim(`[${module}]`)}`);
     
-    // 按路径排序，过滤通配符路由
     const filteredRoutes = moduleRoutes
       .filter(r => !r.path.endsWith('/*'))
       .sort((a, b) => a.path.localeCompare(b.path));
     
     for (const { method, path } of filteredRoutes) {
-      const colorFn = methodColors[method] || chalk.white;
-      console.log(`    ${colorFn(method.padEnd(7))} ${chalk.white(path)}`);
+      logger.info({ method, path }, `    ${colorMethod(method)} ${chalk.hex(c.fg)(path)}`);
     }
   }
-  console.log();
-}
-// ============ 启动信息 ============
-
-export function printStartupInfo(port: number, openapiPath?: string): void {
-  if (!isDev) {
-    return;
-  }
-
-  console.log(`${chalk.green('[服务器]')} 运行在 ${chalk.cyan.underline(`http://localhost:${port}`)}`);
-  if (openapiPath) {
-    console.log(`${chalk.blue('[文档]')} OpenAPI 文档: ${chalk.cyan.underline(`http://localhost:${port}${openapiPath}`)}`);
-  }
-  console.log(chalk.gray('─'.repeat(61)));
-  console.log();
 }
 
-// ============ 定时任务专用日志函数 ============
+// ============ 定时任务日志 ============
 
 export const jobLogger = {
-  // 调度器启动/停止
   schedulerStart: (jobCount: number) => {
-    if (isDev) {
-      console.log(`${chalk.cyan('[调度器]')} 启动定时任务调度器 ${chalk.gray(`(${jobCount} 个任务)`)}`);
-    }
+    logger.info({ jobCount }, `${tag('调度')} 启动 ${chalk.hex(c.mutedFg)(`(${jobCount} 个任务)`)}`);
   },
 
   schedulerStop: () => {
-    if (isDev) {
-      console.log(`${chalk.cyan('[调度器]')} 停止定时任务调度器`);
-    }
+    logger.warn(`${tag('调度')} 停止`);
   },
 
-  // 任务注册
   jobRegistered: (name: string, intervalSeconds: number) => {
-    if (isDev) {
-      console.log(`${chalk.cyan('[调度器]')} 注册任务: ${chalk.white(name)} ${chalk.gray(`(每${intervalSeconds}秒执行)`)}`);
-    }
+    logger.info({ jobName: name, interval: intervalSeconds }, `${tag('调度')} 注册 ${chalk.hex(c.fg)(name)} ${chalk.hex(c.mutedFg)(`(每${intervalSeconds}秒)`)}`);
   },
-  // 任务执行
+
   jobStart: (name: string) => {
-    if (isDev) {
-      console.log(`${chalk.cyan('[任务]')} 开始执行: ${chalk.white(name)}`);
-    }
+    logger.info({ jobName: name }, `${tag('任务')} 开始 ${chalk.hex(c.fg)(name)}`);
   },
 
   jobSuccess: (name: string, duration: number) => {
-    if (isDev) {
-      console.log(`${chalk.cyan('[任务]')} 执行完成: ${chalk.white(name)} ${chalk.gray(`(${duration}ms)`)}`);
+    const msg = `${tag('任务')} ${icon.ok} ${chalk.hex(c.fg)(name)} ${colorDuration(duration)}`;
+    if (duration > 5000) {
+      logger.warn({ jobName: name, duration }, msg);
+    } else {
+      logger.info({ jobName: name, duration }, msg);
     }
   },
 
   jobError: (name: string, duration: number, error: any) => {
-    if (isDev) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.log(`${chalk.red('[任务]')} 执行失败: ${chalk.white(name)} ${chalk.gray(`(${duration}ms)`)} ${chalk.red(`• ${errorMsg}`)}`);
-    }
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logger.error({ jobName: name, duration, error: errorMsg }, 
+      `${tag('任务')} ${icon.fail} ${chalk.hex(c.fg)(name)} ${colorDuration(duration)} ${chalk.hex(c.destructive)(errorMsg)}`);
   },
 
   jobSkipped: (name: string) => {
-    if (isDev) {
-      console.log(`${chalk.gray('[任务]')} 跳过执行: ${chalk.white(name)} ${chalk.gray('(正在执行中)')}`);
-    }
+    logger.debug({ jobName: name }, `${tag('任务')} 跳过 ${chalk.hex(c.mutedFg)(name)} ${chalk.hex(c.mutedFg)('(执行中)')}`);
   },
 
-  // 任务执行结果统计
   jobStats: (name: string, processed: number, affected: number = 0) => {
-    if (isDev) {
-      if (affected > 0) {
-        console.log(`${chalk.cyan('[任务]')} ${chalk.white(name)}: 处理 ${chalk.yellow(processed)} 条记录，影响 ${chalk.green(affected)} 条`);
-      } else if (processed > 0) {
-        console.log(`${chalk.cyan('[任务]')} ${chalk.white(name)}: 处理 ${chalk.yellow(processed)} 条记录`);
-      } else {
-        console.log(`${chalk.cyan('[任务]')} ${chalk.white(name)}: ${chalk.gray('无需处理的记录')}`);
-      }
-    }
+    const stats = affected > 0 
+      ? `处理 ${chalk.hex(c.fg)(String(processed))} 条, 影响 ${chalk.hex(c.chart2)(String(affected))} 条`
+      : processed > 0 
+        ? `处理 ${chalk.hex(c.fg)(String(processed))} 条`
+        : chalk.hex(c.mutedFg)('无待处理');
+    logger.info({ jobName: name, processed, affected }, `${tag('统计')} ${chalk.hex(c.fg)(name)}: ${stats}`);
   }
 };
 
-// ============ 导出便捷函数 ============
+// ============ 导出 ============
 
 export function createLogger(context: string) {
   return logger.child({ context });
