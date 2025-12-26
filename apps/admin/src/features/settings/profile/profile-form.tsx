@@ -1,6 +1,6 @@
-import { z } from 'zod'
+import { Type, type Static } from '@sinclair/typebox'
 import { useFieldArray, useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { Link } from '@tanstack/react-router'
 import { showSubmittedData } from '@/lib/show-submitted-data'
 import { cn } from '@/lib/utils'
@@ -24,23 +24,16 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
-const profileFormSchema = z.object({
-  username: z
-    .string({ required_error: '请输入用户名' })
-    .min(2, '用户名至少需要2个字符')
-    .max(30, '用户名不能超过30个字符'),
-  email: z.string().email('请输入有效的邮箱地址'),
-  bio: z.string().max(160).min(4),
-  urls: z
-    .array(
-      z.object({
-        value: z.string().url('请输入有效的URL'),
-      })
-    )
-    .optional(),
+const profileFormSchema = Type.Object({
+  username: Type.String({ minLength: 2, maxLength: 30 }),
+  email: Type.String({ format: 'email' }),
+  bio: Type.String({ minLength: 4, maxLength: 160 }),
+  urls: Type.Optional(Type.Array(Type.Object({
+    value: Type.String({ format: 'uri' }),
+  }))),
 })
 
-type ProfileFormValues = z.infer<typeof profileFormSchema>
+type ProfileFormValues = Static<typeof profileFormSchema>
 
 // 默认值
 const defaultValues: Partial<ProfileFormValues> = {
@@ -50,7 +43,7 @@ const defaultValues: Partial<ProfileFormValues> = {
 
 export function ProfileForm() {
   const form = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileFormSchema),
+    resolver: typeboxResolver(profileFormSchema),
     defaultValues,
     mode: 'onChange',
   })

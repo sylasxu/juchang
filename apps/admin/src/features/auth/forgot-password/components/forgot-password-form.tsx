@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { useNavigate } from '@tanstack/react-router'
 import { ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -17,9 +17,11 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 
-const formSchema = z.object({
-  email: z.string().email('请输入有效的邮箱地址'),
+const formSchema = Type.Object({
+  email: Type.String({ format: 'email' }),
 })
+
+type FormValues = Static<typeof formSchema>
 
 export function ForgotPasswordForm({
   className,
@@ -28,12 +30,12 @@ export function ForgotPasswordForm({
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: typeboxResolver(formSchema),
     defaultValues: { email: '' },
   })
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
+  function onSubmit(data: FormValues) {
     setIsLoading(true)
     // eslint-disable-next-line no-console
     console.log(data)

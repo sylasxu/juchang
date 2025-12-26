@@ -19,7 +19,7 @@ export function useApiList<T>(
   return useQuery({
     queryKey: [...queryKey, params],
     queryFn: async () => {
-      const result = await apiCall<T[]>(() => apiFunction(params))
+      const result = await apiCall<T>(() => apiFunction(params))
       return result
     },
     enabled: options?.enabled ?? true,

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { useNavigate } from '@tanstack/react-router'
 import { showSubmittedData } from '@/lib/show-submitted-data'
 import { cn } from '@/lib/utils'
@@ -21,12 +21,11 @@ import {
   InputOTPSeparator,
 } from '@/components/ui/input-otp'
 
-const formSchema = z.object({
-  otp: z
-    .string()
-    .min(6, '请输入6位验证码')
-    .max(6, '请输入6位验证码'),
+const formSchema = Type.Object({
+  otp: Type.String({ minLength: 6, maxLength: 6 }),
 })
+
+type FormValues = Static<typeof formSchema>
 
 type OtpFormProps = React.HTMLAttributes<HTMLFormElement>
 
@@ -34,15 +33,15 @@ export function OtpForm({ className, ...props }: OtpFormProps) {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: typeboxResolver(formSchema),
     defaultValues: { otp: '' },
   })
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const otp = form.watch('otp')
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
+  function onSubmit(data: FormValues) {
     setIsLoading(true)
     showSubmittedData(data)
 

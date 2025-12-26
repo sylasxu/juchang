@@ -8,7 +8,9 @@
  * 此任务在 MVP 中暂时保留但不执行实际操作
  */
 
+import { jobLogger } from '../lib/logger';
+
 export async function processExpiredDisputes(): Promise<void> {
   // MVP 简化：申诉机制已移除
-  // console.log('[DisputeTimeout] MVP 版本：申诉机制已移除');
+  jobLogger.jobStats('申诉超时自动处理', 0, 0);
 }

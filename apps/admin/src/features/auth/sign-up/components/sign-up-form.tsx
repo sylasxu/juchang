@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { z } from 'zod'
+import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { IconFacebook, IconGithub } from '@/assets/brand-icons'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -16,19 +16,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/password-input'
 
-const formSchema = z
-  .object({
-    email: z.string().email('请输入有效的邮箱地址'),
-    password: z
-      .string()
-      .min(1, '请输入密码')
-      .min(7, '密码至少需要7个字符'),
-    confirmPassword: z.string().min(1, '请确认密码'),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: '两次输入的密码不一致',
-    path: ['confirmPassword'],
-  })
+const formSchema = Type.Object({
+  email: Type.String({ format: 'email' }),
+  password: Type.String({ minLength: 7 }),
+  confirmPassword: Type.String({ minLength: 1 }),
+})
+
+type FormValues = Static<typeof formSchema>
 
 export function SignUpForm({
   className,
@@ -36,8 +30,8 @@ export function SignUpForm({
 }: React.HTMLAttributes<HTMLFormElement>) {
   const [isLoading, setIsLoading] = useState(false)
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<FormValues>({
+    resolver: typeboxResolver(formSchema),
     defaultValues: {
       email: '',
       password: '',
@@ -45,7 +39,16 @@ export function SignUpForm({
     },
   })
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
+  function onSubmit(data: FormValues) {
+    // 手动验证密码确认
+    if (data.password !== data.confirmPassword) {
+      form.setError('confirmPassword', {
+        type: 'manual',
+        message: '两次输入的密码不一致',
+      })
+      return
+    }
+
     setIsLoading(true)
     // eslint-disable-next-line no-console
     console.log(data)

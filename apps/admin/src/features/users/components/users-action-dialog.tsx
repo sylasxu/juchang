@@ -1,8 +1,8 @@
 'use client'
 
-import { z } from 'zod'
+import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -28,15 +28,23 @@ import { genderOptions, membershipOptions } from '../data/data'
 import { useUpdateUser } from '../hooks/use-users'
 import { type User } from '../data/schema'
 
-const formSchema = z.object({
-  nickname: z.string().max(50, '昵称最多50个字符').optional(),
-  bio: z.string().max(200, '简介最多200个字符').optional(),
-  gender: z.enum(['male', 'female', 'other', 'unknown']).optional(),
-  membershipType: z.enum(['free', 'pro']).optional(),
-  isBlocked: z.boolean().optional(),
+const formSchema = Type.Object({
+  nickname: Type.Optional(Type.String({ maxLength: 50 })),
+  bio: Type.Optional(Type.String({ maxLength: 200 })),
+  gender: Type.Optional(Type.Union([
+    Type.Literal('male'),
+    Type.Literal('female'),
+    Type.Literal('other'),
+    Type.Literal('unknown'),
+  ])),
+  membershipType: Type.Optional(Type.Union([
+    Type.Literal('free'),
+    Type.Literal('pro'),
+  ])),
+  isBlocked: Type.Optional(Type.Boolean()),
 })
 
-type UserForm = z.infer<typeof formSchema>
+type UserForm = Static<typeof formSchema>
 
 type UserActionDialogProps = {
   currentRow: User
@@ -52,7 +60,7 @@ export function UsersActionDialog({
   const updateMutation = useUpdateUser()
 
   const form = useForm<UserForm>({
-    resolver: zodResolver(formSchema),
+    resolver: typeboxResolver(formSchema),
     defaultValues: {
       nickname: currentRow.nickname || '',
       bio: currentRow.bio || '',

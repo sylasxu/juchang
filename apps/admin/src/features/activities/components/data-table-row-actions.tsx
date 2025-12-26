@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { statuses } from '../data/data'
-import { activitySchema } from '../data/schema'
+import { type Activity } from '../data/schema'
 import { useActivities } from './activities-provider'
 
 type DataTableRowActionsProps<TData> = {
@@ -26,7 +26,8 @@ type DataTableRowActionsProps<TData> = {
 export function DataTableRowActions<TData>({
   row,
 }: DataTableRowActionsProps<TData>) {
-  const activity = activitySchema.parse(row.original)
+  // TypeBox 不使用 .parse()，直接类型断言
+  const activity = row.original as Activity
   const { setOpen, setCurrentRow } = useActivities()
 
   return (

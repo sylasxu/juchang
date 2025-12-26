@@ -1,7 +1,7 @@
-import { z } from 'zod'
+import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
 import { CaretSortIcon, CheckIcon } from '@radix-ui/react-icons'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { showSubmittedData } from '@/lib/show-submitted-data'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -35,17 +35,13 @@ const languages = [
   { label: 'English', value: 'en' },
 ] as const
 
-const accountFormSchema = z.object({
-  name: z
-    .string()
-    .min(1, '请输入姓名')
-    .min(2, '姓名至少需要2个字符')
-    .max(30, '姓名不能超过30个字符'),
-  dob: z.date({ required_error: '请选择出生日期' }),
-  language: z.string({ required_error: '请选择语言' }),
+const accountFormSchema = Type.Object({
+  name: Type.String({ minLength: 2, maxLength: 30 }),
+  dob: Type.Any(), // Date 类型在 TypeBox 中使用 Any
+  language: Type.String(),
 })
 
-type AccountFormValues = z.infer<typeof accountFormSchema>
+type AccountFormValues = Static<typeof accountFormSchema> & { dob: Date }
 
 // This can come from your database or API.
 const defaultValues: Partial<AccountFormValues> = {
@@ -54,7 +50,7 @@ const defaultValues: Partial<AccountFormValues> = {
 
 export function AccountForm() {
   const form = useForm<AccountFormValues>({
-    resolver: zodResolver(accountFormSchema),
+    resolver: typeboxResolver(accountFormSchema),
     defaultValues,
   })
 

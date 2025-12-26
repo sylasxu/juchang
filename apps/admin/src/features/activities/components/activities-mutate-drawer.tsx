@@ -1,6 +1,6 @@
 import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { typeboxResolver } from '@/lib/typebox-resolver'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { showSubmittedData } from '@/lib/show-submitted-data'
 import { Button } from '@/components/ui/button'
 import {

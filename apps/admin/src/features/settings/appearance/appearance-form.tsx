@@ -1,7 +1,7 @@
-import { z } from 'zod'
+import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
 import { ChevronDownIcon } from '@radix-ui/react-icons'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { fonts } from '@/config/fonts'
 import { showSubmittedData } from '@/lib/show-submitted-data'
 import { cn } from '@/lib/utils'
@@ -19,12 +19,16 @@ import {
 } from '@/components/ui/form'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
-const appearanceFormSchema = z.object({
-  theme: z.enum(['light', 'dark']),
-  font: z.enum(fonts),
+const appearanceFormSchema = Type.Object({
+  theme: Type.Union([Type.Literal('light'), Type.Literal('dark')]),
+  font: Type.Union([
+    Type.Literal('inter'),
+    Type.Literal('manrope'),
+    Type.Literal('system'),
+  ]),
 })
 
-type AppearanceFormValues = z.infer<typeof appearanceFormSchema>
+type AppearanceFormValues = Static<typeof appearanceFormSchema>
 
 export function AppearanceForm() {
   const { font, setFont } = useFont()
@@ -37,7 +41,7 @@ export function AppearanceForm() {
   }
 
   const form = useForm<AppearanceFormValues>({
-    resolver: zodResolver(appearanceFormSchema),
+    resolver: typeboxResolver(appearanceFormSchema),
     defaultValues,
   })
 

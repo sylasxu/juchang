@@ -8,7 +8,9 @@
  * 此任务在 MVP 中暂时保留但不执行实际操作
  */
 
+import { jobLogger } from '../lib/logger';
+
 export async function processExpiredFulfillments(): Promise<void> {
   // MVP 简化：履约确认由发起人手动操作
-  // console.log('[FulfillmentTimeout] MVP 版本：履约确认由用户手动管理');
+  jobLogger.jobStats('履约超时自动确认', 0, 0);
 }

@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { statuses, categories } from '../data/data'
+import { statuses, activityTypes } from '../data/data'
 import { type Activity } from '../data/schema'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 import { activitiesColumns as columns } from './activities-columns'
@@ -38,7 +38,9 @@ export function ActivitiesTable({ data }: DataTableProps) {
   // Local UI-only states
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    type: false, // 隐藏 type 列，仅用于筛选
+  })
 
   // Synced with URL states
   const {
@@ -56,7 +58,7 @@ export function ActivitiesTable({ data }: DataTableProps) {
     globalFilter: { enabled: true, key: 'filter' },
     columnFilters: [
       { columnId: 'status', searchKey: 'status', type: 'array' },
-      { columnId: 'category', searchKey: 'category', type: 'array' },
+      { columnId: 'type', searchKey: 'type', type: 'array' },
     ],
   })
 
@@ -79,7 +81,7 @@ export function ActivitiesTable({ data }: DataTableProps) {
     globalFilterFn: (row, _columnId, filterValue) => {
       const id = String(row.getValue('id')).toLowerCase()
       const title = String(row.getValue('title')).toLowerCase()
-      const location = String(row.getValue('location')).toLowerCase()
+      const location = String(row.getValue('locationName') || '').toLowerCase()
       const searchValue = String(filterValue).toLowerCase()
 
       return id.includes(searchValue) || title.includes(searchValue) || location.includes(searchValue)
@@ -117,9 +119,9 @@ export function ActivitiesTable({ data }: DataTableProps) {
             options: statuses,
           },
           {
-            columnId: 'category',
-            title: '分类',
-            options: categories,
+            columnId: 'type',
+            title: '类型',
+            options: activityTypes,
           },
         ]}
       />

@@ -3,8 +3,8 @@
 import { Elysia } from 'elysia';
 import { selectUserSchema } from '@juchang/db';
 import { basePlugins, verifyAuth } from '../../setup';
-import { userModel, type ErrorResponse } from './user.model';
-import { getUserById, updateProfile, getQuota } from './user.service';
+import { userModel, type ErrorResponse, AdminUserSchema, UserListQuerySchema, UserListResponseSchema, UpdateUserRequestSchema } from './user.model';
+import { getUserById, updateProfile, getQuota, getUserList, getAdminUserById, adminUpdateUser } from './user.service';
 
 export const userController = new Elysia({ prefix: '/users' })
   .use(basePlugins)
@@ -120,6 +120,86 @@ export const userController = new Elysia({ prefix: '/users' })
       response: {
         200: 'user.quotaResponse',
         401: 'user.error',
+        404: 'user.error',
+      },
+    }
+  )
+
+  // ============ Admin Endpoints ============
+
+  // Admin: 获取用户列表
+  // Requirements: 1.1, 1.2, 1.3, 1.5
+  .get(
+    '/',
+    async ({ query }) => {
+      const result = await getUserList(query);
+      return result;
+    },
+    {
+      detail: {
+        tags: ['Admin - Users'],
+        summary: '获取用户列表',
+        description: 'Admin 获取分页用户列表，支持搜索',
+      },
+      query: UserListQuerySchema,
+      response: {
+        200: UserListResponseSchema,
+      },
+    }
+  )
+
+  // Admin: 获取用户详情
+  // Requirements: 2.1, 2.2, 2.3
+  .get(
+    '/:id',
+    async ({ params, set }) => {
+      const user = await getAdminUserById(params.id);
+      if (!user) {
+        set.status = 404;
+        return {
+          code: 404,
+          msg: '用户不存在',
+        } satisfies ErrorResponse;
+      }
+      return user;
+    },
+    {
+      detail: {
+        tags: ['Admin - Users'],
+        summary: '获取用户详情',
+        description: 'Admin 获取指定用户的详细信息（排除敏感字段）',
+      },
+      response: {
+        200: AdminUserSchema,
+        404: 'user.error',
+      },
+    }
+  )
+
+  // Admin: 更新用户信息
+  // Requirements: 3.1, 3.2, 3.3
+  .put(
+    '/:id',
+    async ({ params, body, set }) => {
+      const updated = await adminUpdateUser(params.id, body);
+      if (!updated) {
+        set.status = 404;
+        return {
+          code: 404,
+          msg: '用户不存在',
+        } satisfies ErrorResponse;
+      }
+      return updated;
+    },
+    {
+      detail: {
+        tags: ['Admin - Users'],
+        summary: '更新用户信息',
+        description: 'Admin 更新指定用户的昵称和头像',
+      },
+      body: UpdateUserRequestSchema,
+      response: {
+        200: AdminUserSchema,
         404: 'user.error',
       },
     }

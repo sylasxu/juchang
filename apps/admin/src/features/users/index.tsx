@@ -25,8 +25,8 @@ export function Users() {
     search: search.filter,
   })
 
-  // 使用 mock 数据或 API 数据
-  const users = isError || !data ? mockUsers : mockUsers
+  // 使用 API 数据，失败时回退到 mock 数据
+  const users = isError || !data ? mockUsers : (data as any)?.data ?? mockUsers
 
   return (
     <UsersProvider>

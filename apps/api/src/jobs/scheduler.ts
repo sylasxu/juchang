@@ -11,6 +11,7 @@
 import { processExpiredFulfillments } from './fulfillment-timeout';
 import { processExpiredDisputes } from './dispute-timeout';
 import { updateActivityStatuses } from './activity-status';
+import { jobLogger } from '../lib/logger';
 
 interface ScheduledJob {
   name: string;
@@ -48,7 +49,7 @@ const timers: NodeJS.Timeout[] = [];
  */
 async function runJob(job: ScheduledJob): Promise<void> {
   if (job.isRunning) {
-    console.log(`[Scheduler] 任务 "${job.name}" 正在执行中，跳过`);
+    jobLogger.jobSkipped(job.name);
     return;
   }
 
@@ -56,12 +57,14 @@ async function runJob(job: ScheduledJob): Promise<void> {
   const startTime = Date.now();
 
   try {
-    console.log(`[Scheduler] 开始执行任务: ${job.name}`);
+    jobLogger.jobStart(job.name);
     await job.handler();
     job.lastRun = new Date();
-    console.log(`[Scheduler] 任务 "${job.name}" 完成，耗时 ${Date.now() - startTime}ms`);
+    const duration = Date.now() - startTime;
+    jobLogger.jobSuccess(job.name, duration);
   } catch (error) {
-    console.error(`[Scheduler] 任务 "${job.name}" 执行失败:`, error);
+    const duration = Date.now() - startTime;
+    jobLogger.jobError(job.name, duration, error);
   } finally {
     job.isRunning = false;
   }
@@ -71,7 +74,7 @@ async function runJob(job: ScheduledJob): Promise<void> {
  * 启动所有定时任务
  */
 export function startScheduler(): void {
-  console.log('[Scheduler] 启动定时任务调度器...');
+  jobLogger.schedulerStart(jobs.length);
 
   for (const job of jobs) {
     // 立即执行一次
@@ -81,24 +84,21 @@ export function startScheduler(): void {
     const timer = setInterval(() => runJob(job), job.interval);
     timers.push(timer);
 
-    console.log(`[Scheduler] 已注册任务: ${job.name} (间隔: ${job.interval / 1000}s)`);
+    jobLogger.jobRegistered(job.name, job.interval / 1000);
   }
-
-  console.log(`[Scheduler] 共注册 ${jobs.length} 个定时任务`);
 }
 
 /**
  * 停止所有定时任务
  */
 export function stopScheduler(): void {
-  console.log('[Scheduler] 停止定时任务调度器...');
+  jobLogger.schedulerStop();
 
   for (const timer of timers) {
     clearInterval(timer);
   }
 
   timers.length = 0;
-  console.log('[Scheduler] 所有定时任务已停止');
 }
 
 /**

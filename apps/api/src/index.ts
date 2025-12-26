@@ -9,6 +9,9 @@ import { Elysia } from 'elysia';
 import { basePlugins } from './setup';
 import { openapi } from '@elysiajs/openapi';
 
+// 导入 Logger
+import { loggerPlugin, printBanner, printRoutes, printStartupInfo } from './lib/logger';
+
 // 导入路由模块（Controller）
 import { authController } from './modules/auth/auth.controller';
 import { userController } from './modules/users/user.controller';
@@ -22,8 +25,12 @@ import { notificationController } from './modules/notifications/notification.con
 // 导入定时任务调度器
 import { startScheduler, stopScheduler, getJobStatuses } from './jobs';
 
+// 打印启动 Banner
+printBanner('聚场 API', '1.0.0');
+
 // 创建 Elysia 应用
 const app = new Elysia()
+  .use(loggerPlugin)  // 最先注册日志插件
   .use(basePlugins)
   .use(openapi({
     documentation: {
@@ -65,9 +72,11 @@ const app = new Elysia()
 // 启动服务器
 const port = Number(process.env.API_PORT || 3000);
 app.listen(port, () => {
-  console.log(`🚀 API Server is running on http://localhost:${port}`);
-  console.log(`🚀 API doc on http://localhost:${port}/openapi`);
-  console.log(`📚 OpenAPI JSON: http://localhost:${port}/openapi/json`);
+  // 打印路由列表
+  printRoutes(app);
+  
+  // 打印启动信息
+  printStartupInfo(port, '/openapi');
   
   // 启动定时任务调度器
   startScheduler();
@@ -75,13 +84,13 @@ app.listen(port, () => {
 
 // 优雅关闭
 process.on('SIGINT', () => {
-  console.log('\n正在关闭服务器...');
+  console.log('\n🛑 正在关闭服务器...');
   stopScheduler();
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
-  console.log('\n正在关闭服务器...');
+  console.log('\n🛑 正在关闭服务器...');
   stopScheduler();
   process.exit(0);
 });

@@ -1,22 +1,16 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Trash2, Shield, ShieldOff } from 'lucide-react'
+import { Trash2, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { statuses } from '../data/data'
-import { userSchema } from '../data/schema'
+import { type User } from '../data/schema'
 import { useUsers } from './users-provider'
 
 type DataTableRowActionsProps<TData> = {
@@ -26,7 +20,8 @@ type DataTableRowActionsProps<TData> = {
 export function DataTableRowActions<TData>({
   row,
 }: DataTableRowActionsProps<TData>) {
-  const user = userSchema.parse(row.original)
+  // TypeBox 不使用 .parse()，直接类型断言
+  const user = row.original as User
 
   const { setOpen, setCurrentRow } = useUsers()
 
@@ -53,37 +48,12 @@ export function DataTableRowActions<TData>({
         <DropdownMenuItem disabled>查看详情</DropdownMenuItem>
         <DropdownMenuItem disabled>发送消息</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>更改状态</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <DropdownMenuRadioGroup value={user.status}>
-              {statuses.map((status) => (
-                <DropdownMenuRadioItem key={status.value} value={status.value}>
-                  {status.icon && (
-                    <status.icon className='text-muted-foreground size-4 mr-2' />
-                  )}
-                  {status.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        {user.status === 'blocked' ? (
-          <DropdownMenuItem>
-            解除封禁
-            <DropdownMenuShortcut>
-              <ShieldOff size={16} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuItem>
-            封禁用户
-            <DropdownMenuShortcut>
-              <Shield size={16} />
-            </DropdownMenuShortcut>
-          </DropdownMenuItem>
-        )}
+        <DropdownMenuItem disabled>
+          封禁用户
+          <DropdownMenuShortcut>
+            <Shield size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
             setCurrentRow(user)

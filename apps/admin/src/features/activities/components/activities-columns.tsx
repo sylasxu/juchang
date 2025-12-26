@@ -2,7 +2,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
-import { statuses, categories } from '../data/data'
+import { statuses, activityTypes } from '../data/data'
 import { type Activity } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
 
@@ -48,8 +48,8 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
     meta: { className: 'ps-1', tdClassName: 'ps-4' },
     cell: ({ row }) => {
       const activity = row.original
-      const category = categories.find(
-        (cat) => cat.value === activity.category
+      const category = activityTypes.find(
+        (cat) => cat.value === activity.type
       )
 
       return (
@@ -61,7 +61,7 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
             )}
           </div>
           <div className='text-xs text-muted-foreground'>
-            {activity.location}
+            {activity.locationName}
           </div>
           {activity.description && (
             <div className='text-xs text-muted-foreground max-w-64 truncate'>
@@ -70,6 +70,15 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
           )}
         </div>
       )
+    },
+  },
+  {
+    accessorKey: 'type',
+    header: () => null,
+    cell: () => null,
+    enableHiding: true,
+    filterFn: (row, id, value) => {
+      return value.includes(row.getValue(id))
     },
   },
   {
@@ -126,12 +135,12 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
     enableSorting: false,
   },
   {
-    accessorKey: 'startTime',
+    accessorKey: 'startAt',
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='开始时间' />
     ),
     cell: ({ row }) => {
-      const date = new Date(row.getValue('startTime'))
+      const date = new Date(row.getValue('startAt'))
       return (
         <div className='text-sm'>
           {date.toLocaleDateString('zh-CN')} {date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
