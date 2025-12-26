@@ -83,7 +83,7 @@ export const loggerPlugin = new Elysia({ name: 'logger' })
     const { method, url } = request;
     const pathname = new URL(url).pathname;
     const elapsed = Date.now() - (startTime || 0);
-    const status = set.status ?? 200;
+    const status = typeof set.status === 'number' ? set.status : (typeof set.status === 'string' ? parseInt(set.status) : 200);
     
     // 跳过健康检查和静态资源
     if (pathname === '/health' || pathname === '/favicon.ico' || pathname.startsWith('/openapi')) {
@@ -119,7 +119,7 @@ export const loggerPlugin = new Elysia({ name: 'logger' })
     const { method, url } = request;
     const pathname = new URL(url).pathname;
     const elapsed = Date.now() - (startTime || 0);
-    const status = typeof set.status === 'number' ? set.status : 500;
+    const status = typeof set.status === 'number' ? set.status : (typeof set.status === 'string' ? parseInt(set.status) : 500);
     const errorMsg = error instanceof Error ? error.message : String(error);
     
     // 跳过健康检查和静态资源
