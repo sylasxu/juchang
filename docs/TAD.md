@@ -1,7 +1,7 @@
-# 聚场 (JuChang) 技术架构文档 - Lean MVP
+# 聚场 (JuChang) 技术架构文档
 
-> **版本**：v3.0 (纯工具版)
-> **更新日期**：2024-12
+> **版本**：v3.2 (Chat-First + Generative UI)
+> **更新日期**：2025-01
 > **架构**：原生小程序 + Zustand Vanilla + Elysia API + Drizzle ORM
 
 ---
@@ -11,7 +11,8 @@
 1. **Database First**：`@juchang/db` (Drizzle ORM) 是绝对数据源，TypeBox Schema 从 Drizzle 自动派生
 2. **原生极致性能**：小程序端使用微信开发者工具直接构建原生 WXML/LESS/TS，零运行时开销
 3. **Spec-Coding 契约驱动**：Elysia TypeBox 定义路由契约，Orval 自动生成客户端 SDK
-4. **最小 MVP**：只保留核心功能，砍掉所有非必要复杂度
+4. **Chat-First**：首页即对话，所有功能封装在 Widget 气泡中
+5. **Generative UI**：AI 根据意图动态生成最合适的 Widget 类型（创建 vs 探索）
 
 ---
 
@@ -36,25 +37,36 @@
 /root
 ├── apps/
 │   ├── miniprogram/          # 微信原生小程序
-│   │   ├── pages/            # 主包页面 (3 Tab)
-│   │   │   ├── home/         # 首页 (地图 + AI)
+│   │   ├── pages/            # 主包页面 (去 Tabbar 化)
+│   │   │   ├── home/         # 首页 (Chat-First)
+│   │   │   ├── profile/      # 个人中心
 │   │   │   ├── message/      # 消息中心
-│   │   │   ├── my/           # 个人中心
-│   │   │   │   ├── info-edit/    # 资料编辑
-│   │   │   │   ├── activities/   # 我的活动
-│   │   │   │   ├── settings/     # 设置
-│   │   │   │   └── about/        # 关于我们
-│   │   │   └── chat/         # 群聊页
+│   │   │   └── chat/         # 活动群聊 (Lite_Chat)
 │   │   ├── subpackages/      # 分包
 │   │   │   ├── activity/     # 活动相关
 │   │   │   │   ├── detail/   # 活动详情
-│   │   │   │   ├── create/   # 手动创建
-│   │   │   │   ├── confirm/  # AI 确认
-│   │   │   │   └── not-found/# 404 页面
+│   │   │   │   ├── confirm/  # 活动确认页
+│   │   │   │   ├── list/     # 活动列表页
+│   │   │   │   ├── map-picker/  # 地图选点页
+│   │   │   │   └── explore/  # 沉浸式地图页 (Generative UI)
 │   │   │   └── legal/        # 法律文档
 │   │   │       ├── user-agreement/
 │   │   │       └── privacy-policy/
 │   │   ├── components/       # 公共组件
+│   │   │   ├── custom-navbar/    # 自定义导航栏
+│   │   │   ├── ai-dock/          # 超级输入坞
+│   │   │   ├── chat-stream/      # 对话流容器
+│   │   │   ├── widget-dashboard/ # 进场欢迎卡片
+│   │   │   ├── widget-draft/     # 意图解析卡片
+│   │   │   ├── widget-share/     # 创建成功卡片
+│   │   │   ├── widget-explore/   # 探索卡片 (Generative UI)
+│   │   │   ├── message-bubble/   # 消息气泡
+│   │   │   ├── activity-mini-card/  # 活动迷你卡片
+│   │   │   ├── activity-list-item/  # 活动列表项
+│   │   │   ├── dropmenu/         # 下拉菜单
+│   │   │   ├── phone-auth-modal/ # 手机号绑定弹窗
+│   │   │   ├── filter-bar/       # 筛选栏
+│   │   │   └── profile-modal/    # 资料编辑弹窗
 │   │   ├── src/
 │   │   │   ├── stores/       # Zustand Vanilla
 │   │   │   ├── api/          # Orval 生成的 SDK
@@ -71,16 +83,17 @@
 │       └── src/
 │           ├── index.ts      # 应用入口
 │           ├── setup.ts      # 全局插件
-│           └── modules/      # 功能模块 (5个)
+│           └── modules/      # 功能模块 (6个)
 │               ├── auth/
 │               ├── users/
 │               ├── activities/
+│               ├── home/     # 新增：首页对话流
 │               ├── chat/
 │               └── ai/
 │
 ├── packages/
 │   ├── db/                   # Drizzle ORM
-│   │   └── src/schema/       # 5 张核心表
+│   │   └── src/schema/       # 6 张核心表
 │   ├── utils/                # 通用工具
 │   └── ts-config/            # TypeScript 配置
 │
@@ -89,7 +102,7 @@
 
 ---
 
-## 4. 数据库 Schema (MVP 5 表)
+## 4. 数据库 Schema (v3.2 - 6 表)
 
 ### 4.1 表结构概览
 
@@ -98,156 +111,89 @@
 | `users` | 用户表 | wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday |
 | `activities` | 活动表 | title, location, locationHint, startAt, type, status |
 | `participants` | 参与者表 | activityId, userId, status (joined/quit) |
-| `chat_messages` | 群聊消息表 | activityId, senderId, type, content |
+| `home_messages` | **新增：首页 AI 对话流** | userId, role, type, content |
+| `group_messages` | 活动群聊消息表 | activityId, senderId, type, content |
 | `notifications` | 通知表 | userId, type, title, isRead |
 
-### 4.2 users 表
+### 4.2 home_messages 表 (Chat-First 核心)
 
 ```typescript
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  
-  // 核心认证
-  wxOpenId: varchar("wx_openid", { length: 128 }).notNull().unique(),
-  phoneNumber: varchar("phone_number", { length: 20 }), // 延迟绑定
-  
-  // 基础资料
-  nickname: varchar("nickname", { length: 50 }),
-  avatarUrl: varchar("avatar_url", { length: 500 }),
-  
-  // AI 额度
-  aiCreateQuotaToday: integer("ai_create_quota_today").default(3).notNull(),
-  aiQuotaResetAt: timestamp("ai_quota_reset_at"),
-  
-  // 统计
-  activitiesCreatedCount: integer("activities_created_count").default(0).notNull(),
-  participationCount: integer("participation_count").default(0).notNull(),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+// packages/db/src/schema/home_messages.ts
+export const homeMessageRoleEnum = pgEnum('home_message_role', ['user', 'ai']);
+
+// v3.2 消息类型枚举 (新增 widget_explore)
+export const homeMessageTypeEnum = pgEnum('home_message_type', [
+  'text',              // 普通文本
+  'widget_dashboard',  // 进场欢迎卡片
+  'widget_draft',      // 意图解析卡片
+  'widget_share',      // 创建成功卡片
+  'widget_explore',    // 探索卡片 (Generative UI)
+  'widget_error'       // 错误提示卡片
+]);
+
+export const homeMessages = pgTable('home_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  role: homeMessageRoleEnum('role').notNull(),
+  type: homeMessageTypeEnum('type').notNull(),
+  content: jsonb('content').notNull(),
+  activityId: uuid('activity_id').references(() => activities.id),
+  createdAt: timestamp('created_at').defaultNow().notNull()
 });
 ```
 
-### 4.3 activities 表
+### 4.3 活动状态枚举 (v3.2)
 
 ```typescript
+export const activityStatusEnum = pgEnum('activity_status', [
+  'draft',      // AI 生成了，用户还没点确认
+  'active',     // 用户确认了，正式发布
+  'completed',  // 成局
+  'cancelled'   // 取消
+]);
+```
+
+### 4.4 其他表结构
+
+```typescript
+// users 表
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  wxOpenId: varchar("wx_openid", { length: 128 }).notNull().unique(),
+  phoneNumber: varchar("phone_number", { length: 20 }),
+  nickname: varchar("nickname", { length: 50 }),
+  avatarUrl: varchar("avatar_url", { length: 500 }),
+  aiCreateQuotaToday: integer("ai_create_quota_today").default(3).notNull(),
+  aiQuotaResetAt: timestamp("ai_quota_reset_at"),
+  activitiesCreatedCount: integer("activities_created_count").default(0).notNull(),
+  participationCount: integer("participation_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// activities 表
 export const activities = pgTable("activities", {
   id: uuid("id").primaryKey().defaultRandom(),
   creatorId: uuid("creator_id").notNull().references(() => users.id),
-
-  // 基础信息
   title: varchar("title", { length: 100 }).notNull(),
   description: text("description"),
-  
-  // 位置 (保留 PostGIS)
   location: geometry("location", { type: "point", mode: "xy", srid: 4326 }).notNull(),
   locationName: varchar("location_name", { length: 100 }).notNull(),
   address: varchar("address", { length: 255 }),
-  locationHint: varchar("location_hint", { length: 100 }).notNull(), // 重庆地形必填
-  
-  // 时间
+  locationHint: varchar("location_hint", { length: 100 }).notNull(),
   startAt: timestamp("start_at").notNull(),
-
-  // 活动属性
   type: activityTypeEnum("type").notNull(),
   maxParticipants: integer("max_participants").default(4).notNull(),
   currentParticipants: integer("current_participants").default(1).notNull(),
-  
-  // 状态 (MVP 简化)
-  status: activityStatusEnum("status").default("active").notNull(),
-  
-  // 群聊归档状态：动态计算 isArchived = now > (startAt + 24h)
-  // 不存储字段，API 层返回时计算
-
+  status: activityStatusEnum("status").default("draft").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
-```
-
-### 4.4 participants 表
-
-```typescript
-export const participants = pgTable("participants", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  
-  activityId: uuid("activity_id").notNull().references(() => activities.id),
-  userId: uuid("user_id").notNull().references(() => users.id),
-  
-  status: participantStatusEnum("status").default("joined").notNull(),
-  
-  joinedAt: timestamp("joined_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-```
-
-### 4.5 chat_messages 表
-
-```typescript
-export const chatMessages = pgTable("chat_messages", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  
-  activityId: uuid("activity_id").notNull().references(() => activities.id),
-  senderId: uuid("sender_id").references(() => users.id), // 可为空：系统消息
-  
-  type: messageTypeEnum("type").default("text").notNull(),
-  content: text("content").notNull(),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-```
-
-### 4.6 notifications 表
-
-```typescript
-export const notifications = pgTable("notifications", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  
-  userId: uuid("user_id").notNull().references(() => users.id),
-  
-  type: notificationTypeEnum("type").notNull(),
-  title: varchar("title", { length: 100 }).notNull(),
-  content: text("content"),
-  
-  activityId: uuid("activity_id").references(() => activities.id),
-  
-  isRead: boolean("is_read").default(false).notNull(),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-```
-
-### 4.7 枚举定义
-
-```typescript
-// 活动类型
-export const activityTypeEnum = pgEnum("activity_type", [
-  "food", "entertainment", "sports", "boardgame", "other"
-]);
-
-// 活动状态 (MVP 简化)
-export const activityStatusEnum = pgEnum("activity_status", [
-  "active", "completed", "cancelled"
-]);
-
-// 参与者状态 (MVP 简化)
-export const participantStatusEnum = pgEnum("participant_status", [
-  "joined", "quit"
-]);
-
-// 消息类型 (MVP 简化)
-export const messageTypeEnum = pgEnum("message_type", [
-  "text", "system"
-]);
-
-// 通知类型
-export const notificationTypeEnum = pgEnum("notification_type", [
-  "join", "quit", "activity_start", "completed", "cancelled"
-]);
 ```
 
 ---
 
-## 5. API 模块设计 (MVP 5 模块)
+## 5. API 模块设计 (v3.2 - 6 模块)
 
 ### 5.1 模块划分
 
@@ -255,87 +201,93 @@ export const notificationTypeEnum = pgEnum("notification_type", [
 |------|---------|------|
 | `auth` | `/auth` | 微信登录、手机号绑定 |
 | `users` | `/users` | 用户资料管理 |
-| `activities` | `/activities` | 活动 CRUD、报名退出 |
-| `chat` | `/chat` | 群聊消息 |
-| `ai` | `/ai` | AI 解析 (SSE) |
+| `activities` | `/activities` | 活动 CRUD、报名退出、**附近搜索** |
+| `home` | `/home` | **新增：首页对话流** |
+| `chat` | `/chat` | 活动群聊消息 |
+| `ai` | `/ai` | AI 解析 (SSE)，**意图分类** |
 
-### 5.2 Auth 模块
+### 5.2 API 接口
 
 ```typescript
-// POST /auth/login - 微信静默登录
-Request: { code: string }
-Response: { token: string, user: UserBasic, isNewUser: boolean }
+// Auth
+POST /auth/login          // 微信静默登录
+POST /auth/bindPhone      // 绑定手机号
 
-// POST /auth/bindPhone - 绑定手机号
-Request: { code: string }
-Response: { success: boolean, phoneNumber: string }
+// Users
+GET  /users/me            // 获取当前用户
+PATCH /users/me           // 更新资料
+GET  /users/me/quota      // 获取今日额度
+
+// Home (首页对话流)
+GET  /home/messages       // 获取对话历史 (分页)
+POST /home/messages       // 添加用户消息
+DELETE /home/messages     // 清空对话历史 (新对话)
+
+// Activities
+POST /activities          // 创建活动 (从 draft 变 active)
+GET  /activities/:id      // 获取活动详情
+GET  /activities/mine     // 获取我相关的活动
+GET  /activities/nearby   // 获取附近活动 (Generative UI)
+PATCH /activities/:id/status  // 更新活动状态
+DELETE /activities/:id    // 删除活动
+POST /activities/:id/join // 报名活动
+POST /activities/:id/quit // 退出活动
+
+// Chat (活动群聊)
+GET  /chat/:activityId/messages  // 获取消息列表
+POST /chat/:activityId/messages  // 发送消息
+
+// AI
+POST /ai/parse            // AI 解析 (SSE 流式响应)
 ```
 
-### 5.3 Users 模块
+### 5.3 AI 解析 - 意图分类 (v3.2)
 
 ```typescript
-// GET /users/me - 获取当前用户
-Response: UserProfile
+// POST /ai/parse 的响应类型
+type AIParseResponse = 
+  | { intent: 'create'; widget: 'widget_draft'; data: ActivityDraft & { activityId: string } }
+  | { intent: 'explore'; widget: 'widget_explore'; data: ExploreResponse }
+  | { intent: 'unknown'; widget: 'text'; data: { message: string } };
 
-// PATCH /users/me - 更新资料
-Request: { nickname?: string, avatarUrl?: string }
-Response: UserProfile
+interface ExploreResponse {
+  center: { lat: number; lng: number; name: string };
+  results: ExploreResult[];
+  title: string;
+}
 
-// GET /users/me/quota - 获取今日额度
-Response: { aiCreateQuota: number, resetAt: string }
+interface ExploreResult {
+  id: string;
+  title: string;
+  type: ActivityType;
+  lat: number;
+  lng: number;
+  locationName: string;
+  distance: number;
+  startAt: string;
+  currentParticipants: number;
+  maxParticipants: number;
+}
 ```
 
-### 5.4 Activities 模块
+### 5.4 SSE 事件 (v3.2)
 
 ```typescript
-// POST /activities - 创建活动
-Request: CreateActivityInput
-Response: Activity
-
-// GET /activities/:id - 获取详情
-Response: ActivityDetail (含 isArchived 计算字段)
-
-// GET /activities/mine - 我的活动
-Query: { type?: 'created' | 'joined' }
-Response: Activity[]
-
-// PATCH /activities/:id/status - 更新状态
-Request: { status: 'completed' | 'cancelled' }
-Response: Activity
-
-// DELETE /activities/:id - 删除活动
-Response: { success: boolean }
-
-// POST /activities/:id/join - 报名
-Response: Participant
-
-// POST /activities/:id/quit - 退出
-Response: { success: boolean }
-```
-
-### 5.5 Chat 模块
-
-```typescript
-// GET /chat/:activityId/messages - 获取消息 (轮询)
-Query: { since?: string, limit?: number }
-Response: ChatMessage[]
-
-// POST /chat/:activityId/messages - 发送消息
-Request: { content: string }
-Response: ChatMessage
-```
-
-### 5.6 AI 模块
-
-```typescript
-// POST /ai/parse - AI 解析 (SSE 流式响应)
-Request: { text: string, location?: { lat: number, lng: number } }
-Response (SSE Events):
-  - { event: "thinking", data: { message: string } }
-  - { event: "location", data: { name: string, lat: number, lng: number } }
-  - { event: "draft", data: ActivityDraft }
-  - { event: "error", data: { message: string } }
-  - { event: "done" }
+type SSEEvent = 
+  // 通用
+  | { type: 'thinking'; data: { message: string } }
+  
+  // 创建场景
+  | { type: 'location'; data: { name: string; lat: number; lng: number } }
+  | { type: 'draft'; data: ActivityDraft & { activityId: string } }
+  
+  // 探索场景 (v3.2 新增)
+  | { type: 'searching'; data: { message: string; center: { lat: number; lng: number; name: string } } }
+  | { type: 'explore'; data: ExploreResponse }
+  
+  // 通用
+  | { type: 'error'; data: { message: string } }
+  | { type: 'done' };
 ```
 
 ---
@@ -345,59 +297,96 @@ Response (SSE Events):
 ### 6.1 Zustand Vanilla Store
 
 ```typescript
-// stores/copilot.ts - AI 副驾状态
-import { createStore } from 'zustand/vanilla';
+// stores/home.ts - 首页对话状态
+import { create } from 'zustand'
+import { immer } from 'zustand/middleware/immer'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
-interface CopilotState {
-  status: 'idle' | 'thinking' | 'locating' | 'done' | 'error';
-  thinkingText: string;
-  draft: ActivityDraft | null;
-  targetLocation: { lat: number; lng: number } | null;
+interface HomeMessage {
+  id: string;
+  role: 'user' | 'ai';
+  type: 'text' | 'widget_dashboard' | 'widget_draft' | 'widget_share' | 'widget_explore' | 'widget_error';
+  content: any;
+  activityId?: string;
+  createdAt: string;
 }
 
-export const copilotStore = createStore<CopilotState & CopilotActions>((set) => ({
-  status: 'idle',
-  thinkingText: '',
-  draft: null,
-  targetLocation: null,
-  
-  setStatus: (status) => set({ status }),
-  setThinkingText: (text) => set({ thinkingText: text }),
-  setDraft: (draft) => set({ draft }),
-  setTargetLocation: (location) => set({ targetLocation: location }),
-  reset: () => set({ status: 'idle', thinkingText: '', draft: null, targetLocation: null }),
-}));
+interface HomeState {
+  messages: HomeMessage[];
+  isLoading: boolean;
+  hasMore: boolean;
+  cursor: string | null;
+}
+
+// 微信小程序存储适配器
+const wechatStorage = {
+  getItem: (name: string) => wx.getStorageSync(name) || null,
+  setItem: (name: string, value: string) => wx.setStorageSync(name, value),
+  removeItem: (name: string) => wx.removeStorageSync(name),
+}
+
+export const useHomeStore = create<HomeState & HomeActions>()(
+  persist(
+    immer((set, get) => ({
+      messages: [],
+      isLoading: false,
+      hasMore: true,
+      cursor: null,
+      // ... actions
+    })),
+    {
+      name: 'home-store',
+      storage: createJSONStorage(() => wechatStorage),
+      partialize: (state) => ({
+        messages: state.messages.slice(-50),
+      }),
+    }
+  )
+)
 ```
 
 ### 6.2 页面绑定模式
 
 ```typescript
 // pages/home/index.ts
-import { copilotStore } from '../../src/stores/copilot';
+import { useHomeStore } from '../../stores/home'
 
 Page({
   data: {
-    copilotStatus: 'idle',
-    aiReply: '',
+    messages: [] as any[],
+    isLoading: false,
   },
-
-  unsubCopilot: null as (() => void) | null,
-
+  
+  unsub: null as null | (() => void),
+  
   onLoad() {
-    // 订阅 Store 变化
-    this.unsubCopilot = copilotStore.subscribe((state) => {
+    const store = useHomeStore
+    
+    // 1. 初始化数据
+    const state = store.getState()
+    this.setData({
+      messages: state.messages,
+      isLoading: state.isLoading,
+    })
+    
+    // 2. 订阅 Store 变化
+    this.unsub = store.subscribe((state) => {
       this.setData({
-        copilotStatus: state.status,
-        aiReply: state.thinkingText,
-      });
-    });
+        messages: state.messages,
+        isLoading: state.isLoading,
+      })
+    })
+    
+    // 3. 加载消息
+    store.getState().loadMessages()
   },
-
+  
   onUnload() {
-    // 取消订阅，防止内存泄漏
-    this.unsubCopilot?.();
+    if (this.unsub) {
+      this.unsub()
+    }
   },
-});
+})
 ```
 
 ### 6.3 群聊轮询策略
@@ -408,14 +397,11 @@ Page({
   timer: null as number | null,
 
   onShow() {
-    // 立即请求一次
     this.fetchMessages();
-    // 启动轮询 (5-10秒)
     this.timer = setInterval(() => this.fetchMessages(), 5000);
   },
 
   onHide() {
-    // 停止轮询
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
@@ -423,7 +409,6 @@ Page({
   },
 
   onUnload() {
-    // 清理
     if (this.timer) {
       clearInterval(this.timer);
     }
@@ -438,7 +423,9 @@ Page({
 Component({
   properties: {
     title: { type: String, value: '' },
-    showBack: { type: Boolean, value: true }
+    showBack: { type: Boolean, value: true },
+    showMenu: { type: Boolean, value: false },
+    showMore: { type: Boolean, value: false }
   },
   data: {
     statusBarHeight: 0,
@@ -448,9 +435,7 @@ Component({
     attached() {
       const { statusBarHeight } = wx.getSystemInfoSync();
       const menuButton = wx.getMenuButtonBoundingClientRect();
-      // 公式: (胶囊Top - 状态栏Height) * 2 + 胶囊Height
       const navBarHeight = (menuButton.top - statusBarHeight) * 2 + menuButton.height;
-      
       this.setData({ statusBarHeight, navBarHeight });
     }
   },
@@ -460,8 +445,7 @@ Component({
       if (pages.length > 1) {
         wx.navigateBack();
       } else {
-        // 单页进入，跳转首页
-        wx.switchTab({ url: '/pages/home/index' });
+        wx.reLaunch({ url: '/pages/home/index' });
       }
     }
   }
@@ -470,9 +454,88 @@ Component({
 
 ---
 
-## 7. Admin 后台架构
+## 7. Generative UI 实现要点
 
-### 7.1 Eden Treaty 客户端
+### 7.1 Static Preview + Immersive Expansion
+
+**问题**：`<map>` 是原生组件，层级最高，与 `<scroll-view>` 存在手势冲突
+
+**解决方案**：
+- Widget_Explore 在 Chat_Stream 中使用静态地图图片
+- 点击后展开为全屏可交互地图
+- 使用 `page-container` 或自定义动画实现"卡片放大"效果
+
+### 7.2 意图分类的 Prompt Engineering
+
+```
+明确创建意图：包含时间 + 地点 + 活动类型
+  → 返回 Widget_Draft
+
+模糊探索意图：包含"附近"、"推荐"、"有什么好玩的"
+  → 返回 Widget_Explore
+
+无法识别：
+  → 返回文本消息引导
+```
+
+### 7.3 流式渲染的分阶段策略
+
+**探索场景渲染顺序**：
+1. `thinking` → 显示 "正在理解你的需求..."
+2. `searching` → 显示 "正在搜索观音桥附近的活动..."
+3. `explore` → 逐步渲染 Widget_Explore：
+   - 先显示 Header
+   - 再显示静态地图预览
+   - 最后显示活动列表
+4. `done` → 显示 Action 按钮
+
+### 7.4 地图 Markers 性能优化
+
+- 限制同时显示的 Markers 数量（≤ 20 个）
+- 使用聚合算法合并密集的 Markers
+- 地图拖拽时使用防抖加载新数据
+
+### 7.5 分享卡片落地页逻辑
+
+**场景**：用户从分享卡片进入活动详情页，没有对话历史。
+
+**实现要点**：
+- 分享卡片进入时，页面栈长度为 1
+- 点击返回时，调用 `wx.reLaunch('/pages/home/index')` 跳转首页
+- 首页 Chat_Stream 为空，显示 Widget_Dashboard
+- **MVP**：使用默认问候语即可
+- **优化（可选）**：通过 URL 参数 `?from=share&activityId=xxx` 识别来源，显示定制问候语："看完活动了？要不你也来组一个？"
+
+### 7.6 草稿过期处理
+
+**场景**：用户翻到上周生成的 Widget_Draft，点击"确认发布"。
+
+**后端校验**：
+```typescript
+// POST /activities 发布活动时
+if (activity.status === 'draft' && activity.startAt < new Date()) {
+  throw new Error('活动时间已过期，请重新创建');
+}
+```
+
+**前端渲染**：
+- Widget_Draft 根据 `startAt` 动态计算是否过期
+- 过期状态：灰色卡片 + 禁用按钮 + 显示"已过期"标签
+- 过期的 Widget_Draft 不可点击"确认发布"
+
+**状态判断逻辑**：
+```typescript
+// 前端判断草稿是否过期
+const isExpired = (draft: ActivityDraft) => {
+  return new Date(draft.startAt) < new Date();
+};
+```
+
+---
+
+## 8. Admin 后台架构
+
+### 8.1 Eden Treaty 客户端
 
 ```typescript
 // lib/eden.ts
@@ -482,7 +545,7 @@ import type { App } from '@juchang/api';
 export const api = treaty<App>(import.meta.env.VITE_API_URL);
 ```
 
-### 7.2 React Query Hooks
+### 8.2 React Query Hooks
 
 ```typescript
 // features/users/hooks/use-users.ts
@@ -503,9 +566,9 @@ export function useUsers(params = {}) {
 
 ---
 
-## 8. TypeBox Schema 派生规则
+## 9. TypeBox Schema 派生规则
 
-### 8.1 核心原则
+### 9.1 核心原则
 
 **禁止手动定义 TypeBox Schema，必须从 `@juchang/db` 派生**
 
@@ -521,7 +584,7 @@ import { selectUserSchema } from '@juchang/db';
 const userResponseSchema = t.Pick(selectUserSchema, ['id', 'nickname']);
 ```
 
-### 8.2 派生方式
+### 9.2 派生方式
 
 ```typescript
 // 直接使用
@@ -543,19 +606,9 @@ const userWithStatsSchema = t.Intersect([
 const userListSchema = t.Array(selectUserSchema);
 ```
 
-### 8.3 例外：纯瞬态参数
-
-```typescript
-// ✅ 允许：查询参数、分页参数
-const paginationSchema = t.Object({
-  page: t.Optional(t.Number({ minimum: 1, default: 1 })),
-  limit: t.Optional(t.Number({ minimum: 1, maximum: 50, default: 20 })),
-});
-```
-
 ---
 
-## 9. 开发命令
+## 10. 开发命令
 
 ```bash
 # 安装依赖
@@ -580,21 +633,6 @@ bun run gen:api         # 生成 Orval SDK
 
 ---
 
-## 10. MVP 与平台版对比
-
-| 维度 | 平台版 | MVP |
-|------|--------|-----|
-| 数据库表 | 11 张 | 5 张 |
-| API 模块 | 8 个 | 5 个 |
-| 付费功能 | Boost/Pin+ | 无 |
-| 搜索功能 | 附近搜索 | 只显示"我相关的" |
-| 幽灵锚点 | 有 | 无 |
-| 靠谱度 | 复杂计算 | 无 |
-| 群聊归档 | chatStatus 字段 | isArchived 动态计算 |
-| 用户字段 | 复杂（会员、额度等） | 精简 |
-
----
-
 ## 11. 正确性属性 (Correctness Properties)
 
 ### 11.1 数据一致性
@@ -610,15 +648,153 @@ bun run gen:api         # 生成 Orval SDK
 - **CP-6**: 只有 `active` 且未开始的活动可以删除
 - **CP-7**: `isArchived` = `now > startAt + 24h` (动态计算)
 - **CP-8**: `locationHint` 不能为空
+- **CP-19**: `draft` 状态的活动，`startAt` 已过期时不允许发布 (返回 400 错误)
 
 ### 11.3 认证规则
 
 - **CP-9**: 未绑定手机号的用户不能发布/报名活动
 - **CP-10**: 用户不能报名自己创建的活动
-- **CP-11**: 未登录用户可以浏览地图、查看详情
+- **CP-11**: 未登录用户可以浏览对话、查看详情、探索附近
 
 ### 11.4 前端状态
 
 - **CP-12**: 页面栈长度为 1 时，返回按钮跳转首页
 - **CP-13**: 群聊页面 onHide 停止轮询，onShow 恢复轮询
-- **CP-14**: 未读消息 > 0 时，消息 Tab 显示角标
+- **CP-14**: 未读消息 > 0 时，消息中心显示角标
+
+### 11.5 Generative UI (v3.2 新增)
+
+- **CP-15**: AI 意图分类一致性 - 明确创建信息返回 Widget_Draft，探索性问题返回 Widget_Explore
+- **CP-16**: Widget_Explore 在 Chat_Stream 中必须使用静态地图图片
+- **CP-17**: 沉浸式地图页拖拽后必须自动加载新区域活动
+- **CP-18**: 沉浸式地图页关闭时使用收缩动画
+
+---
+
+## 12. 视觉设计系统：Soft Tech
+
+### 12.1 CSS Variables
+
+```less
+/* app.less - 语义化变量，自动适配深色模式 */
+page {
+  /* 主色 (Brand) - 矢车菊蓝 */
+  --color-primary: #5B75FB;
+  --color-primary-light: #708DFD;
+  
+  /* 辅助色 (同色系淡色) */
+  --color-blue-light: #93C5FD;
+  --color-purple-light: #C4B5FD;
+  --color-mint-light: #6EE7B7;
+  
+  /* 语义化背景色 */
+  --bg-page: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --bg-gradient-top: #E6EFFF;
+  
+  /* 语义化文字色 */
+  --text-main: #1F2937;
+  --text-sub: #6B7280;
+  
+  /* 卡片样式 */
+  --shadow-card: 0 8rpx 24rpx rgba(91, 117, 251, 0.06);
+  --radius-lg: 32rpx;
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+  page {
+    --color-primary: #6380FF;
+    --bg-page: #0F172A;
+    --bg-card: #1E293B;
+    --bg-gradient-top: #1E1B4B;
+    --text-main: #F1F5F9;
+    --text-sub: #94A3B8;
+    --border-card: 1px solid rgba(255, 255, 255, 0.1);
+    --shadow-card: none;
+  }
+}
+```
+
+### 12.2 卡片样式
+
+```less
+.soft-card {
+  background: var(--bg-card);
+  color: var(--text-main);
+  border: var(--border-card);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+}
+```
+
+---
+
+---
+
+## 13. Future Roadmap (Phase 2)
+
+### 13.1 AI 海报生成 API
+
+> **Phase 2: 视觉增长引擎** - 当需要破圈传播时上线
+
+**API 端点**：`POST /share/poster`
+
+**调用方**：小程序、Admin 后台
+
+**架构设计**：
+```
+客户端点击"生成海报" 
+  → POST /share/poster { activityId }
+  → Elysia API 组装数据 
+  → (可选) AI 生成背景图 (Flux/SDXL)
+  → Puppeteer 渲染 HTML 模板 
+  → 截图上传 CDN 
+  → 返回 { posterUrl }
+```
+
+**技术栈**：
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| API 层 | Elysia `/share/poster` | 统一入口，供小程序和 Admin 调用 |
+| 渲染层 | Puppeteer + HTML | CSS 就是画笔，Halo Card 样式 100% 复用 |
+| 内容层 | Flux/SDXL API | AI 生成独一无二的活动背景图 |
+| 组装层 | Puppeteer Composition | 二维码 + AI 图 + 文字信息拼接 |
+| 存储层 | CDN (OSS/S3) | 海报图片持久化存储 |
+
+**API 设计**：
+```typescript
+// POST /share/poster
+// Request
+{ activityId: string; style?: 'default' | 'cyberpunk' | 'minimal' }
+
+// Response
+{ 
+  posterUrl: string;      // CDN 链接
+  cached: boolean;        // 是否命中缓存
+  generatedAt: string;    // 生成时间
+}
+```
+
+**核心优势**：
+- **CSS 复用**：Halo Card 样式代码 100% 复用，无需重写 Canvas 绘图逻辑
+- **高级效果**：支持 `backdrop-filter`、`mask-image` 等小程序 Canvas 无法实现的效果
+- **AI 增强**：每次生成独特背景图，刺激用户反复创建活动
+
+**缓存策略**：
+- 同一活动只生成一次，后续直接返回 CDN 链接
+- 活动信息更新后自动失效缓存
+
+---
+
+## 附录：v3.2 vs v3.0 对比
+
+| 维度 | v3.0 | v3.2 |
+|------|------|------|
+| 数据库表 | 5 张 | 6 张 (+home_messages) |
+| API 模块 | 5 个 | 6 个 (+home) |
+| Widget 类型 | 4 种 | 5 种 (+widget_explore) |
+| 意图分类 | 单一创建 | 创建 + 探索 双轨 |
+| 地图交互 | 无 | 沉浸式地图页 |
+| SSE 事件 | 4 种 | 6 种 (+searching, explore) |
+| 页面数量 | 10 页 | 11 页 (+explore) |

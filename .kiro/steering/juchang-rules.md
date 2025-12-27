@@ -32,28 +32,25 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
    - 更新 API 层
    - 更新前端
 
-**原因**：
-- Schema 是系统的基石，随意修改会导致数据不一致
-- 逆向修改破坏了架构的可追溯性
-- 一气呵成的正向流程确保所有层级同步
-
 ---
 
 # 🏗️ Monorepo Structure & Responsibilities
 
-## 1. @juchang/db (The Single Source of Truth - MVP)
+## 1. @juchang/db (The Single Source of Truth - v3.2)
 - **Tech**: Drizzle ORM (PostgreSQL + PostGIS) + `drizzle-typebox`.
 - **Path**: `packages/db/src/schema/*.ts`
-- **Architecture**: **5 张核心表** (MVP 精简版)
+- **Architecture**: **6 张核心表** (v3.2 Chat-First + Generative UI)
   - `users` (用户表：认证 + AI 额度 + 统计)
   - `activities` (活动表：基础信息 + 位置 + 状态)
   - `participants` (参与者表：报名/退出)
-  - `chat_messages` (群聊消息表)
+  - `home_messages` (**新增：首页 AI 对话流**)
+  - `group_messages` (活动群聊消息表，原 chat_messages)
   - `notifications` (通知表)
 - **MVP 核心特性**:
   - **重庆地形适配**: `locationHint` 字段必填
   - **AI 额度**: `aiCreateQuotaToday` (3次/天)
   - **群聊归档**: `isArchived` 在 API 层动态计算 (now > startAt + 24h)
+  - **Chat-First**: home_messages 存储用户与 AI 的对话历史
 - **Schema 编写规范**:
   ```typescript
   // 1. 定义表
@@ -65,112 +62,59 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   export type User = typeof users.$inferSelect;
   export type NewUser = typeof users.$inferInsert;
   ```
-- **Mandate**:
-  - Define tables using snake_case columns.
-  - **IMMEDIATELY export TypeBox Schemas** using `createInsertSchema` and `createSelectSchema` from `drizzle-typebox`.
 
-## 2. apps/api (The Business Logic Gateway - MVP 5-Module Design)
+## 2. apps/api (The Business Logic Gateway - v3.2 6-Module Design)
 - **Tech**: ElysiaJS + `@elysiajs/openapi` + TypeBox (t).
 - **Path**: `apps/api/src/modules/*`
-- **Architecture**: **5 个核心模块**
+- **Architecture**: **6 个核心模块**
   | 模块 | 职责 | 核心端点 |
   |------|------|----------|
   | `auth` | 认证授权 | `/auth/login`, `/auth/bindPhone` |
   | `users` | 用户管理 | `/users/me`, `/users/me/quota` |
-  | `activities` | 活动管理 | `/activities`, `/activities/:id/join` |
+  | `activities` | 活动管理 | `/activities`, `/activities/:id/join`, `/activities/nearby` |
+  | `home` | **首页对话流** | `/home/messages` |
   | `chat` | 群聊消息 | `/chat/:activityId/messages` |
-  | `ai` | AI 解析 (SSE) | `/ai/parse` |
+  | `ai` | AI 解析 (SSE) + **意图分类** | `/ai/parse` |
 - **Structure**: Feature-based folder structure:
   - `*.controller.ts`: Elysia instance as controller
   - `*.service.ts`: Pure business logic functions (纯函数，无副作用)
   - `*.model.ts`: TypeBox schemas using `Static<typeof schema>`
-- **Spec-Coding 工作流**:
-  1. **Model**: 定义 TypeBox Schema（从 DB 派生）
-  2. **Service**: 实现纯函数业务逻辑
-  3. **Controller**: 创建 Elysia 实例，组装路由
-  4. **Register**: 在 `index.ts` 注册到主应用
 - **Mandate**:
   - **Type Exports**: ❌ **FORBIDDEN** `export namespace`, ✅ **REQUIRED** direct type exports
   - **Schema Derivation**: Derive from `@juchang/db` schemas, avoid manual re-typing
-  - **OpenAPI**: `@elysiajs/openapi` plugin outputs JSON at `/doc/json`
   - **Services**: 必须是纯函数，禁止使用 class
 
-## 3. apps/miniprogram (The WeChat Client)
+## 3. apps/miniprogram (The WeChat Client - v3.2 Chat-First)
 - **Tech**: Native WeChat MiniProgram + 微信开发者工具 + TypeScript + Zustand Vanilla + LESS.
 - **Build**: 通过微信开发者工具直接构建，**不使用 weapp-vite**。
-- **Navigation**: **3 Tab + AI 输入栏** 设计
-  - Tab 1: 首页 (Home) - 地图 + AI 输入栏综合页
-  - Tab 2: 消息 (Message) - 通知 + 群聊列表
-  - Tab 3: 我的 (My) - 个人中心
-  - AI 输入栏: 底部常驻悬浮栏 - 全能 CUI 入口
+- **Navigation**: **去 Tabbar 化 + AI Dock** 设计
+  - 首页 (Home) - Chat-First 对话流 + AI Dock
+  - 个人中心 (Profile) - 从 Navbar Menu 进入
+  - 消息中心 (Message) - 从 Navbar Dropmenu 进入
+  - **沉浸式地图页 (Explore)** - 从 Widget_Explore 展开
 - **Core Components**:
-  - `ai-input-bar/`: AI 输入栏组件（底部悬浮）
-  - `cui-panel/`: CUI 副驾面板（流式响应展示）
-  - `draft-card/`: 创建草稿卡片
-  - `activity-card/`: 活动卡片
-  - `filter-panel/`: 筛选面板
   - `custom-navbar/`: 自定义导航栏
-- **Zustand Vanilla 使用模式**:
-  ```typescript
-  // 1. 定义 Store (Vanilla 模式)
-  import { createStore } from 'zustand/vanilla'
-  export const copilotStore = createStore<State & Actions>((set, get) => ({
-    status: 'idle',
-    setStatus: (status) => set({ status }),
-  }));
-  
-  // 2. 页面绑定 (subscribe 模式)
-  Page({
-    onLoad() {
-      this.unsub = copilotStore.subscribe((state) => {
-        this.setData({ status: state.status });
-      });
-    },
-    onUnload() {
-      this.unsub?.();
-    },
-  });
-  ```
+  - `ai-dock/`: 超级输入坞（底部悬浮）
+  - `chat-stream/`: 对话流容器
+  - `widget-dashboard/`: 进场欢迎卡片
+  - `widget-draft/`: 意图解析卡片（创建场景）
+  - `widget-share/`: 创建成功卡片
+  - `widget-explore/`: **探索卡片（Generative UI）**
+  - `activity-mini-card/`: 活动迷你卡片
+  - `activity-list-item/`: 活动列表项
+  - `filter-bar/`: 筛选栏
 - **Mandate**:
   - **NO Manual Requests**: DO NOT use `wx.request` for business logic.
   - **Use SDK**: Import methods from `@/api/generated.ts` (Generated by Orval).
   - **Styling**: Use LESS.
-  - **Share**: Use native WeChat sharing (wx.onShareAppMessage), NOT Canvas poster.
+  - **Widget_Explore**: 必须使用静态地图图片，避免 map 组件与 scroll-view 手势冲突
 
 ## 4. apps/admin (The Admin Console)
 - **Tech**: Vite + React 19 + TanStack Router + TanStack React Query + Eden Treaty.
-- **Path**: `apps/admin/src/features/*`
-- **MVP Scope**: 用户管理、活动管理、仪表板
-- **Directory Structure**:
-  ```
-  src/features/{feature}/
-  ├── index.tsx
-  ├── data/
-  │   ├── schema.ts
-  │   └── {feature}.ts      # API 调用层
-  ├── hooks/
-  │   └── use-{feature}.ts  # React Query hooks
-  └── components/
-      ├── {feature}-table.tsx
-      └── {feature}-columns.tsx
-  ```
-- **Eden Treaty 使用**:
-  ```typescript
-  // lib/eden.ts
-  import { treaty } from '@elysiajs/eden';
-  import type { App } from '@juchang/api';
-  export const api = treaty<App>(API_BASE_URL);
-  
-  // 调用示例
-  const { data, error } = await api.users.get({ query: params });
-  ```
 - **Mandate**:
   - **Eden Treaty**: Use `import { api } from '@/lib/eden'` for type-safe API calls.
-  - **React Query**: Use `useQuery` and `useMutation` for data fetching.
   - **TypeBox Only**: Use TypeBox for all schemas, NOT Zod.
   - **NO Zod**: ❌ **FORBIDDEN** `import { z } from 'zod'` 或 `zodResolver`。
-  - **NO .parse()**: TypeBox 没有 `.parse()` 方法，使用类型断言 `as Type` 代替。
-  - **Form Validation**: 使用 `@hookform/resolvers/typebox` + TypeBox，不使用 Zod。
 
 ---
 
@@ -179,125 +123,55 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
 **When defining API Inputs/Outputs:**
 1.  **FORBIDDEN**: Creating a root-level `t.Object({ ... })` that mirrors a DB table.
 2.  **REQUIRED**: Derive from `@juchang/db` schemas.
-    - *Right (Select)*: `import { selectUserSchema } from '@juchang/db';`
-    - *Right (Partial)*: `t.Pick(selectUserSchema, ['id', 'nickname'])`
-    - *Right (Computed)*: `t.Intersect([selectUserSchema, t.Object({ distance: t.Number() })])`
-    - *Right (Omit)*: `t.Omit(selectUserSchema, ['phoneNumber', 'wxOpenId'])`
-    - *Right (Array)*: `t.Array(selectUserSchema)`
-
-**Exception**: purely transient parameters (e.g., `lat/lng` query params, `page`, `limit`) can be manually defined.
 
 ```typescript
 // ❌ 错误：手动定义
-const userResponseSchema = t.Object({
-  id: t.String(),
-  nickname: t.String(),
-});
+const userResponseSchema = t.Object({ id: t.String(), nickname: t.String() });
 
 // ✅ 正确：从 DB 派生
 import { selectUserSchema } from '@juchang/db';
 const userResponseSchema = t.Pick(selectUserSchema, ['id', 'nickname']);
-
-// ✅ 允许：纯瞬态参数
-const paginationSchema = t.Object({
-  page: t.Optional(t.Number({ minimum: 1, default: 1 })),
-  limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20 })),
-});
 ```
 
 ---
 
-# 📝 Coding Standards
+# 🗣️ 语气规范 (Tone of Voice)
 
-- **Naming**:
-  - Database: `snake_case` (e.g., `user_id`, `created_at`).
-  - TypeScript/JSON: `camelCase` (e.g., `userId`, `createdAt`).
-- **Error Handling**: Standard Format: `{ code: number, msg: string, data?: any }`.
-- **Package Manager**: Use **Bun** for all operations: `bun install`, `bun run dev`, etc.
-- **Service Functions**: 必须是纯函数，无副作用，禁止使用 class。
-  ```typescript
-  // ✅ 正确：纯函数
-  export async function getUserById(id: string): Promise<User | null> {
-    const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
-    return user || null;
-  }
-  
-  // ❌ 错误：类方法
-  export class UserService {
-    async getUserById(id: string) { ... }
-  }
-  ```
+> **不要让 UI 的高级感变成"距离感"**
+
+| ❌ 反例（太装逼） | ✅ 正例（接地气） |
+|------------------|------------------|
+| "已为您构建全息活动契约" | "帮你把局组好了！就在观音桥，离地铁口 200 米" |
+| "正在解析您的意图向量..." | "收到，正在帮你整理..." |
+| "解析失败，请检查输入格式。" | "抱歉，我没理解你的意思，试试换个说法？" |
+| "今日配额已耗尽。" | "今天的 AI 额度用完了，明天再来吧～" |
 
 ---
 
 # 🛠️ Development Commands
 
 ```bash
-# 安装依赖
-bun install
-
-# 启动基础设施
-cd docker && docker-compose up -d
-
-# 数据库操作
-bun run db:migrate      # 执行迁移
-bun run db:generate     # 生成迁移文件
-bun run db:seed         # 填充种子数据
-
-# 开发服务
-bun run dev             # 启动所有服务
-bun run dev:api         # 仅启动 API
-bun run dev:admin       # 仅启动 Admin
-
-# 代码生成
-bun run gen:api         # 生成 Orval SDK
+bun install              # 安装依赖
+bun run db:migrate       # 执行迁移
+bun run db:generate      # 生成迁移文件
+bun run dev              # 启动所有服务
+bun run gen:api          # 生成 Orval SDK
 ```
 
 ---
 
-# ⚠️ Important Notes
-
-- **TypeBox vs Zod**: We use TypeBox (t) from Elysia, NOT Zod (z). TypeBox is 50x faster.
-- **Elysia vs Hono**: We use ElysiaJS, NOT Hono. Elysia is optimized for Bun.
-- **Bun Runtime**: All scripts use `bun run`, not `npm` or `pnpm`.
-- **Function-Based Services**: Services are pure functions, not classes.
-- **Eden Treaty**: Admin uses Eden Treaty for type-safe API calls.
-- **Orval SDK**: MiniProgram uses Orval-generated SDK.
-- **Database Schema Immutable**: 数据库 Schema 是唯一真相源，**禁止修改 Schema 来适配代码**。如果代码与数据库不同步，使用 `bun run db:push` 更新数据库。
-
----
-
-# 📊 MVP Architecture Summary
-
-| 维度 | 设计 |
-|------|------|
-| **数据库** | 5 张核心表，PostgreSQL + PostGIS |
-| **API** | 5 个 Elysia 模块，TypeBox 契约 |
-| **小程序** | Native WeChat + Zustand Vanilla |
-| **Admin** | Vite + React + Eden Treaty |
-| **AI** | 创建解析 (3次/天)，SSE 流式响应 |
-| **本地化** | 重庆 3D 地形 + locationHint 必填 |
-
----
-
-# 📋 MVP 数据库 Schema 速查
+# 📋 MVP 数据库 Schema 速查 (v3.2)
 
 ## 枚举定义
 ```typescript
-// 活动类型
-activityTypeEnum: ["food", "entertainment", "sports", "boardgame", "other"]
+// 活动状态 (v3.2 新增 draft)
+activityStatusEnum: ["draft", "active", "completed", "cancelled"]
 
-// 活动状态
-activityStatusEnum: ["active", "completed", "cancelled"]
+// 首页消息角色 (v3.2 新增)
+homeMessageRoleEnum: ["user", "ai"]
 
-// 参与者状态
-participantStatusEnum: ["joined", "quit"]
-
-// 消息类型
-messageTypeEnum: ["text", "system"]
-
-// 通知类型
-notificationTypeEnum: ["join", "quit", "activity_start", "completed", "cancelled"]
+// 首页消息类型 (v3.2 新增，含 Generative UI)
+homeMessageTypeEnum: ["text", "widget_dashboard", "widget_draft", "widget_share", "widget_explore", "widget_error"]
 ```
 
 ## 表结构概览
@@ -306,12 +180,13 @@ notificationTypeEnum: ["join", "quit", "activity_start", "completed", "cancelled
 | `users` | id, wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday |
 | `activities` | id, creatorId, title, location, locationHint, startAt, type, status |
 | `participants` | id, activityId, userId, status (joined/quit) |
-| `chat_messages` | id, activityId, senderId, type, content |
+| `home_messages` | **id, userId, role, type, content, activityId** |
+| `group_messages` | id, activityId, senderId, type, content |
 | `notifications` | id, userId, type, title, isRead, activityId |
 
 ---
 
-# ✅ MVP 正确性属性 (Correctness Properties)
+# ✅ MVP 正确性属性 (Correctness Properties) v3.2
 
 ## 数据一致性
 - **CP-1**: `currentParticipants` = `participants` 表中 `status='joined'` 的记录数
@@ -324,13 +199,33 @@ notificationTypeEnum: ["join", "quit", "activity_start", "completed", "cancelled
 - **CP-6**: 只有 `active` 且未开始的活动可以删除
 - **CP-7**: `isArchived` = `now > startAt + 24h` (动态计算)
 - **CP-8**: `locationHint` 不能为空
+- **CP-19**: `draft` 状态的活动，`startAt` 已过期时不允许发布
 
 ## 认证规则
 - **CP-9**: 未绑定手机号的用户不能发布/报名活动
 - **CP-10**: 用户不能报名自己创建的活动
-- **CP-11**: 未登录用户可以浏览地图、查看详情
+- **CP-11**: 未登录用户可以浏览对话、查看详情、探索附近
 
 ## 前端状态
 - **CP-12**: 页面栈长度为 1 时，返回按钮跳转首页
 - **CP-13**: 群聊页面 onHide 停止轮询，onShow 恢复轮询
-- **CP-14**: 未读消息 > 0 时，消息 Tab 显示角标
+- **CP-14**: 未读消息 > 0 时，消息中心显示角标
+
+## Generative UI (v3.2 新增)
+- **CP-15**: AI 意图分类一致性 - 明确创建信息返回 Widget_Draft，探索性问题返回 Widget_Explore
+- **CP-16**: Widget_Explore 在 Chat_Stream 中必须使用静态地图图片
+- **CP-17**: 沉浸式地图页拖拽后必须自动加载新区域活动
+- **CP-18**: 沉浸式地图页关闭时使用收缩动画
+
+---
+
+# 📊 MVP Architecture Summary (v3.2)
+
+| 维度 | 设计 |
+|------|------|
+| **数据库** | 6 张核心表，PostgreSQL + PostGIS |
+| **API** | 6 个 Elysia 模块，TypeBox 契约 |
+| **小程序** | Native WeChat + Zustand Vanilla + **去 Tabbar 化** |
+| **Admin** | Vite + React + Eden Treaty |
+| **AI** | 创建解析 (3次/天) + **意图分类**，SSE 流式响应 |
+| **Generative UI** | Widget_Explore + 沉浸式地图页 |
