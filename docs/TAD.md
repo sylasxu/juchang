@@ -202,9 +202,10 @@ export const activities = pgTable("activities", {
 | `auth` | `/auth` | 微信登录、手机号绑定 |
 | `users` | `/users` | 用户资料管理 |
 | `activities` | `/activities` | 活动 CRUD、报名退出、**附近搜索** |
-| `home` | `/home` | **新增：首页对话流** |
 | `chat` | `/chat` | 活动群聊消息 |
-| `ai` | `/ai` | AI 解析 (SSE)，**意图分类** |
+| `ai` | `/ai` | AI 解析 (SSE)，**意图分类**，**对话历史管理** |
+
+**设计原则**：API 模块按功能领域划分，而非按页面划分。对话历史 (home_messages) 属于 AI 功能领域，归入 `ai` 模块。
 
 ### 5.2 API 接口
 
@@ -217,11 +218,6 @@ POST /auth/bindPhone      // 绑定手机号
 GET  /users/me            // 获取当前用户
 PATCH /users/me           // 更新资料
 GET  /users/me/quota      // 获取今日额度
-
-// Home (首页对话流)
-GET  /home/messages       // 获取对话历史 (分页)
-POST /home/messages       // 添加用户消息
-DELETE /home/messages     // 清空对话历史 (新对话)
 
 // Activities
 POST /activities          // 创建活动 (从 draft 变 active)
@@ -237,8 +233,11 @@ POST /activities/:id/quit // 退出活动
 GET  /chat/:activityId/messages  // 获取消息列表
 POST /chat/:activityId/messages  // 发送消息
 
-// AI
+// AI (v3.2 扩展：AI 解析 + 对话历史)
 POST /ai/parse            // AI 解析 (SSE 流式响应)
+GET  /ai/conversations    // 获取 AI 对话历史 (分页)
+POST /ai/conversations    // 添加用户消息到对话
+DELETE /ai/conversations  // 清空对话历史 (新对话)
 ```
 
 ### 5.3 AI 解析 - 意图分类 (v3.2)

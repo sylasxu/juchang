@@ -2,7 +2,11 @@
 
 ## Introduction
 
-本文档定义了 JuChang Admin 后台所需的 API 端点。当前 API 主要服务于小程序端，缺少 Admin 后台管理所需的列表查询、详情查看和管理操作接口。本需求旨在补充这些缺失的 Admin API 端点。
+本文档定义了 JuChang Admin 后台的完整需求。**v3.2 核心理念转变**：从"复刻小程序 UI"转向"透视 AI 数据"。
+
+Admin Console 的核心定位是 **AI 调试与数据中控台 (AI Ops & Data Console)**：
+- **对于 AI**：它是 X-Ray（X光机），负责透视 AI 的思考过程、意图分类准确率和结构化数据质量
+- **对于业务**：它是 CMS，负责管理用户、活动和内容风控
 
 ## Glossary
 
@@ -12,6 +16,65 @@
 - **Dashboard_Module**: 仪表板统计模块
 - **Pagination**: 分页查询参数（page, limit）
 - **Eden_Treaty**: Admin 使用的类型安全 API 客户端
+- **AI_Ops**: AI 运维调试功能
+- **Playground**: AI 调试沙箱
+- **Inspector**: 数据探针面板（用于展示 AI 返回的结构化数据）
+- **Golden_Dataset**: 金标准测试集（用于 Prompt 回归测试）
+
+## AI Ops Requirements (v3.2 新增)
+
+### Requirement 6: AI Playground
+
+**User Story:** As a developer, I want to test AI parsing in a sandbox environment, so that I can debug and improve AI responses.
+
+#### Acceptance Criteria
+
+1. WHEN a developer opens the Playground, THE Admin_Console SHALL display a chat interface
+2. WHEN a developer sends a message, THE Playground SHALL call the `/ai/parse` API via `useChat` hook
+3. WHEN AI returns a text response, THE Playground SHALL render it as Markdown
+4. WHEN AI returns a widget response, THE Playground SHALL render an Inspector panel (not UI card)
+5. THE Playground SHALL support System Prompt Override configuration
+6. THE Playground SHALL support saving/loading prompt presets
+
+### Requirement 7: Inspector Pattern
+
+**User Story:** As a developer, I want to see structured data from AI responses, so that I can verify data quality.
+
+#### Acceptance Criteria
+
+1. WHEN AI returns `widget_draft`, THE DraftInspector SHALL display time, location, type in structured format
+2. WHEN AI returns `widget_explore`, THE ExploreInspector SHALL display search keywords, center coordinates, result list
+3. THE Inspector SHALL include a link to verify location on Tencent Map
+4. THE Inspector SHALL display confidence level when available
+5. THE RawJsonInspector SHALL support fold/expand and copy JSON
+
+### Requirement 8: Conversation Audit
+
+**User Story:** As a developer, I want to review historical conversations, so that I can identify and fix AI issues.
+
+#### Acceptance Criteria
+
+1. WHEN a developer opens Conversation Inspector, THE Admin_Console SHALL display a list of sessions
+2. THE session list SHALL highlight conversations with widget generation failures (red)
+3. THE session list SHALL highlight conversations with unclear intent
+4. WHEN a developer clicks a session, THE Admin_Console SHALL display the full conversation flow
+5. THE conversation detail SHALL reuse Playground rendering components in read-only mode
+6. THE Admin_Console SHALL provide a [Fix & Test] button to import conversation context to Playground
+
+### Requirement 9: Evaluation Suite (Optional)
+
+**User Story:** As a developer, I want to run regression tests on AI prompts, so that I can ensure prompt changes don't break existing functionality.
+
+#### Acceptance Criteria
+
+1. THE Admin_Console SHALL support defining test cases in JSON format (Golden Dataset)
+2. WHEN a developer clicks "Run All Tests", THE Admin_Console SHALL call AI API for each test case
+3. THE Admin_Console SHALL compare AI responses with expected outputs
+4. THE Admin_Console SHALL generate a red/green test report with pass rate
+
+---
+
+## Legacy Requirements (API 端点)
 
 ## 现状分析
 

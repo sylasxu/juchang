@@ -1,4 +1,4 @@
-// Activity Controller - 活动相关接口 (MVP 简化版)
+// Activity Controller - 活动相关接口 (MVP 简化版 + v3.2 附近搜索)
 import { Elysia, t } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { activityModel, type ErrorResponse } from './activity.model';
@@ -10,11 +10,44 @@ import {
   deleteActivity,
   joinActivity,
   quitActivity,
+  getNearbyActivities,
+  publishDraftActivity,
 } from './activity.service';
 
 export const activityController = new Elysia({ prefix: '/activities' })
   .use(basePlugins)
   .use(activityModel)
+
+  // ==========================================
+  // 附近活动搜索 (v3.2 新增) - 放在 /:id 之前避免路由冲突
+  // ==========================================
+  .get(
+    '/nearby',
+    async ({ query, set }) => {
+      try {
+        const result = await getNearbyActivities(query);
+        return result;
+      } catch (error: any) {
+        set.status = 500;
+        return {
+          code: 500,
+          msg: error.message || '搜索附近活动失败',
+        } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Activities'],
+        summary: '搜索附近活动',
+        description: '根据经纬度搜索附近的活动，支持类型筛选和半径设置。返回活动列表及距离信息。',
+      },
+      query: 'activity.nearbyQuery',
+      response: {
+        200: 'activity.nearbyResponse',
+        500: 'activity.error',
+      },
+    }
+  )
 
   // 获取我相关的活动（发布的 + 参与的）
   .get(
@@ -124,6 +157,49 @@ export const activityController = new Elysia({ prefix: '/activities' })
         400: 'activity.error',
         401: 'activity.error',
         403: 'activity.error',
+      },
+    }
+  )
+
+  // 发布草稿活动 (v3.2 新增)
+  .post(
+    '/:id/publish',
+    async ({ params, body, set, jwt, headers }) => {
+      const user = await verifyAuth(jwt, headers);
+      if (!user) {
+        set.status = 401;
+        return {
+          code: 401,
+          msg: '未授权',
+        } satisfies ErrorResponse;
+      }
+
+      try {
+        const result = await publishDraftActivity(params.id, user.id, body);
+        return {
+          id: result.id,
+          msg: '活动发布成功',
+        };
+      } catch (error: any) {
+        set.status = 400;
+        return {
+          code: 400,
+          msg: error.message || '发布活动失败',
+        } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Activities'],
+        summary: '发布草稿活动',
+        description: '将 draft 状态的活动发布为 active 状态。支持在发布时更新活动信息。不允许发布过去时间的活动。',
+      },
+      params: 'activity.idParams',
+      body: 'activity.publishDraftRequest',
+      response: {
+        200: 'activity.createResponse',
+        400: 'activity.error',
+        401: 'activity.error',
       },
     }
   )

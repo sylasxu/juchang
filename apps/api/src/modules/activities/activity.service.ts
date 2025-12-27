@@ -1,10 +1,13 @@
-// Activity Service - 纯业务逻辑 (MVP 简化版)
-import { db, activities, users, participants, eq, sql, and, or } from '@juchang/db';
+// Activity Service - 纯业务逻辑 (MVP 简化版 + v3.2 附近搜索)
+import { db, activities, users, participants, eq, sql, and, or, gt } from '@juchang/db';
 import type { 
   ActivityDetailResponse, 
   ActivityListItem,
   MyActivitiesResponse,
   CreateActivityRequest,
+  NearbyActivitiesQuery,
+  NearbyActivityItem,
+  NearbyActivitiesResponse,
 } from './activity.model';
 import { deductAiCreateQuota } from '../users/user.service';
 
@@ -210,6 +213,12 @@ export async function createActivity(
 
   const { location, startAt, maxParticipants = 4, ...activityData } = data;
   
+  // 时间校验：不允许发布过去时间的活动
+  const startAtDate = new Date(startAt);
+  if (startAtDate < new Date()) {
+    throw new Error('活动开始时间不能是过去');
+  }
+  
   // 创建活动记录
   const [newActivity] = await db
     .insert(activities)
@@ -217,7 +226,7 @@ export async function createActivity(
       ...activityData,
       creatorId,
       location: sql`ST_SetSRID(ST_MakePoint(${location[0]}, ${location[1]}), 4326)`,
-      startAt: new Date(startAt),
+      startAt: startAtDate,
       maxParticipants,
       currentParticipants: 1, // 创建者自动参与
       status: 'active',
@@ -243,6 +252,81 @@ export async function createActivity(
     .where(eq(users.id, creatorId));
 
   return { id: newActivity.id };
+}
+
+/**
+ * 发布草稿活动 (v3.2 新增)
+ * 将 draft 状态的活动变为 active
+ */
+export async function publishDraftActivity(
+  activityId: string,
+  creatorId: string,
+  updates?: Partial<CreateActivityRequest>
+): Promise<{ id: string }> {
+  // 查询活动
+  const [activity] = await db
+    .select()
+    .from(activities)
+    .where(eq(activities.id, activityId))
+    .limit(1);
+  
+  if (!activity) {
+    throw new Error('活动不存在');
+  }
+  
+  // 验证是否为创建者
+  if (activity.creatorId !== creatorId) {
+    throw new Error('只有活动发起人可以发布活动');
+  }
+  
+  // 验证状态是否为 draft
+  if (activity.status !== 'draft') {
+    throw new Error('只有草稿状态的活动可以发布');
+  }
+  
+  // 时间校验：不允许发布过去时间的活动 (CP-19)
+  const startAt = updates?.startAt ? new Date(updates.startAt) : activity.startAt;
+  if (startAt < new Date()) {
+    throw new Error('活动时间已过期，请重新创建');
+  }
+  
+  // 构建更新数据
+  const updateData: Record<string, any> = {
+    status: 'active',
+    updatedAt: new Date(),
+  };
+  
+  // 如果有更新数据，合并进去
+  if (updates) {
+    if (updates.title) updateData.title = updates.title;
+    if (updates.description !== undefined) updateData.description = updates.description;
+    if (updates.startAt) updateData.startAt = new Date(updates.startAt);
+    if (updates.location) {
+      updateData.location = sql`ST_SetSRID(ST_MakePoint(${updates.location[0]}, ${updates.location[1]}), 4326)`;
+    }
+    if (updates.locationName) updateData.locationName = updates.locationName;
+    if (updates.address !== undefined) updateData.address = updates.address;
+    if (updates.locationHint) updateData.locationHint = updates.locationHint;
+    if (updates.type) updateData.type = updates.type;
+    if (updates.maxParticipants) updateData.maxParticipants = updates.maxParticipants;
+  }
+  
+  // 更新活动状态为 active
+  await db
+    .update(activities)
+    .set(updateData)
+    .where(eq(activities.id, activityId));
+  
+  // 更新用户创建活动计数
+  await db
+    .update(users)
+    .set({
+      activitiesCreatedCount: sql`${users.activitiesCreatedCount} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, creatorId));
+  
+  return { id: activityId };
 }
 
 /**
@@ -483,4 +567,95 @@ export async function quitActivity(activityId: string, userId: string): Promise<
     .where(eq(activities.id, activityId));
 
   // TODO: 发送通知给活动创建者
+}
+
+
+// ==========================================
+// 附近活动搜索 (v3.2 新增)
+// ==========================================
+
+/**
+ * 获取附近活动
+ * 使用 PostGIS ST_DWithin 进行地理空间查询
+ */
+export async function getNearbyActivities(
+  query: NearbyActivitiesQuery
+): Promise<NearbyActivitiesResponse> {
+  const { lat, lng, type, radius = 5000, limit = 20 } = query;
+  
+  // 构建查询条件
+  // 只查询 active 状态且未开始的活动
+  const now = new Date();
+  
+  // 使用 PostGIS 进行地理空间查询
+  // ST_DWithin 使用米为单位（geography 类型）
+  const nearbyActivities = await db
+    .select({
+      id: activities.id,
+      title: activities.title,
+      description: activities.description,
+      location: activities.location,
+      locationName: activities.locationName,
+      locationHint: activities.locationHint,
+      startAt: activities.startAt,
+      type: activities.type,
+      maxParticipants: activities.maxParticipants,
+      currentParticipants: activities.currentParticipants,
+      status: activities.status,
+      creatorId: users.id,
+      creatorNickname: users.nickname,
+      creatorAvatar: users.avatarUrl,
+      // 计算距离（米）
+      distance: sql<number>`ST_Distance(
+        ${activities.location}::geography,
+        ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
+      )`.as('distance'),
+    })
+    .from(activities)
+    .innerJoin(users, eq(activities.creatorId, users.id))
+    .where(
+      and(
+        eq(activities.status, 'active'),
+        gt(activities.startAt, now),
+        // 地理空间过滤：在指定半径内
+        sql`ST_DWithin(
+          ${activities.location}::geography,
+          ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+          ${radius}
+        )`,
+        // 可选的类型过滤
+        type ? eq(activities.type, type) : sql`true`
+      )
+    )
+    .orderBy(sql`distance ASC`)
+    .limit(limit);
+  
+  // 转换为响应格式
+  const data: NearbyActivityItem[] = nearbyActivities.map(item => ({
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    lat: item.location ? item.location.y : lat,
+    lng: item.location ? item.location.x : lng,
+    locationName: item.locationName,
+    locationHint: item.locationHint,
+    startAt: item.startAt.toISOString(),
+    type: item.type,
+    maxParticipants: item.maxParticipants,
+    currentParticipants: item.currentParticipants,
+    status: item.status,
+    distance: Math.round(item.distance || 0),
+    creator: {
+      id: item.creatorId,
+      nickname: item.creatorNickname,
+      avatarUrl: item.creatorAvatar,
+    },
+  }));
+  
+  return {
+    data,
+    total: data.length,
+    center: { lat, lng },
+    radius,
+  };
 }

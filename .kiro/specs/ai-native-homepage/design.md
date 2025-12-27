@@ -208,16 +208,19 @@ LIMIT 20
 
 ## API Interface Definitions
 
-### 模块划分 (v3.0 新增 home 模块)
+### 模块划分 (v3.2 按功能领域划分)
+
+**设计原则**：API 模块按功能领域划分，而非按页面划分。
 
 | 模块 | 路径前缀 | 职责 |
 |------|---------|------|
 | `auth` | `/auth` | 微信登录、手机号绑定 |
 | `users` | `/users` | 用户资料管理 |
-| `activities` | `/activities` | 活动 CRUD、我的活动 |
-| `home` | `/home` | **新增：首页对话流** |
-| `chat` | `/chat` | 活动群聊消息 (原 group chat) |
-| `ai` | `/ai` | AI 解析 |
+| `activities` | `/activities` | 活动 CRUD、我的活动、**附近活动搜索** |
+| `chat` | `/chat` | 活动群聊消息 (group_messages) |
+| `ai` | `/ai` | AI 解析 + **AI 对话历史管理** (home_messages) |
+
+**注意**：`home_messages` 表存储的是用户与 AI 的对话历史，属于 AI 功能领域，因此归入 `ai` 模块而非创建独立的 `home` 模块。
 
 ### API 接口
 
@@ -231,15 +234,11 @@ GET  /users/me            // 获取当前用户信息
 PATCH /users/me           // 更新用户资料
 GET  /users/me/quota      // 获取今日额度
 
-// Home (新增：首页对话流)
-GET  /home/messages       // 获取对话历史 (分页)
-POST /home/messages       // 添加用户消息
-DELETE /home/messages     // 清空对话历史 (新对话)
-
 // Activities
 POST /activities          // 创建活动 (从 draft 变 active)
 GET  /activities/:id      // 获取活动详情
 GET  /activities/mine     // 获取我相关的活动 (type=created|joined|archived)
+GET  /activities/nearby   // **新增：附近活动搜索** (lat, lng, type?, radius?)
 PATCH /activities/:id/status  // 更新活动状态
 DELETE /activities/:id    // 删除活动
 POST /activities/:id/join // 报名活动
@@ -249,9 +248,12 @@ POST /activities/:id/quit // 退出活动
 GET  /chat/:activityId/messages  // 获取消息列表
 POST /chat/:activityId/messages  // 发送消息
 
-// AI
+// AI (v3.2 扩展：AI 解析 + 对话历史)
 POST /ai/parse            // AI 解析 (SSE 流式响应)
-                          // 成功时自动创建 draft 活动 + home_message 记录
+                          // 成功时自动创建 draft 活动 + 对话记录
+GET  /ai/conversations    // **新增：获取 AI 对话历史** (分页)
+POST /ai/conversations    // **新增：添加用户消息到对话**
+DELETE /ai/conversations  // **新增：清空对话历史** (新对话)
 ```
 
 ### AI 解析流程变更
@@ -262,8 +264,19 @@ POST /ai/parse            // AI 解析 (SSE 流式响应)
 // 2. 调用 LLM 解析意图
 // 3. 如果解析出活动意图：
 //    - 创建 draft 状态的 activity 记录
-//    - 创建 widget_draft 类型的 home_message 记录
+//    - 创建 widget_draft 类型的对话记录 (home_messages)
 // 4. 返回 SSE 流式响应
+
+// GET /ai/conversations 的行为
+// 获取当前用户的 AI 对话历史，支持分页
+// 返回 home_messages 表中的记录
+
+// POST /ai/conversations 的行为
+// 添加用户消息到对话历史
+// 用于记录用户发送的文本消息
+
+// DELETE /ai/conversations 的行为
+// 清空当前用户的对话历史（开始新对话）
 ```
 
 ---
@@ -1049,7 +1062,7 @@ type SSEEvent =
 import { create } from 'zustand'
 import { immer } from 'zustand/middleware/immer'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import { getHomeMessages, postHomeMessages, deleteHomeMessages } from '../api/endpoints/home/home'
+import { getAiConversations, postAiConversations, deleteAiConversations } from '../api/endpoints/ai/ai'
 
 interface HomeMessage {
   id: string;
@@ -1990,6 +2003,903 @@ const isExpired = (draft: ActivityDraft) => {
 | **Generative UI** | App-in-Chat | Widget_Explore + 沉浸式地图 |
 | **意图分类** | 多意图识别 | 创建 vs 探索 双轨分类 |
 | **复杂交互** | 内嵌式应用 | Static Preview + Immersive Expansion |
+| **复合型卡片** | AI拍皮肤 (Header+Body+Footer) | Widget_Launcher (组局发射台) |
+
+---
+
+## Design System Upgrade: Composite Widgets (v3.3)
+
+### 设计理念
+
+参考蚂蚁阿福的"AI拍皮肤"卡片，我们引入 **Composite Widget (复合型卡片)** 设计结构。
+
+**核心理念**：对话流不仅可以传输信息，还可以投送"功能控制台"。
+
+**三层结构**：
+```
+┌─────────────────────────────────────────────────────────┐
+│  [Header] 场景定义                                       │
+│  图标 + 标题 + 标签                                      │
+├─────────────────────────────────────────────────────────┤
+│  [Body] 核心功能区 (Flex Row)                            │
+│  ┌─────────────────┐  ┌─────────────────┐               │
+│  │  📝 极速建局     │  │  🗺️ 探索附近     │               │
+│  │  粘贴群接龙文本  │  │  在地图上找灵感  │               │
+│  │  [📋 粘贴文本]  │  │  [📍 打开地图]  │               │
+│  └─────────────────┘  └─────────────────┘               │
+├─────────────────────────────────────────────────────────┤
+│  [Footer] 辅助工具区 (Grid)                              │
+│  [🎲 掷骰子]  [💰 AA计算]  [🗳️ 发起投票]                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 新增组件：widget-launcher (组局发射台)
+
+**触发场景**：
+- 用户意图模糊："我要组个局"、"今晚去哪玩？"
+- 首次进入 App 时作为 Widget_Dashboard 的升级版
+
+**设计目标**：
+- 功能外露：用户可能不知道有"粘贴解析"或"AA收款"功能，平铺曝光
+- 操作手感：点点点就能完成，无需打字思考
+- 高级感：复杂卡片一弹出来，用户觉得"这个 AI 很强"
+
+### 组件实现
+
+```typescript
+// components/widget-launcher/index.ts
+Component({
+  properties: {
+    // 是否显示辅助工具区
+    showTools: { type: Boolean, value: true },
+    // 自定义标题
+    title: { type: String, value: '发起活动' },
+    // 标签
+    badge: { type: String, value: 'AI 辅助中' }
+  },
+  data: {
+    tools: [
+      { key: 'dice', icon: 'dice-5', label: '掷骰子' },
+      { key: 'aa', icon: 'calculator', label: 'AA计算' },
+      { key: 'vote', icon: 'vote', label: '发起投票' }
+    ]
+  },
+  methods: {
+    // 极速建局 - 粘贴文本
+    onPasteTap() {
+      wx.getClipboardData({
+        success: (res) => {
+          if (res.data && res.data.trim()) {
+            this.triggerEvent('paste', { text: res.data });
+          } else {
+            wx.showToast({ title: '剪贴板为空', icon: 'none' });
+          }
+        },
+        fail: () => {
+          wx.showToast({ title: '读取剪贴板失败', icon: 'none' });
+        }
+      });
+    },
+    
+    // 探索附近 - 打开地图
+    onExploreTap() {
+      this.triggerEvent('explore');
+    },
+    
+    // 辅助工具点击
+    onToolTap(e: WechatMiniprogram.TouchEvent) {
+      const { key } = e.currentTarget.dataset;
+      this.triggerEvent('tool', { key });
+    }
+  }
+});
+```
+
+### WXML 结构
+
+```xml
+<!-- components/widget-launcher/index.wxml -->
+<view class="widget-launcher halo-card">
+  <!-- Header: 场景定义 -->
+  <view class="launcher-header">
+    <view class="header-left">
+      <view class="icon-circle icon-circle--blue">
+        <text class="icon icon-party-popper"></text>
+      </view>
+      <text class="header-title">{{title}}</text>
+    </view>
+    <view class="header-badge" wx:if="{{badge}}">
+      <text class="badge-dot"></text>
+      <text class="badge-text">{{badge}}</text>
+    </view>
+  </view>
+  
+  <!-- Body: 核心功能区 (双栏布局) -->
+  <view class="launcher-body">
+    <!-- 左侧：极速建局 -->
+    <view class="action-card" bindtap="onPasteTap">
+      <view class="action-icon">
+        <text class="icon icon-zap"></text>
+      </view>
+      <view class="action-content">
+        <text class="action-title">极速建局</text>
+        <text class="action-desc">粘贴群接龙文本，AI 一键提取</text>
+      </view>
+      <button class="action-btn btn-secondary">
+        <text class="icon icon-clipboard"></text>
+        <text>粘贴文本</text>
+      </button>
+    </view>
+    
+    <!-- 右侧：探索附近 -->
+    <view class="action-card" bindtap="onExploreTap">
+      <view class="action-icon">
+        <text class="icon icon-map"></text>
+      </view>
+      <view class="action-content">
+        <text class="action-title">探索附近</text>
+        <text class="action-desc">不知道去哪？在地图上找找灵感</text>
+      </view>
+      <button class="action-btn btn-secondary">
+        <text class="icon icon-map-pin"></text>
+        <text>打开地图</text>
+      </button>
+    </view>
+  </view>
+  
+  <!-- Footer: 辅助工具区 (网格布局) -->
+  <view class="launcher-footer" wx:if="{{showTools}}">
+    <view 
+      wx:for="{{tools}}" 
+      wx:key="key"
+      class="tool-item"
+      data-key="{{item.key}}"
+      bindtap="onToolTap"
+    >
+      <view class="tool-icon icon-circle icon-circle--mint">
+        <text class="icon icon-{{item.icon}}"></text>
+      </view>
+      <text class="tool-label">{{item.label}}</text>
+    </view>
+  </view>
+</view>
+```
+
+### LESS 样式
+
+```less
+// components/widget-launcher/index.less
+.widget-launcher {
+  padding: 32rpx;
+  
+  // Header
+  .launcher-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32rpx;
+    
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16rpx;
+      
+      .header-title {
+        font-size: 36rpx;
+        font-weight: 600;
+        color: var(--text-main);
+      }
+    }
+    
+    .header-badge {
+      display: flex;
+      align-items: center;
+      gap: 8rpx;
+      padding: 8rpx 16rpx;
+      background: rgba(91, 117, 251, 0.1);
+      border-radius: var(--radius-sm);
+      
+      .badge-dot {
+        width: 12rpx;
+        height: 12rpx;
+        background: var(--color-primary);
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+      }
+      
+      .badge-text {
+        font-size: 24rpx;
+        color: var(--color-primary);
+      }
+    }
+  }
+  
+  // Body: 双栏布局
+  .launcher-body {
+    display: flex;
+    gap: 24rpx;
+    margin-bottom: 32rpx;
+    
+    .action-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 24rpx;
+      background: var(--bg-page);
+      border-radius: var(--radius-md);
+      border: 1rpx solid var(--border-card);
+      
+      .action-icon {
+        margin-bottom: 16rpx;
+        
+        .icon {
+          font-size: 48rpx;
+          color: var(--color-primary);
+        }
+      }
+      
+      .action-content {
+        flex: 1;
+        margin-bottom: 16rpx;
+        
+        .action-title {
+          display: block;
+          font-size: 28rpx;
+          font-weight: 500;
+          color: var(--text-main);
+          margin-bottom: 8rpx;
+        }
+        
+        .action-desc {
+          display: block;
+          font-size: 24rpx;
+          color: var(--text-sub);
+          line-height: 1.4;
+        }
+      }
+      
+      .action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8rpx;
+        padding: 16rpx 24rpx;
+        font-size: 26rpx;
+      }
+    }
+  }
+  
+  // Footer: 网格布局
+  .launcher-footer {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24rpx;
+    padding-top: 24rpx;
+    border-top: 1rpx solid var(--border-card);
+    
+    .tool-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12rpx;
+      padding: 16rpx;
+      border-radius: var(--radius-md);
+      transition: background 0.2s;
+      
+      &:active {
+        background: rgba(0, 0, 0, 0.05);
+      }
+      
+      .tool-icon {
+        width: 72rpx;
+        height: 72rpx;
+      }
+      
+      .tool-label {
+        font-size: 24rpx;
+        color: var(--text-sub);
+      }
+    }
+  }
+}
+
+// 脉冲动画
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+```
+
+### Halo Card 样式 (渐变边框效果)
+
+```less
+// app.less - 全局 Halo Card mixin
+.halo-card {
+  position: relative;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  
+  // 渐变边框效果 (使用 background-origin/clip)
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 2rpx;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(
+      135deg, 
+      rgba(91, 117, 251, 0.3) 0%, 
+      rgba(147, 197, 253, 0.2) 50%,
+      rgba(196, 181, 253, 0.3) 100%
+    );
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+// 深色模式下的 Halo Card
+@media (prefers-color-scheme: dark) {
+  .halo-card::before {
+    background: linear-gradient(
+      135deg, 
+      rgba(99, 128, 255, 0.4) 0%, 
+      rgba(147, 197, 253, 0.3) 50%,
+      rgba(196, 181, 253, 0.4) 100%
+    );
+  }
+}
+```
+
+### 消息类型枚举更新
+
+```typescript
+// 消息类型枚举 (v3.3 新增 widget_launcher)
+export const homeMessageTypeEnum = pgEnum('home_message_type', [
+  'text',              // 普通文本
+  'widget_dashboard',  // 进场欢迎卡片 (简化版)
+  'widget_launcher',   // **新增：组局发射台 (复合型卡片)**
+  'widget_draft',      // 意图解析卡片 (带地图选点)
+  'widget_share',      // 创建成功卡片
+  'widget_explore',    // 探索卡片 (Generative UI)
+  'widget_error'       // 错误提示卡片
+]);
+```
+
+### 意图分类更新
+
+| 意图类型 | 触发条件 | 返回 Widget |
+|---------|---------|-------------|
+| 明确创建 | 包含时间 + 地点 + 活动类型 | Widget_Draft |
+| 模糊探索 | "附近有什么"、"推荐"、"有什么好玩的" | Widget_Explore |
+| **模糊创建** | "我要组个局"、"今晚去哪玩" | **Widget_Launcher** |
+| 无法识别 | 无法解析意图 | 文本消息（引导重新描述） |
+
+### 使用场景
+
+**场景 1：首次进入 App**
+```
+用户打开 App
+    ↓
+显示 Widget_Launcher (组局发射台)
+    ↓
+用户点击 [📋 粘贴文本]
+    ↓
+读取剪贴板，调用 AI 解析
+    ↓
+显示 Widget_Draft
+```
+
+**场景 2：模糊意图**
+```
+用户输入 "我要组个局"
+    ↓
+AI 识别为模糊创建意图
+    ↓
+显示 Widget_Launcher (组局发射台)
+    ↓
+用户选择 [📍 打开地图] 或 [📋 粘贴文本]
+```
+
+**场景 3：辅助工具**
+```
+用户点击 [🎲 掷骰子]
+    ↓
+弹出掷骰子动画
+    ↓
+显示结果 "🎲 点数：5，今晚你请客！"
+```
+
+### 为什么这对聚场很重要
+
+1. **功能外露**：用户可能不知道有"AA收款"或"粘贴解析"功能，平铺曝光率提升 100%
+2. **操作手感**：用户不需要打字，不需要思考，直接点点点就能完成操作
+3. **高级感**：复杂的卡片一弹出来，用户会觉得"哇，这个 AI 很强"，而不是"这只是个聊天机器人"
+
+---
+
+## Simple Widget: widget_action (快捷操作按钮)
+
+### 设计理念
+
+不是所有场景都需要复杂的 Composite Widget。有时候 AI 只需要给用户一个简单的跳转按钮，但依然要保持 Halo Card 的高级感。
+
+**使用场景**：
+- "帮我看看我发布的活动" → 跳转到"我发布的"列表
+- "打开消息中心" → 跳转到消息页面
+- "查看活动详情" → 跳转到指定活动
+
+### 消息类型枚举更新
+
+```typescript
+// 消息类型枚举 (v3.3 完整版)
+export const homeMessageTypeEnum = pgEnum("home_message_type", [
+  "text",              // 普通文本
+  "widget_dashboard",  // 进场欢迎卡片 (简化版)
+  "widget_launcher",   // 组局发射台 (复合型卡片)
+  "widget_action",     // **新增：快捷操作按钮 (简单跳转)**
+  "widget_draft",      // 意图解析卡片 (带地图选点)
+  "widget_share",      // 创建成功卡片
+  "widget_explore",    // 探索卡片 (Generative UI)
+  "widget_error"       // 错误提示卡片
+]);
+```
+
+### 组件实现
+
+```typescript
+// components/widget-action/index.ts
+Component({
+  properties: {
+    // 按钮文案
+    label: { type: String, value: '查看详情' },
+    // 图标 (Lucide icon name)
+    icon: { type: String, value: 'arrow-right' },
+    // 跳转路径
+    url: { type: String, value: '' },
+    // 按钮样式：primary | secondary | ghost
+    variant: { type: String, value: 'primary' }
+  },
+  methods: {
+    onTap() {
+      const { url } = this.properties;
+      if (url) {
+        if (url.startsWith('/subpackages/')) {
+          wx.navigateTo({ url });
+        } else if (url.startsWith('/pages/')) {
+          wx.navigateTo({ url });
+        } else {
+          // 外部链接或其他操作
+          this.triggerEvent('tap', { url });
+        }
+      } else {
+        this.triggerEvent('tap');
+      }
+    }
+  }
+});
+```
+
+### WXML 结构
+
+```xml
+<!-- components/widget-action/index.wxml -->
+<view class="widget-action halo-card halo-card--mini" bindtap="onTap">
+  <view class="action-content">
+    <text class="action-label">{{label}}</text>
+    <view class="action-icon">
+      <text class="icon icon-{{icon}}"></text>
+    </view>
+  </view>
+</view>
+```
+
+### LESS 样式
+
+```less
+// components/widget-action/index.less
+.widget-action {
+  display: inline-flex;
+  padding: 20rpx 32rpx;
+  
+  .action-content {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+    
+    .action-label {
+      font-size: 28rpx;
+      font-weight: 500;
+      color: var(--color-primary);
+    }
+    
+    .action-icon {
+      .icon {
+        font-size: 32rpx;
+        color: var(--color-primary);
+      }
+    }
+  }
+}
+
+// Mini 版 Halo Card (更紧凑)
+.halo-card--mini {
+  border-radius: var(--radius-md);
+  
+  &::before {
+    border-radius: var(--radius-md);
+  }
+}
+```
+
+### Content 结构
+
+```typescript
+// widget_action 的 content 结构
+interface WidgetActionContent {
+  label: string;           // 按钮文案
+  icon?: string;           // 图标名称 (Lucide)
+  url?: string;            // 跳转路径
+  variant?: 'primary' | 'secondary' | 'ghost';
+}
+
+// 示例
+{
+  type: 'widget_action',
+  content: {
+    label: '查看我发布的活动',
+    icon: 'list',
+    url: '/subpackages/activity/list/index?type=created'
+  }
+}
+```
+
+---
+
+## Admin Inspector 组件库完整设计
+
+### Inspector 组件矩阵
+
+Admin 需要为每种 Widget 类型提供对应的 Inspector 组件，用于调试和数据透视：
+
+| Widget 类型 | Inspector 组件 | 核心功能 |
+|------------|---------------|---------|
+| `text` | `TextInspector` | Markdown 渲染 + 字符统计 |
+| `widget_dashboard` | `DashboardInspector` | 问候语 + 活动列表数据 |
+| `widget_launcher` | `LauncherInspector` | 三层结构数据展示 |
+| `widget_action` | `ActionInspector` | 跳转路径 + 按钮样式 |
+| `widget_draft` | `DraftInspector` | 活动草稿数据 + 地图外链 |
+| `widget_share` | `ShareInspector` | 分享数据 + 预览 |
+| `widget_explore` | `ExploreInspector` | 搜索结果 + 坐标验证 |
+| `widget_error` | `ErrorInspector` | 错误信息 + 堆栈 |
+
+### Inspector 组件实现
+
+```tsx
+// apps/admin/src/components/inspectors/index.tsx
+
+// 1. TextInspector - 文本消息
+export function TextInspector({ data }: { data: { text: string } }) {
+  return (
+    <Card className="border-l-4 border-l-gray-400 bg-slate-50">
+      <div className="p-3 border-b">
+        <span className="font-mono text-xs font-bold text-gray-600">TYPE: TEXT</span>
+        <Badge variant="outline" className="ml-2">{data.text.length} chars</Badge>
+      </div>
+      <CardContent className="pt-3">
+        <div className="prose prose-sm max-w-none">
+          <ReactMarkdown>{data.text}</ReactMarkdown>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// 2. DashboardInspector - 欢迎卡片
+export function DashboardInspector({ data }: { data: { greeting: string; activities: any[] } }) {
+  return (
+    <Card className="border-l-4 border-l-blue-400 bg-slate-50">
+      <div className="p-3 border-b">
+        <span className="font-mono text-xs font-bold text-blue-600">TYPE: WIDGET_DASHBOARD</span>
+      </div>
+      <CardContent className="pt-3 space-y-2">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-gray-500" />
+          <span className="font-mono text-sm">{data.greeting}</span>
+        </div>
+        <div className="text-xs text-gray-500">
+          Activities: {data.activities?.length || 0} items
+        </div>
+        {data.activities?.length > 0 && (
+          <JsonView data={data.activities} collapsed={1} />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// 3. LauncherInspector - 组局发射台
+export function LauncherInspector({ data }: { data: { title: string; badge?: string; showTools?: boolean } }) {
+  return (
+    <Card className="border-l-4 border-l-purple-500 bg-slate-50">
+      <div className="p-3 border-b flex justify-between items-center">
+        <span className="font-mono text-xs font-bold text-purple-600">TYPE: WIDGET_LAUNCHER</span>
+        <Badge variant="outline">Composite Widget</Badge>
+      </div>
+      <CardContent className="pt-3 space-y-3">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-gray-500">Title:</span>
+            <span className="ml-2 font-mono">{data.title}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Badge:</span>
+            <span className="ml-2 font-mono">{data.badge || 'N/A'}</span>
+          </div>
+        </div>
+        <div className="p-2 bg-white rounded border">
+          <div className="text-xs text-gray-500 mb-1">Structure Preview:</div>
+          <div className="flex gap-2 text-xs">
+            <span className="px-2 py-1 bg-blue-100 rounded">Header</span>
+            <span className="px-2 py-1 bg-green-100 rounded">Body (2 cols)</span>
+            <span className="px-2 py-1 bg-yellow-100 rounded">Footer ({data.showTools ? '3 tools' : 'hidden'})</span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// 4. ActionInspector - 快捷操作按钮
+export function ActionInspector({ data }: { data: { label: string; icon?: string; url?: string; variant?: string } }) {
+  return (
+    <Card className="border-l-4 border-l-cyan-500 bg-slate-50">
+      <div className="p-3 border-b">
+        <span className="font-mono text-xs font-bold text-cyan-600">TYPE: WIDGET_ACTION</span>
+        <Badge variant="outline" className="ml-2">Simple Widget</Badge>
+      </div>
+      <CardContent className="pt-3 space-y-2">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="text-gray-500">Label:</span>
+            <span className="ml-2 font-mono">{data.label}</span>
+          </div>
+          <div>
+            <span className="text-gray-500">Icon:</span>
+            <span className="ml-2 font-mono">{data.icon || 'arrow-right'}</span>
+          </div>
+        </div>
+        {data.url && (
+          <div className="flex items-center gap-2 bg-white p-2 rounded border">
+            <Link className="w-4 h-4 text-gray-500" />
+            <code className="text-xs text-blue-600 break-all">{data.url}</code>
+          </div>
+        )}
+        <div className="text-xs text-gray-500">
+          Variant: <span className="font-mono">{data.variant || 'primary'}</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// 5. DraftInspector - 活动草稿 (已有，增强版)
+export function DraftInspector({ data }: { data: ActivityDraft & { activityId?: string } }) {
+  return (
+    <Card className="border-l-4 border-l-indigo-500 bg-slate-50">
+      <div className="p-3 border-b flex justify-between items-center">
+        <span className="font-mono text-xs font-bold text-indigo-600">TYPE: WIDGET_DRAFT</span>
+        {data.activityId && (
+          <Badge variant="outline">ID: {data.activityId.slice(0, 8)}...</Badge>
+        )}
+      </div>
+      <CardContent className="pt-3 space-y-2">
+        <div className="font-medium">{data.title}</div>
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <span className="font-mono">{data.startAt}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-gray-500" />
+            <span>Max: {data.maxParticipants}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Tag className="w-4 h-4 text-gray-500" />
+            <span className="font-mono">{data.type}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 bg-white p-2 rounded border">
+          <MapPin className="w-4 h-4 text-red-500" />
+          <span className="truncate text-sm">{data.locationName}</span>
+          <a 
+            href={`https://map.qq.com/?type=marker&pointx=${data.lng}&pointy=${data.lat}`}
+            target="_blank" 
+            className="text-blue-600 underline text-xs ml-auto"
+          >
+            Verify on Map
+          </a>
+        </div>
+        <div className="text-xs text-gray-500">
+          Coordinates: ({data.lat.toFixed(6)}, {data.lng.toFixed(6)})
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// 6. ShareInspector - 分享卡片
+export function ShareInspector({ data }: { data: { activityId: string; title: string; shareTitle: string } }) {
+  return (
+    <Card className="border-l-4 border-l-green-500 bg-slate-50">
+      <div className="p-3 border-b">
+        <span className="font-mono text-xs font-bold text-green-600">TYPE: WIDGET_SHARE</span>
+      </div>
+      <CardContent className="pt-3 space-y-2">
+        <div className="text-sm">
+          <span className="text-gray-500">Activity ID:</span>
+          <code className="ml-2 text-xs bg-gray-100 px-1 rounded">{data.activityId}</code>
+        </div>
+        <div className="text-sm">
+          <span className="text-gray-500">Title:</span>
+          <span className="ml-2">{data.title}</span>
+        </div>
+        <div className="p-2 bg-white rounded border">
+          <div className="text-xs text-gray-500 mb-1">Share Preview:</div>
+          <div className="font-medium text-sm">{data.shareTitle}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// 7. ExploreInspector - 探索卡片
+export function ExploreInspector({ data }: { data: ExploreContent }) {
+  return (
+    <Card className="border-l-4 border-l-orange-500 bg-slate-50">
+      <div className="p-3 border-b flex justify-between items-center">
+        <span className="font-mono text-xs font-bold text-orange-600">TYPE: WIDGET_EXPLORE</span>
+        <Badge variant="outline">Generative UI</Badge>
+      </div>
+      <CardContent className="pt-3 space-y-2">
+        <div className="font-medium text-sm">{data.title}</div>
+        <div className="flex items-center gap-2 bg-white p-2 rounded border">
+          <MapPin className="w-4 h-4 text-red-500" />
+          <span className="text-sm">{data.center.name}</span>
+          <code className="text-xs text-gray-500 ml-auto">
+            ({data.center.lat.toFixed(4)}, {data.center.lng.toFixed(4)})
+          </code>
+        </div>
+        <div className="text-xs text-gray-500">
+          Results: {data.results?.length || 0} activities
+        </div>
+        {data.results?.length > 0 && (
+          <div className="max-h-40 overflow-auto">
+            <JsonView data={data.results} collapsed={2} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// 8. ErrorInspector - 错误卡片
+export function ErrorInspector({ data }: { data: { message: string; stack?: string } }) {
+  return (
+    <Card className="border-l-4 border-l-red-500 bg-red-50">
+      <div className="p-3 border-b">
+        <span className="font-mono text-xs font-bold text-red-600">TYPE: WIDGET_ERROR</span>
+      </div>
+      <CardContent className="pt-3 space-y-2">
+        <div className="flex items-center gap-2 text-red-600">
+          <AlertCircle className="w-4 h-4" />
+          <span className="font-medium">{data.message}</span>
+        </div>
+        {data.stack && (
+          <pre className="text-xs bg-white p-2 rounded border overflow-auto max-h-32">
+            {data.stack}
+          </pre>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// 9. RawJsonInspector - 原始 JSON (通用)
+export function RawJsonInspector({ data, type }: { data: any; type: string }) {
+  const [expanded, setExpanded] = useState(false);
+  
+  return (
+    <Card className="border-l-4 border-l-gray-300 bg-gray-50">
+      <div className="p-3 border-b flex justify-between items-center">
+        <span className="font-mono text-xs font-bold text-gray-600">RAW JSON</span>
+        <div className="flex gap-2">
+          <Badge variant="outline">{type}</Badge>
+          <Button size="sm" variant="ghost" onClick={() => setExpanded(!expanded)}>
+            {expanded ? 'Collapse' : 'Expand'}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(JSON.stringify(data, null, 2))}>
+            Copy
+          </Button>
+        </div>
+      </div>
+      <CardContent className="pt-3">
+        <JsonView data={data} collapsed={expanded ? false : 1} />
+      </CardContent>
+    </Card>
+  );
+}
+
+// Inspector 路由器 - 根据 type 渲染对应 Inspector
+export function WidgetInspector({ type, content }: { type: string; content: any }) {
+  const inspectorMap: Record<string, React.FC<{ data: any }>> = {
+    'text': TextInspector,
+    'widget_dashboard': DashboardInspector,
+    'widget_launcher': LauncherInspector,
+    'widget_action': ActionInspector,
+    'widget_draft': DraftInspector,
+    'widget_share': ShareInspector,
+    'widget_explore': ExploreInspector,
+    'widget_error': ErrorInspector,
+  };
+  
+  const Inspector = inspectorMap[type];
+  
+  return (
+    <div className="space-y-2">
+      {Inspector ? (
+        <Inspector data={content} />
+      ) : (
+        <RawJsonInspector data={content} type={type} />
+      )}
+      {/* 始终显示 Raw JSON 作为调试备选 */}
+      <details className="text-xs">
+        <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+          Show Raw JSON
+        </summary>
+        <RawJsonInspector data={content} type={type} />
+      </details>
+    </div>
+  );
+}
+```
+
+### Playground 集成
+
+```tsx
+// apps/admin/src/features/playground/components/message-list.tsx
+export function MessageList({ messages }: { messages: Message[] }) {
+  return (
+    <div className="space-y-4">
+      {messages.map((msg) => (
+        <div 
+          key={msg.id}
+          className={cn(
+            "flex",
+            msg.role === 'user' ? 'justify-end' : 'justify-start'
+          )}
+        >
+          {msg.role === 'user' ? (
+            // 用户消息 - 简单气泡
+            <div className="bg-indigo-500 text-white rounded-lg px-4 py-2 max-w-[70%]">
+              {msg.content.text}
+            </div>
+          ) : (
+            // AI 消息 - Inspector 渲染
+            <div className="max-w-[85%]">
+              <WidgetInspector type={msg.type} content={msg.content} />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
 
 ### 产品逻辑闭环 (v3.2)
 

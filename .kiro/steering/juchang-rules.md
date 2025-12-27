@@ -63,18 +63,20 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   export type NewUser = typeof users.$inferInsert;
   ```
 
-## 2. apps/api (The Business Logic Gateway - v3.2 6-Module Design)
+## 2. apps/api (The Business Logic Gateway - v3.2 按功能领域划分)
 - **Tech**: ElysiaJS + `@elysiajs/openapi` + TypeBox (t).
 - **Path**: `apps/api/src/modules/*`
-- **Architecture**: **6 个核心模块**
+- **Architecture**: **5 个核心模块** (按功能领域划分，非按页面划分)
   | 模块 | 职责 | 核心端点 |
   |------|------|----------|
   | `auth` | 认证授权 | `/auth/login`, `/auth/bindPhone` |
   | `users` | 用户管理 | `/users/me`, `/users/me/quota` |
   | `activities` | 活动管理 | `/activities`, `/activities/:id/join`, `/activities/nearby` |
-  | `home` | **首页对话流** | `/home/messages` |
   | `chat` | 群聊消息 | `/chat/:activityId/messages` |
-  | `ai` | AI 解析 (SSE) + **意图分类** | `/ai/parse` |
+  | `ai` | AI 解析 + **对话历史管理** | `/ai/parse`, `/ai/conversations` |
+- **设计原则**：API 模块按功能领域划分，而非按页面划分
+  - ❌ 不创建 `home` 模块（页面导向）
+  - ✅ 对话历史归入 `ai` 模块（功能领域导向）
 - **Structure**: Feature-based folder structure:
   - `*.controller.ts`: Elysia instance as controller
   - `*.service.ts`: Pure business logic functions (纯函数，无副作用)
@@ -96,7 +98,9 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   - `custom-navbar/`: 自定义导航栏
   - `ai-dock/`: 超级输入坞（底部悬浮）
   - `chat-stream/`: 对话流容器
-  - `widget-dashboard/`: 进场欢迎卡片
+  - `widget-dashboard/`: 进场欢迎卡片 (简化版)
+  - `widget-launcher/`: **组局发射台（复合型卡片 - v3.3 新增）**
+  - `widget-action/`: **快捷操作按钮（简单跳转 - v3.3 新增）**
   - `widget-draft/`: 意图解析卡片（创建场景）
   - `widget-share/`: 创建成功卡片
   - `widget-explore/`: **探索卡片（Generative UI）**
@@ -160,7 +164,7 @@ bun run gen:api          # 生成 Orval SDK
 
 ---
 
-# 📋 MVP 数据库 Schema 速查 (v3.2)
+# 📋 MVP 数据库 Schema 速查 (v3.3)
 
 ## 枚举定义
 ```typescript
@@ -170,8 +174,8 @@ activityStatusEnum: ["draft", "active", "completed", "cancelled"]
 // 首页消息角色 (v3.2 新增)
 homeMessageRoleEnum: ["user", "ai"]
 
-// 首页消息类型 (v3.2 新增，含 Generative UI)
-homeMessageTypeEnum: ["text", "widget_dashboard", "widget_draft", "widget_share", "widget_explore", "widget_error"]
+// 首页消息类型 (v3.3 含 Generative UI + Composite Widget + Simple Widget)
+homeMessageTypeEnum: ["text", "widget_dashboard", "widget_launcher", "widget_action", "widget_draft", "widget_share", "widget_explore", "widget_error"]
 ```
 
 ## 表结构概览
@@ -212,20 +216,25 @@ homeMessageTypeEnum: ["text", "widget_dashboard", "widget_draft", "widget_share"
 - **CP-14**: 未读消息 > 0 时，消息中心显示角标
 
 ## Generative UI (v3.2 新增)
-- **CP-15**: AI 意图分类一致性 - 明确创建信息返回 Widget_Draft，探索性问题返回 Widget_Explore
+- **CP-15**: AI 意图分类一致性 - 明确创建信息返回 Widget_Draft，探索性问题返回 Widget_Explore，模糊创建意图返回 Widget_Launcher
 - **CP-16**: Widget_Explore 在 Chat_Stream 中必须使用静态地图图片
 - **CP-17**: 沉浸式地图页拖拽后必须自动加载新区域活动
 - **CP-18**: 沉浸式地图页关闭时使用收缩动画
 
+## Composite Widget (v3.3 新增)
+- **CP-20**: Widget_Launcher 必须包含三层结构：Header + Body (双栏) + Footer (工具网格)
+- **CP-21**: Widget_Launcher 的辅助工具点击必须触发对应功能（掷骰子、AA计算、投票）
+
 ---
 
-# 📊 MVP Architecture Summary (v3.2)
+# 📊 MVP Architecture Summary (v3.3)
 
 | 维度 | 设计 |
 |------|------|
 | **数据库** | 6 张核心表，PostgreSQL + PostGIS |
-| **API** | 6 个 Elysia 模块，TypeBox 契约 |
+| **API** | 5 个 Elysia 模块（按功能领域划分），TypeBox 契约 |
 | **小程序** | Native WeChat + Zustand Vanilla + **去 Tabbar 化** |
-| **Admin** | Vite + React + Eden Treaty |
+| **Admin** | Vite + React + Eden Treaty + **AI Ops (Vercel AI SDK)** |
 | **AI** | 创建解析 (3次/天) + **意图分类**，SSE 流式响应 |
 | **Generative UI** | Widget_Explore + 沉浸式地图页 |
+| **Composite Widget** | Widget_Launcher (组局发射台) - 三层结构复合型卡片 |

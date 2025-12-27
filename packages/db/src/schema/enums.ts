@@ -17,9 +17,10 @@ export const activityTypeEnum = pgEnum("activity_type", [
   "other"
 ]);
 
-// 活动状态 (MVP 简化为 3 种)
+// 活动状态 (v3.2 新增 draft)
 export const activityStatusEnum = pgEnum("activity_status", [
-  "active",     // 进行中
+  "draft",      // AI 生成了，用户还没点确认
+  "active",     // 用户确认了，正式发布 (地图可见)
   "completed",  // 已成局
   "cancelled"   // 已取消
 ]);

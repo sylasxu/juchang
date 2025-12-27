@@ -3,20 +3,22 @@ import { users } from "./users";
 import { activities } from "./activities";
 import { participants } from "./participants";
 import { notifications } from "./notifications";
-import { chatMessages } from "./chat_messages";
+import { groupMessages } from "./group_messages";
+import { homeMessages } from "./home_messages";
 
 // ==========================================
-// User Relations (MVP 精简版)
+// User Relations (v3.2 Chat-First)
 // ==========================================
 export const usersRelations = relations(users, ({ many }) => ({
   activitiesCreated: many(activities),
   participations: many(participants),
   notifications: many(notifications),
-  chatMessages: many(chatMessages),
+  groupMessages: many(groupMessages),
+  homeMessages: many(homeMessages),
 }));
 
 // ==========================================
-// Activity Relations (MVP 精简版)
+// Activity Relations (v3.2 Chat-First)
 // ==========================================
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   creator: one(users, {
@@ -24,8 +26,9 @@ export const activitiesRelations = relations(activities, ({ one, many }) => ({
     references: [users.id],
   }),
   participants: many(participants),
-  chatMessages: many(chatMessages),
+  groupMessages: many(groupMessages),
   notifications: many(notifications),
+  homeMessages: many(homeMessages),
 }));
 
 // ==========================================
@@ -57,16 +60,30 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 }));
 
 // ==========================================
-// Chat Message Relations
+// Group Message Relations (v3.2 重命名自 Chat Message)
 // ==========================================
-export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+export const groupMessagesRelations = relations(groupMessages, ({ one }) => ({
   activity: one(activities, {
-    fields: [chatMessages.activityId],
+    fields: [groupMessages.activityId],
     references: [activities.id],
   }),
   sender: one(users, {
-    fields: [chatMessages.senderId],
+    fields: [groupMessages.senderId],
     references: [users.id],
+  }),
+}));
+
+// ==========================================
+// Home Message Relations (v3.2 新增)
+// ==========================================
+export const homeMessagesRelations = relations(homeMessages, ({ one }) => ({
+  user: one(users, {
+    fields: [homeMessages.userId],
+    references: [users.id],
+  }),
+  activity: one(activities, {
+    fields: [homeMessages.activityId],
+    references: [activities.id],
   }),
 }));
 

@@ -1,16 +1,35 @@
-# Design Document: Admin API
+# Design Document: Admin Console (AI Ops v3.2)
 
 ## Overview
 
-本设计文档定义了 JuChang Admin 后台所需的 API 端点实现方案。遵循项目的 Spec-First 原则，在现有 API 模块中扩展 Admin 所需的端点，保持领域分离。
+本设计文档定义了 JuChang Admin 后台的完整架构。**v3.2 核心理念转变**：从"复刻小程序 UI"转向"透视 AI 数据"。
+
+### 核心定位
+
+**AI 调试与数据中控台 (AI Ops & Data Console)**
+
+- **对于 AI**：它是 X-Ray（X光机），负责透视 AI 的思考过程、意图分类准确率和结构化数据质量
+- **对于业务**：它是 CMS，负责管理用户、活动和内容风控
 
 ## Architecture
+
+### 技术栈 (Tech Stack)
+
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| Framework | Vite + React 19 + TypeScript | 现代化构建 |
+| UI System | Shadcn/ui + Tailwind CSS | 专业、干净、数据密度高 |
+| AI Engine | **Vercel AI SDK (ai/react)** | 核心驱动 |
+| Data Fetching | TanStack Query (React Query) | 服务端状态管理 |
+| Data Viz | Recharts + react-json-view-lite | 统计图表 + Raw JSON 查看 |
+| API Client | Eden Treaty | 类型安全 API 调用 |
 
 ### 设计原则
 
 1. **领域分离**: 在各自的模块中添加 Admin 端点，而非创建独立的 admin 模块
 2. **Schema 派生**: 所有响应类型从 `@juchang/db` 的 TypeBox Schema 派生
 3. **无认证**: MVP 阶段 Admin API 暂不添加认证（后续迭代）
+4. **Inspector Pattern**: AI 响应不渲染 UI 卡片，渲染数据探针面板
 
 ### 端点规划
 
@@ -26,12 +45,117 @@
 ├── GET /activities/:id     # 共用: 活动详情 (已有)
 └── GET /activities/mine    # 小程序: 我的活动 (已有)
 
+/ai
+├── GET /ai/conversations   # Admin: 对话历史列表 (分页)
+├── POST /ai/parse          # 共用: AI 解析 (SSE)
+└── DELETE /ai/conversations # 小程序: 清空对话 (已有)
+
 /dashboard
 ├── GET /dashboard/stats    # Admin: 统计数据 (增强)
 └── GET /dashboard/activities # Admin: 最近活动 (已有)
 ```
 
+## Core Modules (AI Ops)
+
+### 1. 调试沙箱 (Playground)
+
+开发阶段使用频率最高的页面，模拟小程序端的对话环境，但以"开发者视角"展示。
+
+**技术实现**：
+- 使用 `useChat` hook 连接后端 `/ai/parse`
+- 支持配置 System Prompt Override（在不改代码的情况下测试不同的人设）
+
+**渲染逻辑 (The Inspector Pattern)**：
+- User Message: 右侧气泡
+- AI Message (Text): 左侧 Markdown 渲染
+- AI Message (Tool/Widget): **不渲染 UI 卡片，渲染数据探针面板**
+
+**Inspector 组件设计**：
+
+```tsx
+// DraftInspector - 当 AI 返回 widget_draft 时的 Admin 显示组件
+import { Card, CardContent, Badge } from "@/components/ui"
+import { MapPin, Calendar, Users } from "lucide-react"
+
+export function DraftInspector({ data }) {
+  return (
+    <Card className="border-l-4 border-l-indigo-500 bg-slate-50 my-2">
+      <div className="p-3 border-b flex justify-between items-center">
+        <span className="font-mono text-xs font-bold text-indigo-600">
+          TOOL: CREATE_DRAFT
+        </span>
+        <Badge variant="outline">Confidence: High</Badge>
+      </div>
+      <CardContent className="pt-3 text-sm space-y-2">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <span className="font-mono">{data.startAt}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-gray-500" />
+            <span>Max: {data.maxParticipants}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 bg-white p-2 rounded border">
+          <MapPin className="w-4 h-4 text-red-500" />
+          <span className="truncate">
+            {data.locationName} ({data.lat}, {data.lng})
+          </span>
+          <a 
+            href={`https://map.qq.com/?type=marker&pointx=${data.lng}&pointy=${data.lat}`}
+            target="_blank" 
+            className="text-blue-600 underline text-xs ml-auto"
+          >
+            Check Map
+          </a>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+```
+
+### 2. 对话审计 (Conversation Inspector)
+
+排查线上问题的核心页面。
+
+**数据源**：`home_messages` 表
+
+**功能**：
+- 列表页：展示最近的 Session，标注出 "Widget 生成失败" 或 "意图不明" 的对话（红色高亮）
+- 详情页：复用 Playground 的渲染逻辑，回放当时的对话流
+- **[Fix & Test] 按钮**：点击后，将这组对话上下文导入 Playground，允许开发者修改 System Prompt 后重试
+
+### 3. 评测套件 (Evaluation Suite)
+
+保证 Prompt 修改不回退（Regression）的工具。
+
+**功能**：
+- 维护一个"金标准测试集"（Golden Dataset）
+- 例如：输入"明晚火锅" -> 期望输出 `widget_draft` + `type=food`
+- 点击 "Run All Tests"，前端循环调用 API，比对返回的 JSON 字段，生成红/绿报告
+
+### 4. 业务管理 (CMS)
+
+**Activities**：
+- 标准的表格管理
+- 状态流转：Draft -> Active -> Completed
+- Admin 特权：强制下架违规活动
+
+**Users**：
+- 用户列表，封禁/解封
+
 ## Components and Interfaces
+
+### Inspector Components (AI Ops)
+
+| 组件 | 用途 | 触发条件 |
+|------|------|----------|
+| `TextInspector` | 渲染 Markdown 文本 | `type === 'text'` |
+| `DraftInspector` | 结构化展示时间/地点/类型（带腾讯地图外链） | `type === 'widget_draft'` |
+| `ExploreInspector` | 展示搜索关键词、中心点坐标、结果列表 | `type === 'widget_explore'` |
+| `RawJsonInspector` | 折叠/展开显示原始 JSON | 所有类型（调试用） |
 
 ### User Module 扩展
 

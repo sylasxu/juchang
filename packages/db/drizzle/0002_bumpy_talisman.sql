@@ -1,0 +1,2 @@
+ALTER TYPE "public"."home_message_type" ADD VALUE 'widget_launcher' BEFORE 'widget_draft';--> statement-breakpoint
+ALTER TYPE "public"."home_message_type" ADD VALUE 'widget_action' BEFORE 'widget_draft';
