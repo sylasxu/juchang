@@ -10,8 +10,59 @@
 
 ## Tasks
 
-- [x] 1. 数据库 Schema 变更
-  - [x] 1.1 新增 home_messages 表
+- [ ] 0. 数据库 Schema 优化 (Database First - 最高优先级)
+  - [ ] 0.1 重命名 home_messages 为 conversations (行业标准)
+    - 重命名 `packages/db/src/schema/home_messages.ts` 为 `conversations.ts`
+    - 更新表名：`home_messages` → `conversations`
+    - 更新枚举名：`homeMessageRoleEnum` → `conversationRoleEnum`
+    - 更新枚举值：`ai` → `assistant` (符合 OpenAI 标准)
+    - 更新枚举名：`homeMessageTypeEnum` → `conversationMessageTypeEnum`
+    - 更新字段名：`type` → `messageType` (更明确)
+    - 更新索引名：`home_messages_*_idx` → `conversations_*_idx`
+    - 更新导出名称和类型
+    - _Requirements: 0.1, 0.3, 0.4_
+  - [ ] 0.2 重命名 group_messages 为 activity_messages (语义化)
+    - 重命名 `packages/db/src/schema/group_messages.ts` 为 `activity_messages.ts`
+    - 更新表名：`group_messages` → `activity_messages`
+    - 更新枚举：从 enums.ts 的 `messageTypeEnum` 改为本地定义的 `activityMessageTypeEnum`
+    - 更新字段名：`type` → `messageType` (更明确)
+    - 更新索引名：`group_messages_*_idx` → `activity_messages_*_idx`
+    - 更新导出名称和类型
+    - 移除向后兼容别名（chatMessages 等）
+    - _Requirements: 0.2, 0.5_
+  - [ ] 0.3 修改 activities.status 默认值
+    - 在 `packages/db/src/schema/activities.ts` 中修改 status 默认值
+    - 从 `.default("active")` 改为 `.default("draft")`
+    - _Requirements: 0.6_
+  - [ ] 0.4 清理 enums.ts
+    - 移除 `messageTypeEnum`（已迁移到 activity_messages.ts）
+    - 保留其他枚举不变
+    - _Requirements: 0.5_
+  - [ ] 0.5 更新 relations.ts
+    - 更新 `homeMessages` → `conversations`
+    - 更新 `groupMessages` → `activityMessages`
+    - 更新所有关系引用
+    - _Requirements: 0.1, 0.2_
+  - [ ] 0.6 更新 schema/index.ts 导出
+    - 导出 `conversations` (原 home_messages)
+    - 导出 `activity_messages` (原 group_messages)
+    - 移除旧的导出
+    - _Requirements: 0.1, 0.2_
+  - [ ] 0.7 生成并执行数据库迁移
+    - 运行 `bun run db:generate` 生成迁移文件
+    - 运行 `bun run db:migrate` 执行迁移
+    - _Requirements: 0.9, 0.10_
+  - [ ] 0.8 更新 API 模块引用
+    - 更新 `apps/api/src/modules/ai/` 引用 conversations 表
+    - 更新 `apps/api/src/modules/chat/` 引用 activity_messages 表
+    - _Requirements: 0.12_
+  - [ ] 0.9 同步更新文档
+    - 更新 `docs/TAD.md` 中的表名、枚举名和默认值说明
+    - 更新 `.kiro/steering/juchang-rules.md` 中的表结构概览
+    - _Requirements: 0.11_
+
+- [x] 1. 数据库 Schema 变更 (已完成基础结构，待 Task 0 重构)
+  - [x] 1.1 新增 home_messages 表 → **待重命名为 conversations (Task 0.1)**
     - 创建 `packages/db/src/schema/home_messages.ts`
     - 定义 homeMessageRoleEnum 和 homeMessageTypeEnum
     - homeMessageTypeEnum 包含: text, widget_dashboard, widget_draft, widget_share, **widget_explore**, widget_error
@@ -23,12 +74,12 @@
     - 更新 activityStatusEnum: ['draft', 'active', 'completed', 'cancelled']
     - 移除 activities 表中的 chatStatus 字段（改为动态计算 isArchived）
     - _Requirements: 6.1, 6.8, 11.7_
-  - [x] 1.3 重命名 chat_messages 为 group_messages
+  - [x] 1.3 重命名 chat_messages 为 group_messages → **待重命名为 activity_messages (Task 0.2)**
     - 重命名 `packages/db/src/schema/chat_messages.ts` 为 `group_messages.ts`
     - 更新表名和导出名称
     - 更新 relations.ts 中的引用
     - _Requirements: 11.2, 11.3_
-  - [x] 1.4 生成并执行数据库迁移
+  - [x] 1.4 生成并执行数据库迁移 → **需要在 Task 0 完成后重新执行**
     - 运行 `bun run db:generate` 生成迁移文件
     - 运行 `bun run db:migrate` 执行迁移
     - _Requirements: 数据库一致性_
@@ -38,8 +89,8 @@
     - 更新 `apps/api/src/modules/ai/ai.model.ts` 添加对话相关 Schema
     - 更新 `apps/api/src/modules/ai/ai.service.ts` 添加对话管理函数
     - 更新 `apps/api/src/modules/ai/ai.controller.ts` 添加对话端点
-    - 实现 GET /ai/conversations（分页查询对话历史）
-    - 实现 POST /ai/conversations（添加用户消息）
+    - 实现 GET /ai/conversations（分页查询 conversations 表）
+    - 实现 POST /ai/conversations（添加用户消息到 conversations）
     - 实现 DELETE /ai/conversations（清空对话历史）
     - **注意**：对话历史属于 AI 功能领域，不创建独立的 home 模块
     - _Requirements: 3.2, 3.6, 2.8_
@@ -50,7 +101,7 @@
       - 模糊探索意图（"附近有什么"、"推荐"）→ Widget_Explore
       - 无法识别 → 文本消息引导
     - AI 解析成功时自动创建 draft 状态的 activity
-    - 同时创建对应类型的对话记录 (home_messages)
+    - 同时创建对应类型的对话记录 (conversations)
     - _Requirements: 6.1, 6.2, 6.3, 19.1, 19.2, 19.3_
   - [x] 2.3 新增 SSE 事件类型
     - 新增 `searching` 事件：探索场景搜索中
@@ -67,7 +118,7 @@
     - 添加时间校验（不允许发布过去时间的活动）
     - _Requirements: 6.7, 6.8_
   - [x] 2.6 更新 chat 模块
-    - 将 chat 模块的表引用改为 group_messages（已通过别名兼容）
+    - 将 chat 模块的表引用改为 activity_messages
     - 保持 API 路径不变 /chat/:activityId/messages
     - _Requirements: 11.3, 11.4_
 
@@ -120,6 +171,42 @@
   - 确保对话审计页面可以查看历史对话
   - 如有问题请询问用户
 
+### Phase 5.5: Admin API 端点扩展 (Consolidated from admin-api spec)
+
+- [ ] 5.5.1 扩展 User Module 支持 Admin 端点
+  - 更新 `apps/api/src/modules/users/user.model.ts` 添加 Admin Schema
+  - 更新 `apps/api/src/modules/users/user.service.ts` 添加 Admin 服务函数
+  - 更新 `apps/api/src/modules/users/user.controller.ts` 添加 Admin 端点
+  - 实现 GET /users (分页列表)
+  - 实现 GET /users/:id (用户详情)
+  - 实现 PUT /users/:id (更新用户)
+  - _Requirements: 25, 26, 27_
+
+- [ ] 5.5.2 扩展 Activity Module 支持 Admin 端点
+  - 更新 `apps/api/src/modules/activities/activity.model.ts` 添加 Admin Schema
+  - 更新 `apps/api/src/modules/activities/activity.service.ts` 添加 Admin 服务函数
+  - 更新 `apps/api/src/modules/activities/activity.controller.ts` 添加 Admin 端点
+  - 实现 GET /activities (分页列表，支持状态/类型筛选)
+  - _Requirements: 28_
+
+- [ ] 5.5.3 增强 Dashboard 统计数据
+  - 更新 `apps/api/src/modules/dashboard/dashboard.model.ts` 增强统计 Schema
+  - 更新 `apps/api/src/modules/dashboard/dashboard.service.ts` 增强统计逻辑
+  - 新增 activeUsers, userGrowthRate, activityGrowthRate 字段
+  - _Requirements: 29_
+
+- [ ] 5.5.4 更新 Admin 端 Hooks
+  - 更新 `apps/admin/src/hooks/use-users.ts` 使用真实 API
+  - 创建 `apps/admin/src/hooks/use-activities.ts` 使用真实 API
+  - 更新活动列表页使用真实 API
+  - _Requirements: Admin 端适配_
+
+- [ ] 5.5.5 Checkpoint - Admin API 完成
+  - 确保用户列表分页正常
+  - 确保活动列表筛选正常
+  - 确保 Dashboard 统计数据正确
+  - 如有问题请询问用户
+
 - [ ] 6. 小程序全局配置
   - [ ] 6.1 更新 app.json
     - 启用深色模式支持 `"darkmode": true`
@@ -147,6 +234,7 @@
     - 实现 loadMessages, loadMoreMessages, addUserMessage, addAIMessage, clearMessages
     - 使用 immer + persist 中间件
     - 本地缓存最近 50 条消息
+    - 数据来源：conversations 表
     - _Requirements: 3.2, 3.6, 2.8_
 
 - [ ] 8. 核心组件开发
@@ -362,6 +450,12 @@
 
 - Each task references specific requirements for traceability
 - Checkpoints ensure incremental validation
+- **Task 0 (Schema 优化) 是最高优先级**，必须先完成再继续其他任务
+- **行业标准命名**：
+  - `conversations` (用户与 AI 对话，符合行业标准)
+  - `activity_messages` (活动群聊消息，语义化)
+  - `conversation_role` 使用 `user` | `assistant` (符合 OpenAI 标准)
+- **activities.status 默认值为 draft**：符合 AI 解析 → 用户确认的工作流
 - **深色模式从 Day 1 支持**：使用语义化 CSS 变量，一套代码适配两种模式
 - 深色模式使用 Slate/Navy 色板（#0F172A），非纯黑
 - 深色模式卡片用边框代替阴影

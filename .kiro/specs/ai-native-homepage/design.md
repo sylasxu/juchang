@@ -79,98 +79,138 @@ apps/miniprogram/components/
 
 ## Database Schema
 
-### Schema 变更 (v3.0 Chat-First)
+### Schema 变更 (v3.3 Chat-First + 行业标准命名)
 
-为了支持 Chat-First 架构，需要新增一张表并调整活动状态枚举：
+为了支持 Chat-First 架构并符合行业标准，需要重命名表和枚举：
 
 | 表 | 说明 | 变更 |
 |---|------|------|
 | `users` | 用户表：认证 + AI 额度 + 统计 | 不变 |
-| `activities` | 活动表：基础信息 + 位置 + 状态 | **状态枚举新增 `draft`** |
+| `activities` | 活动表：基础信息 + 位置 + 状态 | **status 默认值改为 `draft`** |
 | `participants` | 参与者表：报名/退出 | 不变 |
-| `home_messages` | **新增：首页 AI 对话流** | 核心新表 |
-| `group_messages` | 活动群聊消息表 (原 chat_messages) | **重命名** |
+| `conversations` | **AI 对话历史表** (原 home_messages) | **重命名：行业标准** |
+| `activity_messages` | **活动群聊消息表** (原 group_messages) | **重命名：语义化** |
 | `notifications` | 通知表 | 不变 |
 
-### 新增表：home_messages (AI 对话流)
+### 命名优化说明 (行业标准)
 
-这是 v3.0 的视觉核心，存储用户和 AI 的交互历史。
+| 原名 | 新名 | 原因 |
+|------|------|------|
+| `home_messages` | `conversations` | 行业标准：对话/会话表通常叫 conversations |
+| `group_messages` | `activity_messages` | 语义化：明确表达"活动内的消息" |
+| `home_message_role` | `conversation_role` | 枚举跟随表名 |
+| `home_message_type` | `conversation_message_type` | 枚举跟随表名 |
+| `message_type` | `activity_message_type` | 避免与通用 message_type 混淆 |
+
+### AI 对话历史表：conversations
+
+这是 Chat-First 架构的核心表，存储用户和 AI 的交互历史。
 
 ```typescript
-// packages/db/src/schema/home_messages.ts
-import { pgTable, uuid, varchar, jsonb, timestamp } from 'drizzle-orm/pg-core';
+// packages/db/src/schema/conversations.ts
+import { pgTable, uuid, jsonb, timestamp, index, pgEnum } from 'drizzle-orm/pg-core';
 import { users } from './users';
 import { activities } from './activities';
+import { createInsertSchema, createSelectSchema } from 'drizzle-typebox';
 
-// 消息角色枚举
-export const homeMessageRoleEnum = pgEnum('home_message_role', ['user', 'ai']);
+// 对话角色枚举 (行业标准命名)
+export const conversationRoleEnum = pgEnum('conversation_role', ['user', 'assistant']);
 
-### 消息类型枚举
-
-```typescript
-// 消息类型枚举 (v3.2 新增 widget_explore)
-export const homeMessageTypeEnum = pgEnum('home_message_type', [
+// 对话消息类型枚举 (v3.3 含 Generative UI + Composite Widget + Simple Widget)
+export const conversationMessageTypeEnum = pgEnum('conversation_message_type', [
   'text',              // 普通文本
-  'widget_dashboard',  // 进场欢迎卡片
+  'widget_dashboard',  // 进场欢迎卡片 (简化版)
+  'widget_launcher',   // 组局发射台 (复合型卡片)
+  'widget_action',     // 快捷操作按钮 (简单跳转)
   'widget_draft',      // 意图解析卡片 (带地图选点)
   'widget_share',      // 创建成功卡片
   'widget_explore',    // 探索卡片 (Generative UI)
   'widget_error'       // 错误提示卡片
 ]);
-```
 
-export const homeMessages = pgTable('home_messages', {
+export const conversations = pgTable('conversations', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id),
   
-  // 角色：用户说的 or AI 回复的
-  role: homeMessageRoleEnum('role').notNull(),
+  // 角色：用户说的 or AI 回复的 (使用 assistant 而非 ai，符合 OpenAI 标准)
+  role: conversationRoleEnum('role').notNull(),
   
-  // 类型：Chat-First 的灵魂
-  type: homeMessageTypeEnum('type').notNull(),
+  // 消息类型：Chat-First 的灵魂，决定前端渲染哪种 Widget
+  messageType: conversationMessageTypeEnum('message_type').notNull(),
   
   // 内容：JSONB 存储灵活的卡片数据
-  // widget_draft: { title, lat, lng, startAt, type, ... }
-  // widget_share: { activityId, title, shareTitle, ... }
   content: jsonb('content').notNull(),
   
   // 关联：如果卡片对应真实活动
   activityId: uuid('activity_id').references(() => activities.id),
   
   createdAt: timestamp('created_at').defaultNow().notNull()
-});
+}, (t) => [
+  index('conversations_user_idx').on(t.userId),
+  index('conversations_created_idx').on(t.createdAt),
+  index('conversations_activity_idx').on(t.activityId),
+]);
 
 // TypeBox Schemas
-export const insertHomeMessageSchema = createInsertSchema(homeMessages);
-export const selectHomeMessageSchema = createSelectSchema(homeMessages);
-export type HomeMessage = typeof homeMessages.$inferSelect;
-export type NewHomeMessage = typeof homeMessages.$inferInsert;
+export const insertConversationSchema = createInsertSchema(conversations);
+export const selectConversationSchema = createSelectSchema(conversations);
+export type Conversation = typeof conversations.$inferSelect;
+export type NewConversation = typeof conversations.$inferInsert;
 ```
 
-### 活动状态枚举变更
+### 活动群聊表：activity_messages
 
 ```typescript
-// packages/db/src/schema/enums.ts
-export const activityStatusEnum = pgEnum('activity_status', [
-  'draft',      // 新增：AI 生成了，用户还没点确认
-  'active',     // 用户确认了，正式发布 (地图可见)
-  'completed',  // 成局
-  'cancelled'   // 取消
+// packages/db/src/schema/activity_messages.ts
+import { pgTable, uuid, text, timestamp, index, pgEnum } from 'drizzle-orm/pg-core';
+import { activities } from './activities';
+import { users } from './users';
+import { createInsertSchema, createSelectSchema } from 'drizzle-typebox';
+
+// 活动消息类型枚举 (语义化命名)
+export const activityMessageTypeEnum = pgEnum('activity_message_type', [
+  'text',    // 文本消息
+  'system'   // 系统消息
 ]);
+
+export const activityMessages = pgTable('activity_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  
+  activityId: uuid('activity_id').notNull().references(() => activities.id),
+  senderId: uuid('sender_id').references(() => users.id), // 可为空：系统消息无 sender
+  
+  messageType: activityMessageTypeEnum('message_type').default('text').notNull(),
+  content: text('content').notNull(),
+  
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (t) => [
+  index('activity_messages_activity_idx').on(t.activityId),
+  index('activity_messages_created_idx').on(t.createdAt),
+]);
+
+// TypeBox Schemas
+export const insertActivityMessageSchema = createInsertSchema(activityMessages);
+export const selectActivityMessageSchema = createSelectSchema(activityMessages);
+export type ActivityMessage = typeof activityMessages.$inferSelect;
+export type NewActivityMessage = typeof activityMessages.$inferInsert;
 ```
 
-### 重命名：chat_messages → group_messages
-
-为了区分"两个聊天"场景：
-- **Home Chat**: 用户 vs AI (独角戏，存 home_messages)
-- **Group Chat**: 用户 vs 用户 (活动群聊，存 group_messages)
+### 活动状态默认值变更
 
 ```typescript
-// packages/db/src/schema/group_messages.ts (原 chat_messages.ts)
-export const groupMessages = pgTable('group_messages', {
-  // ... 字段不变，仅表名变更 ...
-});
+// packages/db/src/schema/activities.ts
+// status 字段默认值从 'active' 改为 'draft'
+status: activityStatusEnum('status').default('draft').notNull(),
 ```
+
+**原因**：符合 AI 解析 → 用户确认的工作流。活动创建后默认是草稿状态，用户确认后才变为 active。
+
+### 角色枚举值说明
+
+使用 `assistant` 而非 `ai` 作为 AI 角色的枚举值，原因：
+- 符合 OpenAI API 标准（role: 'user' | 'assistant' | 'system'）
+- 行业通用，便于未来接入其他 LLM 服务
+- 语义更准确：AI 是"助手"角色
 
 ### 数据流变化
 
@@ -179,9 +219,9 @@ export const groupMessages = pgTable('group_messages', {
 前端内存存草稿 → 用户提交 → DB 插入 active 活动
 ```
 
-**新逻辑 (v3.0)**：
+**新逻辑 (v3.3)**：
 ```
-AI 解析完成 → DB 插入 draft 活动 + home_messages 卡片记录
+AI 解析完成 → DB 插入 draft 活动 + ai_conversations 对话记录
 → 用户点击确认 → DB 更新活动为 active
 ```
 
@@ -197,8 +237,8 @@ AI 解析完成 → DB 插入 draft 活动 + home_messages 卡片记录
 -- 旧版：查活动
 SELECT * FROM activities WHERE creator_id = :userId
 
--- 新版：查对话流
-SELECT * FROM home_messages 
+-- 新版：查 AI 对话历史
+SELECT * FROM ai_conversations 
 WHERE user_id = :userId 
 ORDER BY created_at DESC 
 LIMIT 20
@@ -2920,3 +2960,243 @@ export function MessageList({ messages }: { messages: Message[] }) {
 ```
 
 **这就是 Generative UI 的核心价值**：根据用户意图，动态生成最合适的界面，而不是简单地返回文本或跳转页面。
+
+
+---
+
+## Admin API Design (Consolidated from admin-api spec)
+
+### Admin 端点规划
+
+```
+/users
+├── GET /users              # Admin: 用户列表
+├── GET /users/:id          # Admin: 用户详情
+├── PUT /users/:id          # Admin: 更新用户
+└── GET /users/me           # 小程序: 当前用户 (已有)
+
+/activities
+├── GET /activities         # Admin: 活动列表
+├── GET /activities/:id     # 共用: 活动详情 (已有)
+└── GET /activities/mine    # 小程序: 我的活动 (已有)
+
+/ai
+├── GET /ai/conversations   # Admin: 对话历史列表 (分页)
+├── POST /ai/parse          # 共用: AI 解析 (SSE)
+└── DELETE /ai/conversations # 小程序: 清空对话 (已有)
+
+/dashboard
+├── GET /dashboard/stats    # Admin: 统计数据 (增强)
+└── GET /dashboard/activities # Admin: 最近活动 (已有)
+```
+
+### User Module 扩展
+
+#### GET /users - 用户列表
+
+```typescript
+// Query Parameters
+interface UserListQuery {
+  page?: number      // 默认 1
+  limit?: number     // 默认 20, 最大 100
+  search?: string    // 搜索昵称或手机号
+}
+
+// Response (从 selectUserSchema 派生，排除 wxOpenId)
+interface UserListResponse {
+  data: Array<Omit<User, 'wxOpenId'>>
+  total: number
+  page: number
+  limit: number
+}
+```
+
+#### GET /users/:id - 用户详情
+
+```typescript
+// Response (从 selectUserSchema 派生，排除 wxOpenId)
+type UserDetailResponse = Omit<User, 'wxOpenId'>
+```
+
+#### PUT /users/:id - 更新用户
+
+```typescript
+// Request Body
+interface UpdateUserRequest {
+  nickname?: string
+  avatarUrl?: string
+}
+
+// Response
+type UpdateUserResponse = Omit<User, 'wxOpenId'>
+```
+
+### Activity Module 扩展
+
+#### GET /activities - 活动列表
+
+```typescript
+// Query Parameters
+interface ActivityListQuery {
+  page?: number      // 默认 1
+  limit?: number     // 默认 20, 最大 100
+  search?: string    // 搜索标题或地点
+  status?: 'draft' | 'active' | 'completed' | 'cancelled'
+  type?: string      // 活动类型
+}
+
+// Response (从 selectActivitySchema 派生，添加 creator 信息)
+interface ActivityListResponse {
+  data: Array<Activity & {
+    creator: {
+      id: string
+      nickname: string | null
+      avatarUrl: string | null
+    }
+  }>
+  total: number
+  page: number
+  limit: number
+}
+```
+
+### Dashboard Module 增强
+
+#### GET /dashboard/stats - 统计数据（增强）
+
+```typescript
+// 现有字段
+interface DashboardStats {
+  totalUsers: number
+  totalActivities: number
+  activeActivities: number
+  todayNewUsers: number
+}
+
+// 新增字段
+interface EnhancedDashboardStats extends DashboardStats {
+  activeUsers: number           // 今日活跃用户
+  userGrowthRate: number        // 用户增长率 (%)
+  activeUserGrowthRate: number  // 活跃用户增长率 (%)
+  activityGrowthRate: number    // 活动增长率 (%)
+}
+```
+
+### Admin TypeBox Schema 定义
+
+```typescript
+// user.model.ts 新增
+import { selectUserSchema } from '@juchang/db'
+import { t } from 'elysia'
+
+// Admin 用户响应 (排除敏感字段)
+const AdminUserSchema = t.Omit(selectUserSchema, ['wxOpenId'])
+
+// 用户列表查询参数
+const UserListQuerySchema = t.Object({
+  page: t.Optional(t.Number({ minimum: 1, default: 1 })),
+  limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20 })),
+  search: t.Optional(t.String()),
+})
+
+// 用户列表响应
+const UserListResponseSchema = t.Object({
+  data: t.Array(AdminUserSchema),
+  total: t.Number(),
+  page: t.Number(),
+  limit: t.Number(),
+})
+
+// activity.model.ts 新增
+import { selectActivitySchema } from '@juchang/db'
+
+// 活动列表查询参数
+const ActivityListQuerySchema = t.Object({
+  page: t.Optional(t.Number({ minimum: 1, default: 1 })),
+  limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20 })),
+  search: t.Optional(t.String()),
+  status: t.Optional(t.Union([
+    t.Literal('draft'),
+    t.Literal('active'),
+    t.Literal('completed'),
+    t.Literal('cancelled'),
+  ])),
+  type: t.Optional(t.String()),
+})
+
+// 活动列表响应
+const ActivityListResponseSchema = t.Object({
+  data: t.Array(t.Intersect([
+    selectActivitySchema,
+    t.Object({
+      creator: t.Object({
+        id: t.String(),
+        nickname: t.Union([t.String(), t.Null()]),
+        avatarUrl: t.Union([t.String(), t.Null()]),
+      }),
+    }),
+  ])),
+  total: t.Number(),
+  page: t.Number(),
+  limit: t.Number(),
+})
+```
+
+### Admin Correctness Properties
+
+#### Property 16: 用户列表分页正确性
+
+*For any* valid pagination parameters (page, limit), the User_Module SHALL return at most `limit` users, and the response SHALL include correct total count.
+
+**Validates: Requirements 25.1, 25.2, 25.5**
+
+#### Property 17: 用户搜索过滤正确性
+
+*For any* search query string, all returned users SHALL have nickname or phoneNumber containing the search string (case-insensitive).
+
+**Validates: Requirements 25.3**
+
+#### Property 18: 敏感字段排除
+
+*For any* user API response (list or detail), the response SHALL NOT contain the wxOpenId field.
+
+**Validates: Requirements 25.4, 26.3**
+
+#### Property 19: 用户更新字段限制
+
+*For any* user update request, only nickname and avatarUrl fields SHALL be updated; other fields SHALL remain unchanged.
+
+**Validates: Requirements 27.1, 27.3**
+
+#### Property 20: 活动列表分页正确性
+
+*For any* valid pagination parameters (page, limit), the Activity_Module SHALL return at most `limit` activities, and the response SHALL include correct total count.
+
+**Validates: Requirements 28.1, 28.2, 28.7**
+
+#### Property 21: 活动状态过滤正确性
+
+*For any* status filter value, all returned activities SHALL have the specified status.
+
+**Validates: Requirements 28.4**
+
+#### Property 22: 活动类型过滤正确性
+
+*For any* type filter value, all returned activities SHALL have the specified type.
+
+**Validates: Requirements 28.5**
+
+#### Property 23: 活动创建者信息完整性
+
+*For any* activity in the list response, the activity SHALL include creator object with id, nickname, and avatarUrl fields.
+
+**Validates: Requirements 28.6**
+
+### Admin Error Handling
+
+| 场景 | HTTP Status | Error Code | Message |
+|-----|-------------|------------|---------|
+| 用户不存在 | 404 | 404 | 用户不存在 |
+| 活动不存在 | 404 | 404 | 活动不存在 |
+| 参数验证失败 | 400 | 400 | 参数错误 |
+| 服务器错误 | 500 | 500 | 服务器内部错误 |

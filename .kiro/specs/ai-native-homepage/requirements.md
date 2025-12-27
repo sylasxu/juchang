@@ -141,6 +141,34 @@
 
 ## Requirements
 
+### Requirement 0: 数据库 Schema 优化 (Database First - 行业标准)
+
+**User Story:** As a 开发者, I want 数据库表名和字段名符合行业标准且语义化, so that 代码可读性高、团队协作顺畅、减少 Bug。
+
+#### Acceptance Criteria
+
+**表命名优化 (行业标准)**：
+1. THE 首页对话表 SHALL 命名为 'conversations'（而非 'home_messages'），符合行业标准的对话/会话表命名
+2. THE 活动群聊表 SHALL 命名为 'activity_messages'（而非 'group_messages'），明确表达"活动内的消息"
+
+**枚举命名优化 (语义化)**：
+3. THE 对话角色枚举 SHALL 命名为 'conversation_role'（而非 'home_message_role'）
+4. THE 对话消息类型枚举 SHALL 命名为 'conversation_message_type'（而非 'home_message_type'）
+5. THE 活动消息类型枚举 SHALL 命名为 'activity_message_type'（而非 'message_type'）
+
+**默认值优化 (业务逻辑)**：
+6. THE 活动表 (activities) 的 status 字段 SHALL 默认值为 'draft'（而非 'active'），符合 AI 解析 → 用户确认的工作流
+
+**字段命名优化 (可选，MVP 后考虑)**：
+7. THE activities 表的 startAt 字段 MAY 重命名为 starts_at，符合 Rails/行业惯例
+8. THE 冗余统计字段 (currentParticipants, activitiesCreatedCount, participationCount) MAY 在未来版本移除，改为动态计算
+
+**迁移与文档**：
+9. WHEN Schema 变更完成后, THE 开发者 SHALL 运行 'bun run db:generate' 生成迁移文件
+10. WHEN 执行 'bun run db:migrate', THE 数据库 SHALL 应用所有待执行的迁移
+11. THE TAD 文档和 steering 规则 SHALL 同步更新表名、枚举名和默认值说明
+12. THE API 模块 SHALL 更新表引用（ai 模块引用 conversations，chat 模块引用 activity_messages）
+
 ### Requirement 1: 首页整体架构 (Chat-First Layout)
 
 **User Story:** As a 用户, I want 打开 App 就看到一个对话界面, so that 我可以像和朋友聊天一样轻松组局。
@@ -422,3 +450,116 @@
 2. WHEN AI 定位到搜索区域 THEN 小程序 SHALL 流式显示 "找到了 N 个活动"
 3. WHEN AI 返回搜索结果 THEN Widget_Explore SHALL 逐步渲染：先显示 Header，再显示地图预览，最后显示活动列表
 4. WHEN Widget 渲染完成 THEN 小程序 SHALL 显示 Action 按钮（[🗺️ 展开地图]）
+
+---
+
+## Admin Console Requirements (AI Ops v3.2)
+
+> **核心定位**：AI 调试与数据中控台 (AI Ops & Data Console)
+> - **对于 AI**：它是 X-Ray（X光机），负责透视 AI 的思考过程、意图分类准确率和结构化数据质量
+> - **对于业务**：它是 CMS，负责管理用户、活动和内容风控
+
+### Requirement 21: AI Playground
+
+**User Story:** As a developer, I want to test AI parsing in a sandbox environment, so that I can debug and improve AI responses.
+
+#### Acceptance Criteria
+
+1. WHEN a developer opens the Playground, THE Admin_Console SHALL display a chat interface
+2. WHEN a developer sends a message, THE Playground SHALL call the `/ai/parse` API via `useChat` hook
+3. WHEN AI returns a text response, THE Playground SHALL render it as Markdown
+4. WHEN AI returns a widget response, THE Playground SHALL render an Inspector panel (not UI card)
+5. THE Playground SHALL support System Prompt Override configuration
+6. THE Playground SHALL support saving/loading prompt presets
+
+### Requirement 22: Inspector Pattern
+
+**User Story:** As a developer, I want to see structured data from AI responses, so that I can verify data quality.
+
+#### Acceptance Criteria
+
+1. WHEN AI returns `widget_draft`, THE DraftInspector SHALL display time, location, type in structured format
+2. WHEN AI returns `widget_explore`, THE ExploreInspector SHALL display search keywords, center coordinates, result list
+3. THE Inspector SHALL include a link to verify location on Tencent Map
+4. THE Inspector SHALL display confidence level when available
+5. THE RawJsonInspector SHALL support fold/expand and copy JSON
+
+### Requirement 23: Conversation Audit
+
+**User Story:** As a developer, I want to review historical conversations, so that I can identify and fix AI issues.
+
+#### Acceptance Criteria
+
+1. WHEN a developer opens Conversation Inspector, THE Admin_Console SHALL display a list of sessions
+2. THE session list SHALL highlight conversations with widget generation failures (red)
+3. THE session list SHALL highlight conversations with unclear intent
+4. WHEN a developer clicks a session, THE Admin_Console SHALL display the full conversation flow
+5. THE conversation detail SHALL reuse Playground rendering components in read-only mode
+6. THE Admin_Console SHALL provide a [Fix & Test] button to import conversation context to Playground
+
+### Requirement 24: Evaluation Suite (Optional)
+
+**User Story:** As a developer, I want to run regression tests on AI prompts, so that I can ensure prompt changes don't break existing functionality.
+
+#### Acceptance Criteria
+
+1. THE Admin_Console SHALL support defining test cases in JSON format (Golden Dataset)
+2. WHEN a developer clicks "Run All Tests", THE Admin_Console SHALL call AI API for each test case
+3. THE Admin_Console SHALL compare AI responses with expected outputs
+4. THE Admin_Console SHALL generate a red/green test report with pass rate
+
+### Requirement 25: Admin 用户列表查询
+
+**User Story:** As an admin, I want to view a paginated list of users, so that I can manage platform users.
+
+#### Acceptance Criteria
+
+1. WHEN an admin requests the user list, THE User_Module SHALL return a paginated list of users
+2. WHEN pagination parameters are provided, THE User_Module SHALL return the specified page with the specified limit
+3. WHEN a search parameter is provided, THE User_Module SHALL filter users by nickname or phone number
+4. THE User_Module SHALL exclude sensitive fields (wxOpenId) from the response
+5. THE User_Module SHALL return total count for pagination
+
+### Requirement 26: Admin 用户详情查询
+
+**User Story:** As an admin, I want to view user details, so that I can understand user information.
+
+#### Acceptance Criteria
+
+1. WHEN an admin requests user details by ID, THE User_Module SHALL return the user's full information
+2. IF the user does not exist, THEN THE User_Module SHALL return a 404 error
+3. THE User_Module SHALL exclude sensitive fields (wxOpenId) from the response
+
+### Requirement 27: Admin 用户信息更新
+
+**User Story:** As an admin, I want to update user information, so that I can manage user data.
+
+#### Acceptance Criteria
+
+1. WHEN an admin updates user information, THE User_Module SHALL update the specified fields
+2. IF the user does not exist, THEN THE User_Module SHALL return a 404 error
+3. THE User_Module SHALL only allow updating non-sensitive fields (nickname, avatarUrl)
+
+### Requirement 28: Admin 活动列表查询
+
+**User Story:** As an admin, I want to view a paginated list of activities, so that I can manage platform activities.
+
+#### Acceptance Criteria
+
+1. WHEN an admin requests the activity list, THE Activity_Module SHALL return a paginated list of activities
+2. WHEN pagination parameters are provided, THE Activity_Module SHALL return the specified page with the specified limit
+3. WHEN a search parameter is provided, THE Activity_Module SHALL filter activities by title or location
+4. WHEN a status filter is provided, THE Activity_Module SHALL filter activities by status
+5. WHEN a type filter is provided, THE Activity_Module SHALL filter activities by type
+6. THE Activity_Module SHALL include creator information in the response
+7. THE Activity_Module SHALL return total count for pagination
+
+### Requirement 29: Admin 仪表板统计增强
+
+**User Story:** As an admin, I want to see enhanced dashboard statistics, so that I can monitor platform health.
+
+#### Acceptance Criteria
+
+1. THE Dashboard_Module SHALL return activeUsers count (today's active users)
+2. THE Dashboard_Module SHALL return growth rate calculations
+3. THE Dashboard_Module SHALL return todayNewUsers count
