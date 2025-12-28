@@ -1,6 +1,12 @@
 // Auth Service - 认证相关业务逻辑 (MVP 简化版)
 import { db, users, eq } from '@juchang/db';
-import type { WxLoginRequest, BindPhoneRequest } from './auth.model';
+import type { WxLoginRequest, BindPhoneRequest, AdminPhoneLoginRequest } from './auth.model';
+
+// 管理员手机号白名单
+const ADMIN_PHONES = ['13996092317'];
+
+// 超级验证码（开发/测试用）
+const SUPER_CODE = '9999';
 
 /**
  * 微信登录响应接口
@@ -76,6 +82,73 @@ export async function wxLogin(params: WxLoginRequest) {
     console.error('微信登录失败:', error);
     throw new Error(error?.message || '登录失败');
   }
+}
+
+/**
+ * Admin 手机号登录
+ * - 验证码校验（9999 为超级验证码）
+ * - 检查是否为管理员
+ */
+export async function adminPhoneLogin(params: AdminPhoneLoginRequest) {
+  const { phone, code } = params;
+
+  // 验证码校验
+  if (code !== SUPER_CODE) {
+    // TODO: 接入真实短信验证码服务
+    throw new Error('验证码错误');
+  }
+
+  // 检查是否为管理员
+  if (!ADMIN_PHONES.includes(phone)) {
+    throw new Error('该手机号无管理员权限');
+  }
+
+  // 查找用户
+  let user = await db
+    .select()
+    .from(users)
+    .where(eq(users.phoneNumber, phone))
+    .limit(1)
+    .then(rows => rows[0]);
+
+  // 如果用户不存在，创建管理员用户
+  if (!user) {
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        wxOpenId: `admin_${phone}`, // 管理员使用手机号作为标识
+        phoneNumber: phone,
+        nickname: '管理员',
+        avatarUrl: null,
+        aiCreateQuotaToday: 999, // 管理员无限额度
+        activitiesCreatedCount: 0,
+        participationCount: 0,
+      })
+      .returning();
+
+    user = newUser;
+  }
+
+  // 构建管理员角色信息
+  const adminUser = {
+    id: user.id,
+    phoneNumber: user.phoneNumber!,
+    nickname: user.nickname,
+    avatarUrl: user.avatarUrl,
+    role: {
+      id: 'admin-role',
+      name: '管理员',
+      permissions: [
+        { resource: 'users', actions: ['read', 'write', 'delete'] },
+        { resource: 'activities', actions: ['read', 'write', 'delete'] },
+        { resource: 'conversations', actions: ['read', 'write', 'delete'] },
+        { resource: 'dashboard', actions: ['read'] },
+        { resource: 'ai-playground', actions: ['read', 'write'] },
+      ],
+    },
+  };
+
+  return adminUser;
 }
 
 /**

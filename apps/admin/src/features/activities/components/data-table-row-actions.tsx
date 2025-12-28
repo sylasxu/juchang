@@ -1,23 +1,18 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Trash2, Eye, MessageSquare } from 'lucide-react'
+import { Trash2, Eye, MessageSquare, CheckCircle, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { statuses } from '../data/data'
 import { type Activity } from '../data/schema'
 import { useActivities } from './activities-provider'
+import { useUpdateActivityStatus } from '@/hooks/use-activities'
 
 type DataTableRowActionsProps<TData> = {
   row: Row<TData>
@@ -26,9 +21,11 @@ type DataTableRowActionsProps<TData> = {
 export function DataTableRowActions<TData>({
   row,
 }: DataTableRowActionsProps<TData>) {
-  // TypeBox 不使用 .parse()，直接类型断言
   const activity = row.original as Activity
   const { setOpen, setCurrentRow } = useActivities()
+  const updateStatusMutation = useUpdateActivityStatus()
+
+  const canChangeStatus = activity.status === 'active'
 
   return (
     <DropdownMenu modal={false}>
@@ -41,22 +38,18 @@ export function DataTableRowActions<TData>({
           <span className='sr-only'>打开菜单</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align='end' className='w-[160px]'>
+      <DropdownMenuContent align='end' className='w-[180px]'>
         <DropdownMenuItem
           onClick={() => {
             setCurrentRow(activity)
             setOpen('update')
           }}
         >
-          编辑
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled>
           查看详情
           <DropdownMenuShortcut>
             <Eye size={16} />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
-        <DropdownMenuItem disabled>查看参与者</DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
             setCurrentRow(activity)
@@ -69,23 +62,31 @@ export function DataTableRowActions<TData>({
           </DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>更改状态</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            <DropdownMenuRadioGroup value={activity.status}>
-              {statuses.map((status) => (
-                <DropdownMenuRadioItem key={status.value} value={status.value}>
-                  {status.icon && (
-                    <status.icon className='text-muted-foreground size-4 mr-2' />
-                  )}
-                  {status.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSeparator />
+        {canChangeStatus && (
+          <>
+            <DropdownMenuItem
+              onClick={() => updateStatusMutation.mutate({ id: activity.id, status: 'completed' })}
+              disabled={updateStatusMutation.isPending}
+            >
+              标记为成局
+              <DropdownMenuShortcut>
+                <CheckCircle size={16} className='text-green-600' />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => updateStatusMutation.mutate({ id: activity.id, status: 'cancelled' })}
+              disabled={updateStatusMutation.isPending}
+            >
+              取消活动
+              <DropdownMenuShortcut>
+                <XCircle size={16} className='text-orange-600' />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem
+          className='text-destructive focus:text-destructive'
           onClick={() => {
             setCurrentRow(activity)
             setOpen('delete')

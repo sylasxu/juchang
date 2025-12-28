@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
 import { typeboxResolver } from '@hookform/resolvers/typebox'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { Loader2, LogIn } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
+import { Loader2, Smartphone, QrCode } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { useAuthStore } from '@/stores/auth-store'
-import { sleep, cn } from '@/lib/utils'
+import { api } from '@/lib/eden'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -18,16 +19,17 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { PasswordInput } from '@/components/password-input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-const formSchema = Type.Object({
-  email: Type.String({ format: 'email' }),
-  password: Type.String({ minLength: 7 }),
+// 手机号验证码表单 Schema
+const phoneFormSchema = Type.Object({
+  phone: Type.String({ pattern: '^1[3-9]\\d{9}$' }),
+  code: Type.String({ minLength: 4, maxLength: 6 }),
 })
 
-type FormValues = Static<typeof formSchema>
+type PhoneFormValues = Static<typeof phoneFormSchema>
 
-interface UserAuthFormProps extends React.HTMLAttributes<HTMLFormElement> {
+interface UserAuthFormProps extends React.HTMLAttributes<HTMLDivElement> {
   redirectTo?: string
 }
 
@@ -37,105 +39,212 @@ export function UserAuthForm({
   ...props
 }: UserAuthFormProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const [countdown, setCountdown] = useState(0)
+  const [qrCodeUrl, setQrCodeUrl] = useState('')
   const navigate = useNavigate()
   const { auth } = useAuthStore()
 
-  const form = useForm<FormValues>({
-    resolver: typeboxResolver(formSchema),
+  const form = useForm<PhoneFormValues>({
+    resolver: typeboxResolver(phoneFormSchema),
     defaultValues: {
-      email: '',
-      password: '',
+      phone: '',
+      code: '',
     },
   })
 
-  function onSubmit(data: FormValues) {
-    setIsLoading(true)
+  // 发送验证码
+  const sendCode = async () => {
+    const phone = form.getValues('phone')
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      form.setError('phone', { message: '请输入正确的手机号' })
+      return
+    }
 
-    toast.promise(sleep(2000), {
-      loading: '登录中...',
-      success: () => {
-        setIsLoading(false)
-
-        // Mock successful authentication with expiry computed at success time
-        const mockUser = {
-          id: 'admin-001',
-          username: '管理员',
-          email: data.email,
-          role: {
-            id: 'admin-role',
-            name: '管理员',
-            permissions: [
-              {
-                resource: 'users',
-                actions: ['read', 'write', 'delete']
-              },
-              {
-                resource: 'activities',
-                actions: ['read', 'write', 'delete']
-              }
-            ]
-          },
-          exp: Date.now() + 24 * 60 * 60 * 1000, // 24 hours from now
-        }
-
-        // Set user and access token
-        auth.setUser(mockUser)
-        auth.setAccessToken('mock-access-token')
-
-        // Redirect to the stored location or default to dashboard
-        const targetPath = redirectTo || '/'
-        navigate({ to: targetPath, replace: true })
-
-        return `欢迎回来，${data.email}！`
-      },
-      error: '登录失败',
-    })
+    setCountdown(60)
+    toast.success('验证码已发送（测试验证码：9999）')
+    
+    // TODO: 接入真实短信服务
   }
 
+  // 倒计时
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [countdown])
+
+  // 手机号登录
+  async function onPhoneSubmit(data: PhoneFormValues) {
+    setIsLoading(true)
+
+    try {
+      const response = await api.auth.admin.login.post({
+        phone: data.phone,
+        code: data.code,
+      })
+
+      if (response.error) {
+        const errorMsg = (response.error as any)?.msg || '登录失败'
+        toast.error(errorMsg)
+        setIsLoading(false)
+        return
+      }
+
+      // Eden Treaty 返回的 data 可能是 Response 对象，需要解析
+      let result = response.data as any
+      if (result instanceof Response) {
+        result = await result.json()
+      }
+
+      if (!result || !result.user) {
+        toast.error('登录失败，服务器返回数据异常')
+        setIsLoading(false)
+        return
+      }
+
+      const { user, token, exp } = result
+
+      // 设置认证状态
+      auth.setUser({
+        id: user.id,
+        username: user.nickname || '管理员',
+        email: `${user.phoneNumber}@juchang.app`,
+        phoneNumber: user.phoneNumber,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+        exp,
+      })
+      auth.setAccessToken(token)
+
+      toast.success('登录成功')
+
+      // 跳转
+      const targetPath = redirectTo || '/'
+      navigate({ to: targetPath, replace: true })
+    } catch (error: any) {
+      console.error('登录失败:', error)
+      toast.error(error?.message || '登录失败，请稍后重试')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 生成微信二维码
+  const generateQrCode = useCallback(async () => {
+    // TODO: 调用真实 API 获取微信登录二维码
+    setQrCodeUrl('https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=weixin://wxpay/bizpayurl?pr=xxx')
+  }, [])
+
+  // 初始化时生成二维码
+  useEffect(() => {
+    generateQrCode()
+  }, [generateQrCode])
+
   return (
-    <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className={cn('grid gap-3', className)}
-        {...props}
-      >
-        <FormField
-          control={form.control}
-          name='email'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>邮箱</FormLabel>
-              <FormControl>
-                <Input placeholder='admin@juchang.app' {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name='password'
-          render={({ field }) => (
-            <FormItem className='relative'>
-              <FormLabel>密码</FormLabel>
-              <FormControl>
-                <PasswordInput placeholder='********' {...field} />
-              </FormControl>
-              <FormMessage />
-              <Link
-                to='/forgot-password'
-                className='text-muted-foreground absolute end-0 -top-0.5 text-sm font-medium hover:opacity-75'
-              >
-                忘记密码？
-              </Link>
-            </FormItem>
-          )}
-        />
-        <Button className='mt-2' disabled={isLoading}>
-          {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
-          登录
-        </Button>
-      </form>
-    </Form>
+    <div className={cn('w-full', className)} {...props}>
+      <Tabs defaultValue='phone' className='w-full'>
+        <TabsList className='grid w-full grid-cols-2'>
+          <TabsTrigger value='phone' className='gap-2'>
+            <Smartphone className='h-4 w-4' />
+            手机号
+          </TabsTrigger>
+          <TabsTrigger value='wechat' className='gap-2'>
+            <QrCode className='h-4 w-4' />
+            微信扫码
+          </TabsTrigger>
+        </TabsList>
+
+        {/* 手机号登录 */}
+        <TabsContent value='phone' className='mt-6'>
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onPhoneSubmit)}
+              className='grid gap-4'
+            >
+              <FormField
+                control={form.control}
+                name='phone'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>手机号</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='请输入手机号'
+                        maxLength={11}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='code'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>验证码</FormLabel>
+                    <div className='flex gap-2'>
+                      <FormControl>
+                        <Input
+                          placeholder='请输入验证码'
+                          maxLength={6}
+                          {...field}
+                        />
+                      </FormControl>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={sendCode}
+                        disabled={countdown > 0}
+                        className='shrink-0 w-28'
+                      >
+                        {countdown > 0 ? `${countdown}s` : '获取验证码'}
+                      </Button>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button className='mt-2' disabled={isLoading}>
+                {isLoading && <Loader2 className='animate-spin' />}
+                登录
+              </Button>
+            </form>
+          </Form>
+        </TabsContent>
+
+        {/* 微信扫码登录 */}
+        <TabsContent value='wechat' className='mt-6'>
+          <div className='flex flex-col items-center gap-4'>
+            <div className='bg-white rounded-lg p-3 border'>
+              {qrCodeUrl ? (
+                <img
+                  src={qrCodeUrl}
+                  alt='微信登录二维码'
+                  className='w-48 h-48'
+                />
+              ) : (
+                <div className='w-48 h-48 flex items-center justify-center'>
+                  <Loader2 className='h-8 w-8 animate-spin text-muted-foreground' />
+                </div>
+              )}
+            </div>
+            <p className='text-sm text-muted-foreground text-center'>
+              请使用微信扫描二维码登录
+            </p>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={generateQrCode}
+              className='text-muted-foreground'
+            >
+              刷新二维码
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

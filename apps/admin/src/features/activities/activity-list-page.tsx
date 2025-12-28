@@ -45,6 +45,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { ModerationDialog } from './moderation-dialog'
+import { useDebouncedSearch } from '@/hooks/use-debounced-search'
 
 // 模拟 API 调用 - 实际应该使用 Eden Treaty
 const fetchActivities = async (_filters: any) => {
@@ -172,7 +173,6 @@ export function ActivityListPage() {
     activity?: any
   }>({ open: false })
   const [filters, setFilters] = useState({
-    search: '',
     status: '',
     type: '',
     riskLevel: '',
@@ -181,9 +181,14 @@ export function ActivityListPage() {
     limit: 20
   })
 
+  // 使用防抖搜索 hook
+  const { inputProps, debouncedValue: searchValue } = useDebouncedSearch({
+    delay: 300,
+  })
+
   const { data: activitiesData, isLoading, refetch } = useQuery({
-    queryKey: ['admin-activities', filters],
-    queryFn: () => fetchActivities(filters)
+    queryKey: ['admin-activities', { ...filters, search: searchValue }],
+    queryFn: () => fetchActivities({ ...filters, search: searchValue })
   })
 
   const handleSelectAll = (checked: boolean) => {
@@ -315,8 +320,7 @@ export function ActivityListPage() {
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="搜索活动标题、地点..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  {...inputProps}
                   className="pl-8"
                 />
               </div>
@@ -369,7 +373,6 @@ export function ActivityListPage() {
             <Button
               variant="outline"
               onClick={() => setFilters({
-                search: '',
                 status: '',
                 type: '',
                 riskLevel: '',

@@ -214,7 +214,18 @@ function ActivityAnalytics() {
 
 // 地理分析组件
 function GeographicAnalytics() {
-  const { isLoading: geoLoading } = useGeographicDistribution()
+  const { data: geoData, isLoading: geoLoading } = useGeographicDistribution()
+
+  // 转换数据格式
+  const userItems = geoData?.map(item => ({
+    name: item.name,
+    value: item.users,
+  })) || []
+
+  const activityItems = geoData?.map(item => ({
+    name: item.name,
+    value: item.activities,
+  })) || []
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -222,21 +233,19 @@ function GeographicAnalytics() {
       <Card>
         <CardHeader>
           <CardTitle>城市分布</CardTitle>
-          <CardDescription>用户和活动的地理分布</CardDescription>
+          <CardDescription>用户的地理分布</CardDescription>
         </CardHeader>
         <CardContent>
           {geoLoading ? (
             <Skeleton className="h-[300px] w-full" />
+          ) : userItems.length === 0 ? (
+            <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+              暂无数据
+            </div>
           ) : (
             <div className="space-y-4">
               <SimpleBarList
-                items={[
-                  { name: '重庆', value: 3500 },
-                  { name: '成都', value: 2200 },
-                  { name: '贵阳', value: 1200 },
-                  { name: '昆明', value: 800 },
-                  { name: '其他', value: 500 },
-                ]}
+                items={userItems}
                 barClass="bg-primary"
                 valueFormatter={(n) => `${n}人`}
               />
@@ -252,19 +261,21 @@ function GeographicAnalytics() {
           <CardDescription>活动最活跃的区域</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <SimpleBarList
-              items={[
-                { name: '渝中区', value: 456 },
-                { name: '江北区', value: 389 },
-                { name: '南岸区', value: 234 },
-                { name: '沙坪坝区', value: 198 },
-                { name: '九龙坡区', value: 156 },
-              ]}
-              barClass="bg-green-500"
-              valueFormatter={(n) => `${n}个活动`}
-            />
-          </div>
+          {geoLoading ? (
+            <Skeleton className="h-[300px] w-full" />
+          ) : activityItems.length === 0 ? (
+            <div className="flex items-center justify-center h-[200px] text-muted-foreground">
+              暂无数据
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <SimpleBarList
+                items={activityItems}
+                barClass="bg-green-500"
+                valueFormatter={(n) => `${n}个活动`}
+              />
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

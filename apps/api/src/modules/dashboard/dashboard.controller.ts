@@ -2,7 +2,7 @@
 import { Elysia } from 'elysia';
 import { basePlugins } from '../../setup';
 import { dashboardModel, type ErrorResponse } from './dashboard.model';
-import { getDashboardStats, getRecentActivities } from './dashboard.service';
+import { getDashboardStats, getRecentActivities, getUserGrowthTrend, getActivityTypeDistribution, getGeographicDistribution } from './dashboard.service';
 
 export const dashboardController = new Elysia({ prefix: '/dashboard' })
   .use(basePlugins)
@@ -55,6 +55,85 @@ export const dashboardController = new Elysia({ prefix: '/dashboard' })
       },
       response: {
         200: 'dashboard.recentActivities',
+        500: 'dashboard.error',
+      },
+    }
+  )
+
+  // 获取用户增长趋势
+  .get(
+    '/user-growth',
+    async ({ query, set }) => {
+      try {
+        const days = query.days ? parseInt(query.days) : 30;
+        const data = await getUserGrowthTrend(days);
+        return data;
+      } catch (error) {
+        console.error('获取用户增长趋势失败:', error);
+        set.status = 500;
+        return { code: 500, msg: '获取用户增长趋势失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Dashboard'],
+        summary: '获取用户增长趋势',
+        description: '获取过去N天的用户增长数据',
+      },
+      response: {
+        200: 'dashboard.userGrowth',
+        500: 'dashboard.error',
+      },
+    }
+  )
+
+  // 获取活动类型分布
+  .get(
+    '/activity-types',
+    async ({ set }) => {
+      try {
+        const data = await getActivityTypeDistribution();
+        return data;
+      } catch (error) {
+        console.error('获取活动类型分布失败:', error);
+        set.status = 500;
+        return { code: 500, msg: '获取活动类型分布失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Dashboard'],
+        summary: '获取活动类型分布',
+        description: '获取各类型活动的数量分布',
+      },
+      response: {
+        200: 'dashboard.activityTypes',
+        500: 'dashboard.error',
+      },
+    }
+  )
+
+  // 获取地理分布
+  .get(
+    '/geographic',
+    async ({ set }) => {
+      try {
+        const data = await getGeographicDistribution();
+        return data;
+      } catch (error) {
+        console.error('获取地理分布失败:', error);
+        set.status = 500;
+        return { code: 500, msg: '获取地理分布失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Dashboard'],
+        summary: '获取地理分布',
+        description: '获取用户和活动的地理分布数据',
+      },
+      response: {
+        200: 'dashboard.geographic',
         500: 'dashboard.error',
       },
     }

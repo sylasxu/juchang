@@ -89,6 +89,75 @@ const MyActivitiesQuery = t.Object({
   ], { description: '筛选类型：created=我发布的, joined=我参与的' })),
 });
 
+// 活动列表查询参数（分页 + 筛选）
+const ActivitiesListQuery = t.Object({
+  page: t.Optional(t.Number({ minimum: 1, default: 1, description: '页码' })),
+  limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20, description: '每页数量' })),
+  status: t.Optional(t.String({ description: '状态筛选，逗号分隔' })),
+  type: t.Optional(t.String({ description: '类型筛选，逗号分隔' })),
+  search: t.Optional(t.String({ description: '搜索关键词' })),
+});
+
+// 活动列表响应
+const ActivitiesListResponse = t.Object({
+  data: t.Array(ActivityListItem),
+  total: t.Number(),
+  page: t.Number(),
+  pageSize: t.Number(),
+});
+
+// ==========================================
+// Admin 活动列表 (管理后台专用)
+// ==========================================
+
+// Admin 活动列表查询参数
+const AdminActivitiesQuery = t.Object({
+  page: t.Optional(t.Number({ minimum: 1, default: 1, description: '页码' })),
+  limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20, description: '每页数量' })),
+  status: t.Optional(t.String({ description: '状态筛选，多个用逗号分隔' })),
+  type: t.Optional(t.String({ description: '类型筛选，多个用逗号分隔' })),
+  search: t.Optional(t.String({ description: '搜索关键词（标题/地点）' })),
+  sortBy: t.Optional(t.Union([
+    t.Literal('createdAt'),
+    t.Literal('startAt'),
+    t.Literal('currentParticipants'),
+  ], { default: 'createdAt', description: '排序字段' })),
+  sortOrder: t.Optional(t.Union([
+    t.Literal('asc'),
+    t.Literal('desc'),
+  ], { default: 'desc', description: '排序方向' })),
+});
+
+// Admin 活动列表项
+const AdminActivityItem = t.Object({
+  id: t.String(),
+  creatorId: t.String(),
+  title: t.String(),
+  description: t.Union([t.String(), t.Null()]),
+  location: t.Tuple([t.Number(), t.Number()]),
+  locationName: t.String(),
+  address: t.Union([t.String(), t.Null()]),
+  locationHint: t.String(),
+  startAt: t.Union([t.String(), t.Null()]),
+  type: t.String(),
+  maxParticipants: t.Number(),
+  currentParticipants: t.Number(),
+  status: t.String(),
+  createdAt: t.String(),
+  updatedAt: t.String(),
+  isArchived: t.Boolean(),
+  creator: t.Union([CreatorInfo, t.Null()]),
+});
+
+// Admin 活动列表响应
+const AdminActivitiesResponse = t.Object({
+  data: t.Array(AdminActivityItem),
+  total: t.Number(),
+  page: t.Number(),
+  pageSize: t.Number(),
+  totalPages: t.Number(),
+});
+
 // ==========================================
 // 附近活动搜索 (v3.2 新增)
 // ==========================================
@@ -227,6 +296,9 @@ export const activityModel = new Elysia({ name: 'activityModel' })
     'activity.listItem': ActivityListItem,
     'activity.myActivitiesResponse': MyActivitiesResponse,
     'activity.myActivitiesQuery': MyActivitiesQuery,
+    // 活动列表
+    'activity.listQuery': ActivitiesListQuery,
+    'activity.listResponse': ActivitiesListResponse,
     // v3.2 附近搜索
     'activity.nearbyQuery': NearbyActivitiesQuery,
     'activity.nearbyItem': NearbyActivityItem,
@@ -248,6 +320,8 @@ export type ActivityDetailResponse = Static<typeof ActivityDetailResponse>;
 export type ActivityListItem = Static<typeof ActivityListItem>;
 export type MyActivitiesResponse = Static<typeof MyActivitiesResponse>;
 export type MyActivitiesQuery = Static<typeof MyActivitiesQuery>;
+export type ActivitiesListQuery = Static<typeof ActivitiesListQuery>;
+export type ActivitiesListResponse = Static<typeof ActivitiesListResponse>;
 export type NearbyActivitiesQuery = Static<typeof NearbyActivitiesQuery>;
 export type NearbyActivityItem = Static<typeof NearbyActivityItem>;
 export type NearbyActivitiesResponse = Static<typeof NearbyActivitiesResponse>;

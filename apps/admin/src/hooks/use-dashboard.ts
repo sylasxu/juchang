@@ -1,8 +1,7 @@
-// 仪表板数据 Hooks - 混合使用真实 API 和 Mock 数据
+// 仪表板数据 Hooks - 使用真实 API
 import { useQuery } from '@tanstack/react-query'
 import { api, apiCall } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
-import { mockUserGrowth, mockGeographicDistribution } from '@/lib/mock-data'
 
 // 仪表板 KPI 数据类型 (MVP 简化版)
 export interface DashboardKPIs {
@@ -32,6 +31,13 @@ export interface RecentActivity {
   status: string
   createdAt: string
   location?: string
+}
+
+// 地理分布数据类型
+export interface GeographicItem {
+  name: string
+  users: number
+  activities: number
 }
 
 // 获取仪表板 KPI 数据 - 使用真实 API
@@ -75,18 +81,28 @@ export function useDashboardKPIs() {
   })
 }
 
-// 获取用户增长趋势数据 - 使用 Mock 数据
-export function useUserGrowthTrend(_days: number = 30) {
+// 获取用户增长趋势数据 - 使用真实 API
+export function useUserGrowthTrend(days: number = 30) {
   return useQuery({
-    queryKey: queryKeys.dashboard.userGrowth(_days),
+    queryKey: queryKeys.dashboard.userGrowth(days),
     queryFn: async (): Promise<UserGrowthData[]> => {
-      // 使用 mock 数据
-      return mockUserGrowth.data.map(item => ({
-        date: item.date,
-        totalUsers: item.users,
-        newUsers: Math.floor(item.users * 0.1),
-        activeUsers: item.activeUsers,
-      }))
+      try {
+        const response = await apiCall(() => (api.dashboard as any)['user-growth'].get({ query: { days: String(days) } }))
+        const data = response as Array<{
+          date: string
+          totalUsers: number
+          newUsers: number
+          activeUsers: number
+        }>
+        return data.map(item => ({
+          date: item.date,
+          totalUsers: item.totalUsers,
+          newUsers: item.newUsers,
+          activeUsers: item.activeUsers,
+        }))
+      } catch {
+        return []
+      }
     },
     staleTime: 10 * 60 * 1000,
   })
@@ -105,6 +121,7 @@ export function useRecentActivities(limit: number = 10) {
           title: string
           type: string
           creatorInfo?: { nickname: string }
+          creatorName?: string
           participantCount?: number
           status: string
           createdAt: string
@@ -114,8 +131,8 @@ export function useRecentActivities(limit: number = 10) {
         return responseData.map((activity) => ({
           id: activity.id,
           title: activity.title,
-          type: activity.type,
-          creatorName: activity.creatorInfo?.nickname || '未知用户',
+          type: activity.type || 'other',
+          creatorName: activity.creatorName || activity.creatorInfo?.nickname || '未知用户',
           participantCount: activity.participantCount || 0,
           status: activity.status,
           createdAt: activity.createdAt,
@@ -130,29 +147,40 @@ export function useRecentActivities(limit: number = 10) {
   })
 }
 
-// 获取活动类型分布数据 - 使用 Mock 数据
+// 获取活动类型分布数据 - 使用真实 API
 export function useActivityTypeDistribution() {
   return useQuery({
     queryKey: queryKeys.dashboard.activityTypes(),
     queryFn: async () => {
-      // Mock 数据 - MVP 活动类型
-      return {
-        food: 45,
-        sports: 30,
-        entertainment: 25,
-        boardgame: 20,
-        other: 15,
+      try {
+        const response = await apiCall(() => (api.dashboard as any)['activity-types'].get())
+        return response as {
+          food: number
+          sports: number
+          entertainment: number
+          boardgame: number
+          other: number
+        }
+      } catch {
+        return { food: 0, sports: 0, entertainment: 0, boardgame: 0, other: 0 }
       }
     },
     staleTime: 10 * 60 * 1000,
   })
 }
 
-// 获取地理分布数据 - 使用 Mock 数据
+// 获取地理分布数据 - 使用真实 API
 export function useGeographicDistribution() {
   return useQuery({
     queryKey: queryKeys.dashboard.geographic(),
-    queryFn: async () => mockGeographicDistribution.regions,
+    queryFn: async (): Promise<GeographicItem[]> => {
+      try {
+        const response = await apiCall(() => (api.dashboard as any).geographic.get())
+        return response as GeographicItem[]
+      } catch {
+        return []
+      }
+    },
     staleTime: 30 * 60 * 1000,
   })
 }

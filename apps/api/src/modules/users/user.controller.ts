@@ -11,6 +11,7 @@ import {
   getUserById, 
   getUserList, 
   updateUser,
+  deleteUser,
   getQuota
 } from './user.service';
 
@@ -81,6 +82,30 @@ export const userController = new Elysia({ prefix: '/users' })
       body: 'user.updateRequest',
       response: {
         200: UserResponseSchema,
+        404: 'user.error',
+      },
+    }
+  )
+
+  // 删除用户
+  .delete(
+    '/:id',
+    async ({ params, set }) => {
+      const deleted = await deleteUser(params.id);
+      if (!deleted) {
+        set.status = 404;
+        return { code: 404, msg: '用户不存在' } satisfies ErrorResponse;
+      }
+      return { success: true, msg: '用户已删除' };
+    },
+    {
+      detail: {
+        tags: ['Users'],
+        summary: '删除用户',
+        description: '删除指定用户及其相关数据（硬删除）',
+      },
+      response: {
+        200: 'user.success',
         404: 'user.error',
       },
     }

@@ -3,7 +3,7 @@
 import { Elysia } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { authModel, type ErrorResponse } from './auth.model';
-import { wxLogin, bindPhone } from './auth.service';
+import { wxLogin, bindPhone, adminPhoneLogin } from './auth.service';
 
 export const authController = new Elysia({ prefix: '/auth' })
   .use(basePlugins)
@@ -46,6 +46,52 @@ export const authController = new Elysia({ prefix: '/auth' })
       body: 'auth.wxLogin',
       response: {
         200: 'auth.loginResponse',
+        400: 'auth.error',
+      },
+    }
+  )
+
+  // Admin 手机号登录
+  .post(
+    '/admin/login',
+    async ({ body, jwt, set }) => {
+      try {
+        const adminUser = await adminPhoneLogin(body);
+
+        // Token 过期时间：24小时
+        const exp = Math.floor(Date.now() / 1000) + 24 * 60 * 60;
+
+        // 生成 JWT Token
+        const token = await jwt.sign({
+          id: adminUser.id,
+          phoneNumber: adminUser.phoneNumber,
+          role: 'admin',
+          exp,
+        });
+
+        return {
+          user: adminUser,
+          token,
+          exp,
+        };
+      } catch (error: any) {
+        console.error('Admin 登录失败:', error);
+        set.status = 400;
+        return {
+          code: 400,
+          msg: error.message || '登录失败',
+        } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Auth'],
+        summary: 'Admin 手机号登录',
+        description: '管理员使用手机号 + 验证码登录',
+      },
+      body: 'auth.adminPhoneLogin',
+      response: {
+        200: 'auth.adminLoginResponse',
         400: 'auth.error',
       },
     }

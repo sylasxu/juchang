@@ -112,6 +112,21 @@ export async function updateUser(
 }
 
 /**
+ * 删除用户 (DELETE /users/:id)
+ * 注意：这是硬删除，会级联删除相关数据
+ */
+export async function deleteUser(id: string): Promise<boolean> {
+  // 检查用户是否存在
+  const existingUser = await getUserById(id);
+  if (!existingUser) return false;
+
+  // 删除用户
+  await db.delete(users).where(eq(users.id, id));
+  
+  return true;
+}
+
+/**
  * 获取用户今日额度
  */
 export async function getQuota(id: string): Promise<QuotaResponse | null> {

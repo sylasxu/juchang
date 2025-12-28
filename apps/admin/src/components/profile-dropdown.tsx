@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import useDialogState from '@/hooks/use-dialog-state'
+import { useAuthStore } from '@/stores/auth-store'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +17,13 @@ import { SignOutDialog } from '@/components/sign-out-dialog'
 
 export function ProfileDropdown() {
   const [open, setOpen] = useDialogState()
+  const { auth } = useAuthStore()
+  const user = auth.user
+
+  // 获取用户名首字作为头像 fallback
+  const getInitials = (name: string) => {
+    return name?.charAt(0) || '管'
+  }
 
   return (
     <>
@@ -23,17 +31,17 @@ export function ProfileDropdown() {
         <DropdownMenuTrigger asChild>
           <Button variant='ghost' className='relative h-8 w-8 rounded-full'>
             <Avatar className='h-8 w-8'>
-              <AvatarImage src='/avatars/admin.png' alt='管理员' />
-              <AvatarFallback>管</AvatarFallback>
+              <AvatarImage src={user?.avatarUrl || '/avatars/admin.png'} alt={user?.username || '管理员'} />
+              <AvatarFallback>{getInitials(user?.username || '管理员')}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent className='w-56' align='end' forceMount>
           <DropdownMenuLabel className='font-normal'>
             <div className='flex flex-col gap-1.5'>
-              <p className='text-sm leading-none font-medium'>管理员</p>
+              <p className='text-sm leading-none font-medium'>{user?.username || '管理员'}</p>
               <p className='text-muted-foreground text-xs leading-none'>
-                admin@juchang.app
+                {user?.phoneNumber || user?.email || '未登录'}
               </p>
             </div>
           </DropdownMenuLabel>

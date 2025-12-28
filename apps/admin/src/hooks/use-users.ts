@@ -1,83 +1,86 @@
 // 用户管理相关 Hooks
-import { useQuery } from '@tanstack/react-query'
-import { api, apiCall } from '@/lib/eden'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { api, unwrap } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
-import { useApiList, useApiUpdate } from './use-api'
-import type { PaginationQuery } from '@/lib/typebox'
+import { toast } from 'sonner'
+
+// 用户列表响应类型
+interface UserListResponse {
+  data: any[]
+  total: number
+  page: number
+  limit: number
+}
 
 // 用户筛选参数类型
-export interface UserFilters extends PaginationQuery {
+export interface UserFilters {
+  page?: number
+  limit?: number
   search?: string
 }
 
+// 更新用户请求类型
+export interface UpdateUserRequest {
+  nickname?: string
+  avatarUrl?: string
+}
+
 // 获取用户列表
-export function useUsersList(filters: UserFilters = { page: 1, limit: 20 }) {
-  return useApiList(
-    [...queryKeys.users.lists(), filters],
-    (params) => api.users.get({ query: params }),
-    filters,
-    {
-      staleTime: 2 * 60 * 1000, // 2 分钟
-    }
-  )
+export function useUsersList(filters: UserFilters = {}) {
+  const { page = 1, limit = 20, search } = filters
+  
+  return useQuery({
+    queryKey: [...queryKeys.users.lists(), { page, limit, search }],
+    queryFn: async () => {
+      const result = await unwrap(api.users.get({ query: { page, limit, search } }))
+      return result as UserListResponse
+    },
+    staleTime: 2 * 60 * 1000,
+  })
 }
 
 // 获取用户详情
 export function useUserDetail(userId: string) {
   return useQuery({
     queryKey: [...queryKeys.users.details(), userId],
-    queryFn: async () => {
-      const result = await apiCall<any>(() => api.users({ id: userId }).get())
-      return result
-    },
+    queryFn: () => unwrap(api.users({ id: userId }).get()),
     enabled: !!userId,
-    staleTime: 5 * 60 * 1000, // 5 分钟
+    staleTime: 5 * 60 * 1000,
   })
 }
 
-// 更新用户信息
+// 更新用户
 export function useUpdateUser() {
-  return useApiUpdate(
-    (id, data: any) => api.users({ id }).put(data),
-    {
-      invalidateKeys: [
-        queryKeys.users.all,
-        queryKeys.dashboard.all,
-      ],
-    }
-  )
-}
-
-// 获取用户活动历史 (TODO: 实现 API 端点)
-export function useUserActivities(userId: string, filters: PaginationQuery = { page: 1, limit: 10 }) {
-  return useQuery({
-    queryKey: ['users', userId, 'activities', filters],
-    queryFn: async () => {
-      return {
-        data: [],
-        total: 0,
-        page: filters.page || 1,
-        limit: filters.limit || 10
-      }
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: UpdateUserRequest }) => {
+      return unwrap(api.users({ id }).put(data))
     },
-    enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
+      toast.success('用户信息已更新')
+    },
+    onError: (error: Error) => {
+      toast.error(`更新失败: ${error.message}`)
+    },
   })
 }
 
-// 获取用户参与记录 (TODO: 实现 API 端点)
-export function useUserParticipations(userId: string, filters: PaginationQuery = { page: 1, limit: 10 }) {
-  return useQuery({
-    queryKey: ['users', userId, 'participations', filters],
-    queryFn: async () => {
-      return {
-        data: [],
-        total: 0,
-        page: filters.page || 1,
-        limit: filters.limit || 10
-      }
+// 删除用户
+export function useDeleteUser() {
+  const queryClient = useQueryClient()
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return unwrap(api.users({ id }).delete())
     },
-    enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all })
+      toast.success('用户已删除')
+    },
+    onError: (error: Error) => {
+      toast.error(`删除失败: ${error.message}`)
+    },
   })
 }

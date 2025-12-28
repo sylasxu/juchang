@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { setCookie, removeCookie } from '@/lib/cookies'
 import { auth } from '@/lib/eden'
 
@@ -6,9 +7,11 @@ const ACCESS_TOKEN = 'admin_token'
 
 interface AuthUser {
   id: string
-  username: string
-  email: string
-  role: {
+  username: string  // nickname
+  email: string     // phoneNumber@juchang.app
+  phoneNumber?: string
+  avatarUrl?: string
+  role?: {
     id: string
     name: string
     permissions: Array<{
@@ -32,53 +35,66 @@ interface AuthState {
   }
 }
 
-export const useAuthStore = create<AuthState>()((set, get) => {
-  // 初始化时从 localStorage 读取 token（与 Eden Treaty 保持一致）
-  const initToken = auth.getToken() || ''
-  
-  return {
-    auth: {
-      user: null,
-      setUser: (user) =>
-        set((state) => ({ ...state, auth: { ...state.auth, user } })),
-      accessToken: initToken,
-      setAccessToken: (accessToken) =>
-        set((state) => {
-          // 同时更新 localStorage 和 cookie（向后兼容）
-          auth.setToken(accessToken)
-          setCookie(ACCESS_TOKEN, JSON.stringify(accessToken))
-          return { ...state, auth: { ...state.auth, accessToken } }
-        }),
-      resetAccessToken: () =>
-        set((state) => {
-          // 同时清除 localStorage 和 cookie
-          auth.clearToken()
-          removeCookie(ACCESS_TOKEN)
-          return { ...state, auth: { ...state.auth, accessToken: '' } }
-        }),
-      reset: () =>
-        set((state) => {
-          // 完全重置认证状态
-          auth.clearToken()
-          removeCookie(ACCESS_TOKEN)
-          return {
-            ...state,
-            auth: { ...state.auth, user: null, accessToken: '' },
-          }
-        }),
-      isAuthenticated: () => {
-        const { accessToken, user } = get().auth
-        return !!accessToken && !!user && user.exp > Date.now() / 1000
-      },
-      hasPermission: (resource: string, action: string) => {
-        const { user } = get().auth
-        if (!user || !user.role) return false
-        
-        return user.role.permissions.some(permission => 
-          permission.resource === resource && 
-          permission.actions.includes(action)
-        )
-      },
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set, get) => {
+      // 初始化时从 localStorage 读取 token（与 Eden Treaty 保持一致）
+      const initToken = auth.getToken() || ''
+      
+      return {
+        auth: {
+          user: null,
+          setUser: (user) =>
+            set((state) => ({ ...state, auth: { ...state.auth, user } })),
+          accessToken: initToken,
+          setAccessToken: (accessToken) =>
+            set((state) => {
+              // 同时更新 localStorage 和 cookie（向后兼容）
+              auth.setToken(accessToken)
+              setCookie(ACCESS_TOKEN, JSON.stringify(accessToken))
+              return { ...state, auth: { ...state.auth, accessToken } }
+            }),
+          resetAccessToken: () =>
+            set((state) => {
+              // 同时清除 localStorage 和 cookie
+              auth.clearToken()
+              removeCookie(ACCESS_TOKEN)
+              return { ...state, auth: { ...state.auth, accessToken: '' } }
+            }),
+          reset: () =>
+            set((state) => {
+              // 完全重置认证状态
+              auth.clearToken()
+              removeCookie(ACCESS_TOKEN)
+              return {
+                ...state,
+                auth: { ...state.auth, user: null, accessToken: '' },
+              }
+            }),
+          isAuthenticated: () => {
+            const { accessToken, user } = get().auth
+            return !!accessToken && !!user && user.exp > Date.now() / 1000
+          },
+          hasPermission: (resource: string, action: string) => {
+            const { user } = get().auth
+            if (!user || !user.role) return false
+            
+            return user.role.permissions.some(permission => 
+              permission.resource === resource && 
+              permission.actions.includes(action)
+            )
+          },
+        },
+      }
     },
-  }
-})
+    {
+      name: 'auth-storage',
+      partialize: (state) => ({
+        auth: {
+          user: state.auth.user,
+          accessToken: state.auth.accessToken,
+        },
+      }),
+    }
+  )
+)

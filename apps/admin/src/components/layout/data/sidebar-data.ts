@@ -20,9 +20,9 @@ export const sidebarData: SidebarData = {
   },
   teams: [
     {
-      name: '聚场',
+      name: 'JC',
       logo: Command,
-      plan: 'MVP 工具版',
+      plan: 'Admin',
     },
   ],
   navGroups: [

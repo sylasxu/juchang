@@ -7,8 +7,6 @@ import {
   getCoreRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
@@ -32,9 +30,10 @@ const route = getRouteApi('/_authenticated/activities/')
 
 type DataTableProps = {
   data: Activity[]
+  pageCount?: number
 }
 
-export function ActivitiesTable({ data }: DataTableProps) {
+export function ActivitiesTable({ data, pageCount: externalPageCount }: DataTableProps) {
   // Local UI-only states
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>([])
@@ -66,6 +65,7 @@ export function ActivitiesTable({ data }: DataTableProps) {
   const table = useReactTable({
     data,
     columns,
+    pageCount: externalPageCount ?? -1,
     state: {
       sorting,
       columnVisibility,
@@ -78,17 +78,10 @@ export function ActivitiesTable({ data }: DataTableProps) {
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const id = String(row.getValue('id')).toLowerCase()
-      const title = String(row.getValue('title')).toLowerCase()
-      const location = String(row.getValue('locationName') || '').toLowerCase()
-      const searchValue = String(filterValue).toLowerCase()
-
-      return id.includes(searchValue) || title.includes(searchValue) || location.includes(searchValue)
-    },
+    // 服务端分页和过滤
+    manualPagination: true,
+    manualFiltering: true,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
@@ -97,7 +90,7 @@ export function ActivitiesTable({ data }: DataTableProps) {
     onColumnFiltersChange,
   })
 
-  const pageCount = table.getPageCount()
+  const pageCount = externalPageCount ?? 1
   useEffect(() => {
     ensurePageInRange(pageCount)
   }, [pageCount, ensurePageInRange])

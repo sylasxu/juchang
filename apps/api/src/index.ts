@@ -50,6 +50,28 @@ const app = new Elysia()
         { name: 'Notifications', description: '通知系统' },
       ],
     },
+    scalar: {
+      defaultOpenAllTags: true,
+      expandAllResponses: true,
+      hideClientButton: true,
+      showSidebar: true,
+      showToolbar: 'localhost',
+      operationTitleSource: 'summary',
+      theme: 'default',
+      persistAuth: false,
+      layout: 'modern',
+      hideModels: false,
+      documentDownloadType: 'both',
+      hideTestRequestButton: false,
+      showDeveloperTools:"never",
+      hideSearch: false,
+      showOperationId: false,
+      hideDarkModeToggle: false,
+      withDefaultFonts: true,
+      expandAllModelSections: false,
+      orderSchemaPropertiesBy: 'alpha',
+      orderRequiredPropertiesFirst: true,
+    },
   }))
   // 核心业务模块
   .use(authController)

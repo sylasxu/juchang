@@ -1,9 +1,8 @@
 import { Type, type Static } from '@sinclair/typebox'
-import { useFieldArray, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { typeboxResolver } from '@hookform/resolvers/typebox'
-import { Link } from '@tanstack/react-router'
-import { showSubmittedData } from '@/lib/show-submitted-data'
-import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -15,143 +14,115 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
+// 个人资料表单 Schema - 匹配 user 表
 const profileFormSchema = Type.Object({
-  username: Type.String({ minLength: 2, maxLength: 30 }),
-  email: Type.String({ format: 'email' }),
-  bio: Type.String({ minLength: 4, maxLength: 160 }),
-  urls: Type.Optional(Type.Array(Type.Object({
-    value: Type.String({ format: 'uri' }),
-  }))),
+  nickname: Type.String({ minLength: 1, maxLength: 50 }),
+  avatarUrl: Type.Optional(Type.String({ maxLength: 500 })),
 })
 
 type ProfileFormValues = Static<typeof profileFormSchema>
 
-// 默认值
-const defaultValues: Partial<ProfileFormValues> = {
-  bio: '聚场管理员',
-  urls: [],
-}
-
 export function ProfileForm() {
+  const { auth } = useAuthStore()
+  const user = auth.user
+
   const form = useForm<ProfileFormValues>({
     resolver: typeboxResolver(profileFormSchema),
-    defaultValues,
+    defaultValues: {
+      nickname: user?.username || '',
+      avatarUrl: user?.avatarUrl || '',
+    },
     mode: 'onChange',
   })
 
-  const { fields, append } = useFieldArray({
-    name: 'urls',
-    control: form.control,
-  })
+  async function onSubmit(data: ProfileFormValues) {
+    // TODO: 调用 API 更新用户资料
+    // await api.users[userId].put(data)
+    
+    // 更新本地状态
+    if (user) {
+      auth.setUser({
+        ...user,
+        username: data.nickname,
+        avatarUrl: data.avatarUrl,
+      })
+    }
+    
+    toast.success('资料已更新')
+  }
 
   return (
     <Form {...form}>
       <form
-        onSubmit={form.handleSubmit((data) => showSubmittedData(data))}
+        onSubmit={form.handleSubmit(onSubmit)}
         className='space-y-8'
       >
-        <FormField
-          control={form.control}
-          name='username'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>用户名</FormLabel>
-              <FormControl>
-                <Input placeholder='请输入用户名' {...field} />
-              </FormControl>
-              <FormDescription>
-                这是您的公开显示名称，可以是真实姓名或昵称。每30天只能修改一次。
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name='email'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>邮箱</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder='选择已验证的邮箱' />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value='admin@juchang.app'>admin@juchang.app</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                您可以在{' '}
-                <Link to='/'>邮箱设置</Link> 中管理已验证的邮箱地址。
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name='bio'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>个人简介</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder='简单介绍一下自己'
-                  className='resize-none'
-                  {...field}
-                />
-              </FormControl>
-              <FormDescription>
-                您可以使用 <span>@提及</span> 来链接其他用户。
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <div>
-          {fields.map((field, index) => (
-            <FormField
-              control={form.control}
-              key={field.id}
-              name={`urls.${index}.value`}
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className={cn(index !== 0 && 'sr-only')}>
-                    链接
-                  </FormLabel>
-                  <FormDescription className={cn(index !== 0 && 'sr-only')}>
-                    添加您的网站、博客或社交媒体链接。
-                  </FormDescription>
-                  <FormControl className={cn(index !== 0 && 'mt-1.5')}>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          ))}
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            className='mt-2'
-            onClick={() => append({ value: '' })}
-          >
-            添加链接
-          </Button>
+        {/* 头像预览 */}
+        <div className='flex items-center gap-4'>
+          <Avatar className='h-20 w-20'>
+            <AvatarImage src={form.watch('avatarUrl') || user?.avatarUrl} alt={user?.username} />
+            <AvatarFallback className='text-2xl'>
+              {(user?.username || '管')[0]}
+            </AvatarFallback>
+          </Avatar>
+          <div className='text-sm text-muted-foreground'>
+            <p>头像将显示在个人资料和评论中</p>
+            <p>建议使用正方形图片</p>
+          </div>
         </div>
-        <Button type='submit'>更新资料</Button>
+
+        <FormField
+          control={form.control}
+          name='nickname'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>昵称</FormLabel>
+              <FormControl>
+                <Input placeholder='请输入昵称' {...field} />
+              </FormControl>
+              <FormDescription>
+                这是您的公开显示名称，其他用户可以看到。
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name='avatarUrl'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>头像链接</FormLabel>
+              <FormControl>
+                <Input placeholder='https://example.com/avatar.jpg' {...field} />
+              </FormControl>
+              <FormDescription>
+                输入头像图片的 URL 地址。
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* 只读信息 */}
+        <div className='space-y-4 rounded-lg border p-4'>
+          <h4 className='text-sm font-medium'>账户信息</h4>
+          <div className='grid gap-2 text-sm'>
+            <div className='flex justify-between'>
+              <span className='text-muted-foreground'>用户 ID</span>
+              <span className='font-mono text-xs'>{user?.id || '-'}</span>
+            </div>
+            <div className='flex justify-between'>
+              <span className='text-muted-foreground'>手机号</span>
+              <span>{user?.phoneNumber || '未绑定'}</span>
+            </div>
+          </div>
+        </div>
+
+        <Button type='submit'>保存资料</Button>
       </form>
     </Form>
   )

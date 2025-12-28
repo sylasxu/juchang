@@ -1,18 +1,9 @@
 import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { CaretSortIcon, CheckIcon } from '@radix-ui/react-icons'
 import { typeboxResolver } from '@hookform/resolvers/typebox'
-import { showSubmittedData } from '@/lib/show-submitted-data'
-import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
 import {
   Form,
   FormControl,
@@ -24,138 +15,164 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import { DatePicker } from '@/components/date-picker'
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
 
-const languages = [
-  { label: '简体中文', value: 'zh' },
-  { label: 'English', value: 'en' },
-] as const
-
+// 账户设置表单 Schema
 const accountFormSchema = Type.Object({
-  name: Type.String({ minLength: 2, maxLength: 30 }),
-  dob: Type.Any(), // Date 类型在 TypeBox 中使用 Any
-  language: Type.String(),
+  phoneNumber: Type.Optional(Type.String({ pattern: '^1[3-9]\\d{9}$' })),
 })
 
-type AccountFormValues = Static<typeof accountFormSchema> & { dob: Date }
-
-// This can come from your database or API.
-const defaultValues: Partial<AccountFormValues> = {
-  name: '',
-}
+type AccountFormValues = Static<typeof accountFormSchema>
 
 export function AccountForm() {
+  const { auth } = useAuthStore()
+  const user = auth.user
+
   const form = useForm<AccountFormValues>({
     resolver: typeboxResolver(accountFormSchema),
-    defaultValues,
+    defaultValues: {
+      phoneNumber: user?.phoneNumber || '',
+    },
   })
 
-  function onSubmit(data: AccountFormValues) {
-    showSubmittedData(data)
+  async function onSubmit(data: AccountFormValues) {
+    // TODO: 调用 API 更新手机号（需要验证码）
+    toast.info('手机号修改功能开发中')
+    console.log('提交数据:', data)
+  }
+
+  // 格式化日期
+  const formatDate = (timestamp: number | undefined) => {
+    if (!timestamp) return '-'
+    return new Date(timestamp * 1000).toLocaleString('zh-CN')
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-8'>
-        <FormField
-          control={form.control}
-          name='name'
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>姓名</FormLabel>
-              <FormControl>
-                <Input placeholder='请输入姓名' {...field} />
-              </FormControl>
-              <FormDescription>
-                此姓名将显示在您的个人资料中。
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name='dob'
-          render={({ field }) => (
-            <FormItem className='flex flex-col'>
-              <FormLabel>出生日期</FormLabel>
-              <DatePicker selected={field.value} onSelect={field.onChange} />
-              <FormDescription>
-                用于计算您的年龄。
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name='language'
-          render={({ field }) => (
-            <FormItem className='flex flex-col'>
-              <FormLabel>语言</FormLabel>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant='outline'
-                      role='combobox'
-                      className={cn(
-                        'w-[200px] justify-between',
-                        !field.value && 'text-muted-foreground'
-                      )}
-                    >
-                      {field.value
-                        ? languages.find(
-                            (language) => language.value === field.value
-                          )?.label
-                        : '选择语言'}
-                      <CaretSortIcon className='ms-2 h-4 w-4 shrink-0 opacity-50' />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className='w-[200px] p-0'>
-                  <Command>
-                    <CommandInput placeholder='搜索语言...' />
-                    <CommandEmpty>未找到语言。</CommandEmpty>
-                    <CommandGroup>
-                      <CommandList>
-                        {languages.map((language) => (
-                          <CommandItem
-                            value={language.label}
-                            key={language.value}
-                            onSelect={() => {
-                              form.setValue('language', language.value)
-                            }}
-                          >
-                            <CheckIcon
-                              className={cn(
-                                'size-4',
-                                language.value === field.value
-                                  ? 'opacity-100'
-                                  : 'opacity-0'
-                              )}
-                            />
-                            {language.label}
-                          </CommandItem>
-                        ))}
-                      </CommandList>
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-              <FormDescription>
-                管理后台显示的语言。
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type='submit'>保存设置</Button>
-      </form>
-    </Form>
+    <div className='space-y-6'>
+      {/* 账户状态 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className='text-base'>账户状态</CardTitle>
+          <CardDescription>您的账户当前状态和权限</CardDescription>
+        </CardHeader>
+        <CardContent className='space-y-4'>
+          <div className='flex items-center justify-between'>
+            <span className='text-sm text-muted-foreground'>账户角色</span>
+            <Badge variant='default'>
+              {user?.role?.name || '普通用户'}
+            </Badge>
+          </div>
+          <div className='flex items-center justify-between'>
+            <span className='text-sm text-muted-foreground'>登录状态</span>
+            <Badge variant='outline' className='text-green-600'>
+              已登录
+            </Badge>
+          </div>
+          <div className='flex items-center justify-between'>
+            <span className='text-sm text-muted-foreground'>登录过期时间</span>
+            <span className='text-sm'>{formatDate(user?.exp)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 手机号设置 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className='text-base'>手机号</CardTitle>
+          <CardDescription>用于登录和接收通知</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
+              <FormField
+                control={form.control}
+                name='phoneNumber'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>当前手机号</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder='请输入手机号' 
+                        disabled 
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      手机号是您的主要登录凭证，暂不支持修改。
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      {/* 权限列表 */}
+      {user?.role?.permissions && (
+        <Card>
+          <CardHeader>
+            <CardTitle className='text-base'>权限列表</CardTitle>
+            <CardDescription>您当前拥有的系统权限</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className='space-y-3'>
+              {user.role.permissions.map((permission, index) => (
+                <div key={index} className='flex items-center justify-between'>
+                  <span className='text-sm font-medium capitalize'>
+                    {permission.resource}
+                  </span>
+                  <div className='flex gap-1'>
+                    {permission.actions.map((action) => (
+                      <Badge key={action} variant='secondary' className='text-xs'>
+                        {action}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Separator />
+
+      {/* 危险操作 */}
+      <Card className='border-destructive/50'>
+        <CardHeader>
+          <CardTitle className='text-base text-destructive'>危险操作</CardTitle>
+          <CardDescription>以下操作不可撤销，请谨慎操作</CardDescription>
+        </CardHeader>
+        <CardContent className='space-y-4'>
+          <div className='flex items-center justify-between'>
+            <div>
+              <p className='text-sm font-medium'>退出登录</p>
+              <p className='text-xs text-muted-foreground'>
+                退出当前账户，需要重新登录
+              </p>
+            </div>
+            <Button 
+              variant='outline' 
+              size='sm'
+              onClick={() => {
+                auth.reset()
+                window.location.href = '/sign-in'
+              }}
+            >
+              退出登录
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   )
 }

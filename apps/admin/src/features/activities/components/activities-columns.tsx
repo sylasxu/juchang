@@ -140,7 +140,14 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
       <DataTableColumnHeader column={column} title='开始时间' />
     ),
     cell: ({ row }) => {
-      const date = new Date(row.getValue('startAt'))
+      const value = row.getValue('startAt')
+      if (!value) return <div className='text-sm text-muted-foreground'>-</div>
+      
+      const date = new Date(value as string)
+      if (isNaN(date.getTime())) {
+        return <div className='text-sm text-muted-foreground'>-</div>
+      }
+      
       return (
         <div className='text-sm'>
           {date.toLocaleDateString('zh-CN')} {date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
@@ -154,7 +161,14 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
       <DataTableColumnHeader column={column} title='创建时间' />
     ),
     cell: ({ row }) => {
-      const date = new Date(row.getValue('createdAt'))
+      const value = row.getValue('createdAt')
+      if (!value) return <div className='text-sm text-muted-foreground'>-</div>
+      
+      const date = new Date(value as string)
+      if (isNaN(date.getTime())) {
+        return <div className='text-sm text-muted-foreground'>-</div>
+      }
+      
       return (
         <div className='text-sm'>
           {date.toLocaleDateString('zh-CN')}

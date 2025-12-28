@@ -25,6 +25,32 @@ const LoginResponse = t.Object({
   isNewUser: t.Boolean({ description: '是否新用户' }),
 });
 
+// Admin 手机号登录请求
+const AdminPhoneLoginRequest = t.Object({
+  phone: t.String({ pattern: '^1[3-9]\\d{9}$', description: '手机号' }),
+  code: t.String({ minLength: 4, maxLength: 6, description: '验证码' }),
+});
+
+// Admin 登录响应
+const AdminLoginResponse = t.Object({
+  user: t.Object({
+    id: t.String(),
+    phoneNumber: t.String(),
+    nickname: t.Union([t.String(), t.Null()]),
+    avatarUrl: t.Union([t.String(), t.Null()]),
+    role: t.Object({
+      id: t.String(),
+      name: t.String(),
+      permissions: t.Array(t.Object({
+        resource: t.String(),
+        actions: t.Array(t.String()),
+      })),
+    }),
+  }),
+  token: t.String({ description: 'JWT Token' }),
+  exp: t.Number({ description: 'Token 过期时间戳 (秒)' }),
+});
+
 // 错误响应
 const ErrorResponse = t.Object({
   code: t.Number(),
@@ -38,6 +64,8 @@ export const authModel = new Elysia({ name: 'authModel' })
     'auth.bindPhone': BindPhoneRequest,
     'auth.bindPhoneResponse': BindPhoneResponse,
     'auth.loginResponse': LoginResponse,
+    'auth.adminPhoneLogin': AdminPhoneLoginRequest,
+    'auth.adminLoginResponse': AdminLoginResponse,
     'auth.error': ErrorResponse,
   });
 
@@ -46,4 +74,6 @@ export type WxLoginRequest = Static<typeof WxLoginRequest>;
 export type BindPhoneRequest = Static<typeof BindPhoneRequest>;
 export type BindPhoneResponse = Static<typeof BindPhoneResponse>;
 export type LoginResponse = Static<typeof LoginResponse>;
+export type AdminPhoneLoginRequest = Static<typeof AdminPhoneLoginRequest>;
+export type AdminLoginResponse = Static<typeof AdminLoginResponse>;
 export type ErrorResponse = Static<typeof ErrorResponse>;

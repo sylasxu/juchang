@@ -1,5 +1,5 @@
 // Activity Service - 纯业务逻辑 (MVP 简化版 + v3.2 附近搜索)
-import { db, activities, users, participants, eq, sql, and, or, gt } from '@juchang/db';
+import { db, activities, users, participants, eq, sql, and, gt, like, inArray, desc } from '@juchang/db';
 import type { 
   ActivityDetailResponse, 
   ActivityListItem,
@@ -8,6 +8,8 @@ import type {
   NearbyActivitiesQuery,
   NearbyActivityItem,
   NearbyActivitiesResponse,
+  ActivitiesListQuery,
+  ActivitiesListResponse,
 } from './activity.model';
 import { deductAiCreateQuota } from '../users/user.service';
 
@@ -20,6 +22,100 @@ const ARCHIVE_HOURS = 24;
 function calculateIsArchived(startAt: Date): boolean {
   const archiveTime = new Date(startAt.getTime() + ARCHIVE_HOURS * 60 * 60 * 1000);
   return new Date() > archiveTime;
+}
+
+/**
+ * 获取活动列表（分页 + 筛选）
+ */
+export async function getActivitiesList(
+  query: ActivitiesListQuery
+): Promise<ActivitiesListResponse> {
+  const { page = 1, limit = 20, status, type, search } = query;
+  const offset = (page - 1) * limit;
+
+  // 构建查询条件
+  const conditions = [];
+  
+  if (status) {
+    const statusList = status.split(',').filter(Boolean);
+    if (statusList.length > 0) {
+      conditions.push(inArray(activities.status, statusList as any));
+    }
+  }
+  
+  if (type) {
+    const typeList = type.split(',').filter(Boolean);
+    if (typeList.length > 0) {
+      conditions.push(inArray(activities.type, typeList as any));
+    }
+  }
+  
+  if (search) {
+    conditions.push(like(activities.title, `%${search}%`));
+  }
+
+  // 查询活动列表
+  const activityList = await db
+    .select({
+      id: activities.id,
+      title: activities.title,
+      description: activities.description,
+      location: activities.location,
+      locationName: activities.locationName,
+      locationHint: activities.locationHint,
+      startAt: activities.startAt,
+      type: activities.type,
+      maxParticipants: activities.maxParticipants,
+      currentParticipants: activities.currentParticipants,
+      status: activities.status,
+      createdAt: activities.createdAt,
+      updatedAt: activities.updatedAt,
+      creatorId: users.id,
+      creatorNickname: users.nickname,
+      creatorAvatar: users.avatarUrl,
+    })
+    .from(activities)
+    .innerJoin(users, eq(activities.creatorId, users.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(activities.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  // 查询总数
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(activities)
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
+
+  // 转换数据格式
+  const data: ActivityListItem[] = activityList.map(item => ({
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    location: item.location 
+      ? [item.location.x, item.location.y] as [number, number]
+      : [0, 0] as [number, number],
+    locationName: item.locationName,
+    locationHint: item.locationHint,
+    startAt: item.startAt.toISOString(),
+    type: item.type,
+    maxParticipants: item.maxParticipants,
+    currentParticipants: item.currentParticipants,
+    status: item.status,
+    isArchived: calculateIsArchived(item.startAt),
+    creator: {
+      id: item.creatorId,
+      nickname: item.creatorNickname,
+      avatarUrl: item.creatorAvatar,
+    },
+  }));
+
+  return {
+    data,
+    total: count,
+    page,
+    pageSize: limit,
+  };
 }
 
 /**

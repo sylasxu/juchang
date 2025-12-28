@@ -8,7 +8,6 @@ import { UsersDialogs } from './components/users-dialogs'
 import { UsersPrimaryButtons } from './components/users-primary-buttons'
 import { UsersProvider } from './components/users-provider'
 import { UsersTable } from './components/users-table'
-import { users as mockUsers } from './data/users'
 import { useUsersList } from '@/hooks/use-users'
 import { getRouteApi } from '@tanstack/react-router'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -17,16 +16,17 @@ const route = getRouteApi('/_authenticated/users/')
 
 export function Users() {
   const search = route.useSearch()
+  const pageSize = search.pageSize ?? 10
   
-  // 使用 API 获取用户数据，失败时回退到 mock 数据
-  const { data, isLoading, isError } = useUsersList({
+  const { data, isLoading, error } = useUsersList({
     page: search.page ?? 1,
-    limit: search.pageSize ?? 10,
+    limit: pageSize,
     search: search.filter,
   })
 
-  // 使用 API 数据，失败时回退到 mock 数据
-  const users = isError || !data ? mockUsers : (data as any)?.data ?? mockUsers
+  // 直接从 API 响应获取数据
+  const users = data?.data ?? []
+  const total = data?.total ?? 0
 
   return (
     <UsersProvider>
@@ -45,7 +45,6 @@ export function Users() {
             <h2 className='text-2xl font-bold tracking-tight'>用户管理</h2>
             <p className='text-muted-foreground'>
               管理平台用户，查看用户信息和状态
-              {isError && <span className='text-yellow-600 ml-2'>(使用离线数据)</span>}
             </p>
           </div>
           <UsersPrimaryButtons />
@@ -55,8 +54,12 @@ export function Users() {
             <Skeleton className='h-10 w-full' />
             <Skeleton className='h-[400px] w-full' />
           </div>
+        ) : error ? (
+          <div className='text-center py-8 text-muted-foreground'>
+            加载失败：{error.message}
+          </div>
         ) : (
-          <UsersTable data={users} />
+          <UsersTable data={users} pageCount={Math.ceil(total / pageSize)} />
         )}
       </Main>
 

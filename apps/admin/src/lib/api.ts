@@ -2,7 +2,7 @@
 // 统一导出所有 API 相关的工具和类型
 
 // Eden Treaty 客户端
-export { api, auth, apiCall, handleApiError } from './eden'
+export { api, auth, unwrap, apiCall } from './eden'
 
 // TypeBox 类型和工具
 export * from './typebox'
@@ -14,8 +14,8 @@ export { queryClient, queryKeys, invalidateQueries, prefetchQueries, optimisticU
 export { handleServerError, handleBusinessError, handleNetworkError } from './handle-server-error'
 
 // API Hooks
-export * from '../hooks/use-api'
 export * from '../hooks/use-users'
+export * from '../hooks/use-activities'
 
 // 使用示例和最佳实践
 /*

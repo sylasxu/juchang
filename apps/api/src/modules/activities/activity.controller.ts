@@ -3,6 +3,7 @@ import { Elysia, t } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { activityModel, type ErrorResponse } from './activity.model';
 import { 
+  getActivitiesList,
   getMyActivities,
   getActivityById,
   createActivity, 
@@ -17,6 +18,37 @@ import {
 export const activityController = new Elysia({ prefix: '/activities' })
   .use(basePlugins)
   .use(activityModel)
+
+  // ==========================================
+  // 活动列表（分页 + 筛选）
+  // ==========================================
+  .get(
+    '/',
+    async ({ query, set }) => {
+      try {
+        const result = await getActivitiesList(query);
+        return result;
+      } catch (error: any) {
+        set.status = 500;
+        return {
+          code: 500,
+          msg: error.message || '获取活动列表失败',
+        } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Activities'],
+        summary: '获取活动列表',
+        description: '获取所有活动列表，支持分页和筛选',
+      },
+      query: 'activity.listQuery',
+      response: {
+        200: 'activity.listResponse',
+        500: 'activity.error',
+      },
+    }
+  )
 
   // ==========================================
   // 附近活动搜索 (v3.2 新增) - 放在 /:id 之前避免路由冲突

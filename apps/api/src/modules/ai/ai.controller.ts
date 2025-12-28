@@ -85,20 +85,19 @@ export const aiController = new Elysia({ prefix: '/ai' })
   // ==========================================
   
   // 获取对话历史（分页）
+  // 支持两种模式：
+  // 1. 有 JWT：查询当前用户的对话
+  // 2. 无 JWT：Admin 模式，可查询所有用户的对话
   .get(
     '/conversations',
     async ({ query, set, jwt, headers }) => {
       const user = await verifyAuth(jwt, headers);
-      if (!user) {
-        set.status = 401;
-        return {
-          code: 401,
-          msg: '未授权',
-        } satisfies ErrorResponse;
-      }
+      
+      // Admin 模式：无 JWT 时查询所有用户
+      const userId = user?.id || 'admin';
 
       try {
-        const result = await getConversations(user.id, query);
+        const result = await getConversations(userId, query);
         return result;
       } catch (error: any) {
         set.status = 500;
@@ -112,12 +111,11 @@ export const aiController = new Elysia({ prefix: '/ai' })
       detail: {
         tags: ['AI'],
         summary: '获取 AI 对话历史',
-        description: '获取当前用户与 AI 的对话历史，支持分页。按时间倒序返回。',
+        description: '获取对话历史，支持分页。有 JWT 时查当前用户，无 JWT 时查所有用户（Admin 模式）。',
       },
       query: 'ai.conversationsQuery',
       response: {
         200: 'ai.conversationsResponse',
-        401: 'ai.error',
         500: 'ai.error',
       },
     }

@@ -81,6 +81,7 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   | `/users` | GET | 用户列表（分页、搜索） |
   | `/users/:id` | GET | 用户详情 |
   | `/users/:id` | PUT | 更新用户 |
+  | `/users/:id` | DELETE | 删除用户 |
   | `/users/:id/quota` | GET | 获取用户额度 |
 - **设计原则**：API 模块按功能领域划分，而非按页面划分
   - ❌ 不创建 `home` 模块（页面导向）

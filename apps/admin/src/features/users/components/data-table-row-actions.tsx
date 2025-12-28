@@ -1,6 +1,7 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Trash2, Shield } from 'lucide-react'
+import { Trash2, Edit, Eye } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -20,9 +21,8 @@ type DataTableRowActionsProps<TData> = {
 export function DataTableRowActions<TData>({
   row,
 }: DataTableRowActionsProps<TData>) {
-  // TypeBox 不使用 .parse()，直接类型断言
   const user = row.original as User
-
+  const navigate = useNavigate()
   const { setOpen, setCurrentRow } = useUsers()
 
   return (
@@ -38,23 +38,27 @@ export function DataTableRowActions<TData>({
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end' className='w-[160px]'>
         <DropdownMenuItem
+          onClick={() => navigate({ to: '/users/$id', params: { id: user.id } })}
+        >
+          查看详情
+          <DropdownMenuShortcut>
+            <Eye size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={() => {
             setCurrentRow(user)
             setOpen('update')
           }}
         >
           编辑
-        </DropdownMenuItem>
-        <DropdownMenuItem disabled>查看详情</DropdownMenuItem>
-        <DropdownMenuItem disabled>发送消息</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          封禁用户
           <DropdownMenuShortcut>
-            <Shield size={16} />
+            <Edit size={16} />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
+          className='text-destructive focus:text-destructive'
           onClick={() => {
             setCurrentRow(user)
             setOpen('delete')

@@ -35,6 +35,7 @@ import { queryKeys } from '@/lib/query-client'
 import { api } from '@/lib/eden'
 import { InspectorRenderer } from '@/features/ai-playground/components/inspectors'
 import { cn } from '@/lib/utils'
+import { useDebouncedSearch } from '@/hooks/use-debounced-search'
 
 // 消息类型标签
 const messageTypeLabels: Record<string, string> = {
@@ -73,9 +74,14 @@ interface ConversationItem {
 
 export function ConversationsList() {
   const [cursor, setCursor] = useState<string | null>(null)
-  const [searchUserId, setSearchUserId] = useState('')
   const [filterType, setFilterType] = useState<string>('all')
   const [selectedConversation, setSelectedConversation] = useState<ConversationItem | null>(null)
+
+  // 使用防抖搜索 hook
+  const { inputProps, debouncedValue: searchUserId } = useDebouncedSearch({
+    delay: 300,
+    onSearch: () => setCursor(null), // 搜索时重置分页
+  })
 
   // 获取对话列表
   const { data, isLoading, refetch } = useQuery({
@@ -112,11 +118,7 @@ export function ConversationsList() {
             <Search className='h-4 w-4 text-muted-foreground' />
             <Input
               placeholder='按用户 ID 搜索...'
-              value={searchUserId}
-              onChange={(e) => {
-                setSearchUserId(e.target.value)
-                setCursor(null)
-              }}
+              {...inputProps}
               className='w-48'
             />
           </div>

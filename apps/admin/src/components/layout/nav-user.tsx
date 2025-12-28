@@ -5,6 +5,7 @@ import {
   LogOut,
 } from 'lucide-react'
 import useDialogState from '@/hooks/use-dialog-state'
+import { useAuthStore } from '@/stores/auth-store'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -31,9 +32,23 @@ type NavUserProps = {
   }
 }
 
-export function NavUser({ user }: NavUserProps) {
+export function NavUser({ user: _fallbackUser }: NavUserProps) {
   const { isMobile } = useSidebar()
   const [open, setOpen] = useDialogState()
+  const { auth } = useAuthStore()
+  
+  // 优先使用 auth store 中的真实用户信息
+  const authUser = auth.user
+  const user = {
+    name: authUser?.username || _fallbackUser.name,
+    email: authUser?.phoneNumber || authUser?.email || _fallbackUser.email,
+    avatar: authUser?.avatarUrl || _fallbackUser.avatar,
+  }
+
+  // 获取用户名首字作为头像 fallback
+  const getInitials = (name: string) => {
+    return name?.charAt(0) || '管'
+  }
 
   return (
     <>
@@ -47,7 +62,7 @@ export function NavUser({ user }: NavUserProps) {
               >
                 <Avatar className='h-8 w-8 rounded-lg'>
                   <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className='rounded-lg'>管</AvatarFallback>
+                  <AvatarFallback className='rounded-lg'>{getInitials(user.name)}</AvatarFallback>
                 </Avatar>
                 <div className='grid flex-1 text-start text-sm leading-tight'>
                   <span className='truncate font-semibold'>{user.name}</span>
@@ -66,7 +81,7 @@ export function NavUser({ user }: NavUserProps) {
                 <div className='flex items-center gap-2 px-1 py-1.5 text-start text-sm'>
                   <Avatar className='h-8 w-8 rounded-lg'>
                     <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback className='rounded-lg'>SN</AvatarFallback>
+                    <AvatarFallback className='rounded-lg'>{getInitials(user.name)}</AvatarFallback>
                   </Avatar>
                   <div className='grid flex-1 text-start text-sm leading-tight'>
                     <span className='truncate font-semibold'>{user.name}</span>

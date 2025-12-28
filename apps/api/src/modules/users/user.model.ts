@@ -18,6 +18,12 @@ const ErrorResponse = t.Object({
   msg: t.String(),
 });
 
+// 成功响应
+const SuccessResponse = t.Object({
+  success: t.Boolean(),
+  msg: t.String(),
+});
+
 // 额度响应
 const QuotaResponse = t.Object({
   aiCreateQuota: t.Number({ description: '今日剩余 AI 创建额度' }),
@@ -53,6 +59,7 @@ export const userModel = new Elysia({ name: 'userModel' })
   .model({
     'user.response': UserResponseSchema,
     'user.error': ErrorResponse,
+    'user.success': SuccessResponse,
     'user.quotaResponse': QuotaResponse,
     'user.listQuery': UserListQuerySchema,
     'user.listResponse': UserListResponseSchema,
@@ -63,6 +70,7 @@ export const userModel = new Elysia({ name: 'userModel' })
 
 export type UserResponse = Static<typeof UserResponseSchema>;
 export type ErrorResponse = Static<typeof ErrorResponse>;
+export type SuccessResponse = Static<typeof SuccessResponse>;
 export type QuotaResponse = Static<typeof QuotaResponse>;
 export type UserListQuery = Static<typeof UserListQuerySchema>;
 export type UserListResponse = Static<typeof UserListResponseSchema>;

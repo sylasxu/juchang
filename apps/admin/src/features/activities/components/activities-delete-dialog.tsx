@@ -6,23 +6,22 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ConfirmDialog } from '@/components/confirm-dialog'
-import { useDeleteUser } from '@/hooks/use-users'
-import { type User } from '../data/schema'
+import { useDeleteActivity } from '@/hooks/use-activities'
+import { type Activity } from '../data/schema'
 
-type UserDeleteDialogProps = {
+type ActivityDeleteDialogProps = {
   open: boolean
   onOpenChange: () => void
-  currentRow: User
+  currentRow: Activity
 }
 
-export function UsersDeleteDialog({
+export function ActivitiesDeleteDialog({
   open,
   onOpenChange,
   currentRow,
-}: UserDeleteDialogProps) {
+}: ActivityDeleteDialogProps) {
   const [value, setValue] = useState('')
-  const deleteMutation = useDeleteUser()
-  const displayName = currentRow.nickname || currentRow.phoneNumber || '未知用户'
+  const deleteMutation = useDeleteActivity()
 
   const handleDelete = async () => {
     if (value.trim() !== 'DELETE') return
@@ -44,15 +43,15 @@ export function UsersDeleteDialog({
             className='stroke-destructive me-1 inline-block'
             size={18}
           />{' '}
-          删除用户
+          删除活动
         </span>
       }
       desc={
         <div className='space-y-4'>
           <p className='mb-2'>
-            确定要删除用户 <span className='font-bold'>{displayName}</span> 吗？
+            确定要删除活动 <span className='font-bold'>{currentRow.title}</span> 吗？
             <br />
-            此操作将永久删除该用户的所有数据，且无法恢复。
+            此操作将永久删除该活动及其相关数据，且无法恢复。
           </p>
 
           <Label className='my-2'>

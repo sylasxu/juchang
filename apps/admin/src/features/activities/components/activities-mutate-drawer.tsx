@@ -1,7 +1,7 @@
+import { useEffect } from 'react'
 import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
 import { typeboxResolver } from '@hookform/resolvers/typebox'
-import { showSubmittedData } from '@/lib/show-submitted-data'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Sheet,
   SheetClose,
@@ -23,256 +22,127 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
-import { SelectDropdown } from '@/components/select-dropdown'
-
+import { Badge } from '@/components/ui/badge'
 import { useActivities } from './activities-provider'
+import { activityTypes, statuses } from '../data/data'
 
-const formSchema = Type.Object({
-  title: Type.String({ minLength: 1, description: '活动标题是必填项' }),
-  description: Type.Optional(Type.String()),
-  category: Type.Union([
-    Type.Literal('sports'),
-    Type.Literal('food'),
-    Type.Literal('entertainment'),
-    Type.Literal('study'),
-    Type.Literal('travel'),
-    Type.Literal('other'),
-  ]),
-  location: Type.String({ minLength: 1, description: '活动地点是必填项' }),
-  startTime: Type.String(),
-  endTime: Type.String(),
-  maxParticipants: Type.Number({ minimum: 1, description: '最大参与人数必须大于0' }),
-  status: Type.Union([
-    Type.Literal('active'),
-    Type.Literal('completed'),
-    Type.Literal('cancelled'),
-    Type.Literal('draft'),
-  ]),
-})
-
-type ActivityForm = Static<typeof formSchema>
-
+// 活动详情/编辑 Drawer - 只读展示，Admin 不直接编辑活动
 export function ActivitiesMutateDrawer() {
   const { open, setOpen, currentRow } = useActivities()
-  const isOpen = open === 'create' || open === 'update'
-  const isUpdate = open === 'update'
+  const isOpen = open === 'update'
 
-  const form = useForm<ActivityForm>({
-    resolver: typeboxResolver(formSchema),
-    defaultValues: currentRow ? {
-      title: currentRow.title,
-      description: currentRow.description || '',
-      category: currentRow.category,
-      location: currentRow.location,
-      startTime: currentRow.startTime,
-      endTime: currentRow.endTime,
-      maxParticipants: currentRow.maxParticipants,
-      status: currentRow.status,
-    } : {
-      title: '',
-      description: '',
-      category: 'other',
-      location: '',
-      startTime: '',
-      endTime: '',
-      maxParticipants: 10,
-      status: 'draft',
-    },
-  })
+  if (!isOpen || !currentRow) return null
 
-  const onSubmit = (data: ActivityForm) => {
-    // do something with the form data
-    setOpen(null)
-    form.reset()
-    showSubmittedData(data)
-  }
+  const typeInfo = activityTypes.find(t => t.value === currentRow.type)
+  const statusInfo = statuses.find(s => s.value === currentRow.status)
 
   return (
     <Sheet
       open={isOpen}
       onOpenChange={(v) => {
-        setOpen(v ? 'create' : null)
-        form.reset()
+        if (!v) setOpen(null)
       }}
     >
       <SheetContent className='flex flex-col'>
         <SheetHeader className='text-start'>
-          <SheetTitle>{isUpdate ? '编辑' : '创建'} 活动</SheetTitle>
+          <SheetTitle>活动详情</SheetTitle>
           <SheetDescription>
-            {isUpdate
-              ? '通过提供必要信息来更新活动。'
-              : '通过提供必要信息来添加新活动。'}
-            完成后点击保存。
+            查看活动的详细信息。活动内容由用户创建，管理员只能更改状态或删除。
           </SheetDescription>
         </SheetHeader>
-        <Form {...form}>
-          <form
-            id='activities-form'
-            onSubmit={form.handleSubmit(onSubmit)}
-            className='flex-1 space-y-6 overflow-y-auto px-4'
-          >
-            <FormField
-              control={form.control}
-              name='title'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>活动标题</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder='请输入活动标题' />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='description'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>活动描述</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} placeholder='请输入活动描述' rows={3} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='category'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>活动分类</FormLabel>
-                  <SelectDropdown
-                    defaultValue={field.value}
-                    onValueChange={field.onChange}
-                    placeholder='选择分类'
-                    items={[
-                      { label: '运动健身', value: 'sports' },
-                      { label: '美食聚餐', value: 'food' },
-                      { label: '娱乐休闲', value: 'entertainment' },
-                      { label: '学习交流', value: 'study' },
-                      { label: '旅游出行', value: 'travel' },
-                      { label: '其他', value: 'other' },
-                    ]}
-                  />
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name='location'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>活动地点</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder='请输入活动地点' />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className='grid grid-cols-2 gap-4'>
-              <FormField
-                control={form.control}
-                name='startTime'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>开始时间</FormLabel>
-                    <FormControl>
-                      <Input {...field} type='datetime-local' />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='endTime'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>结束时间</FormLabel>
-                    <FormControl>
-                      <Input {...field} type='datetime-local' />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+        
+        <div className='flex-1 space-y-6 overflow-y-auto px-4'>
+          {/* 基础信息 */}
+          <div className='space-y-4'>
+            <div>
+              <label className='text-sm font-medium text-muted-foreground'>活动ID</label>
+              <p className='font-mono text-xs mt-1'>{currentRow.id}</p>
             </div>
-            <FormField
-              control={form.control}
-              name='maxParticipants'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>最大参与人数</FormLabel>
-                  <FormControl>
-                    <Input 
-                      {...field} 
-                      type='number' 
-                      min='1'
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      placeholder='请输入最大参与人数' 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+            
+            <div>
+              <label className='text-sm font-medium text-muted-foreground'>活动标题</label>
+              <p className='mt-1 font-medium'>{currentRow.title}</p>
+            </div>
+
+            {currentRow.description && (
+              <div>
+                <label className='text-sm font-medium text-muted-foreground'>活动描述</label>
+                <p className='mt-1 text-sm'>{currentRow.description}</p>
+              </div>
+            )}
+
+            <div className='flex gap-2'>
+              {typeInfo && (
+                <Badge variant='outline'>
+                  {typeInfo.icon && <typeInfo.icon className='h-3 w-3 mr-1' />}
+                  {typeInfo.label}
+                </Badge>
               )}
-            />
-            <FormField
-              control={form.control}
-              name='status'
-              render={({ field }) => (
-                <FormItem className='relative'>
-                  <FormLabel>活动状态</FormLabel>
-                  <FormControl>
-                    <RadioGroup
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      className='flex flex-col space-y-1'
-                    >
-                      <FormItem className='flex items-center'>
-                        <FormControl>
-                          <RadioGroupItem value='draft' />
-                        </FormControl>
-                        <FormLabel className='font-normal'>
-                          草稿
-                        </FormLabel>
-                      </FormItem>
-                      <FormItem className='flex items-center'>
-                        <FormControl>
-                          <RadioGroupItem value='active' />
-                        </FormControl>
-                        <FormLabel className='font-normal'>进行中</FormLabel>
-                      </FormItem>
-                      <FormItem className='flex items-center'>
-                        <FormControl>
-                          <RadioGroupItem value='completed' />
-                        </FormControl>
-                        <FormLabel className='font-normal'>已完成</FormLabel>
-                      </FormItem>
-                      <FormItem className='flex items-center'>
-                        <FormControl>
-                          <RadioGroupItem value='cancelled' />
-                        </FormControl>
-                        <FormLabel className='font-normal'>已取消</FormLabel>
-                      </FormItem>
-                    </RadioGroup>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
+              {statusInfo && (
+                <Badge variant={currentRow.status === 'active' ? 'default' : 'secondary'}>
+                  {statusInfo.icon && <statusInfo.icon className='h-3 w-3 mr-1' />}
+                  {statusInfo.label}
+                </Badge>
               )}
-            />
-          </form>
-        </Form>
+            </div>
+          </div>
+
+          {/* 位置信息 */}
+          <div className='space-y-4 border-t pt-4'>
+            <h4 className='font-medium'>位置信息</h4>
+            <div>
+              <label className='text-sm font-medium text-muted-foreground'>地点名称</label>
+              <p className='mt-1'>{currentRow.locationName}</p>
+            </div>
+            {currentRow.address && (
+              <div>
+                <label className='text-sm font-medium text-muted-foreground'>详细地址</label>
+                <p className='mt-1 text-sm'>{currentRow.address}</p>
+              </div>
+            )}
+            <div>
+              <label className='text-sm font-medium text-muted-foreground'>位置提示</label>
+              <p className='mt-1 text-sm'>{currentRow.locationHint}</p>
+            </div>
+          </div>
+
+          {/* 参与信息 */}
+          <div className='space-y-4 border-t pt-4'>
+            <h4 className='font-medium'>参与信息</h4>
+            <div className='grid grid-cols-2 gap-4'>
+              <div>
+                <label className='text-sm font-medium text-muted-foreground'>当前人数</label>
+                <p className='mt-1 text-lg font-bold'>{currentRow.currentParticipants}</p>
+              </div>
+              <div>
+                <label className='text-sm font-medium text-muted-foreground'>最大人数</label>
+                <p className='mt-1 text-lg font-bold'>{currentRow.maxParticipants}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 时间信息 */}
+          <div className='space-y-4 border-t pt-4'>
+            <h4 className='font-medium'>时间信息</h4>
+            <div>
+              <label className='text-sm font-medium text-muted-foreground'>开始时间</label>
+              <p className='mt-1'>
+                {new Date(currentRow.startAt).toLocaleString('zh-CN')}
+              </p>
+            </div>
+            <div>
+              <label className='text-sm font-medium text-muted-foreground'>创建时间</label>
+              <p className='mt-1 text-sm'>
+                {new Date(currentRow.createdAt).toLocaleString('zh-CN')}
+              </p>
+            </div>
+          </div>
+        </div>
+
         <SheetFooter className='gap-2'>
           <SheetClose asChild>
             <Button variant='outline'>关闭</Button>
           </SheetClose>
-          <Button form='activities-form' type='submit'>
-            保存更改
-          </Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>
