@@ -9,8 +9,9 @@ export const activityTypeSchema = Type.Union([
   Type.Literal('other'),
 ])
 
-// MVP 活动状态枚举
+// MVP 活动状态枚举 (v3.3 含 draft)
 export const activityStatusSchema = Type.Union([
+  Type.Literal('draft'),
   Type.Literal('active'),
   Type.Literal('completed'),
   Type.Literal('cancelled'),

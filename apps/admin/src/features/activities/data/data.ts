@@ -3,9 +3,15 @@ import {
   CrossCircledIcon,
   StopwatchIcon,
 } from '@radix-ui/react-icons'
+import { FileEdit } from 'lucide-react'
 
-// MVP 活动状态 (简化版)
+// MVP 活动状态 (v3.2 含 draft)
 export const statuses = [
+  {
+    value: 'draft',
+    label: '草稿',
+    icon: FileEdit,
+  },
   {
     value: 'active',
     label: '进行中',
@@ -63,6 +69,7 @@ export const activityTypeLabels: Record<string, string> = {
 
 // 活动状态标签映射
 export const activityStatusLabels: Record<string, string> = {
+  draft: '草稿',
   active: '进行中',
   completed: '已成局',
   cancelled: '已取消',

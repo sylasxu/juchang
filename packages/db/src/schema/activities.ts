@@ -42,8 +42,8 @@ export const activities = pgTable("activities", {
   maxParticipants: integer("max_participants").default(4).notNull(),
   currentParticipants: integer("current_participants").default(1).notNull(),
   
-  // --- 状态 (MVP 简化) ---
-  status: activityStatusEnum("status").default("active").notNull(),
+  // --- 状态 (v3.3 默认 draft，符合 AI 解析 → 用户确认的工作流) ---
+  status: activityStatusEnum("status").default("draft").notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

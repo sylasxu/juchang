@@ -36,21 +36,22 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
 
 # 🏗️ Monorepo Structure & Responsibilities
 
-## 1. @juchang/db (The Single Source of Truth - v3.2)
+## 1. @juchang/db (The Single Source of Truth - v3.3)
 - **Tech**: Drizzle ORM (PostgreSQL + PostGIS) + `drizzle-typebox`.
 - **Path**: `packages/db/src/schema/*.ts`
-- **Architecture**: **6 张核心表** (v3.2 Chat-First + Generative UI)
+- **Architecture**: **6 张核心表** (v3.3 Chat-First + Generative UI + 行业标准命名)
   - `users` (用户表：认证 + AI 额度 + 统计)
-  - `activities` (活动表：基础信息 + 位置 + 状态)
+  - `activities` (活动表：基础信息 + 位置 + 状态，默认 draft)
   - `participants` (参与者表：报名/退出)
-  - `home_messages` (**新增：首页 AI 对话流**)
-  - `group_messages` (活动群聊消息表，原 chat_messages)
+  - `conversations` (**AI 对话历史表**，原 home_messages，行业标准命名)
+  - `activity_messages` (**活动群聊消息表**，原 group_messages，语义化命名)
   - `notifications` (通知表)
 - **MVP 核心特性**:
   - **重庆地形适配**: `locationHint` 字段必填
   - **AI 额度**: `aiCreateQuotaToday` (3次/天)
   - **群聊归档**: `isArchived` 在 API 层动态计算 (now > startAt + 24h)
-  - **Chat-First**: home_messages 存储用户与 AI 的对话历史
+  - **Chat-First**: conversations 存储用户与 AI 的对话历史
+  - **行业标准**: role 使用 user/assistant (符合 OpenAI 标准)
 - **Schema 编写规范**:
   ```typescript
   // 1. 定义表
@@ -63,7 +64,7 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   export type NewUser = typeof users.$inferInsert;
   ```
 
-## 2. apps/api (The Business Logic Gateway - v3.2 按功能领域划分)
+## 2. apps/api (The Business Logic Gateway - v3.3 按功能领域划分)
 - **Tech**: ElysiaJS + `@elysiajs/openapi` + TypeBox (t).
 - **Path**: `apps/api/src/modules/*`
 - **Architecture**: **5 个核心模块** (按功能领域划分，非按页面划分)
@@ -72,8 +73,8 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   | `auth` | 认证授权 | `/auth/login`, `/auth/bindPhone` |
   | `users` | 用户管理 | `/users/me`, `/users/me/quota` |
   | `activities` | 活动管理 | `/activities`, `/activities/:id/join`, `/activities/nearby` |
-  | `chat` | 群聊消息 | `/chat/:activityId/messages` |
-  | `ai` | AI 解析 + **对话历史管理** | `/ai/parse`, `/ai/conversations` |
+  | `chat` | 群聊消息 (activity_messages 表) | `/chat/:activityId/messages` |
+  | `ai` | AI 解析 + **对话历史管理** (conversations 表) | `/ai/parse`, `/ai/conversations` |
 - **设计原则**：API 模块按功能领域划分，而非按页面划分
   - ❌ 不创建 `home` 模块（页面导向）
   - ✅ 对话历史归入 `ai` 模块（功能领域导向）
@@ -168,24 +169,27 @@ bun run gen:api          # 生成 Orval SDK
 
 ## 枚举定义
 ```typescript
-// 活动状态 (v3.2 新增 draft)
+// 活动状态 (默认 draft)
 activityStatusEnum: ["draft", "active", "completed", "cancelled"]
 
-// 首页消息角色 (v3.2 新增)
-homeMessageRoleEnum: ["user", "ai"]
+// 对话角色 (v3.3 行业标准命名，使用 assistant 符合 OpenAI 标准)
+conversationRoleEnum: ["user", "assistant"]
 
-// 首页消息类型 (v3.3 含 Generative UI + Composite Widget + Simple Widget)
-homeMessageTypeEnum: ["text", "widget_dashboard", "widget_launcher", "widget_action", "widget_draft", "widget_share", "widget_explore", "widget_error"]
+// 对话消息类型 (v3.3 含 Generative UI + Composite Widget + Simple Widget)
+conversationMessageTypeEnum: ["text", "widget_dashboard", "widget_launcher", "widget_action", "widget_draft", "widget_share", "widget_explore", "widget_error"]
+
+// 活动消息类型 (v3.3 语义化命名，本地定义)
+activityMessageTypeEnum: ["text", "system"]
 ```
 
 ## 表结构概览
 | 表 | 核心字段 |
 |---|---------|
 | `users` | id, wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday |
-| `activities` | id, creatorId, title, location, locationHint, startAt, type, status |
+| `activities` | id, creatorId, title, location, locationHint, startAt, type, status (默认 draft) |
 | `participants` | id, activityId, userId, status (joined/quit) |
-| `home_messages` | **id, userId, role, type, content, activityId** |
-| `group_messages` | id, activityId, senderId, type, content |
+| `conversations` | **id, userId, role, messageType, content, activityId** (原 home_messages) |
+| `activity_messages` | id, activityId, senderId, messageType, content (原 group_messages) |
 | `notifications` | id, userId, type, title, isRead, activityId |
 
 ---

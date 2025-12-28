@@ -1,9 +1,9 @@
-// AI Model - v3.2 Chat-First: AI 解析 + 对话历史管理
+// AI Model - v3.3 Chat-First: AI 解析 + 对话历史管理 (行业标准命名)
 import { Elysia, t, type Static } from 'elysia';
-import { selectHomeMessageSchema } from '@juchang/db';
+import { selectConversationSchema } from '@juchang/db';
 
 /**
- * AI Model Plugin - v3.2 Chat-First
+ * AI Model Plugin - v3.3 Chat-First (行业标准命名)
  * 
  * 功能：
  * - AI 解析（魔法输入框）
@@ -112,19 +112,21 @@ const ActivityDraftData = t.Object({
 });
 
 // ==========================================
-// 对话历史相关 Schema (v3.2 新增)
+// 对话历史相关 Schema (v3.3 行业标准命名)
 // ==========================================
 
-// 消息角色
-const HomeMessageRole = t.Union([
+// 消息角色 (使用 assistant 符合 OpenAI 标准)
+const ConversationRole = t.Union([
   t.Literal('user'),
-  t.Literal('ai'),
+  t.Literal('assistant'),
 ]);
 
 // 消息类型
-const HomeMessageType = t.Union([
+const ConversationMessageType = t.Union([
   t.Literal('text'),
   t.Literal('widget_dashboard'),
+  t.Literal('widget_launcher'),
+  t.Literal('widget_action'),
   t.Literal('widget_draft'),
   t.Literal('widget_share'),
   t.Literal('widget_explore'),
@@ -135,22 +137,41 @@ const HomeMessageType = t.Union([
 const ConversationMessage = t.Object({
   id: t.String(),
   userId: t.String(),
-  role: HomeMessageRole,
-  type: HomeMessageType,
+  role: ConversationRole,
+  type: ConversationMessageType,
   content: t.Any({ description: 'JSONB 内容，根据 type 不同结构不同' }),
   activityId: t.Union([t.String(), t.Null()]),
   createdAt: t.String(),
 });
 
-// 获取对话历史查询参数
+// 获取对话历史查询参数 (增强版 - 支持多种筛选)
 const ConversationsQuery = t.Object({
+  // 分页参数
   cursor: t.Optional(t.String({ description: '分页游标（上一页最后一条消息的 ID）' })),
   limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20, description: '获取数量' })),
+  // 筛选参数 (可选，用于 Admin 审计等场景)
+  userId: t.Optional(t.String({ description: '按用户 ID 筛选（不传则查当前用户）' })),
+  activityId: t.Optional(t.String({ description: '按关联活动 ID 筛选' })),
+  messageType: t.Optional(t.String({ description: '按消息类型筛选' })),
+  role: t.Optional(t.Union([t.Literal('user'), t.Literal('assistant')], { description: '按角色筛选' })),
 });
 
-// 获取对话历史响应
+// 对话消息响应 (增强版 - 包含用户信息)
+const ConversationMessageWithUser = t.Object({
+  id: t.String(),
+  userId: t.String(),
+  userNickname: t.Union([t.String(), t.Null()], { description: '用户昵称' }),
+  role: ConversationRole,
+  type: ConversationMessageType,
+  content: t.Any({ description: 'JSONB 内容，根据 type 不同结构不同' }),
+  activityId: t.Union([t.String(), t.Null()]),
+  createdAt: t.String(),
+});
+
+// 获取对话历史响应 (增强版)
 const ConversationsResponse = t.Object({
-  items: t.Array(ConversationMessage),
+  items: t.Array(ConversationMessageWithUser),
+  total: t.Number({ description: '总数量' }),
   hasMore: t.Boolean({ description: '是否还有更多消息' }),
   cursor: t.Union([t.String(), t.Null()], { description: '下一页游标' }),
 });
@@ -208,8 +229,8 @@ export type SSEEventType = Static<typeof SSEEventType>;
 export type ExploreResultItem = Static<typeof ExploreResultItem>;
 export type ExploreResponseData = Static<typeof ExploreResponseData>;
 export type ActivityDraftData = Static<typeof ActivityDraftData>;
-export type HomeMessageRole = Static<typeof HomeMessageRole>;
-export type HomeMessageType = Static<typeof HomeMessageType>;
+export type ConversationRole = Static<typeof ConversationRole>;
+export type ConversationMessageType = Static<typeof ConversationMessageType>;
 export type ConversationMessage = Static<typeof ConversationMessage>;
 export type ConversationsQuery = Static<typeof ConversationsQuery>;
 export type ConversationsResponse = Static<typeof ConversationsResponse>;

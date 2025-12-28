@@ -1,5 +1,5 @@
-// AI Service - v3.2 Chat-First: AI 解析 + 对话历史管理 + 意图分类
-import { db, users, homeMessages, activities, participants, eq, lt, desc, sql } from '@juchang/db';
+// AI Service - v3.3 Chat-First: AI 解析 + 对话历史管理 + 意图分类
+import { db, users, conversations, activities, participants, eq, lt, desc, sql } from '@juchang/db';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText } from 'ai';
 import type { 
@@ -8,7 +8,7 @@ import type {
   ConversationMessage,
   ConversationsQuery,
   ConversationsResponse,
-  HomeMessageType,
+  ConversationMessageType,
 } from './ai.model';
 
 /**
@@ -351,18 +351,18 @@ export async function createDraftMessage(
   activityId: string
 ): Promise<{ messageId: string }> {
   const [message] = await db
-    .insert(homeMessages)
+    .insert(conversations)
     .values({
       userId,
-      role: 'ai',
-      type: 'widget_draft',
+      role: 'assistant',
+      messageType: 'widget_draft',
       content: {
         ...draft,
         activityId,
       },
       activityId,
     })
-    .returning({ id: homeMessages.id });
+    .returning({ id: conversations.id });
   
   return { messageId: message.id };
 }
@@ -404,14 +404,14 @@ export async function createExploreMessage(
   exploreData: ExploreResponse
 ): Promise<{ messageId: string }> {
   const [message] = await db
-    .insert(homeMessages)
+    .insert(conversations)
     .values({
       userId,
-      role: 'ai',
-      type: 'widget_explore',
+      role: 'assistant',
+      messageType: 'widget_explore',
       content: exploreData,
     })
-    .returning({ id: homeMessages.id });
+    .returning({ id: conversations.id });
   
   return { messageId: message.id };
 }
@@ -424,53 +424,114 @@ export async function createTextMessage(
   text: string
 ): Promise<{ messageId: string }> {
   const [message] = await db
-    .insert(homeMessages)
+    .insert(conversations)
     .values({
       userId,
-      role: 'ai',
-      type: 'text',
+      role: 'assistant',
+      messageType: 'text',
       content: { text },
     })
-    .returning({ id: homeMessages.id });
+    .returning({ id: conversations.id });
   
   return { messageId: message.id };
 }
 
 // ==========================================
-// 对话历史管理 (v3.2 新增)
+// 对话历史管理 (v3.3 增强版 - 支持多种筛选)
 // ==========================================
 
 /**
- * 获取用户对话历史（分页）
+ * 对话消息响应项（包含用户信息）
+ */
+interface ConversationMessageWithUser {
+  id: string;
+  userId: string;
+  userNickname: string | null;
+  role: 'user' | 'assistant';
+  type: ConversationMessageType;
+  content: unknown;
+  activityId: string | null;
+  createdAt: string;
+}
+
+/**
+ * 对话历史响应
+ */
+interface ConversationsResponseEnhanced {
+  items: ConversationMessageWithUser[];
+  total: number;
+  hasMore: boolean;
+  cursor: string | null;
+}
+
+/**
+ * 获取对话历史（增强版 - 支持多种筛选）
+ * - 小程序端：不传 userId，查当前用户
+ * - Admin 端：传 userId 查指定用户，或不传查所有用户
  */
 export async function getConversations(
-  userId: string,
+  currentUserId: string,
   query: ConversationsQuery
-): Promise<ConversationsResponse> {
+): Promise<ConversationsResponseEnhanced> {
   const limit = query.limit || 20;
   
-  // 构建查询条件
-  let conditions = [eq(homeMessages.userId, userId)];
+  // 确定查询的用户 ID
+  // 如果传了 userId 参数，查指定用户；否则查当前用户
+  const targetUserId = query.userId || currentUserId;
+  const queryAllUsers = query.userId === undefined && currentUserId === 'admin'; // 特殊标记查所有用户
   
-  // 如果有游标，获取游标消息的创建时间
-  if (query.cursor) {
-    const [cursorMessage] = await db
-      .select({ createdAt: homeMessages.createdAt })
-      .from(homeMessages)
-      .where(eq(homeMessages.id, query.cursor))
-      .limit(1);
-    
-    if (cursorMessage) {
-      conditions.push(lt(homeMessages.createdAt, cursorMessage.createdAt));
-    }
+  // 构建 WHERE 条件
+  let whereConditions = sql`1=1`;
+  
+  // 用户筛选
+  if (!queryAllUsers && targetUserId) {
+    whereConditions = sql`${whereConditions} AND ${conversations.userId} = ${targetUserId}`;
   }
   
-  // 查询消息（多取一条用于判断 hasMore）
+  // 活动 ID 筛选
+  if (query.activityId) {
+    whereConditions = sql`${whereConditions} AND ${conversations.activityId} = ${query.activityId}`;
+  }
+  
+  // 消息类型筛选
+  if (query.messageType) {
+    whereConditions = sql`${whereConditions} AND ${conversations.messageType} = ${query.messageType}`;
+  }
+  
+  // 角色筛选
+  if (query.role) {
+    whereConditions = sql`${whereConditions} AND ${conversations.role} = ${query.role}`;
+  }
+  
+  // 游标分页
+  if (query.cursor) {
+    whereConditions = sql`${whereConditions} AND ${conversations.createdAt} < (SELECT created_at FROM conversations WHERE id = ${query.cursor})`;
+  }
+  
+  // 查询总数
+  const [countResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(conversations)
+    .where(whereConditions);
+  
+  const total = countResult?.count || 0;
+  
+  // 查询数据（关联用户表获取昵称）
   const messages = await db
-    .select()
-    .from(homeMessages)
-    .where(sql`${homeMessages.userId} = ${userId}${query.cursor ? sql` AND ${homeMessages.createdAt} < (SELECT created_at FROM home_messages WHERE id = ${query.cursor})` : sql``}`)
-    .orderBy(desc(homeMessages.createdAt))
+    .select({
+      id: conversations.id,
+      userId: conversations.userId,
+      userNickname: users.nickname,
+      role: conversations.role,
+      messageType: conversations.messageType,
+      content: conversations.content,
+      activityId: conversations.activityId,
+      createdAt: conversations.createdAt,
+    })
+    .from(conversations)
+    .leftJoin(users, eq(conversations.userId, users.id))
+    .where(whereConditions)
+    .orderBy(desc(conversations.createdAt))
     .limit(limit + 1);
   
   // 判断是否还有更多
@@ -478,11 +539,12 @@ export async function getConversations(
   const items = messages.slice(0, limit);
   
   // 转换为响应格式
-  const conversationMessages: ConversationMessage[] = items.map(m => ({
+  const conversationMessages: ConversationMessageWithUser[] = items.map(m => ({
     id: m.id,
     userId: m.userId,
-    role: m.role,
-    type: m.type as HomeMessageType,
+    userNickname: m.userNickname,
+    role: m.role as 'user' | 'assistant',
+    type: m.messageType as ConversationMessageType,
     content: m.content,
     activityId: m.activityId,
     createdAt: m.createdAt.toISOString(),
@@ -490,6 +552,7 @@ export async function getConversations(
   
   return {
     items: conversationMessages,
+    total,
     hasMore,
     cursor: items.length > 0 ? items[items.length - 1].id : null,
   };
@@ -503,14 +566,14 @@ export async function addUserMessage(
   content: string
 ): Promise<{ id: string }> {
   const [message] = await db
-    .insert(homeMessages)
+    .insert(conversations)
     .values({
       userId,
       role: 'user',
-      type: 'text',
+      messageType: 'text',
       content: { text: content },
     })
-    .returning({ id: homeMessages.id });
+    .returning({ id: conversations.id });
   
   return { id: message.id };
 }
@@ -520,20 +583,20 @@ export async function addUserMessage(
  */
 export async function addAIMessage(
   userId: string,
-  type: HomeMessageType,
+  type: ConversationMessageType,
   content: Record<string, unknown>,
   activityId?: string
 ): Promise<{ id: string }> {
   const [message] = await db
-    .insert(homeMessages)
+    .insert(conversations)
     .values({
       userId,
-      role: 'ai',
-      type,
+      role: 'assistant',
+      messageType: type,
       content,
       activityId,
     })
-    .returning({ id: homeMessages.id });
+    .returning({ id: conversations.id });
   
   return { id: message.id };
 }
@@ -543,9 +606,9 @@ export async function addAIMessage(
  */
 export async function clearConversations(userId: string): Promise<{ deletedCount: number }> {
   const result = await db
-    .delete(homeMessages)
-    .where(eq(homeMessages.userId, userId))
-    .returning({ id: homeMessages.id });
+    .delete(conversations)
+    .where(eq(conversations.userId, userId))
+    .returning({ id: conversations.id });
   
   return { deletedCount: result.length };
 }

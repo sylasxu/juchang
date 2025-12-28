@@ -7,6 +7,8 @@ import {
   Wrench,
   Palette,
   Command,
+  Bot,
+  MessageSquare,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -31,6 +33,21 @@ export const sidebarData: SidebarData = {
           title: '仪表盘',
           url: '/',
           icon: LayoutDashboard,
+        },
+      ],
+    },
+    {
+      title: 'AI Ops',
+      items: [
+        {
+          title: 'AI Playground',
+          url: '/playground',
+          icon: Bot,
+        },
+        {
+          title: '对话审计',
+          url: '/conversations',
+          icon: MessageSquare,
         },
       ],
     },

@@ -1,6 +1,6 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Trash2, Eye } from 'lucide-react'
+import { Trash2, Eye, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -57,6 +57,17 @@ export function DataTableRowActions<TData>({
           </DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem disabled>查看参与者</DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(activity)
+            setOpen('prompt')
+          }}
+        >
+          查看关联 Prompt
+          <DropdownMenuShortcut>
+            <MessageSquare size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>更改状态</DropdownMenuSubTrigger>

@@ -1,5 +1,5 @@
-// Chat Service - 群聊消息业务逻辑 (v3.2 使用 groupMessages)
-import { db, groupMessages, activities, participants, users, eq, and, gt } from '@juchang/db';
+// Chat Service - 群聊消息业务逻辑 (v3.3 使用 activityMessages)
+import { db, activityMessages, activities, participants, users, eq, and, gt } from '@juchang/db';
 import type { ChatMessageResponse, MessageListQuery, SendMessageRequest } from './chat.model';
 
 // 群聊归档时间：活动开始后 24 小时
@@ -60,19 +60,19 @@ export async function getMessages(
   const isArchived = await checkIsArchived(activityId);
 
   // 构建查询条件
-  const conditions = [eq(groupMessages.activityId, activityId)];
+  const conditions = [eq(activityMessages.activityId, activityId)];
   
   // 如果提供了 since，只获取该消息之后的新消息
   if (query.since) {
     // 先获取 since 消息的创建时间
     const [sinceMessage] = await db
-      .select({ createdAt: groupMessages.createdAt })
-      .from(groupMessages)
-      .where(eq(groupMessages.id, query.since))
+      .select({ createdAt: activityMessages.createdAt })
+      .from(activityMessages)
+      .where(eq(activityMessages.id, query.since))
       .limit(1);
 
     if (sinceMessage) {
-      conditions.push(gt(groupMessages.createdAt, sinceMessage.createdAt));
+      conditions.push(gt(activityMessages.createdAt, sinceMessage.createdAt));
     }
   }
 
@@ -81,19 +81,19 @@ export async function getMessages(
   // 查询消息（包含发送者信息）
   const messageList = await db
     .select({
-      id: groupMessages.id,
-      activityId: groupMessages.activityId,
-      senderId: groupMessages.senderId,
-      type: groupMessages.type,
-      content: groupMessages.content,
-      createdAt: groupMessages.createdAt,
+      id: activityMessages.id,
+      activityId: activityMessages.activityId,
+      senderId: activityMessages.senderId,
+      messageType: activityMessages.messageType,
+      content: activityMessages.content,
+      createdAt: activityMessages.createdAt,
       senderNickname: users.nickname,
       senderAvatarUrl: users.avatarUrl,
     })
-    .from(groupMessages)
-    .leftJoin(users, eq(groupMessages.senderId, users.id))
+    .from(activityMessages)
+    .leftJoin(users, eq(activityMessages.senderId, users.id))
     .where(and(...conditions))
-    .orderBy(groupMessages.createdAt)
+    .orderBy(activityMessages.createdAt)
     .limit(limit);
 
   const messages: ChatMessageResponse[] = messageList.map(m => ({
@@ -102,7 +102,7 @@ export async function getMessages(
     senderId: m.senderId,
     senderNickname: m.senderNickname,
     senderAvatarUrl: m.senderAvatarUrl,
-    type: m.type,
+    type: m.messageType,
     content: m.content,
     createdAt: m.createdAt.toISOString(),
   }));
@@ -132,14 +132,14 @@ export async function sendMessage(
 
   // 插入消息
   const [message] = await db
-    .insert(groupMessages)
+    .insert(activityMessages)
     .values({
       activityId,
       senderId: userId,
-      type: 'text',
+      messageType: 'text',
       content: data.content,
     })
-    .returning({ id: groupMessages.id });
+    .returning({ id: activityMessages.id });
 
   return { id: message.id };
 }
@@ -152,11 +152,11 @@ export async function sendSystemMessage(
   content: string
 ): Promise<void> {
   await db
-    .insert(groupMessages)
+    .insert(activityMessages)
     .values({
       activityId,
       senderId: null, // 系统消息无发送者
-      type: 'system',
+      messageType: 'system',
       content,
     });
 }

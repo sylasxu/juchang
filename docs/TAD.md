@@ -1,6 +1,6 @@
 # 聚场 (JuChang) 技术架构文档
 
-> **版本**：v3.2 (Chat-First + Generative UI)
+> **版本**：v3.3 (Chat-First + Generative UI + 行业标准命名)
 > **更新日期**：2025-01
 > **架构**：原生小程序 + Zustand Vanilla + Elysia API + Drizzle ORM
 
@@ -102,58 +102,81 @@
 
 ---
 
-## 4. 数据库 Schema (v3.2 - 6 表)
+## 4. 数据库 Schema (v3.3 - 6 表 + 行业标准命名)
 
 ### 4.1 表结构概览
 
 | 表 | 说明 | 核心字段 |
 |---|------|---------|
 | `users` | 用户表 | wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday |
-| `activities` | 活动表 | title, location, locationHint, startAt, type, status |
+| `activities` | 活动表 | title, location, locationHint, startAt, type, status (默认 draft) |
 | `participants` | 参与者表 | activityId, userId, status (joined/quit) |
-| `home_messages` | **新增：首页 AI 对话流** | userId, role, type, content |
-| `group_messages` | 活动群聊消息表 | activityId, senderId, type, content |
+| `conversations` | **AI 对话历史表** (原 home_messages) | userId, role, messageType, content |
+| `activity_messages` | **活动群聊消息表** (原 group_messages) | activityId, senderId, messageType, content |
 | `notifications` | 通知表 | userId, type, title, isRead |
 
-### 4.2 home_messages 表 (Chat-First 核心)
+### 4.2 conversations 表 (Chat-First 核心 - v3.3 行业标准命名)
 
 ```typescript
-// packages/db/src/schema/home_messages.ts
-export const homeMessageRoleEnum = pgEnum('home_message_role', ['user', 'ai']);
+// packages/db/src/schema/conversations.ts
+// 对话角色枚举 (使用 assistant 符合 OpenAI 标准)
+export const conversationRoleEnum = pgEnum('conversation_role', ['user', 'assistant']);
 
-// v3.2 消息类型枚举 (新增 widget_explore)
-export const homeMessageTypeEnum = pgEnum('home_message_type', [
+// 对话消息类型枚举 (v3.3 含 Generative UI + Composite Widget + Simple Widget)
+export const conversationMessageTypeEnum = pgEnum('conversation_message_type', [
   'text',              // 普通文本
   'widget_dashboard',  // 进场欢迎卡片
+  'widget_launcher',   // 组局发射台 (复合型卡片)
+  'widget_action',     // 快捷操作按钮 (简单跳转)
   'widget_draft',      // 意图解析卡片
   'widget_share',      // 创建成功卡片
   'widget_explore',    // 探索卡片 (Generative UI)
   'widget_error'       // 错误提示卡片
 ]);
 
-export const homeMessages = pgTable('home_messages', {
+export const conversations = pgTable('conversations', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id').notNull().references(() => users.id),
-  role: homeMessageRoleEnum('role').notNull(),
-  type: homeMessageTypeEnum('type').notNull(),
+  role: conversationRoleEnum('role').notNull(),
+  messageType: conversationMessageTypeEnum('message_type').notNull(),
   content: jsonb('content').notNull(),
   activityId: uuid('activity_id').references(() => activities.id),
   createdAt: timestamp('created_at').defaultNow().notNull()
 });
 ```
 
-### 4.3 活动状态枚举 (v3.2)
+### 4.3 activity_messages 表 (v3.3 语义化命名)
+
+```typescript
+// packages/db/src/schema/activity_messages.ts
+// 活动消息类型枚举 (本地定义，语义化命名)
+export const activityMessageTypeEnum = pgEnum('activity_message_type', [
+  'text',    // 文本消息
+  'system'   // 系统消息
+]);
+
+export const activityMessages = pgTable('activity_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  activityId: uuid('activity_id').notNull().references(() => activities.id),
+  senderId: uuid('sender_id').references(() => users.id),
+  messageType: activityMessageTypeEnum('message_type').default('text').notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
+});
+```
+
+### 4.4 活动状态枚举 (v3.3 默认 draft)
 
 ```typescript
 export const activityStatusEnum = pgEnum('activity_status', [
-  'draft',      // AI 生成了，用户还没点确认
+  'draft',      // AI 生成了，用户还没点确认 (默认值)
   'active',     // 用户确认了，正式发布
   'completed',  // 成局
   'cancelled'   // 取消
 ]);
 ```
 
-### 4.4 其他表结构
+### 4.5 其他表结构
 
 ```typescript
 // users 表
@@ -171,7 +194,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// activities 表
+// activities 表 (v3.3 status 默认值改为 draft)
 export const activities = pgTable("activities", {
   id: uuid("id").primaryKey().defaultRandom(),
   creatorId: uuid("creator_id").notNull().references(() => users.id),
@@ -185,7 +208,7 @@ export const activities = pgTable("activities", {
   type: activityTypeEnum("type").notNull(),
   maxParticipants: integer("max_participants").default(4).notNull(),
   currentParticipants: integer("current_participants").default(1).notNull(),
-  status: activityStatusEnum("status").default("draft").notNull(),
+  status: activityStatusEnum("status").default("draft").notNull(), // v3.3 默认 draft
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -193,7 +216,7 @@ export const activities = pgTable("activities", {
 
 ---
 
-## 5. API 模块设计 (v3.2 - 6 模块)
+## 5. API 模块设计 (v3.3 - 5 模块)
 
 ### 5.1 模块划分
 
@@ -202,10 +225,10 @@ export const activities = pgTable("activities", {
 | `auth` | `/auth` | 微信登录、手机号绑定 |
 | `users` | `/users` | 用户资料管理 |
 | `activities` | `/activities` | 活动 CRUD、报名退出、**附近搜索** |
-| `chat` | `/chat` | 活动群聊消息 |
-| `ai` | `/ai` | AI 解析 (SSE)，**意图分类**，**对话历史管理** |
+| `chat` | `/chat` | 活动群聊消息 (activity_messages 表) |
+| `ai` | `/ai` | AI 解析 (SSE)，**意图分类**，**对话历史管理** (conversations 表) |
 
-**设计原则**：API 模块按功能领域划分，而非按页面划分。对话历史 (home_messages) 属于 AI 功能领域，归入 `ai` 模块。
+**设计原则**：API 模块按功能领域划分，而非按页面划分。对话历史 (conversations) 属于 AI 功能领域，归入 `ai` 模块。
 
 ### 5.2 API 接口
 
@@ -303,8 +326,8 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 
 interface HomeMessage {
   id: string;
-  role: 'user' | 'ai';
-  type: 'text' | 'widget_dashboard' | 'widget_draft' | 'widget_share' | 'widget_explore' | 'widget_error';
+  role: 'user' | 'assistant';
+  type: 'text' | 'widget_dashboard' | 'widget_launcher' | 'widget_action' | 'widget_draft' | 'widget_share' | 'widget_explore' | 'widget_error';
   content: any;
   activityId?: string;
   createdAt: string;
@@ -786,14 +809,12 @@ page {
 
 ---
 
-## 附录：v3.2 vs v3.0 对比
+## 附录：v3.3 vs v3.2 对比
 
-| 维度 | v3.0 | v3.2 |
+| 维度 | v3.2 | v3.3 |
 |------|------|------|
-| 数据库表 | 5 张 | 6 张 (+home_messages) |
-| API 模块 | 5 个 | 6 个 (+home) |
-| Widget 类型 | 4 种 | 5 种 (+widget_explore) |
-| 意图分类 | 单一创建 | 创建 + 探索 双轨 |
-| 地图交互 | 无 | 沉浸式地图页 |
-| SSE 事件 | 4 种 | 6 种 (+searching, explore) |
-| 页面数量 | 10 页 | 11 页 (+explore) |
+| 数据库表命名 | home_messages, group_messages | conversations, activity_messages (行业标准) |
+| 角色枚举值 | user, ai | user, assistant (符合 OpenAI 标准) |
+| 字段命名 | type | messageType (更明确) |
+| 活动默认状态 | active | draft (符合 AI 解析 → 用户确认工作流) |
+| Widget 类型 | 5 种 | 8 种 (+widget_launcher, widget_action) |

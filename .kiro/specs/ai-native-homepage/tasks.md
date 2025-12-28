@@ -10,8 +10,8 @@
 
 ## Tasks
 
-- [ ] 0. 数据库 Schema 优化 (Database First - 最高优先级)
-  - [ ] 0.1 重命名 home_messages 为 conversations (行业标准)
+- [x] 0. 数据库 Schema 优化 (Database First - 最高优先级)
+  - [x] 0.1 重命名 home_messages 为 conversations (行业标准)
     - 重命名 `packages/db/src/schema/home_messages.ts` 为 `conversations.ts`
     - 更新表名：`home_messages` → `conversations`
     - 更新枚举名：`homeMessageRoleEnum` → `conversationRoleEnum`
@@ -21,7 +21,7 @@
     - 更新索引名：`home_messages_*_idx` → `conversations_*_idx`
     - 更新导出名称和类型
     - _Requirements: 0.1, 0.3, 0.4_
-  - [ ] 0.2 重命名 group_messages 为 activity_messages (语义化)
+  - [x] 0.2 重命名 group_messages 为 activity_messages (语义化)
     - 重命名 `packages/db/src/schema/group_messages.ts` 为 `activity_messages.ts`
     - 更新表名：`group_messages` → `activity_messages`
     - 更新枚举：从 enums.ts 的 `messageTypeEnum` 改为本地定义的 `activityMessageTypeEnum`
@@ -30,33 +30,33 @@
     - 更新导出名称和类型
     - 移除向后兼容别名（chatMessages 等）
     - _Requirements: 0.2, 0.5_
-  - [ ] 0.3 修改 activities.status 默认值
+  - [x] 0.3 修改 activities.status 默认值
     - 在 `packages/db/src/schema/activities.ts` 中修改 status 默认值
     - 从 `.default("active")` 改为 `.default("draft")`
     - _Requirements: 0.6_
-  - [ ] 0.4 清理 enums.ts
+  - [x] 0.4 清理 enums.ts
     - 移除 `messageTypeEnum`（已迁移到 activity_messages.ts）
     - 保留其他枚举不变
     - _Requirements: 0.5_
-  - [ ] 0.5 更新 relations.ts
+  - [x] 0.5 更新 relations.ts
     - 更新 `homeMessages` → `conversations`
     - 更新 `groupMessages` → `activityMessages`
     - 更新所有关系引用
     - _Requirements: 0.1, 0.2_
-  - [ ] 0.6 更新 schema/index.ts 导出
+  - [x] 0.6 更新 schema/index.ts 导出
     - 导出 `conversations` (原 home_messages)
     - 导出 `activity_messages` (原 group_messages)
     - 移除旧的导出
     - _Requirements: 0.1, 0.2_
-  - [ ] 0.7 生成并执行数据库迁移
+  - [x] 0.7 生成并执行数据库迁移
     - 运行 `bun run db:generate` 生成迁移文件
     - 运行 `bun run db:migrate` 执行迁移
     - _Requirements: 0.9, 0.10_
-  - [ ] 0.8 更新 API 模块引用
+  - [x] 0.8 更新 API 模块引用
     - 更新 `apps/api/src/modules/ai/` 引用 conversations 表
     - 更新 `apps/api/src/modules/chat/` 引用 activity_messages 表
     - _Requirements: 0.12_
-  - [ ] 0.9 同步更新文档
+  - [x] 0.9 同步更新文档
     - 更新 `docs/TAD.md` 中的表名、枚举名和默认值说明
     - 更新 `.kiro/steering/juchang-rules.md` 中的表结构概览
     - _Requirements: 0.11_
@@ -128,33 +128,33 @@
   - 确保意图分类逻辑正确
   - 如有问题请询问用户
 
-- [ ] 4. Admin Console AI Ops 改造
-  - [ ] 4.1 安装 Vercel AI SDK 依赖
+- [x] 4. Admin Console AI Ops 改造
+  - [x] 4.1 安装 Vercel AI SDK 依赖
     - 安装 `ai` 包 (Vercel AI SDK)
     - 安装 `react-json-view-lite` 用于 JSON 展示
     - 确保 TanStack Query 已配置
     - _Requirements: Admin AI Ops_
-  - [ ] 4.2 创建 AI Playground 页面
+  - [x] 4.2 创建 AI Playground 页面
     - 创建 `/playground` 路由
     - 集成 Vercel AI SDK `useChat` hook 连接 `/ai/parse`
     - 实现 System Prompt Override 配置面板
     - 实现消息列表渲染（用户消息右侧，AI 消息左侧）
     - _Requirements: Admin AI Ops - Playground_
-  - [ ] 4.3 开发 Inspector 组件库
+  - [x] 4.3 开发 Inspector 组件库
     - 创建 `TextInspector`: 渲染 Markdown 文本
     - 创建 `DraftInspector`: 结构化展示时间/地点/类型（带腾讯地图外链）
     - 创建 `ExploreInspector`: 展示搜索关键词、中心点坐标、结果列表
     - 创建 `RawJsonInspector`: 折叠/展开显示原始 JSON
     - 实现 `toolInvocations` 映射逻辑（根据 type 渲染不同 Inspector）
     - _Requirements: Admin AI Ops - Inspector Pattern_
-  - [ ] 4.4 实现对话审计页面 (Conversation Inspector)
+  - [x] 4.4 实现对话审计页面 (Conversation Inspector)
     - 创建 `/conversations` 路由
     - 接入 GET `/ai/conversations` API（需新增 Admin 专用分页接口）
     - 实现会话列表（标注 Widget 生成失败或意图不明的对话）
     - 实现对话详情页（复用 Playground 渲染组件，只读模式）
     - 实现 [Fix & Test] 按钮：导入对话到 Playground 重试
     - _Requirements: Admin AI Ops - Logs_
-  - [ ] 4.5 更新业务数据管理页面
+  - [x] 4.5 更新业务数据管理页面
     - 更新 `ActivitiesTable`: 支持按状态筛选（draft/active/completed/cancelled）
     - 添加查看关联 Prompt 功能
     - 更新 `UsersTable`: 基础管理功能
@@ -165,46 +165,10 @@
     - 生成红/绿测试报告
     - _Requirements: Admin AI Ops - Evaluation_
 
-- [ ] 5. Checkpoint - Admin AI Ops 完成
+- [x] 5. Checkpoint - Admin AI Ops 完成
   - 确保 Playground 可以正常调用 AI 解析
   - 确保 Inspector 组件正确渲染各类 Widget 数据
   - 确保对话审计页面可以查看历史对话
-  - 如有问题请询问用户
-
-### Phase 5.5: Admin API 端点扩展 (Consolidated from admin-api spec)
-
-- [ ] 5.5.1 扩展 User Module 支持 Admin 端点
-  - 更新 `apps/api/src/modules/users/user.model.ts` 添加 Admin Schema
-  - 更新 `apps/api/src/modules/users/user.service.ts` 添加 Admin 服务函数
-  - 更新 `apps/api/src/modules/users/user.controller.ts` 添加 Admin 端点
-  - 实现 GET /users (分页列表)
-  - 实现 GET /users/:id (用户详情)
-  - 实现 PUT /users/:id (更新用户)
-  - _Requirements: 25, 26, 27_
-
-- [ ] 5.5.2 扩展 Activity Module 支持 Admin 端点
-  - 更新 `apps/api/src/modules/activities/activity.model.ts` 添加 Admin Schema
-  - 更新 `apps/api/src/modules/activities/activity.service.ts` 添加 Admin 服务函数
-  - 更新 `apps/api/src/modules/activities/activity.controller.ts` 添加 Admin 端点
-  - 实现 GET /activities (分页列表，支持状态/类型筛选)
-  - _Requirements: 28_
-
-- [ ] 5.5.3 增强 Dashboard 统计数据
-  - 更新 `apps/api/src/modules/dashboard/dashboard.model.ts` 增强统计 Schema
-  - 更新 `apps/api/src/modules/dashboard/dashboard.service.ts` 增强统计逻辑
-  - 新增 activeUsers, userGrowthRate, activityGrowthRate 字段
-  - _Requirements: 29_
-
-- [ ] 5.5.4 更新 Admin 端 Hooks
-  - 更新 `apps/admin/src/hooks/use-users.ts` 使用真实 API
-  - 创建 `apps/admin/src/hooks/use-activities.ts` 使用真实 API
-  - 更新活动列表页使用真实 API
-  - _Requirements: Admin 端适配_
-
-- [ ] 5.5.5 Checkpoint - Admin API 完成
-  - 确保用户列表分页正常
-  - 确保活动列表筛选正常
-  - 确保 Dashboard 统计数据正确
   - 如有问题请询问用户
 
 - [ ] 6. 小程序全局配置
@@ -215,14 +179,17 @@
     - 移除 tabBar 配置（去 Tabbar 化）
     - 更新页面路由（新增 profile, message 页面，**新增 explore 分包页面**）
     - _Requirements: 1.2, 15.1, 18.1_
-  - [ ] 6.2 创建全局样式变量（支持深色模式）
-    - 在 `apps/miniprogram/app.less` 中定义语义化 CSS Variables
-    - 定义浅色模式配色（--bg-page: #F5F7FA 等）
-    - 定义深色模式配色（@media prefers-color-scheme: dark）
+  - [ ] 6.2 创建全局样式变量（Crypto-Clean 风格 + 深色模式）
+    - 在 `apps/miniprogram/app.less` 中定义 Crypto-Clean 语义化 CSS Variables
+    - 定义浅色模式配色（--bg-page: #FAFBFC 极简白）
+    - 定义深色模式配色（@media prefers-color-scheme: dark，Slate/Navy 色板）
     - 深色模式使用 Slate/Navy 色板（#0F172A 背景），非纯黑
     - 深色模式卡片用边框代替阴影
     - 实现 .halo-card mixin（使用 background-origin/clip 实现渐变边框效果）
-    - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.8_
+    - 定义超大圆角变量（--radius-lg: 40rpx, --radius-xl: 48rpx）
+    - 定义彩色弥散阴影（rgba(91, 117, 251, 0.08)）
+    - 定义动效曲线变量（--ease-out-expo, --ease-out-back）
+    - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6, 15.16, 15.17, 15.18_
   - [ ] 6.3 生成 API SDK
     - 运行 `bun run gen:api` 更新 Orval 生成的 SDK
     - 确保 ai 模块对话端点和 activities/nearby 的 API 类型正确
@@ -250,24 +217,29 @@
     - 实现 [消息中心] 和 [新对话] 两个入口
     - 点击外部自动关闭
     - _Requirements: 2.5, 2.6, 2.7, 2.8_
-  - [ ] 8.3 创建 ai-dock 组件
+  - [ ] 8.3 创建 ai-dock 组件 (Floating Capsule)
     - 创建 `apps/miniprogram/components/ai-dock/`
+    - 实现悬浮胶囊样式（距离底部/左右 32rpx，圆角 48rpx）
+    - 实现 Halo Card 渐变边框效果
     - 实现输入框（placeholder: "粘贴文字，或直接告诉我..."）
     - 实现 [📋 粘贴] 和 [🎤 语音] 快捷按钮
     - 实现键盘弹起处理（adjust-position=false + 手动计算高度）
     - 实现 800ms 防抖机制
-    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8_
+    - 实现按钮 Scale Down 回弹效果 + wx.vibrateShort 触感反馈
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 15.1, 15.17_
   - [ ] 8.4 创建 chat-stream 组件
     - 创建 `apps/miniprogram/components/chat-stream/`
     - 实现无限滚动容器
     - 实现用户消息（右侧对齐）和 AI 消息（左侧对齐）
     - 新消息自动滚动到底部
-    - _Requirements: 1.4, 3.1_
+    - 实现新消息"上浮 + 淡入"组合动画
+    - _Requirements: 1.4, 3.1, 15.16_
   - [ ] 8.5 创建 message-bubble 组件
     - 创建 `apps/miniprogram/components/message-bubble/`
     - 实现用户气泡样式（矢车菊蓝渐变 + 白色文字）
     - 实现 AI 气泡样式（透明背景 + 深灰文字）
-    - _Requirements: 15.3, 15.4_
+    - 实现消息入场动画
+    - _Requirements: 15.6, 15.7_
 
 - [ ] 9. Widget 组件开发
   - [ ] 9.1 创建 widget-dashboard 组件
@@ -333,7 +305,9 @@
     - _Requirements: Simple Widget Design, 快捷操作_
 
 - [ ] 10. Checkpoint - 组件完成
-  - 确保所有组件样式符合 Soft Tech 规范
+  - 确保所有组件样式符合 Crypto-Clean 规范（超大圆角、彩色弥散阴影、渐变边框）
+  - 确保 AI_Dock 使用悬浮胶囊样式
+  - 确保按钮有 Scale Down 回弹效果 + 触感反馈
   - 确保键盘弹起处理正常
   - 确保 Widget_Explore 使用静态地图图片
   - 如有问题请询问用户
@@ -440,10 +414,12 @@
 
 - [ ] 16. Final Checkpoint - 功能完成
   - 确保所有功能正常工作
+  - 确保 Crypto-Clean 视觉风格正确实现（超大圆角、彩色弥散阴影、渐变边框）
   - 确保深色模式正常显示（Slate/Navy 色板）
   - 确保静态地图在深色模式下使用深色样式
   - 确保 Widget_Explore 和沉浸式地图页正常工作
   - 确保意图分类逻辑正确（创建 vs 探索）
+  - 确保按钮有 Scale Down 回弹效果 + 触感反馈
   - 如有问题请询问用户
 
 ## Notes
@@ -456,10 +432,69 @@
   - `activity_messages` (活动群聊消息，语义化)
   - `conversation_role` 使用 `user` | `assistant` (符合 OpenAI 标准)
 - **activities.status 默认值为 draft**：符合 AI 解析 → 用户确认的工作流
-- **深色模式从 Day 1 支持**：使用语义化 CSS 变量，一套代码适配两种模式
-- 深色模式使用 Slate/Navy 色板（#0F172A），非纯黑
-- 深色模式卡片用边框代替阴影
+
+### Crypto-Clean 视觉风格关键实现
+
+**四大设计维度**：
+| 维度 | 传统 App | Crypto-Clean |
+|------|---------|--------------|
+| 容器形态 | Rounded (10-16rpx) | Squircle (40rpx+) / Capsule |
+| 质感 | Shadow (黑色阴影) | Surface (彩色弥散阴影 + 极细描边) |
+| 字体排版 | Readable | Editorial (杂志感，数字等宽) |
+| 动效 | Ease | Fluid (流体物理，按压回弹) |
+
+**关键 CSS 变量**：
+- `--radius-lg: 40rpx` (卡片超大圆角)
+- `--radius-xl: 48rpx` (AI Dock 胶囊)
+- `--shadow-card: 0 8rpx 32rpx rgba(91, 117, 251, 0.08)` (彩色弥散阴影)
+- `--border-card: 1rpx solid rgba(0, 0, 0, 0.04)` (极细描边)
+- `--ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1)` (回弹曲线)
+
+**Halo Card 渐变边框实现**：
+```less
+.halo-card::before {
+  background: linear-gradient(135deg, 
+    rgba(91, 117, 251, 0.15) 0%, 
+    rgba(196, 181, 253, 0.15) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+}
+```
+
+**按钮回弹效果**：
+```less
+.btn-pressable {
+  transition: transform 0.15s var(--ease-out-back);
+  &:active { transform: scale(0.95); }
+}
+```
+
+**触感反馈**：
+```typescript
+wx.vibrateShort({ type: 'light' }); // 按钮点击
+```
+
+### 深色模式支持
+
+- **从 Day 1 支持**：使用语义化 CSS 变量，一套代码适配两种模式
+- 浅色模式：极简白 #FAFBFC，靠彩色弥散阴影区分层级
+- 深色模式：深邃蓝黑 #0F172A (Slate-900)，靠亮度区分层级
+- 深色模式卡片加 1px 淡边框，去阴影
 - 静态地图使用 styleid 参数切换深色样式
+- 图标颜色使用 CSS 变量，不写死
+
+**语义化配色映射**：
+| Token | 🌞 Light | 🌙 Dark |
+|-------|----------|---------|
+| --bg-page | #FAFBFC | #0F172A |
+| --bg-card | #FFFFFF | #1E293B |
+| --text-main | #1F2937 | #F1F5F9 |
+| --shadow-card | 彩色弥散阴影 | none |
+| --border-card | 极细描边 | rgba(255,255,255,0.1) |
+
+### 其他实现要点
+
 - 键盘弹起处理是关键，需要手动计算高度
 - SSE 流式响应需要处理粘包问题
 - 静态地图需要 binderror 兜底

@@ -3,22 +3,22 @@ import { users } from "./users";
 import { activities } from "./activities";
 import { participants } from "./participants";
 import { notifications } from "./notifications";
-import { groupMessages } from "./group_messages";
-import { homeMessages } from "./home_messages";
+import { activityMessages } from "./activity_messages";
+import { conversations } from "./conversations";
 
 // ==========================================
-// User Relations (v3.2 Chat-First)
+// User Relations (v3.3 行业标准命名)
 // ==========================================
 export const usersRelations = relations(users, ({ many }) => ({
   activitiesCreated: many(activities),
   participations: many(participants),
   notifications: many(notifications),
-  groupMessages: many(groupMessages),
-  homeMessages: many(homeMessages),
+  activityMessages: many(activityMessages),
+  conversations: many(conversations),
 }));
 
 // ==========================================
-// Activity Relations (v3.2 Chat-First)
+// Activity Relations (v3.3 行业标准命名)
 // ==========================================
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   creator: one(users, {
@@ -26,9 +26,9 @@ export const activitiesRelations = relations(activities, ({ one, many }) => ({
     references: [users.id],
   }),
   participants: many(participants),
-  groupMessages: many(groupMessages),
+  activityMessages: many(activityMessages),
   notifications: many(notifications),
-  homeMessages: many(homeMessages),
+  conversations: many(conversations),
 }));
 
 // ==========================================
@@ -60,29 +60,29 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 }));
 
 // ==========================================
-// Group Message Relations (v3.2 重命名自 Chat Message)
+// Activity Message Relations (v3.3 语义化命名)
 // ==========================================
-export const groupMessagesRelations = relations(groupMessages, ({ one }) => ({
+export const activityMessagesRelations = relations(activityMessages, ({ one }) => ({
   activity: one(activities, {
-    fields: [groupMessages.activityId],
+    fields: [activityMessages.activityId],
     references: [activities.id],
   }),
   sender: one(users, {
-    fields: [groupMessages.senderId],
+    fields: [activityMessages.senderId],
     references: [users.id],
   }),
 }));
 
 // ==========================================
-// Home Message Relations (v3.2 新增)
+// Conversation Relations (v3.3 行业标准命名)
 // ==========================================
-export const homeMessagesRelations = relations(homeMessages, ({ one }) => ({
+export const conversationsRelations = relations(conversations, ({ one }) => ({
   user: one(users, {
-    fields: [homeMessages.userId],
+    fields: [conversations.userId],
     references: [users.id],
   }),
   activity: one(activities, {
-    fields: [homeMessages.activityId],
+    fields: [conversations.activityId],
     references: [activities.id],
   }),
 }));

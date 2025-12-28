@@ -34,6 +34,15 @@ export const queryClient = new QueryClient({
 
 // Query Keys 工厂函数
 export const queryKeys = {
+  // AI 相关
+  ai: {
+    all: ['ai'],
+    conversations: () => [...queryKeys.ai.all, 'conversations'],
+    conversationsList: (filters?: Record<string, any>) => [...queryKeys.ai.conversations(), 'list', filters],
+    conversationDetail: (id: string) => [...queryKeys.ai.conversations(), 'detail', id],
+    playground: () => [...queryKeys.ai.all, 'playground'],
+  },
+  
   // 用户相关
   users: {
     all: ['users'],
@@ -161,6 +170,13 @@ export const queryKeys = {
 
 // 缓存失效工具函数
 export const invalidateQueries = {
+  // AI 相关缓存失效
+  ai: {
+    all: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.all }),
+    conversations: () => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversations() }),
+    conversationDetail: (id: string) => queryClient.invalidateQueries({ queryKey: queryKeys.ai.conversationDetail(id) }),
+  },
+  
   // 用户相关缓存失效
   users: {
     all: () => queryClient.invalidateQueries({ queryKey: queryKeys.users.all }),

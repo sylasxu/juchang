@@ -109,12 +109,36 @@
 | 探索无结果 | "附近暂时没有活动，要不你来发起第一个？" |
 | 消息中心为空 | "还没有群聊消息，发布活动后就有了" |
 
-**视觉识别系统：Soft Tech (柔和科技)**：
+**视觉识别系统：Crypto-Clean (加密极简)**：
+
+> **设计哲学**：2025 年顶级 Web3 App（Rainbow, Family, Uniswap, Phantom, Zerion）的设计语言 —— 比 iOS 原生更敢于留白、更追求材质通透感、更强调微交互的物理反馈。
+
+**配色系统**：
 - 主色 (Brand): 矢车菊蓝 #5B75FB (Cornflower Blue) —— 温暖、可信赖的蓝紫色
 - 辅助色 (Accent): 淡蓝 #93C5FD / 淡紫 #C4B5FD / 薄荷青 #6EE7B7 —— Widget 图标底色（同色系）
-- 背景: 空气感渐变 (顶部淡蓝 #E6EFFF → 浅灰白 #F5F7FA)
+- 背景: 极简白 (几乎纯白 #FAFBFC 或极淡灰 #F8FAFC)
 - 文字: Gray-800 #1F2937 (主) / Gray-500 #6B7280 (次)
-- 卡片风格: 实心白卡 (Solid White) —— 纯白背景 + 大圆角 32rpx + 柔和蓝灰阴影
+- 阴影: 彩色弥散阴影 rgba(91, 117, 251, 0.08) —— 非黑色阴影
+
+**容器形态 (Squircle)**：
+- AI_Dock: 悬浮胶囊 (Floating Capsule)，距离底部和左右都有间距，像 iOS 灵动岛
+- 卡片圆角: 40rpx+ (超大圆角，亲和力 + 现代感)
+- 按钮圆角: 胶囊形 (Capsule) 或 24rpx
+
+**质感 (Surface)**：
+- Halo Card: 渐变细边框 (钛白/全息色)，极淡透明
+- 边框: 1px rgba(0,0,0,0.04) 极细描边，模拟物理边缘
+- 去脏阴影: 使用彩色弥散阴影，非黑色阴影
+
+**字体排版 (Editorial)**：
+- 数字: 等宽字体 (Monospace)，特粗字重，数据仪表盘精密感
+- 标题: 字重 600/700，行高收紧
+- 图标: Lucide 细线条 (Stroke width 1.5px-2px)
+
+**动效 (Fluid)**：
+- Chat_Stream: 新消息"上浮 + 淡入"组合动画
+- 按钮点击: Scale Down 回弹 (0.95 → 1.0) + wx.vibrateShort 触感反馈
+- 页面转场: 流体物理曲线，非线性 ease
 
 ## Glossary
 
@@ -134,10 +158,14 @@
 - **Generative_UI**: 生成式界面，AI 根据意图动态生成最合适的 Widget 类型
 - **Halo_Card**: 光晕卡片，Widget_Explore 的视觉样式，带静态地图预览
 - **Intent_Classification**: 意图分类，AI 区分"明确创建"和"模糊探索"两种用户意图
-- **Atmospheric_Background**: 空气感渐变背景，顶部淡蓝 #E6EFFF → 浅灰白 #F5F7FA
-- **Soft_Card**: 实心白卡风格，纯白背景 + 大圆角 32rpx + 柔和阴影
+- **Atmospheric_Background**: 极简白背景，主背景 #FAFBFC，顶部可选极淡蓝光晕 #F0F5FF
+- **Halo_Card**: 光晕卡片，纯白背景 + 超大圆角 40rpx + 彩色弥散阴影 + 渐变细边框
 - **Cornflower_Blue**: 矢车菊蓝 #5B75FB，主色调，用于发送按钮、用户气泡、主要行动点
 - **Colorful_Icons**: 同色系图标底色，淡蓝/淡紫/薄荷青，用于 Widget 功能图标
+- **Floating_Capsule**: 悬浮胶囊，AI_Dock 的容器形态，距离屏幕边缘有间距，像 iOS 灵动岛
+- **Squircle**: 超圆角，40rpx+ 的圆角值，比普通圆角更柔和、更现代
+- **Colored_Diffusion_Shadow**: 彩色弥散阴影，rgba(91, 117, 251, 0.08)，非黑色阴影
+- **Scale_Down_Feedback**: 按压回弹效果，按下缩小到 0.95，松开弹回 1.0，配合触感反馈
 
 ## Requirements
 
@@ -361,29 +389,56 @@
 4. WHEN 用户回到首页 THEN Chat_Stream SHALL 显示 Widget_Dashboard 欢迎卡片
 
 
-### Requirement 15: 视觉设计规范 (Soft Tech)
+### Requirement 15: 视觉设计规范 (Crypto-Clean)
 
-**User Story:** As a 用户, I want 看到清爽、柔和、高信任感的视觉风格, so that 我感受到产品的疗愈感和专业性。
+**User Story:** As a 用户, I want 看到极简、通透、流体、昂贵感的视觉风格, so that 我感受到产品的高级感和专业性。
 
 #### Acceptance Criteria
 
-1. WHEN 渲染背景 THEN 小程序 SHALL 使用 Atmospheric_Background（空气感渐变）：
-   - 顶部 (0%): #E6EFFF (淡蓝紫光晕)
-   - 中部 (30%): #F5F7FA (浅灰白)
-   - 底部 (100%): #F5F7FA
-2. WHEN 渲染卡片 THEN 小程序 SHALL 使用 Soft_Card 风格：
+**容器形态 (Squircle - 超圆角)**：
+1. WHEN 渲染 AI_Dock THEN 小程序 SHALL 使用悬浮胶囊 (Floating Capsule) 样式：
+   - 距离底部: 32rpx
+   - 距离左右: 32rpx
+   - 圆角: 48rpx (胶囊形)
+   - 背景: 纯白 + 彩色弥散阴影
+2. WHEN 渲染卡片 THEN 小程序 SHALL 使用 Halo_Card 风格：
    - 背景: #FFFFFF (纯白)
-   - 圆角: 32rpx (大圆角，友好感)
-   - 阴影: 0 8rpx 24rpx rgba(91, 117, 251, 0.06) (柔和蓝灰阴影)
-   - 边框: 无，或极淡 #F3F4F6
-3. WHEN 渲染用户消息气泡 THEN 小程序 SHALL 使用 Cornflower_Blue (#5B75FB → #708DFD) 渐变背景，文字白色
-4. WHEN 渲染 AI 消息气泡 THEN 小程序 SHALL 使用透明背景，文字深灰色 (#1F2937)
-5. WHEN 渲染主要按钮 THEN 小程序 SHALL 使用 Cornflower_Blue (#5B75FB) 背景
-6. WHEN 渲染 Widget 功能图标 THEN 小程序 SHALL 使用同色系淡色圆形底色（淡蓝/淡紫/薄荷青）+ 深色图标
-7. WHEN 渲染地图 Pin THEN 小程序 SHALL 使用 Cornflower_Blue (#5B75FB) 颜色
-8. WHEN 渲染文字 THEN 小程序 SHALL 使用 Gray-800 (#1F2937) 作为主文字色，Gray-500 (#6B7280) 作为次文字色
-9. WHEN 渲染地图切片 THEN 小程序 SHALL 添加柔和圆角和淡阴影，融入卡片风格
-10. WHEN 渲染 AI_Dock THEN 小程序 SHALL 使用纯白背景 + 顶部淡阴影，悬浮感
+   - 圆角: 40rpx (超大圆角，亲和力 + 现代感)
+   - 阴影: 0 8rpx 32rpx rgba(91, 117, 251, 0.08) (彩色弥散阴影，非黑色)
+   - 边框: 1rpx solid rgba(0, 0, 0, 0.04) (极细描边，模拟物理边缘)
+3. WHEN 渲染按钮 THEN 小程序 SHALL 使用胶囊形圆角 24rpx
+
+**质感 (Surface - 表面微光)**：
+4. WHEN 渲染背景 THEN 小程序 SHALL 使用极简白背景：
+   - 主背景: #FAFBFC (几乎纯白)
+   - 顶部可选淡蓝光晕: #F0F5FF (极淡，非强渐变)
+5. WHEN 渲染 Halo_Card 边框 THEN 小程序 SHALL 使用渐变细边框：
+   - 渐变: 钛白/全息色 (rgba(91, 117, 251, 0.15) → rgba(196, 181, 253, 0.15))
+   - 宽度: 1-2rpx
+   - 使用 background-origin/clip 技术实现
+
+**用户消息气泡**：
+6. WHEN 渲染用户消息气泡 THEN 小程序 SHALL 使用 Cornflower_Blue (#5B75FB → #708DFD) 渐变背景，文字白色
+7. WHEN 渲染 AI 消息气泡 THEN 小程序 SHALL 使用透明背景，文字深灰色 (#1F2937)
+
+**按钮与图标**：
+8. WHEN 渲染主要按钮 THEN 小程序 SHALL 使用 Cornflower_Blue (#5B75FB) 背景 + 胶囊形圆角
+9. WHEN 渲染 Widget 功能图标 THEN 小程序 SHALL 使用同色系淡色圆形底色（淡蓝/淡紫/薄荷青）+ 深色图标
+10. WHEN 渲染图标 THEN 小程序 SHALL 使用 Lucide 细线条 (Stroke width 1.5-2px)
+
+**字体排版 (Editorial - 杂志感)**：
+11. WHEN 渲染数字（倒计时、人数、距离） THEN 小程序 SHALL 使用等宽字体 + 特粗字重 (600-700)
+12. WHEN 渲染标题 THEN 小程序 SHALL 使用字重 600-700，行高收紧
+13. WHEN 渲染文字 THEN 小程序 SHALL 使用 Gray-800 (#1F2937) 作为主文字色，Gray-500 (#6B7280) 作为次文字色
+
+**地图与 Pin**：
+14. WHEN 渲染地图 Pin THEN 小程序 SHALL 使用 Cornflower_Blue (#5B75FB) 颜色
+15. WHEN 渲染地图切片 THEN 小程序 SHALL 添加超大圆角 (40rpx) 和彩色弥散阴影，融入卡片风格
+
+**动效 (Fluid - 流体物理)**：
+16. WHEN Chat_Stream 显示新消息 THEN 小程序 SHALL 使用"上浮 + 淡入"组合动画
+17. WHEN 用户点击按钮 THEN 小程序 SHALL 实现 Scale Down 回弹效果 (按下 0.95 → 松开 1.0) + wx.vibrateShort 触感反馈
+18. WHEN 页面转场 THEN 小程序 SHALL 使用流体物理曲线动画 (非线性 ease)
 
 ### Requirement 16: 活动管理
 

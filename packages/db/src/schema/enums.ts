@@ -1,7 +1,7 @@
 import { pgEnum } from "drizzle-orm/pg-core";
 
 // ==========================================
-// MVP 精简版枚举定义
+// MVP 精简版枚举定义 (v3.3)
 // ==========================================
 
 // ==========================================
@@ -39,11 +39,8 @@ export const participantStatusEnum = pgEnum("participant_status", [
 // 3. 💬 消息 (Chat Domain)
 // ==========================================
 
-// 消息类型 (MVP 简化为 2 种)
-export const messageTypeEnum = pgEnum("message_type", [
-  "text",    // 文本消息
-  "system"   // 系统消息
-]);
+// 注意：messageTypeEnum 已迁移到 activity_messages.ts
+// 现在使用 activityMessageTypeEnum (本地定义，语义化命名)
 
 // ==========================================
 // 4. 🔔 通知 (Notification Domain)

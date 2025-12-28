@@ -1308,7 +1308,21 @@ export const userStore = createStore<UserState & UserActions>((set) => ({
 
 ---
 
-## Visual Design System: Soft Tech
+## Visual Design System: Crypto-Clean (加密极简)
+
+### 设计哲学
+
+> **Crypto-Clean** 是 2025 年顶级 Web3 App（Rainbow, Family, Uniswap, Phantom, Zerion）的设计语言。
+> 它们比 iOS 原生更敢于留白、更追求材质通透感、更强调微交互的物理反馈。
+> 我们用小程序的原生技术，去逼近这个天花板。
+
+**四大设计维度**：
+| 维度 | 传统 App | Crypto-Clean |
+|------|---------|--------------|
+| 容器形态 | Rounded (10-16rpx) | Squircle (40rpx+) / Capsule |
+| 质感 | Shadow (黑色阴影) | Surface (彩色弥散阴影 + 极细描边) |
+| 字体排版 | Readable | Editorial (杂志感，数字等宽) |
+| 动效 | Ease | Fluid (流体物理，按压回弹) |
 
 ### 技术实现说明
 
@@ -1323,7 +1337,7 @@ export const userStore = createStore<UserState & UserActions>((set) => ({
 
 **CSS Variables 定义（支持深色模式）**：
 ```less
-/* app.less - 语义化变量，自动适配深色模式 */
+/* app.less - Crypto-Clean 语义化变量 */
 
 /* 1. 默认浅色变量 */
 page {
@@ -1337,25 +1351,30 @@ page {
   --color-purple-light: #C4B5FD;
   --color-mint-light: #6EE7B7;
   
-  /* 语义化背景色 */
-  --bg-page: #F5F7FA;
+  /* 语义化背景色 - Crypto-Clean 极简白 */
+  --bg-page: #FAFBFC;           /* 几乎纯白 */
   --bg-card: #FFFFFF;
-  --bg-gradient-top: #E6EFFF;
+  --bg-gradient-top: #F0F5FF;   /* 极淡蓝光晕 */
   
   /* 语义化文字色 */
   --text-main: #1F2937;
   --text-sub: #6B7280;
   --text-tertiary: #9CA3AF;
   
-  /* 语义化卡片样式 */
-  --border-card: transparent;
-  --shadow-card: 0 8rpx 24rpx rgba(91, 117, 251, 0.06);
+  /* 语义化卡片样式 - Halo Card */
+  --border-card: 1rpx solid rgba(0, 0, 0, 0.04);  /* 极细描边 */
+  --shadow-card: 0 8rpx 32rpx rgba(91, 117, 251, 0.08);  /* 彩色弥散阴影 */
   
-  /* 圆角 */
+  /* 超大圆角 - Squircle */
   --radius-sm: 16rpx;
   --radius-md: 24rpx;
-  --radius-lg: 32rpx;
-  --radius-xl: 48rpx;
+  --radius-lg: 40rpx;    /* 卡片圆角 */
+  --radius-xl: 48rpx;    /* AI Dock 胶囊 */
+  --radius-full: 9999rpx; /* 完全胶囊 */
+  
+  /* 动效曲线 - Fluid */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* 2. 深色模式重写 */
@@ -1372,7 +1391,7 @@ page {
     --text-tertiary: #64748B;
     
     /* 深色模式：边框代替阴影 */
-    --border-card: 1px solid rgba(255, 255, 255, 0.1);
+    --border-card: 1rpx solid rgba(255, 255, 255, 0.1);
     --shadow-card: none;
   }
 }
@@ -1388,32 +1407,71 @@ page {
 | 淡蓝 | --color-blue-light | #93C5FD | Widget 图标底色 |
 | 淡紫 | --color-purple-light | #C4B5FD | Widget 图标底色 |
 | 薄荷青 | --color-mint-light | #6EE7B7 | Widget 图标底色 |
-| 背景顶部 | --color-bg-top | #E6EFFF | 空气感渐变起点 |
-| 背景主体 | --color-bg-main | #F5F7FA | 空气感渐变终点 |
-| 主文字 | --color-text-primary | #1F2937 | 标题、正文 |
-| 次文字 | --color-text-secondary | #6B7280 | 描述、时间 |
-| 三级文字 | --color-text-tertiary | #9CA3AF | Placeholder |
+| 背景主体 | --bg-page | #FAFBFC | 极简白 (几乎纯白) |
+| 背景顶部 | --bg-gradient-top | #F0F5FF | 极淡蓝光晕 (可选) |
+| 主文字 | --text-main | #1F2937 | 标题、正文 |
+| 次文字 | --text-sub | #6B7280 | 描述、时间 |
+| 三级文字 | --text-tertiary | #9CA3AF | Placeholder |
 
-### 卡片样式 (Soft Card - 自动适配深色模式)
+### 卡片样式 (Halo Card - Crypto-Clean 核心)
 
 ```less
-/* 实心白卡 - 使用语义化变量 */
-.soft-card {
+/* Halo Card - 渐变边框 + 彩色弥散阴影 */
+.halo-card {
+  position: relative;
   background: var(--bg-card);
   color: var(--text-main);
   border: var(--border-card);
   box-shadow: var(--shadow-card);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-lg);  /* 40rpx 超大圆角 */
+  
+  /* 渐变边框效果 (使用 background-origin/clip) */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 2rpx;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(
+      135deg, 
+      rgba(91, 117, 251, 0.15) 0%, 
+      rgba(147, 197, 253, 0.1) 50%,
+      rgba(196, 181, 253, 0.15) 100%
+    );
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
 }
 
-/* 页面背景 - 空气感渐变 */
+/* 深色模式下的 Halo Card */
+@media (prefers-color-scheme: dark) {
+  .halo-card::before {
+    background: linear-gradient(
+      135deg, 
+      rgba(99, 128, 255, 0.25) 0%, 
+      rgba(147, 197, 253, 0.15) 50%,
+      rgba(196, 181, 253, 0.25) 100%
+    );
+  }
+}
+
+/* 页面背景 - 极简白 */
 .page-bg {
+  background: var(--bg-page);
+  min-height: 100vh;
+}
+
+/* 可选：顶部淡蓝光晕 */
+.page-bg--gradient {
   background: linear-gradient(180deg, 
     var(--bg-gradient-top) 0%, 
-    var(--bg-page) 30%, 
+    var(--bg-page) 15%, 
     var(--bg-page) 100%
   );
-  min-height: 100vh;
 }
 
 /* 用户消息气泡 */
@@ -1432,13 +1490,18 @@ page {
   padding: 24rpx 32rpx;
 }
 
-/* 主按钮 */
+/* 主按钮 - 胶囊形 */
 .btn-primary {
   background: var(--color-primary);
   color: #FFFFFF;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-md);  /* 24rpx 胶囊形 */
   padding: 24rpx 48rpx;
   font-weight: 500;
+  transition: transform 0.15s var(--ease-out-back);
+  
+  &:active {
+    transform: scale(0.95);
+  }
 }
 
 /* 次按钮 */
@@ -1448,6 +1511,11 @@ page {
   border: 2rpx solid var(--color-primary);
   border-radius: var(--radius-md);
   padding: 24rpx 48rpx;
+  transition: transform 0.15s var(--ease-out-back);
+  
+  &:active {
+    transform: scale(0.95);
+  }
 }
 
 /* 同色系淡色图标容器 */
@@ -1464,6 +1532,145 @@ page {
 .icon-circle--mint { background: rgba(110, 231, 183, 0.3); }
 ```
 
+### AI Dock 样式 (Floating Capsule)
+
+```less
+/* AI Dock - 悬浮胶囊 */
+.ai-dock {
+  position: fixed;
+  bottom: 32rpx;
+  left: 32rpx;
+  right: 32rpx;
+  background: var(--bg-card);
+  border-radius: var(--radius-xl);  /* 48rpx 胶囊形 */
+  box-shadow: var(--shadow-card);
+  border: var(--border-card);
+  padding: 16rpx 24rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  
+  /* 渐变边框 */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 2rpx;
+    border-radius: var(--radius-xl);
+    background: linear-gradient(
+      90deg, 
+      rgba(91, 117, 251, 0.2) 0%, 
+      rgba(196, 181, 253, 0.2) 100%
+    );
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  
+  .dock-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    font-size: 28rpx;
+    color: var(--text-main);
+    
+    &::placeholder {
+      color: var(--text-tertiary);
+    }
+  }
+  
+  .dock-btn {
+    width: 72rpx;
+    height: 72rpx;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s var(--ease-out-back);
+    
+    &:active {
+      transform: scale(0.9);
+    }
+  }
+  
+  .dock-btn--send {
+    background: var(--color-primary);
+    color: #FFFFFF;
+  }
+}
+```
+
+### 动效系统 (Fluid Animation)
+
+```less
+/* 动效变量 */
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-back: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-in-out-circ: cubic-bezier(0.85, 0, 0.15, 1);
+}
+
+/* 新消息上浮 + 淡入动画 */
+@keyframes message-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-bubble {
+  animation: message-enter 0.4s var(--ease-out-expo);
+}
+
+/* 按钮按压回弹 */
+.btn-pressable {
+  transition: transform 0.15s var(--ease-out-back);
+  
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+/* 卡片展开动画 */
+@keyframes card-expand {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.widget-card {
+  animation: card-expand 0.3s var(--ease-out-expo);
+}
+```
+
+### 触感反馈
+
+```typescript
+// 按钮点击触感反馈
+function onButtonTap() {
+  wx.vibrateShort({ type: 'light' });
+  // ... 业务逻辑
+}
+
+// 重要操作触感反馈
+function onImportantAction() {
+  wx.vibrateShort({ type: 'medium' });
+  // ... 业务逻辑
+}
+```
+
 ### 静态地图深色模式适配
 
 ```typescript
@@ -1473,7 +1680,7 @@ const mapStyleId = isDark ? '&styleid=4' : ''; // 4 是腾讯地图深色样式 
 const staticMapUrl = `https://apis.map.qq.com/ws/staticmap/v2/?...${mapStyleId}`;
 ```
 
-### 图标字体 (Lucide Icons)
+### 图标字体 (Lucide Icons - 细线条)
 
 ```css
 /* iconfont 引入 */
@@ -1486,7 +1693,10 @@ const staticMapUrl = `https://apis.map.qq.com/ws/staticmap/v2/?...${mapStyleId}`
   font-family: 'juchang-icons';
   font-size: 40rpx;
   font-style: normal;
-  color: var(--color-text-secondary);
+  color: var(--text-sub);
+  /* Lucide 细线条风格 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .icon-primary { color: var(--color-primary); }
@@ -1496,24 +1706,38 @@ const staticMapUrl = `https://apis.map.qq.com/ws/staticmap/v2/?...${mapStyleId}`
 .icon-white { color: #FFFFFF; }
 ```
 
-### 空气感背景
+### 数字排版 (Editorial - 等宽字体)
 
 ```less
-/* pages/home/index.less */
-.home-page {
-  min-height: 100vh;
-  background: linear-gradient(180deg, 
-    var(--bg-gradient-top) 0%, 
-    var(--bg-page) 30%, 
-    var(--bg-page) 100%
-  );
+/* 数字使用等宽字体 + 特粗字重 */
+.number-display {
+  font-family: 'SF Mono', 'Menlo', 'Monaco', monospace;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* 倒计时数字 */
+.countdown {
+  .number-display();
+  font-size: 48rpx;
+  color: var(--text-main);
+}
+
+/* 距离数字 */
+.distance {
+  .number-display();
+  font-size: 28rpx;
+  color: var(--text-sub);
+}
+
+/* 人数数字 */
+.participant-count {
+  .number-display();
+  font-size: 32rpx;
+  color: var(--color-primary);
 }
 ```
-
-**效果说明**：
-- 浅色模式：顶部淡蓝紫光晕 → 浅灰白
-- 深色模式：顶部深蓝紫光晕 → 深邃蓝黑
-- 自动适配，无需额外代码
 
 ---
 
@@ -2031,19 +2255,24 @@ const isExpired = (draft: ActivityDraft) => {
 - 加载失败时显示默认插画背景
 - 避免裂图影响用户体验
 
-### 与蚂蚁阿福的对齐
+### 与 Web3 顶级 App 的对齐
 
-| 功能 | 蚂蚁阿福 | 聚场 v3.2 |
-|------|---------|----------|
-| 背景 | 空气感渐变 | 空气感渐变 (顶部淡蓝 → 浅灰白) |
-| 卡片 | 实心白卡 | 实心白卡 (纯白 + 大圆角 + 柔和阴影) |
-| 主色 | 蓝紫色系 | 矢车菊蓝 #5B75FB |
-| 图标底色 | 同色系淡色 | 淡蓝/淡紫/薄荷青 (同色系) |
-| 剪贴板 | 自动检测 | 手动粘贴按钮 |
+| 功能 | Web3 App (Rainbow/Phantom) | 聚场 v3.2 Crypto-Clean |
+|------|---------------------------|------------------------|
+| 背景 | 极简白/深邃黑 | 极简白 #FAFBFC (可选淡蓝光晕) |
+| 卡片 | Halo Card (渐变边框) | Halo Card (渐变边框 + 彩色弥散阴影) |
+| 圆角 | Squircle 40px+ | 40rpx+ 超大圆角 |
+| 阴影 | 彩色弥散阴影 | rgba(91, 117, 251, 0.08) |
+| 边框 | 极细描边 | 1rpx rgba(0,0,0,0.04) |
+| 主色 | 品牌蓝紫色 | 矢车菊蓝 #5B75FB |
+| 图标 | 细线条 1.5-2px | Lucide 细线条 |
+| 数字 | 等宽字体 + 粗字重 | Monospace + 700 |
+| 动效 | 流体物理 + 触感 | Scale Down + vibrateShort |
+| 输入框 | 悬浮胶囊 | Floating Capsule (AI Dock) |
 | **Generative UI** | App-in-Chat | Widget_Explore + 沉浸式地图 |
 | **意图分类** | 多意图识别 | 创建 vs 探索 双轨分类 |
 | **复杂交互** | 内嵌式应用 | Static Preview + Immersive Expansion |
-| **复合型卡片** | AI拍皮肤 (Header+Body+Footer) | Widget_Launcher (组局发射台) |
+| **复合型卡片** | 多层结构卡片 | Widget_Launcher (组局发射台) |
 
 ---
 
