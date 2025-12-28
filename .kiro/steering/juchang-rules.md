@@ -71,10 +71,17 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
   | 模块 | 职责 | 核心端点 |
   |------|------|----------|
   | `auth` | 认证授权 | `/auth/login`, `/auth/bindPhone` |
-  | `users` | 用户管理 | `/users/me`, `/users/me/quota` |
+  | `users` | 用户管理 | `/users`, `/users/:id`, `/users/:id/quota` |
   | `activities` | 活动管理 | `/activities`, `/activities/:id/join`, `/activities/nearby` |
   | `chat` | 群聊消息 (activity_messages 表) | `/chat/:activityId/messages` |
   | `ai` | AI 解析 + **对话历史管理** (conversations 表) | `/ai/parse`, `/ai/conversations` |
+- **Users 模块端点详情**:
+  | 端点 | 方法 | 用途 |
+  |------|------|------|
+  | `/users` | GET | 用户列表（分页、搜索） |
+  | `/users/:id` | GET | 用户详情 |
+  | `/users/:id` | PUT | 更新用户 |
+  | `/users/:id/quota` | GET | 获取用户额度 |
 - **设计原则**：API 模块按功能领域划分，而非按页面划分
   - ❌ 不创建 `home` 模块（页面导向）
   - ✅ 对话历史归入 `ai` 模块（功能领域导向）

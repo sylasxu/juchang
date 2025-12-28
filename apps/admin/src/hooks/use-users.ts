@@ -1,14 +1,13 @@
-// 用户管理相关 Hooks (MVP 简化版)
+// 用户管理相关 Hooks
 import { useQuery } from '@tanstack/react-query'
 import { api, apiCall } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
-import { useApiList, useApiDetail, useApiUpdate } from './use-api'
+import { useApiList, useApiUpdate } from './use-api'
 import type { PaginationQuery } from '@/lib/typebox'
 
-// MVP 用户筛选参数类型 (简化版)
+// 用户筛选参数类型
 export interface UserFilters extends PaginationQuery {
   search?: string
-  hasPhone?: boolean
 }
 
 // 获取用户列表
@@ -23,8 +22,8 @@ export function useUsersList(filters: UserFilters = { page: 1, limit: 20 }) {
   )
 }
 
-// 获取用户详情 (Admin 视图)
-export function useAdminUser(userId: string) {
+// 获取用户详情
+export function useUserDetail(userId: string) {
   return useQuery({
     queryKey: [...queryKeys.users.details(), userId],
     queryFn: async () => {
@@ -34,11 +33,6 @@ export function useAdminUser(userId: string) {
     enabled: !!userId,
     staleTime: 5 * 60 * 1000, // 5 分钟
   })
-}
-
-// 获取用户详情 (兼容旧接口)
-export function useUserDetail(userId: string) {
-  return useAdminUser(userId)
 }
 
 // 更新用户信息
@@ -54,12 +48,11 @@ export function useUpdateUser() {
   )
 }
 
-// 获取用户活动历史
+// 获取用户活动历史 (TODO: 实现 API 端点)
 export function useUserActivities(userId: string, filters: PaginationQuery = { page: 1, limit: 10 }) {
   return useQuery({
     queryKey: ['users', userId, 'activities', filters],
     queryFn: async () => {
-      // TODO: 实现 API 端点
       return {
         data: [],
         total: 0,
@@ -72,12 +65,11 @@ export function useUserActivities(userId: string, filters: PaginationQuery = { p
   })
 }
 
-// 获取用户参与记录
+// 获取用户参与记录 (TODO: 实现 API 端点)
 export function useUserParticipations(userId: string, filters: PaginationQuery = { page: 1, limit: 10 }) {
   return useQuery({
     queryKey: ['users', userId, 'participations', filters],
     queryFn: async () => {
-      // TODO: 实现 API 端点
       return {
         data: [],
         total: 0,

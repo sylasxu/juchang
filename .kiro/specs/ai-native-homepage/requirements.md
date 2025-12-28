@@ -563,45 +563,45 @@
 3. THE Admin_Console SHALL compare AI responses with expected outputs
 4. THE Admin_Console SHALL generate a red/green test report with pass rate
 
-### Requirement 25: Admin 用户列表查询
+### Requirement 25: 用户列表查询
 
-**User Story:** As an admin, I want to view a paginated list of users, so that I can manage platform users.
+**User Story:** As a user, I want to view a paginated list of users, so that I can manage platform users.
 
 #### Acceptance Criteria
 
-1. WHEN an admin requests the user list, THE User_Module SHALL return a paginated list of users
+1. WHEN requesting the user list, THE User_Module SHALL return a paginated list of users
 2. WHEN pagination parameters are provided, THE User_Module SHALL return the specified page with the specified limit
 3. WHEN a search parameter is provided, THE User_Module SHALL filter users by nickname or phone number
 4. THE User_Module SHALL exclude sensitive fields (wxOpenId) from the response
 5. THE User_Module SHALL return total count for pagination
 
-### Requirement 26: Admin 用户详情查询
+### Requirement 26: 用户详情查询
 
-**User Story:** As an admin, I want to view user details, so that I can understand user information.
+**User Story:** As a user, I want to view user details, so that I can understand user information.
 
 #### Acceptance Criteria
 
-1. WHEN an admin requests user details by ID, THE User_Module SHALL return the user's full information
+1. WHEN requesting user details by ID, THE User_Module SHALL return the user's full information
 2. IF the user does not exist, THEN THE User_Module SHALL return a 404 error
 3. THE User_Module SHALL exclude sensitive fields (wxOpenId) from the response
 
-### Requirement 27: Admin 用户信息更新
+### Requirement 27: 用户信息更新
 
-**User Story:** As an admin, I want to update user information, so that I can manage user data.
+**User Story:** As a user, I want to update user information, so that I can manage user data.
 
 #### Acceptance Criteria
 
-1. WHEN an admin updates user information, THE User_Module SHALL update the specified fields
+1. WHEN updating user information, THE User_Module SHALL update the specified fields
 2. IF the user does not exist, THEN THE User_Module SHALL return a 404 error
 3. THE User_Module SHALL only allow updating non-sensitive fields (nickname, avatarUrl)
 
-### Requirement 28: Admin 活动列表查询
+### Requirement 28: 活动列表查询
 
-**User Story:** As an admin, I want to view a paginated list of activities, so that I can manage platform activities.
+**User Story:** As a user, I want to view a paginated list of activities, so that I can manage platform activities.
 
 #### Acceptance Criteria
 
-1. WHEN an admin requests the activity list, THE Activity_Module SHALL return a paginated list of activities
+1. WHEN requesting the activity list, THE Activity_Module SHALL return a paginated list of activities
 2. WHEN pagination parameters are provided, THE Activity_Module SHALL return the specified page with the specified limit
 3. WHEN a search parameter is provided, THE Activity_Module SHALL filter activities by title or location
 4. WHEN a status filter is provided, THE Activity_Module SHALL filter activities by status

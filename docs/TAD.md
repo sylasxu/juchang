@@ -238,9 +238,10 @@ POST /auth/login          // 微信静默登录
 POST /auth/bindPhone      // 绑定手机号
 
 // Users
-GET  /users/me            // 获取当前用户
-PATCH /users/me           // 更新资料
-GET  /users/me/quota      // 获取今日额度
+GET  /users               // 获取用户列表 (分页、搜索)
+GET  /users/:id           // 获取用户详情
+PUT  /users/:id           // 更新用户信息
+GET  /users/:id/quota     // 获取用户额度
 
 // Activities
 POST /activities          // 创建活动 (从 draft 变 active)

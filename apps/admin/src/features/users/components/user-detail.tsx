@@ -14,12 +14,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import { useAdminUser } from '../hooks/use-users'
+import { useUserDetail } from '@/hooks/use-users'
 
 export function UserDetail() {
   const { id } = useParams({ from: '/_authenticated/users/$id' })
   const navigate = useNavigate()
-  const { data: user, isLoading, isError, error } = useAdminUser(id)
+  const { data: user, isLoading, isError, error } = useUserDetail(id)
 
   const [activeTab, setActiveTab] = useState('overview')
 

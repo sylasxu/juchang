@@ -18,10 +18,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { type AdminUser } from '../data/schema'
+import { type User } from '../data/schema'
 
 interface UserModerationActionsProps {
-  user: AdminUser
+  user: User & { isBlocked?: boolean }
   onBlock: () => void
   onUnblock: () => void
   isLoading?: boolean

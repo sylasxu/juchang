@@ -1,13 +1,12 @@
-// AI Service - v3.3 Chat-First: AI 解析 + 对话历史管理 + 意图分类
-import { db, users, conversations, activities, participants, eq, lt, desc, sql } from '@juchang/db';
+// AI Service - v3.3 Chat-First: AI 解析 + 对话历史管理 + 意图分类 + Tools
+import { db, users, conversations, activities, participants, eq, desc, sql } from '@juchang/db';
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { streamText, tool, jsonSchema } from 'ai';
+import { t, type Static } from 'elysia';
 import type { 
   AIParseRequest, 
   AIParseResponse, 
-  ConversationMessage,
   ConversationsQuery,
-  ConversationsResponse,
   ConversationMessageType,
 } from './ai.model';
 
@@ -34,6 +33,212 @@ function getAIModel() {
       });
       return dashscopeClient('qwen-turbo');
   }
+}
+
+// ==========================================
+// AI 额度管理
+// ==========================================
+
+// ==========================================
+// Vercel AI SDK Tools (v3.3 新增)
+// ==========================================
+
+/**
+ * Tool Schema: 创建活动草稿
+ * 
+ * 当用户意图明确（包含时间 + 地点 + 活动类型）时，
+ * AI 调用此 Tool 创建 draft 状态的活动。
+ */
+const CreateActivityDraftSchema = t.Object({
+  title: t.String({ description: '活动标题' }),
+  description: t.Optional(t.String({ description: '活动描述' })),
+  type: t.Union([
+    t.Literal('food'),
+    t.Literal('entertainment'),
+    t.Literal('sports'),
+    t.Literal('boardgame'),
+    t.Literal('other'),
+  ], { description: '活动类型' }),
+  startAt: t.String({ description: 'ISO 8601 格式的开始时间' }),
+  location: t.Tuple([t.Number(), t.Number()], { description: '位置坐标 [lng, lat]' }),
+  locationName: t.String({ description: '地点名称' }),
+  address: t.Optional(t.String({ description: '详细地址' })),
+  locationHint: t.String({ description: '重庆地形位置备注（如：负一楼、从解放碑方向入口）' }),
+  maxParticipants: t.Number({ description: '最大参与人数', minimum: 2, maximum: 50 }),
+});
+
+export type CreateActivityDraftParams = Static<typeof CreateActivityDraftSchema>;
+
+/**
+ * Tool Schema: 探索附近活动
+ * 
+ * 当用户意图模糊（"附近有什么"、"推荐"）时，
+ * AI 调用此 Tool 搜索附近活动。
+ */
+const ExploreNearbySchema = t.Object({
+  center: t.Object({
+    lat: t.Number({ description: '中心点纬度' }),
+    lng: t.Number({ description: '中心点经度' }),
+    name: t.String({ description: '地点名称（如：观音桥）' }),
+  }, { description: '搜索中心点' }),
+  type: t.Optional(t.Union([
+    t.Literal('food'),
+    t.Literal('entertainment'),
+    t.Literal('sports'),
+    t.Literal('boardgame'),
+    t.Literal('other'),
+  ], { description: '活动类型筛选' })),
+  radius: t.Optional(t.Number({ description: '搜索半径（米）', default: 5000 })),
+});
+
+export type ExploreNearbyParams = Static<typeof ExploreNearbySchema>;
+
+/**
+ * 获取 AI Tools 定义
+ * 
+ * 使用 jsonSchema() 将 TypeBox Schema 转换为 Vercel AI SDK 兼容格式。
+ * TypeBox 的 Schema 对象包含 Symbol 属性，需要通过 JSON.parse/stringify 清理。
+ * 
+ * 这些 Tools 会被 Admin Playground 的 useChat hook 捕获，
+ * 自动渲染对应的 Inspector 组件。
+ */
+export function getAITools(userId: string) {
+  return {
+    createActivityDraft: tool({
+      description: `创建活动草稿。当用户明确表达了创建活动的意图，且包含以下信息时调用：
+- 时间（今天、明天、周末、具体日期等）
+- 地点（观音桥、解放碑、南坪等重庆地区）
+- 活动类型（火锅、麻将、足球、KTV等）
+
+重庆地形复杂，请在 locationHint 中补充楼层、入口等信息。`,
+      parameters: jsonSchema<CreateActivityDraftParams>(
+        JSON.parse(JSON.stringify(CreateActivityDraftSchema))
+      ),
+      execute: async (params) => {
+        // 创建 draft 活动
+        const { location, startAt, ...activityData } = params;
+        
+        const [newActivity] = await db
+          .insert(activities)
+          .values({
+            ...activityData,
+            creatorId: userId,
+            location: sql`ST_SetSRID(ST_MakePoint(${location[0]}, ${location[1]}), 4326)`,
+            startAt: new Date(startAt),
+            currentParticipants: 1,
+            status: 'draft',
+          })
+          .returning({ id: activities.id });
+        
+        // 将创建者加入参与者列表
+        await db
+          .insert(participants)
+          .values({
+            activityId: newActivity.id,
+            userId,
+            status: 'joined',
+          });
+        
+        // 创建对话记录
+        await db
+          .insert(conversations)
+          .values({
+            userId,
+            role: 'assistant',
+            messageType: 'widget_draft',
+            content: {
+              ...params,
+              activityId: newActivity.id,
+            },
+            activityId: newActivity.id,
+          });
+        
+        return {
+          success: true,
+          activityId: newActivity.id,
+          draft: {
+            ...params,
+            activityId: newActivity.id,
+          },
+        };
+      },
+    }),
+    
+    exploreNearby: tool({
+      description: `探索附近活动。当用户表达探索性意图时调用，例如：
+- "附近有什么好玩的"
+- "推荐一下观音桥的活动"
+- "有什么局可以参加"
+- "想找点事情做"
+
+返回指定区域内的活动列表。`,
+      parameters: jsonSchema<ExploreNearbyParams>(
+        JSON.parse(JSON.stringify(ExploreNearbySchema))
+      ),
+      execute: async (params) => {
+        const { center, type, radius = 5000 } = params;
+        
+        // 查询附近活动
+        let query = sql`
+          SELECT 
+            a.id,
+            a.title,
+            a.type,
+            ST_Y(a.location::geometry) as lat,
+            ST_X(a.location::geometry) as lng,
+            a.location_name as "locationName",
+            ST_Distance(
+              a.location::geography,
+              ST_SetSRID(ST_MakePoint(${center.lng}, ${center.lat}), 4326)::geography
+            ) as distance,
+            a.start_at as "startAt",
+            a.current_participants as "currentParticipants",
+            a.max_participants as "maxParticipants"
+          FROM activities a
+          WHERE a.status = 'active'
+            AND a.start_at > NOW()
+            AND ST_DWithin(
+              a.location::geography,
+              ST_SetSRID(ST_MakePoint(${center.lng}, ${center.lat}), 4326)::geography,
+              ${radius}
+            )
+        `;
+        
+        if (type) {
+          query = sql`${query} AND a.type = ${type}`;
+        }
+        
+        query = sql`${query} ORDER BY distance ASC LIMIT 10`;
+        
+        const results = await db.execute(query) as unknown as ExploreResult[];
+        
+        const exploreData = {
+          center,
+          results: results.map(r => ({
+            ...r,
+            distance: Math.round(Number(r.distance)),
+            startAt: new Date(r.startAt).toISOString(),
+          })),
+          title: `为你找到${center.name}附近的 ${results.length} 个热门活动`,
+        };
+        
+        // 创建对话记录
+        await db
+          .insert(conversations)
+          .values({
+            userId,
+            role: 'assistant',
+            messageType: 'widget_explore',
+            content: exploreData,
+          });
+        
+        return {
+          success: true,
+          explore: exploreData,
+        };
+      },
+    }),
+  };
 }
 
 // ==========================================
@@ -89,114 +294,36 @@ export async function consumeAIQuota(userId: string): Promise<boolean> {
 }
 
 // ==========================================
-// 意图分类 (v3.2 新增)
+// 意图分类 (v3.3 已迁移到 Tools)
 // ==========================================
 
 /**
  * 意图类型
+ * 
+ * v3.3 更新：意图分类逻辑已迁移到 Vercel AI SDK Tools
+ * AI 会自动选择调用 createActivityDraft 或 exploreNearby
+ * 
+ * - create: 明确创建意图 → AI 调用 createActivityDraft Tool
+ * - explore: 模糊探索意图 → AI 调用 exploreNearby Tool  
+ * - unknown: 无法识别 → AI 返回文本引导
  */
 export type IntentType = 'create' | 'explore' | 'unknown';
-
-/**
- * 探索关键词
- */
-const EXPLORE_KEYWORDS = [
-  '附近', '推荐', '��什么', '好玩', '找', '搜索', '看看',
-  '周边', '哪里', '什么活动', '有没有', '想玩', '想去',
-];
-
-/**
- * 分类用户意图
- * - 明确创建意图：包含时间 + 地点 + 活动类型
- * - 模糊探索意图：包含探索关键词
- * - 无法识别：其他情况
- */
-export function classifyIntent(text: string): IntentType {
-  const lowerText = text.toLowerCase();
-  
-  // 检查是否包含探索关键词
-  const hasExploreKeyword = EXPLORE_KEYWORDS.some(keyword => 
-    text.includes(keyword)
-  );
-  
-  if (hasExploreKeyword) {
-    return 'explore';
-  }
-  
-  // 检查是否包含创建活动的关键信息
-  // 时间关键词
-  const timeKeywords = [
-    '今天', '明天', '后天', '今晚', '明晚', '周末', '周六', '周日',
-    '下午', '晚上', '上午', '中午', '点', '号', '日',
-  ];
-  const hasTime = timeKeywords.some(keyword => text.includes(keyword));
-  
-  // 地点关键词（重庆地区）
-  const locationKeywords = [
-    '观音桥', '解放碑', '南坪', '沙坪坝', '江北', '杨家坪', '大坪', '北碚',
-    '渝北', '九龙坡', '渝中', '巴南', '两江', '龙头寺', '三峡广场',
-  ];
-  const hasLocation = locationKeywords.some(keyword => text.includes(keyword));
-  
-  // 活动类型关键词
-  const activityKeywords = [
-    '火锅', '烧烤', '吃饭', '聚餐', '美食', // food
-    '麻将', '桌游', '剧本杀', '狼人杀', '三国杀', // boardgame
-    '足球', '篮球', '羽毛球', '乒乓球', '跑步', '健身', // sports
-    '唱歌', 'KTV', '电影', '看电影', '逛街', '游戏', // entertainment
-  ];
-  const hasActivity = activityKeywords.some(keyword => text.includes(keyword));
-  
-  // 如果包含时间和地点，或者时间和活动类型，认为是创建意图
-  if ((hasTime && hasLocation) || (hasTime && hasActivity) || (hasLocation && hasActivity)) {
-    return 'create';
-  }
-  
-  // 如果只有活动类型，可能是创建意图
-  if (hasActivity && text.length > 5) {
-    return 'create';
-  }
-  
-  return 'unknown';
-}
-
-/**
- * 从文本中提取地点信息
- */
-function extractLocation(text: string): { name: string; lat: number; lng: number } | null {
-  const locationKeywords: Record<string, { lat: number; lng: number }> = {
-    '观音桥': { lat: 29.5630, lng: 106.5516 },
-    '解放碑': { lat: 29.5647, lng: 106.5770 },
-    '南坪': { lat: 29.5230, lng: 106.5516 },
-    '沙坪坝': { lat: 29.5410, lng: 106.4550 },
-    '江北': { lat: 29.6060, lng: 106.5740 },
-    '杨家坪': { lat: 29.5030, lng: 106.5100 },
-    '大坪': { lat: 29.5380, lng: 106.5230 },
-    '北碚': { lat: 29.8260, lng: 106.4370 },
-    '渝北': { lat: 29.7180, lng: 106.6310 },
-    '九龙坡': { lat: 29.5020, lng: 106.5110 },
-    '渝中': { lat: 29.5530, lng: 106.5690 },
-    '龙头寺': { lat: 29.5850, lng: 106.5350 },
-    '三峡广场': { lat: 29.5410, lng: 106.4550 },
-  };
-  
-  for (const [name, coords] of Object.entries(locationKeywords)) {
-    if (text.includes(name)) {
-      return { name, ...coords };
-    }
-  }
-  
-  return null;
-}
 
 // ==========================================
 // AI 解析
 // ==========================================
 
 /**
- * AI 解析文本 - 返回 streamText 结果
+ * AI 解析文本 - 返回 streamText 结果 (v3.3 Tools 版本)
+ * 
+ * 使用 Vercel AI SDK Tools 进行意图分类：
+ * - createActivityDraft: 明确创建意图
+ * - exploreNearby: 模糊探索意图
+ * 
+ * Admin Playground 的 useChat hook 会自动捕获 toolInvocations，
+ * 渲染对应的 Inspector 组件。
  */
-export async function parseTextStream(request: AIParseRequest) {
+export async function parseTextStream(request: AIParseRequest, userId: string) {
   const { text, location } = request;
   
   // 构建位置上下文
@@ -207,34 +334,21 @@ export async function parseTextStream(request: AIParseRequest) {
 
   const result = await streamText({
     model: getAIModel(),
-    system: `你是聚场 AI 助手，专门帮助用户解析活动信息。
+    system: `你是聚场 AI 助手，专门帮助用户组织线下活动。
 ${locationContext}
 
-请解析用户输入，提取活动相关信息。
+你有两个工具可以使用：
+1. createActivityDraft - 当用户明确想创建活动时使用（需要时间+地点+活动类型）
+2. exploreNearby - 当用户想探索附近活动时使用（"附近有什么"、"推荐"等）
+
 重庆地形复杂，如果涉及位置，请在 locationHint 中补充楼层、入口等信息。
 
-返回 JSON 格式：
-{
-  "parsed": {
-    "title": "活动标题",
-    "description": "活动描述",
-    "type": "food/entertainment/sports/boardgame/other",
-    "startAt": "ISO时间格式",
-    "endAt": "ISO时间格式或null",
-    "location": [经度, 纬度] 或 null,
-    "locationName": "地点名称",
-    "address": "详细地址",
-    "locationHint": "位置备注（如：负一楼、从解放碑方向入口）",
-    "maxParticipants": 人数,
-    "feeType": "free/aa/treat",
-    "estimatedCost": 预估费用
-  },
-  "confidence": 0.8,
-  "suggestions": ["建议1", "建议2"]
-}
-
-只返回 JSON，不要其他文字。`,
+如果用户意图不明确，请用友好的语气引导用户提供更多信息。
+语气要接地气，不要太正式。例如：
+- ✅ "帮你把局组好了！就在观音桥，离地铁口 200 米"
+- ❌ "已为您构建全息活动契约"`,
     prompt: text,
+    tools: getAITools(userId),
     maxTokens: 500,
   });
 

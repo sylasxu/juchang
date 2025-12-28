@@ -1012,23 +1012,127 @@ Page({
 
 **核心逻辑**：AI 需要区分用户的"明确创建意图"和"模糊探索意图"，返回最合适的 Widget 类型。
 
+### v3.3 架构升级：Vercel AI SDK Tools
+
+**为什么使用 Tools 而非 Prompt-based 分类？**
+
+Admin Console 的 AI Ops（Playground、Inspector 组件）依赖 `useChat` hook 的 `toolInvocations` 来自动渲染 Inspector 组件。如果不使用 Tools，Admin 需要复杂的 regex/JSON.parse 逻辑来解析原始文本响应。
+
+**架构决策**：
+- 使用 Vercel AI SDK 的 `tool()` 函数定义意图分类
+- 使用 `jsonSchema()` helper 将 TypeBox Schema 转换为 AI SDK 兼容格式
+- Admin Playground 的 `useChat` 自动捕获 `tool_calls` 并渲染 `<WidgetInspector />`
+
+### TypeBox + Vercel AI SDK 集成
+
+```typescript
+// apps/api/src/modules/ai/ai.service.ts
+import { streamText, tool, jsonSchema } from 'ai';
+import { t, type Static } from 'elysia';
+
+// 1. 使用 TypeBox 定义 Tool Schema
+const CreateActivityDraftSchema = t.Object({
+  title: t.String({ description: '活动标题' }),
+  type: t.Union([
+    t.Literal('food'),
+    t.Literal('entertainment'),
+    // ...
+  ]),
+  startAt: t.String({ description: 'ISO 8601 格式的开始时间' }),
+  location: t.Tuple([t.Number(), t.Number()]),
+  locationName: t.String(),
+  locationHint: t.String({ description: '重庆地形位置备注' }),
+  maxParticipants: t.Number({ minimum: 2, maximum: 50 }),
+});
+
+export type CreateActivityDraftParams = Static<typeof CreateActivityDraftSchema>;
+
+// 2. 使用 jsonSchema() 转换为 AI SDK 兼容格式
+export function getAITools(userId: string) {
+  return {
+    createActivityDraft: tool({
+      description: '创建活动草稿...',
+      // TypeBox Schema 包含 Symbol 属性，需要通过 JSON.parse/stringify 清理
+      parameters: jsonSchema<CreateActivityDraftParams>(
+        JSON.parse(JSON.stringify(CreateActivityDraftSchema))
+      ),
+      execute: async (params) => {
+        // 创建 draft 活动 + 对话记录
+        // ...
+        return { success: true, activityId, draft };
+      },
+    }),
+    
+    exploreNearby: tool({
+      description: '探索附近活动...',
+      parameters: jsonSchema<ExploreNearbyParams>(
+        JSON.parse(JSON.stringify(ExploreNearbySchema))
+      ),
+      execute: async (params) => {
+        // 查询附近活动 + 创建对话记录
+        // ...
+        return { success: true, explore };
+      },
+    }),
+  };
+}
+
+// 3. 在 streamText 中使用 Tools
+const result = await streamText({
+  model: getAIModel(),
+  system: '你是聚场 AI 助手...',
+  prompt: text,
+  tools: getAITools(userId),
+});
+```
+
 ### 意图分类规则
 
-| 意图类型 | 触发条件 | 返回 Widget |
-|---------|---------|-------------|
-| 明确创建 | 包含时间 + 地点 + 活动类型 | Widget_Draft |
-| 模糊探索 | "附近有什么"、"推荐"、"有什么好玩的" | Widget_Explore |
-| 无法识别 | 无法解析意图 | 文本消息（引导重新描述） |
+| 意图类型 | 触发条件 | 调用 Tool | 返回 Widget |
+|---------|---------|----------|-------------|
+| 明确创建 | 包含时间 + 地点 + 活动类型 | `createActivityDraft` | Widget_Draft |
+| 模糊探索 | "附近有什么"、"推荐"、"有什么好玩的" | `exploreNearby` | Widget_Explore |
+| 无法识别 | 无法解析意图 | 无 | 文本消息（引导重新描述） |
 
 ### 示例
 
-| 用户输入 | 意图 | 返回 |
-|---------|------|------|
-| "明晚观音桥打麻将，3缺1" | 明确创建 | Widget_Draft |
-| "周六下午踢球，解放碑" | 明确创建 | Widget_Draft |
-| "观音桥附近有什么好玩的活动" | 模糊探索 | Widget_Explore |
-| "推荐一下附近的局" | 模糊探索 | Widget_Explore |
-| "今天天气怎么样" | 无法识别 | 文本消息 |
+| 用户输入 | 意图 | Tool 调用 | 返回 |
+|---------|------|----------|------|
+| "明晚观音桥打麻将，3缺1" | 明确创建 | `createActivityDraft` | Widget_Draft |
+| "周六下午踢球，解放碑" | 明确创建 | `createActivityDraft` | Widget_Draft |
+| "观音桥附近有什么好玩的活动" | 模糊探索 | `exploreNearby` | Widget_Explore |
+| "推荐一下附近的局" | 模糊探索 | `exploreNearby` | Widget_Explore |
+| "今天天气怎么样" | 无法识别 | 无 | 文本消息 |
+
+### Admin Playground 集成
+
+```tsx
+// apps/admin/src/features/ai-playground/components/playground-chat.tsx
+import { useChat } from 'ai/react';
+
+function PlaygroundChat() {
+  const { messages, input, handleSubmit } = useChat({
+    api: '/api/ai/parse',
+  });
+
+  return (
+    <div>
+      {messages.map((msg) => (
+        <div key={msg.id}>
+          {msg.role === 'assistant' && msg.toolInvocations?.map((tool) => (
+            // 自动渲染对应的 Inspector 组件
+            <InspectorRenderer
+              key={tool.toolCallId}
+              type={tool.toolName === 'createActivityDraft' ? 'widget_draft' : 'widget_explore'}
+              content={tool.result}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
 
 ### API 响应变更
 
@@ -3195,31 +3299,35 @@ export function MessageList({ messages }: { messages: Message[] }) {
 
 ## Admin API Design (Consolidated from admin-api spec)
 
-### Admin 端点规划
+### Users 模块端点
 
 ```
 /users
-├── GET /users              # Admin: 用户列表
-├── GET /users/:id          # Admin: 用户详情
-├── PUT /users/:id          # Admin: 更新用户
-└── GET /users/me           # 小程序: 当前用户 (已有)
-
-/activities
-├── GET /activities         # Admin: 活动列表
-├── GET /activities/:id     # 共用: 活动详情 (已有)
-└── GET /activities/mine    # 小程序: 我的活动 (已有)
-
-/ai
-├── GET /ai/conversations   # Admin: 对话历史列表 (分页)
-├── POST /ai/parse          # 共用: AI 解析 (SSE)
-└── DELETE /ai/conversations # 小程序: 清空对话 (已有)
-
-/dashboard
-├── GET /dashboard/stats    # Admin: 统计数据 (增强)
-└── GET /dashboard/activities # Admin: 最近活动 (已有)
+├── GET /users              # 用户列表 (分页、搜索)
+├── GET /users/:id          # 用户详情
+├── PUT /users/:id          # 更新用户
+└── GET /users/:id/quota    # 获取用户额度
 ```
 
-### User Module 扩展
+### 其他模块端点
+
+```
+/activities
+├── GET /activities         # 活动列表
+├── GET /activities/:id     # 活动详情
+└── GET /activities/mine    # 我的活动
+
+/ai
+├── GET /ai/conversations   # 对话历史列表 (分页)
+├── POST /ai/parse          # AI 解析 (SSE)
+└── DELETE /ai/conversations # 清空对话
+
+/dashboard
+├── GET /dashboard/stats    # 统计数据
+└── GET /dashboard/activities # 最近活动
+```
+
+### User Module 设计
 
 #### GET /users - 用户列表
 
@@ -3311,15 +3419,15 @@ interface EnhancedDashboardStats extends DashboardStats {
 }
 ```
 
-### Admin TypeBox Schema 定义
+### TypeBox Schema 定义
 
 ```typescript
-// user.model.ts 新增
+// user.model.ts
 import { selectUserSchema } from '@juchang/db'
 import { t } from 'elysia'
 
-// Admin 用户响应 (排除敏感字段)
-const AdminUserSchema = t.Omit(selectUserSchema, ['wxOpenId'])
+// 用户响应 (排除敏感字段 wxOpenId)
+const UserResponseSchema = t.Omit(selectUserSchema, ['wxOpenId'])
 
 // 用户列表查询参数
 const UserListQuerySchema = t.Object({
@@ -3330,7 +3438,7 @@ const UserListQuerySchema = t.Object({
 
 // 用户列表响应
 const UserListResponseSchema = t.Object({
-  data: t.Array(AdminUserSchema),
+  data: t.Array(UserResponseSchema),
   total: t.Number(),
   page: t.Number(),
   limit: t.Number(),
