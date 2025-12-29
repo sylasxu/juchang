@@ -93,7 +93,9 @@ const app = new Elysia()
 
 // 启动服务器
 const port = Number(process.env.API_PORT || 3000);
-app.listen(port, () => {
+const host = process.env.API_HOST || '0.0.0.0'; // 默认监听所有网卡，支持局域网访问
+
+app.listen({ port, hostname: host }, () => {
   // 打印路由列表
   printRoutes(app);
   

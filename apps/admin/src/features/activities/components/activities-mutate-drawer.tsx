@@ -1,18 +1,3 @@
-import { useEffect } from 'react'
-import { Type, type Static } from '@sinclair/typebox'
-import { useForm } from 'react-hook-form'
-import { typeboxResolver } from '@hookform/resolvers/typebox'
-import { Button } from '@/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Sheet,
   SheetClose,
@@ -23,6 +8,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useActivities } from './activities-provider'
 import { activityTypes, statuses } from '../data/data'
 
@@ -73,14 +59,12 @@ export function ActivitiesMutateDrawer() {
 
             <div className='flex gap-2'>
               {typeInfo && (
-                <Badge variant='outline'>
-                  {typeInfo.icon && <typeInfo.icon className='h-3 w-3 mr-1' />}
+                <Badge variant='outline' className='gap-1'>
                   {typeInfo.label}
                 </Badge>
               )}
               {statusInfo && (
-                <Badge variant={currentRow.status === 'active' ? 'default' : 'secondary'}>
-                  {statusInfo.icon && <statusInfo.icon className='h-3 w-3 mr-1' />}
+                <Badge variant={currentRow.status === 'active' ? 'default' : 'secondary'} className='gap-1'>
                   {statusInfo.label}
                 </Badge>
               )}

@@ -563,7 +563,46 @@
 3. THE Admin_Console SHALL compare AI responses with expected outputs
 4. THE Admin_Console SHALL generate a red/green test report with pass rate
 
-### Requirement 25: 用户列表查询
+### Requirement 25: AI Ops 统一接口 (Data Stream Protocol)
+
+**User Story:** As a developer, I want a unified AI chat endpoint that returns Vercel AI SDK Data Stream format, so that both miniprogram and Admin can use the same API with consistent behavior.
+
+#### Acceptance Criteria
+
+**统一接口设计**：
+1. THE API SHALL provide a single `POST /ai/chat` endpoint for all AI interactions
+2. THE endpoint SHALL accept messages in `CoreMessage` format: `{ role: 'user' | 'assistant', content: string }[]`
+3. THE endpoint SHALL return Vercel AI SDK Data Stream format:
+   - `0:"text"` - Text chunk (incremental)
+   - `9:{...}` - Tool Call (JSON)
+   - `a:{...}` - Tool Result (JSON)
+   - `d:{...}` - Done signal with usage stats
+
+**调用方区分**：
+4. WHEN `source='miniprogram'`, THE endpoint SHALL consume user quota normally
+5. WHEN `source='admin'`, THE endpoint SHALL NOT consume quota (testing mode)
+6. WHEN `source='admin'` AND `mockUserId` is provided, THE endpoint SHALL use mock user context
+7. WHEN `source='admin'` AND `mockLocation` is provided, THE endpoint SHALL use mock location
+
+**向后兼容**：
+8. THE API SHALL keep the old `/ai/parse` endpoint during transition period
+9. THE miniprogram SHALL gradually migrate to Data Stream parsing
+
+### Requirement 26: 小程序 Data Stream 解析
+
+**User Story:** As a miniprogram developer, I want to parse Vercel AI SDK Data Stream format, so that I can render AI responses with the same data as Admin.
+
+#### Acceptance Criteria
+
+1. THE miniprogram SHALL implement a `parseDataStream(chunk: string)` utility function
+2. THE parser SHALL handle text chunks (`0:"..."`) and accumulate them
+3. THE parser SHALL handle tool calls (`9:{...}`) and extract tool name + arguments
+4. THE parser SHALL handle tool results (`a:{...}`) and extract result data
+5. THE parser SHALL handle done signal (`d:{...}`) and extract usage stats
+6. THE parser SHALL handle chunked/partial JSON gracefully (buffer incomplete data)
+7. THE parser SHALL emit events for each parsed item (text, toolCall, toolResult, done)
+
+### Requirement 27: 用户列表查询
 
 **User Story:** As a user, I want to view a paginated list of users, so that I can manage platform users.
 
@@ -575,7 +614,7 @@
 4. THE User_Module SHALL exclude sensitive fields (wxOpenId) from the response
 5. THE User_Module SHALL return total count for pagination
 
-### Requirement 26: 用户详情查询
+### Requirement 28: 用户详情查询
 
 **User Story:** As a user, I want to view user details, so that I can understand user information.
 
@@ -585,7 +624,7 @@
 2. IF the user does not exist, THEN THE User_Module SHALL return a 404 error
 3. THE User_Module SHALL exclude sensitive fields (wxOpenId) from the response
 
-### Requirement 27: 用户信息更新
+### Requirement 29: 用户信息更新
 
 **User Story:** As a user, I want to update user information, so that I can manage user data.
 
@@ -595,7 +634,7 @@
 2. IF the user does not exist, THEN THE User_Module SHALL return a 404 error
 3. THE User_Module SHALL only allow updating non-sensitive fields (nickname, avatarUrl)
 
-### Requirement 28: 活动列表查询
+### Requirement 30: 活动列表查询
 
 **User Story:** As a user, I want to view a paginated list of activities, so that I can manage platform activities.
 
@@ -609,7 +648,7 @@
 6. THE Activity_Module SHALL include creator information in the response
 7. THE Activity_Module SHALL return total count for pagination
 
-### Requirement 29: Admin 仪表板统计增强
+### Requirement 31: Admin 仪表板统计增强
 
 **User Story:** As an admin, I want to see enhanced dashboard statistics, so that I can monitor platform health.
 

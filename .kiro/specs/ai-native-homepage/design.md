@@ -1012,16 +1012,19 @@ Page({
 
 **核心逻辑**：AI 需要区分用户的"明确创建意图"和"模糊探索意图"，返回最合适的 Widget 类型。
 
-### v3.3 架构升级：Vercel AI SDK Tools
+### v3.3 架构升级：Vercel AI SDK Tools (ai@6 + @ai-sdk/react@3)
 
 **为什么使用 Tools 而非 Prompt-based 分类？**
 
-Admin Console 的 AI Ops（Playground、Inspector 组件）依赖 `useChat` hook 的 `toolInvocations` 来自动渲染 Inspector 组件。如果不使用 Tools，Admin 需要复杂的 regex/JSON.parse 逻辑来解析原始文本响应。
+Admin Console 的 AI Ops（Playground、Inspector 组件）依赖 `useChat` hook 的 Tool UI Parts 来自动渲染 Inspector 组件。如果不使用 Tools，Admin 需要复杂的 regex/JSON.parse 逻辑来解析原始文本响应。
 
 **架构决策**：
 - 使用 Vercel AI SDK 的 `tool()` 函数定义意图分类
 - 使用 `jsonSchema()` helper 将 TypeBox Schema 转换为 AI SDK 兼容格式
-- Admin Playground 的 `useChat` 自动捕获 `tool_calls` 并渲染 `<WidgetInspector />`
+- Admin Playground 的 `useChat` 通过 `isToolUIPart()` 和 `getToolName()` 辅助函数处理 Tool Parts
+- Tool Parts 的 `type` 格式为 `tool-xxx`（如 `tool-createActivityDraft`）
+- Tool 数据使用 `input`/`output`（而非旧版的 `args`/`result`）
+- Tool 状态：`input-streaming` | `input-available` | `output-available` | `output-error`
 
 ### TypeBox + Vercel AI SDK 集成
 
@@ -1104,29 +1107,45 @@ const result = await streamText({
 | "推荐一下附近的局" | 模糊探索 | `exploreNearby` | Widget_Explore |
 | "今天天气怎么样" | 无法识别 | 无 | 文本消息 |
 
-### Admin Playground 集成
+### Admin Playground 集成 (ai@6 + @ai-sdk/react@3)
 
 ```tsx
 // apps/admin/src/features/ai-playground/components/playground-chat.tsx
-import { useChat } from 'ai/react';
+import { useChat, type UIMessage } from '@ai-sdk/react'
+import { DefaultChatTransport, isToolUIPart, getToolName } from 'ai'
 
 function PlaygroundChat() {
-  const { messages, input, handleSubmit } = useChat({
-    api: '/api/ai/parse',
-  });
+  // 创建 transport
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: `${API_BASE_URL}/ai/chat`,
+    body: { source: 'admin' },
+  }), [])
+
+  // 使用 useChat hook
+  const { messages, sendMessage, setMessages, status, error, stop, regenerate } = useChat({
+    transport,
+  })
+
+  // status: 'submitted' | 'streaming' | 'ready' | 'error'
+  const isLoading = status === 'submitted' || status === 'streaming'
 
   return (
     <div>
       {messages.map((msg) => (
         <div key={msg.id}>
-          {msg.role === 'assistant' && msg.toolInvocations?.map((tool) => (
-            // 自动渲染对应的 Inspector 组件
-            <InspectorRenderer
-              key={tool.toolCallId}
-              type={tool.toolName === 'createActivityDraft' ? 'widget_draft' : 'widget_explore'}
-              content={tool.result}
-            />
-          ))}
+          {msg.role === 'assistant' && msg.parts?.filter(part => isToolUIPart(part)).map((toolPart) => {
+            // v6 API: 使用 SDK 辅助函数处理 Tool Parts
+            const toolName = getToolName(toolPart) // 从 type='tool-xxx' 提取 'xxx'
+            // Tool states: 'input-streaming' | 'input-available' | 'output-available' | 'output-error'
+            return (
+              <InspectorRenderer
+                key={toolPart.toolInvocationId}
+                type={toolName === 'createActivityDraft' ? 'widget_draft' : 'widget_explore'}
+                content={toolPart.output}
+                state={toolPart.state}
+              />
+            )
+          })}
         </div>
       ))}
     </div>

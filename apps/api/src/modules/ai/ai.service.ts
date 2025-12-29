@@ -1,7 +1,7 @@
-// AI Service - v3.3 Chat-First: AI 解析 + 对话历史管理 + 意图分类 + Tools
+// AI Service - v3.4 统一 AI Chat (Data Stream Protocol)
 import { db, users, conversations, activities, participants, eq, desc, sql } from '@juchang/db';
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, tool, jsonSchema } from 'ai';
+import { streamText, tool, jsonSchema, type CoreMessage } from 'ai';
 import { t, type Static } from 'elysia';
 import type { 
   AIParseRequest, 
@@ -10,19 +10,51 @@ import type {
   ConversationMessageType,
 } from './ai.model';
 
+// ==========================================
+// System Prompt (代码即配置，MVP 阶段不用数据库)
+// ==========================================
+const SYSTEM_PROMPT = `你是聚场 AI 助手，专门帮助用户组织线下活动。
+
+你有两个工具可以使用：
+1. createActivityDraft - 当用户明确想创建活动时使用（需要时间+地点+活动类型）
+2. exploreNearby - 当用户想探索附近活动时使用（"附近有什么"、"推荐"等）
+
+重庆地形复杂，如果涉及位置，请在 locationHint 中补充楼层、入口等信息。
+
+如果用户意图不明确，请用友好的语气引导用户提供更多信息。
+语气要接地气，不要太正式。例如：
+- ✅ "帮你把局组好了！就在观音桥，离地铁口 200 米"
+- ❌ "已为您构建全息活动契约"`;
+
+const SYSTEM_PROMPT_TEST = `你是聚场 AI 助手，专门帮助用户组织线下活动。
+
+这是测试模式，请直接用文字回复，模拟你会如何理解用户的意图。
+如果用户想创建活动，描述你会提取哪些信息（时间、地点、活动类型等）。
+如果用户想探索附近，描述你会搜索什么。
+
+语气要接地气，不要太正式。`;
+
 /**
  * 获取 AI 模型配置
  */
 function getAIModel() {
-  const provider = process.env.AI_PROVIDER || 'dashscope';
+  const provider = process.env.AI_PROVIDER || 'deepseek';
   
   switch (provider) {
     case 'openai':
       const openaiClient = createOpenAI({
-        baseURL: process.env.OPENAI_BASE_URL,
+        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
         apiKey: process.env.OPENAI_API_KEY || '',
       });
       return openaiClient('gpt-4o-mini');
+    
+    case 'deepseek':
+      // DeepSeek - 使用 OpenAI 兼容接口
+      const deepseekClient = createOpenAI({
+        baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
+        apiKey: process.env.DEEPSEEK_API_KEY || '',
+      });
+      return deepseekClient('deepseek-chat');
       
     case 'dashscope':
     default:
@@ -322,8 +354,81 @@ export type IntentType = 'create' | 'explore' | 'unknown';
  * 
  * Admin Playground 的 useChat hook 会自动捕获 toolInvocations，
  * 渲染对应的 Inspector 组件。
+ * 
+ * @param userId - 用户 ID，传 null 时不写入数据库（开发测试模式）
  */
-export async function parseTextStream(request: AIParseRequest, userId: string) {
+
+/**
+ * Chat 请求参数
+ */
+export interface StreamChatRequest {
+  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  userId: string | null;
+  location?: [number, number];
+  source: 'miniprogram' | 'admin';
+}
+
+/**
+ * 统一 AI Chat - 返回 Data Stream Response
+ * 
+ * 小程序和 Admin 都使用此函数，返回 Vercel AI SDK 标准格式。
+ * 
+ * Data Stream 格式：
+ * - 0:"text" - 文本增量
+ * - 9:{...} - Tool Call
+ * - a:{...} - Tool Result
+ * - d:{...} - 完成信息（含 usage）
+ */
+export async function streamChat(request: StreamChatRequest) {
+  const { messages, userId, location, source } = request;
+  
+  // 构建位置上下文
+  let locationContext = '';
+  if (location) {
+    locationContext = `\n用户当前位置：经度${location[0]}，纬度${location[1]}（重庆地区）。`;
+  }
+
+  // 转换消息格式为 CoreMessage
+  const coreMessages: CoreMessage[] = messages.map(m => ({
+    role: m.role,
+    content: m.content,
+  }));
+
+  // 测试模式（无用户）或 Admin 测试：不使用 Tools，避免写数据库
+  const isTestMode = !userId || source === 'admin';
+  
+  if (isTestMode) {
+    const result = await streamText({
+      model: getAIModel(),
+      system: SYSTEM_PROMPT_TEST + locationContext,
+      messages: coreMessages,
+      maxTokens: 500,
+      // 日志钩子（为 Phase 2 铺路）
+      onFinish: async ({ usage }) => {
+        console.log(`[AI Chat] Source: ${source}, Tokens: ${usage.totalTokens}, Test Mode`);
+      },
+    });
+    return result.toDataStreamResponse();
+  }
+
+  // 正式模式：使用 Tools
+  const result = await streamText({
+    model: getAIModel(),
+    system: SYSTEM_PROMPT + locationContext,
+    messages: coreMessages,
+    tools: getAITools(userId),
+    maxTokens: 500,
+    // 日志钩子（为 Phase 2 铺路）
+    onFinish: async ({ toolCalls, usage }) => {
+      console.log(`[AI Chat] Source: ${source}, User: ${userId}, Tokens: ${usage.totalTokens}, Tools: ${toolCalls?.length || 0}`);
+    },
+  });
+
+  return result.toDataStreamResponse();
+}
+
+// 保留旧函数用于向后兼容（小程序过渡期）
+export async function parseTextStream(request: AIParseRequest, userId: string | null) {
   const { text, location } = request;
   
   // 构建位置上下文
@@ -332,21 +437,20 @@ export async function parseTextStream(request: AIParseRequest, userId: string) {
     locationContext = `用户当前位置：经度${location[0]}，纬度${location[1]}（重庆地区）。`;
   }
 
+  // 开发模式不使用 Tools（避免写数据库）
+  if (!userId) {
+    const result = await streamText({
+      model: getAIModel(),
+      system: SYSTEM_PROMPT_TEST + '\n' + locationContext,
+      prompt: text,
+      maxTokens: 500,
+    });
+    return result;
+  }
+
   const result = await streamText({
     model: getAIModel(),
-    system: `你是聚场 AI 助手，专门帮助用户组织线下活动。
-${locationContext}
-
-你有两个工具可以使用：
-1. createActivityDraft - 当用户明确想创建活动时使用（需要时间+地点+活动类型）
-2. exploreNearby - 当用户想探索附近活动时使用（"附近有什么"、"推荐"等）
-
-重庆地形复杂，如果涉及位置，请在 locationHint 中补充楼层、入口等信息。
-
-如果用户意图不明确，请用友好的语气引导用户提供更多信息。
-语气要接地气，不要太正式。例如：
-- ✅ "帮你把局组好了！就在观音桥，离地铁口 200 米"
-- ❌ "已为您构建全息活动契约"`,
+    system: SYSTEM_PROMPT + '\n' + locationContext,
     prompt: text,
     tools: getAITools(userId),
     maxTokens: 500,

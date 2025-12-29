@@ -1,12 +1,11 @@
-// AI Controller - v3.2 Chat-First: AI 解析 + 对话历史管理
-import { Elysia } from 'elysia';
+// AI Controller - v3.4 统一 AI Chat 接口 (Data Stream Protocol)
+import { Elysia, t } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { aiModel, type ErrorResponse } from './ai.model';
 import { 
   checkAIQuota, 
   consumeAIQuota, 
-  parseTextStream, 
-  parseAIResponse,
+  streamChat,
   getConversations,
   addUserMessage,
   clearConversations,
@@ -17,66 +16,134 @@ export const aiController = new Elysia({ prefix: '/ai' })
   .use(aiModel)
   
   // ==========================================
-  // AI 解析 - SSE 流式响应
+  // DeepSeek 余额查询 (Admin Playground 用)
   // ==========================================
-  .post(
-    '/parse',
-    async function* ({ body, set, jwt, headers }) {
-      // JWT 认证
-      const user = await verifyAuth(jwt, headers);
-      if (!user) {
-        set.status = 401;
-        yield JSON.stringify({ code: 401, msg: '未授权' });
-        return;
-      }
-
-      // 检查额度
-      const quota = await checkAIQuota(user.id);
-      if (!quota.hasQuota) {
-        set.status = 403;
-        yield JSON.stringify({ 
-          code: 403, 
-          msg: 'AI 额度不足，今日已用完',
-          remaining: 0,
-        });
-        return;
-      }
-
-      // 消耗额度
-      const consumed = await consumeAIQuota(user.id);
-      if (!consumed) {
-        set.status = 403;
-        yield JSON.stringify({ code: 403, msg: 'AI 额度扣减失败' });
-        return;
+  .get(
+    '/balance',
+    async ({ set }) => {
+      const apiKey = process.env.DEEPSEEK_API_KEY;
+      
+      if (!apiKey) {
+        set.status = 500;
+        return { code: 500, msg: 'DeepSeek API Key 未配置' };
       }
 
       try {
-        // 获取流式响应
-        const stream = await parseTextStream(body);
-        let fullText = '';
-        
-        // 流式输出
-        for await (const chunk of stream.textStream) {
-          fullText += chunk;
-          yield `data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`;
+        const response = await fetch('https://api.deepseek.com/user/balance', {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+        });
+
+        if (!response.ok) {
+          set.status = response.status;
+          return { code: response.status, msg: '余额查询失败' };
         }
-        
-        // 解析最终结果
-        const result = parseAIResponse(fullText);
-        yield `data: ${JSON.stringify({ type: 'done', result, remaining: quota.remaining - 1 })}\n\n`;
-        
-      } catch (error) {
-        console.error('AI 解析失败:', error);
-        yield `data: ${JSON.stringify({ type: 'error', msg: 'AI 解析失败，请稍后重试' })}\n\n`;
+
+        const data = await response.json();
+        return data;
+      } catch (error: any) {
+        set.status = 500;
+        return { code: 500, msg: error.message || '余额查询失败' };
       }
     },
     {
       detail: {
         tags: ['AI'],
-        summary: 'AI 意图解析（SSE）',
-        description: '解析自然语言文本，生成活动信息。使用 SSE 流式返回结果。',
+        summary: '查询 DeepSeek 余额',
+        description: '查询 DeepSeek API 账户余额（Admin Playground 用）',
       },
-      body: 'ai.parseRequest',
+      response: {
+        200: t.Object({
+          is_available: t.Boolean(),
+          balance_infos: t.Array(t.Object({
+            currency: t.String(),
+            total_balance: t.String(),
+            granted_balance: t.String(),
+            topped_up_balance: t.String(),
+          })),
+        }),
+        500: 'ai.error',
+      },
+    }
+  )
+  
+  // ==========================================
+  // 统一 AI Chat 接口 - Data Stream Protocol
+  // 小程序和 Admin 都用这个接口
+  // ==========================================
+  .post(
+    '/chat',
+    async ({ body, set, jwt, headers }) => {
+      // 解析请求参数
+      const { messages, source = 'miniprogram', mockUserId, mockLocation } = body;
+      
+      // 获取用户身份
+      const user = await verifyAuth(jwt, headers);
+      
+      // Admin 可以 mock 用户（用于测试）
+      const effectiveUserId = (source === 'admin' && mockUserId) ? mockUserId : user?.id || null;
+      const effectiveLocation = mockLocation || body.location;
+      
+      // 有真实用户时检查额度（Admin mock 不消耗额度）
+      if (user && source !== 'admin') {
+        const quota = await checkAIQuota(user.id);
+        if (!quota.hasQuota) {
+          set.status = 403;
+          return { error: 'AI 额度不足，今日已用完' };
+        }
+
+        const consumed = await consumeAIQuota(user.id);
+        if (!consumed) {
+          set.status = 403;
+          return { error: 'AI 额度扣减失败' };
+        }
+      }
+
+      try {
+        // 获取 Data Stream Response
+        const response = await streamChat({
+          messages,
+          userId: effectiveUserId,
+          location: effectiveLocation,
+          source,
+        });
+        
+        return response;
+      } catch (error: any) {
+        console.error('AI Chat 失败:', error);
+        set.status = 500;
+        return { error: error.message || 'AI 服务暂时不可用' };
+      }
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: 'AI 对话（Data Stream）',
+        description: `统一的 AI 对话接口，返回 Vercel AI SDK Data Stream 格式。
+        
+小程序和 Admin 都使用此接口：
+- 小程序：传 JWT Token，正常消耗额度
+- Admin：传 source='admin'，可 mock 用户测试，不消耗额度
+
+Data Stream 格式：
+- 0:"text" - 文本增量
+- 9:{...} - Tool Call
+- a:{...} - Tool Result  
+- d:{...} - 完成信息（含 usage）`,
+      },
+      body: t.Object({
+        messages: t.Array(t.Object({
+          role: t.Union([t.Literal('user'), t.Literal('assistant')]),
+          content: t.String(),
+        })),
+        location: t.Optional(t.Tuple([t.Number(), t.Number()])),
+        source: t.Optional(t.Union([t.Literal('miniprogram'), t.Literal('admin')])),
+        mockUserId: t.Optional(t.String()),
+        mockLocation: t.Optional(t.Tuple([t.Number(), t.Number()])),
+      }),
     }
   )
   
