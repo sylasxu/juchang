@@ -1,0 +1,106 @@
+<!--
+  自定义导航栏组件
+  Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 14.2, 14.3
+  
+  Chat-First 架构的顶部导航栏
+  - 左侧：Menu 图标（跳转个人中心）或返回按钮
+  - 中间：品牌词"聚场"或自定义标题
+  - 右侧：More 图标（显示下拉菜单）
+-->
+<view class="custom-navbar {{transparent ? 'transparent' : ''}}">
+  <!-- 状态栏占位 -->
+  <view class="status-bar" style="height: {{statusBarHeight}}px;"></view>
+  
+  <!-- 导航栏内容 -->
+  <view class="navbar-content" style="height: {{navBarHeight}}px;">
+    <!-- 左侧区域 -->
+    <view class="navbar-left">
+      <!-- 返回按钮（优先级高于 Menu） -->
+      <view 
+        wx:if="{{showBack}}" 
+        class="navbar-btn btn-pressable" 
+        bindtap="onBackTap"
+        hover-class="navbar-btn--hover"
+      >
+        <t-icon name="chevron-left" size="48rpx" />
+      </view>
+      
+      <!-- Menu 图标 -->
+      <view 
+        wx:elif="{{showMenu}}" 
+        class="navbar-btn btn-pressable" 
+        bindtap="onMenuTap"
+        hover-class="navbar-btn--hover"
+      >
+        <t-icon name="view-list" size="44rpx" />
+      </view>
+      
+      <!-- 左侧插槽 -->
+      <slot name="left"></slot>
+    </view>
+    
+    <!-- 中间标题区域 -->
+    <view class="navbar-center">
+      <text class="navbar-title">{{title}}</text>
+    </view>
+    
+    <!-- 右侧区域 -->
+    <view class="navbar-right" style="margin-right: {{menuButtonInfo ? menuButtonInfo.width + 16 : 100}}px;">
+      <!-- More 图标 -->
+      <view 
+        wx:if="{{showMore}}" 
+        class="navbar-btn btn-pressable {{showDropmenu ? 'active' : ''}}" 
+        bindtap="onMoreTap"
+        hover-class="navbar-btn--hover"
+      >
+        <t-icon name="ellipsis" size="44rpx" />
+      </view>
+      
+      <!-- 右侧插槽 -->
+      <slot name="right"></slot>
+    </view>
+  </view>
+</view>
+
+<!-- 导航栏占位（防止内容被遮挡） -->
+<view class="navbar-placeholder" style="height: {{statusBarHeight + navBarHeight}}px;"></view>
+
+<!-- 下拉菜单遮罩 -->
+<view 
+  wx:if="{{showDropmenu}}" 
+  class="dropmenu-overlay" 
+  bindtap="onOverlayTap"
+></view>
+
+<!-- 下拉菜单 -->
+<view 
+  wx:if="{{showDropmenu}}" 
+  class="dropmenu halo-card-mini"
+  style="top: {{statusBarHeight + navBarHeight + 8}}px; right: {{menuButtonInfo ? menuButtonInfo.width + 24 : 108}}px;"
+>
+  <view 
+    class="dropmenu-item btn-pressable" 
+    data-action="message"
+    bindtap="onDropmenuItemTap"
+    hover-class="dropmenu-item--hover"
+  >
+    <view class="dropmenu-icon icon-circle icon-circle-sm icon-circle--blue">
+      <t-icon name="chat" size="32rpx" />
+    </view>
+    <text class="dropmenu-text">消息中心</text>
+  </view>
+  
+  <view class="dropmenu-divider"></view>
+  
+  <view 
+    class="dropmenu-item btn-pressable" 
+    data-action="newchat"
+    bindtap="onDropmenuItemTap"
+    hover-class="dropmenu-item--hover"
+  >
+    <view class="dropmenu-icon icon-circle icon-circle-sm icon-circle--purple">
+      <t-icon name="add" size="32rpx" />
+    </view>
+    <text class="dropmenu-text">新对话</text>
+  </view>
+</view>

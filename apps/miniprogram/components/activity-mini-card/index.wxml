@@ -1,0 +1,46 @@
+<!--
+  Activity Mini Card 组件
+  Requirements: 4.7, 4.8, 15.6
+  
+  活动迷你卡片
+  - 显示活动标题、类型图标、开始时间、地点
+  - 使用同色系淡色图标底色
+-->
+<view class="activity-mini-card halo-card-mini btn-pressable" bindtap="onTap">
+  <!-- 类型图标 -->
+  <view class="card-icon icon-circle icon-circle-sm icon-circle--{{colorClass}}">
+    <t-icon name="{{typeIcon}}" size="32rpx" />
+  </view>
+  
+  <!-- 活动信息 -->
+  <view class="card-content">
+    <!-- 标题 -->
+    <view class="card-title ellipsis">{{activity.title}}</view>
+    
+    <!-- 元信息 -->
+    <view class="card-meta">
+      <!-- 时间 -->
+      <view class="meta-item">
+        <t-icon name="time" size="24rpx" />
+        <text class="meta-text">{{formattedTime}}</text>
+      </view>
+      
+      <!-- 地点 -->
+      <view class="meta-item">
+        <t-icon name="location" size="24rpx" />
+        <text class="meta-text ellipsis">{{locationText}}</text>
+      </view>
+      
+      <!-- 参与人数 -->
+      <view wx:if="{{showParticipants && participantsText}}" class="meta-item">
+        <t-icon name="user" size="24rpx" />
+        <text class="meta-text">{{participantsText}}</text>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 箭头 -->
+  <view class="card-arrow">
+    <t-icon name="chevron-right" size="32rpx" />
+  </view>
+</view>

@@ -2,7 +2,7 @@
 // 主要逻辑已移到 activities 模块
 import { Elysia, t } from 'elysia';
 import { basePlugins } from '../../setup';
-import { participantModel, type ErrorResponse } from './participant.model';
+import { participantModel, ParticipantInfoSchema, type ErrorResponse } from './participant.model';
 import { getActivityParticipants } from './participant.service';
 
 export const participantController = new Elysia({ prefix: '/participants' })
@@ -32,7 +32,7 @@ export const participantController = new Elysia({ prefix: '/participants' })
       },
       params: 'participant.idParams',
       response: {
-        200: t.Array(t.Ref('participant.info')),
+        200: t.Array(ParticipantInfoSchema),
         500: 'participant.error',
       },
     }

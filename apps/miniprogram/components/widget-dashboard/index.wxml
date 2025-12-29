@@ -1,0 +1,76 @@
+<!--
+  Widget Dashboard 组件
+  Requirements: 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8
+  
+  进场欢迎卡片
+  - 动态问候语（根据时间变化）
+  - 待参加活动列表（最多 3 个）
+  - 空状态引导文案和热门 Prompt
+-->
+<view class="widget-dashboard halo-card">
+  <!-- 问候语区域 -->
+  <view class="dashboard-header">
+    <view class="greeting-icon icon-circle icon-circle--blue">
+      <t-icon name="sunny" size="40rpx" />
+    </view>
+    <view class="greeting-content">
+      <text class="greeting-text">{{greeting}}</text>
+      <text class="sub-greeting-text">{{subGreeting}}</text>
+    </view>
+  </view>
+  
+  <!-- 有活动时显示活动列表 -->
+  <block wx:if="{{hasActivities}}">
+    <view class="dashboard-section">
+      <view class="section-header">
+        <text class="section-title">待参加的活动</text>
+        <view class="section-action" bindtap="onViewAllTap">
+          <text class="action-text">查看全部</text>
+          <t-icon name="chevron-right" size="28rpx" />
+        </view>
+      </view>
+      
+      <!-- 活动列表 -->
+      <view class="activity-list">
+        <view 
+          wx:for="{{displayActivities}}" 
+          wx:key="id"
+          class="activity-item"
+          data-id="{{item.id}}"
+          bindtap="onActivityTap"
+        >
+          <activity-mini-card 
+            activity="{{item}}"
+            bind:tap="onActivityTap"
+          />
+        </view>
+      </view>
+    </view>
+  </block>
+  
+  <!-- 无活动时显示引导 -->
+  <block wx:else>
+    <view class="dashboard-empty">
+      <view class="empty-icon">
+        <t-icon name="chat" size="64rpx" color="#5B75FB" />
+      </view>
+      <text class="empty-text">还没有局？说句话，我帮你组一个</text>
+      
+      <!-- 热门 Prompt 示例 -->
+      <view class="hot-prompts">
+        <text class="prompts-label">试试这样说：</text>
+        <view class="prompts-list">
+          <view 
+            wx:for="{{hotPrompts}}" 
+            wx:key="*this"
+            class="prompt-item btn-pressable"
+            data-prompt="{{item}}"
+            bindtap="onPromptTap"
+          >
+            <text class="prompt-text">"{{item}}"</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

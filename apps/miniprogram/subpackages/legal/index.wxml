@@ -1,0 +1,15 @@
+<!-- 法务页面 - web-view 加载 Admin 托管内容 -->
+<web-view 
+  wx:if="{{webviewUrl && !error}}"
+  src="{{webviewUrl}}"
+  bindload="onWebviewLoad"
+  binderror="onWebviewError"
+/>
+
+<!-- 加载失败时的降级提示 -->
+<view wx:if="{{error}}" class="error-container">
+  <view class="error-icon">⚠️</view>
+  <view class="error-text">页面加载失败</view>
+  <view class="error-hint">请检查网络连接后重试</view>
+  <button class="retry-btn" bindtap="goBack">返回</button>
+</view>

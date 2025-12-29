@@ -1,15 +1,17 @@
 {
   "navigationStyle": "custom",
   "usingComponents": {
-    "t-button": "tdesign-miniprogram/button/button",
     "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-loading": "tdesign-miniprogram/loading/loading",
-    "t-tag": "tdesign-miniprogram/tag/tag",
-    "floating-buttons": "/components/floating-buttons/index",
-    "bottom-drawer": "/components/bottom-drawer/index",
-    "activity-card": "/components/activity-card/index",
-    "filter-panel": "/components/filter-panel/index",
-    "ai-input-bar": "/components/ai-input-bar/index",
-    "cui-panel": "/components/cui-panel/index"
+    "custom-navbar": "/components/custom-navbar/index",
+    "ai-dock": "/components/ai-dock/index",
+    "message-bubble": "/components/message-bubble/index",
+    "widget-dashboard": "/components/widget-dashboard/index",
+    "widget-draft": "/components/widget-draft/index",
+    "widget-share": "/components/widget-share/index",
+    "widget-explore": "/components/widget-explore/index",
+    "thinking-bubble": "/components/thinking-bubble/index",
+    "widget-skeleton": "/components/widget-skeleton/index",
+    "auth-sheet": "/components/auth-sheet/index",
+    "share-guide": "/components/share-guide/index"
   }
 }

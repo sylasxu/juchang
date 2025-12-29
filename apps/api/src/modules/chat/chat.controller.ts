@@ -1,7 +1,7 @@
 // Chat Controller - 群聊消息接口 (MVP 简化版)
 import { Elysia, t } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
-import { chatModel, type ErrorResponse } from './chat.model';
+import { chatModel, ChatMessageResponseSchema, type ErrorResponse } from './chat.model';
 import { getMessages, sendMessage } from './chat.service';
 
 export const chatController = new Elysia({ prefix: '/chat' })
@@ -42,7 +42,7 @@ export const chatController = new Elysia({ prefix: '/chat' })
       query: 'chat.messageListQuery',
       response: {
         200: t.Object({
-          messages: t.Array(t.Ref('chat.messageResponse')),
+          messages: t.Array(ChatMessageResponseSchema),
           isArchived: t.Boolean({ description: '群聊是否已归档' }),
         }),
         400: 'chat.error',

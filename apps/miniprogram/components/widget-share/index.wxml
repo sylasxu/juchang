@@ -1,0 +1,69 @@
+<!--
+  Widget Share 组件 (v3.5 零成本地图方案)
+  Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
+  
+  创建成功卡片
+  - 显示原生分享卡片预览
+  - 使用位置文字卡片替代静态地图（零成本）
+  - 实现 [📤 分享到群] 和 [👀 查看详情] 按钮
+-->
+<view class="widget-share halo-card">
+  <!-- 成功提示 -->
+  <view class="share-header">
+    <view class="success-icon icon-circle icon-circle--mint">
+      <t-icon name="check" size="40rpx" />
+    </view>
+    <view class="header-content">
+      <text class="success-title">活动创建成功！</text>
+      <text class="success-hint">把卡片发到群里，摇人吧</text>
+    </view>
+  </view>
+  
+  <!-- 分享卡片预览 -->
+  <view class="share-preview">
+    <!-- 位置卡片（替代静态地图，零成本方案） -->
+    <view class="location-card" bindtap="onLocationTap">
+      <view class="location-card__icon">
+        <t-icon name="location" size="40rpx" color="#5B75FB" />
+      </view>
+      <view class="location-card__content">
+        <text class="location-card__name ellipsis">{{activity.locationName || '活动地点'}}</text>
+        <text wx:if="{{activity.locationHint}}" class="location-card__hint ellipsis">{{activity.locationHint}}</text>
+      </view>
+    </view>
+    
+    <!-- 卡片信息 -->
+    <view class="preview-info">
+      <text class="preview-title ellipsis-2">{{shareTitle}}</text>
+      <view class="preview-meta">
+        <view class="meta-item">
+          <t-icon name="time" size="24rpx" />
+          <text>{{formattedTime}}</text>
+        </view>
+        <view class="meta-item">
+          <t-icon name="user" size="24rpx" />
+          <text>{{participantsText}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 操作按钮 -->
+  <view class="share-actions">
+    <!-- 分享到群按钮 -->
+    <button 
+      class="action-btn action-btn--primary btn-pressable" 
+      open-type="share"
+      bindtap="onShareTap"
+    >
+      <t-icon name="share" size="32rpx" />
+      <text>分享到群</text>
+    </button>
+    
+    <!-- 查看详情按钮 -->
+    <view class="action-btn action-btn--secondary btn-pressable" bindtap="onViewDetail">
+      <t-icon name="browse" size="32rpx" />
+      <text>查看详情</text>
+    </view>
+  </view>
+</view>

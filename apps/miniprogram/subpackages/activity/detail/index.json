@@ -1,6 +1,8 @@
 {
-  "navigationBarTitleText": "活动详情",
+  "navigationStyle": "custom",
   "usingComponents": {
+    "custom-navbar": "/components/custom-navbar/index",
+    "auth-sheet": "/components/auth-sheet/index",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-avatar": "tdesign-miniprogram/avatar/avatar",
@@ -8,6 +10,7 @@
     "t-loading": "tdesign-miniprogram/loading/loading",
     "t-popup": "tdesign-miniprogram/popup/popup",
     "t-checkbox": "tdesign-miniprogram/checkbox/checkbox",
+    "t-action-sheet": "tdesign-miniprogram/action-sheet/action-sheet",
     "reliability-badge": "/components/reliability-badge/index"
   }
 }

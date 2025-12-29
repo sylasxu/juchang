@@ -10,7 +10,7 @@ import { Elysia, t, type Static } from 'elysia';
  */
 
 // 消息响应
-const ChatMessageResponse = t.Object({
+export const ChatMessageResponseSchema = t.Object({
   id: t.String(),
   activityId: t.String(),
   senderId: t.Union([t.String(), t.Null()]),
@@ -52,7 +52,7 @@ const ErrorResponse = t.Object({
 // 注册到 Elysia Model Plugin
 export const chatModel = new Elysia({ name: 'chatModel' })
   .model({
-    'chat.messageResponse': ChatMessageResponse,
+    'chat.messageResponse': ChatMessageResponseSchema,
     'chat.messageListQuery': MessageListQuery,
     'chat.sendMessageRequest': SendMessageRequest,
     'chat.sendMessageResponse': SendMessageResponse,
@@ -61,7 +61,7 @@ export const chatModel = new Elysia({ name: 'chatModel' })
   });
 
 // 导出 TS 类型
-export type ChatMessageResponse = Static<typeof ChatMessageResponse>;
+export type ChatMessageResponse = Static<typeof ChatMessageResponseSchema>;
 export type MessageListQuery = Static<typeof MessageListQuery>;
 export type SendMessageRequest = Static<typeof SendMessageRequest>;
 export type SendMessageResponse = Static<typeof SendMessageResponse>;

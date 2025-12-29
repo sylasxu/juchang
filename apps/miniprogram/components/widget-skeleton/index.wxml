@@ -1,0 +1,91 @@
+<!--
+  Widget Skeleton 组件 - 卡片骨架屏
+  Requirements: 响应感, 预期管理
+  
+  视觉效果：
+  - 灰色占位块
+  - 流光扫过动画
+  - 圆角与真实 Widget 一致 (40rpx)
+  
+  Props：type = 'draft' | 'explore' | 'share'（不同骨架形态）
+-->
+<view class="widget-skeleton widget-skeleton--{{type}}">
+  <!-- Draft 类型骨架 -->
+  <block wx:if="{{type === 'draft'}}">
+    <view class="widget-skeleton__header">
+      <view class="widget-skeleton__icon skeleton-shimmer"></view>
+      <view class="widget-skeleton__title skeleton-shimmer"></view>
+    </view>
+    <view class="widget-skeleton__map skeleton-shimmer"></view>
+    <view class="widget-skeleton__info">
+      <view class="widget-skeleton__row">
+        <view class="widget-skeleton__label skeleton-shimmer"></view>
+        <view class="widget-skeleton__value skeleton-shimmer"></view>
+      </view>
+      <view class="widget-skeleton__row">
+        <view class="widget-skeleton__label skeleton-shimmer"></view>
+        <view class="widget-skeleton__value skeleton-shimmer"></view>
+      </view>
+      <view class="widget-skeleton__row">
+        <view class="widget-skeleton__label skeleton-shimmer"></view>
+        <view class="widget-skeleton__value skeleton-shimmer" style="width: 60%"></view>
+      </view>
+    </view>
+    <view class="widget-skeleton__actions">
+      <view class="widget-skeleton__btn skeleton-shimmer"></view>
+      <view class="widget-skeleton__btn widget-skeleton__btn--primary skeleton-shimmer"></view>
+    </view>
+  </block>
+  
+  <!-- Explore 类型骨架 -->
+  <block wx:elif="{{type === 'explore'}}">
+    <view class="widget-skeleton__header">
+      <view class="widget-skeleton__icon skeleton-shimmer"></view>
+      <view class="widget-skeleton__title skeleton-shimmer" style="width: 70%"></view>
+    </view>
+    <view class="widget-skeleton__map skeleton-shimmer"></view>
+    <view class="widget-skeleton__list">
+      <view class="widget-skeleton__list-item" wx:for="{{3}}" wx:key="index">
+        <view class="widget-skeleton__list-icon skeleton-shimmer"></view>
+        <view class="widget-skeleton__list-content">
+          <view class="widget-skeleton__list-title skeleton-shimmer"></view>
+          <view class="widget-skeleton__list-meta skeleton-shimmer"></view>
+        </view>
+      </view>
+    </view>
+    <view class="widget-skeleton__actions">
+      <view class="widget-skeleton__btn widget-skeleton__btn--full skeleton-shimmer"></view>
+    </view>
+  </block>
+  
+  <!-- Share 类型骨架 -->
+  <block wx:elif="{{type === 'share'}}">
+    <view class="widget-skeleton__header">
+      <view class="widget-skeleton__icon skeleton-shimmer"></view>
+      <view class="widget-skeleton__title skeleton-shimmer"></view>
+    </view>
+    <view class="widget-skeleton__card-preview">
+      <view class="widget-skeleton__card-map skeleton-shimmer"></view>
+      <view class="widget-skeleton__card-info">
+        <view class="widget-skeleton__card-title skeleton-shimmer"></view>
+        <view class="widget-skeleton__card-desc skeleton-shimmer"></view>
+      </view>
+    </view>
+    <view class="widget-skeleton__actions">
+      <view class="widget-skeleton__btn skeleton-shimmer"></view>
+      <view class="widget-skeleton__btn widget-skeleton__btn--primary skeleton-shimmer"></view>
+    </view>
+  </block>
+  
+  <!-- 默认骨架 -->
+  <block wx:else>
+    <view class="widget-skeleton__header">
+      <view class="widget-skeleton__icon skeleton-shimmer"></view>
+      <view class="widget-skeleton__title skeleton-shimmer"></view>
+    </view>
+    <view class="widget-skeleton__body skeleton-shimmer"></view>
+    <view class="widget-skeleton__actions">
+      <view class="widget-skeleton__btn skeleton-shimmer"></view>
+    </view>
+  </block>
+</view>

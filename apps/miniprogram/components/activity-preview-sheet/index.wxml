@@ -1,0 +1,75 @@
+<!--
+  Activity Preview Sheet 组件 - 地图浮层预览
+  Requirements: 18.4, 轻量预览
+  
+  视觉结构：
+  - 拖拽指示条 (40rpx 宽灰色横条)
+  - 活动标题 + 类型图标
+  - 时间 + 地点 + "还差 N 人"
+  - 两个按钮：[查看详情] (次要) + [直接报名] (主要)
+  
+  交互逻辑：
+  - 地图页点击 Pin → 显示此浮层
+  - 点击地图空白处 → 浮层下沉隐藏
+  - 点击 [查看详情] → navigateTo 活动详情页
+  - 点击 [直接报名] → 检查手机号 → 报名
+-->
+<view class="preview-sheet {{visible ? 'preview-sheet--visible' : ''}}">
+  <!-- 拖拽指示条 -->
+  <view class="preview-sheet__handle">
+    <view class="preview-sheet__handle-bar"></view>
+  </view>
+  
+  <!-- 内容区 -->
+  <view class="preview-sheet__content" wx:if="{{activityData}}">
+    <!-- Header: 标题 + 类型图标 -->
+    <view class="preview-sheet__header">
+      <view class="preview-sheet__type-icon preview-sheet__type-icon--{{colorClass}}">
+        <text class="preview-sheet__type-icon-text">{{typeIcon}}</text>
+      </view>
+      <view class="preview-sheet__title-wrap">
+        <text class="preview-sheet__title">{{activityData.title}}</text>
+        <text class="preview-sheet__type-label">{{typeLabel}}</text>
+      </view>
+    </view>
+    
+    <!-- Info: 时间 + 地点 + 人数 -->
+    <view class="preview-sheet__info">
+      <view class="preview-sheet__info-row">
+        <text class="preview-sheet__info-icon">🕐</text>
+        <text class="preview-sheet__info-text">{{formattedTime}}</text>
+      </view>
+      <view class="preview-sheet__info-row">
+        <text class="preview-sheet__info-icon">📍</text>
+        <text class="preview-sheet__info-text">{{activityData.locationName}}</text>
+      </view>
+      <view class="preview-sheet__info-row" wx:if="{{spotsLeft > 0}}">
+        <text class="preview-sheet__info-icon">👥</text>
+        <text class="preview-sheet__info-text preview-sheet__info-text--highlight">还差 {{spotsLeft}} 人</text>
+      </view>
+      <view class="preview-sheet__info-row" wx:elif="{{spotsLeft === 0}}">
+        <text class="preview-sheet__info-icon">👥</text>
+        <text class="preview-sheet__info-text preview-sheet__info-text--full">已满员</text>
+      </view>
+    </view>
+    
+    <!-- Actions: 两个按钮 -->
+    <view class="preview-sheet__actions">
+      <button class="preview-sheet__btn preview-sheet__btn--secondary" bindtap="onViewDetail">
+        <text>查看详情</text>
+      </button>
+      <button 
+        class="preview-sheet__btn preview-sheet__btn--primary {{isFull || isJoined ? 'preview-sheet__btn--disabled' : ''}}"
+        bindtap="onJoin"
+        disabled="{{isFull || isJoined}}"
+      >
+        <text>{{isJoined ? '已报名' : (isFull ? '已满员' : '直接报名')}}</text>
+      </button>
+    </view>
+  </view>
+  
+  <!-- 空状态 -->
+  <view class="preview-sheet__empty" wx:else>
+    <text class="preview-sheet__empty-text">点击地图上的标记查看活动</text>
+  </view>
+</view>

@@ -1,13 +1,15 @@
 /**
  * 活动详情页
- * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
+ * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 10.1-10.7, 16.1-16.6
  */
-import { getActivitiesById, postActivitiesByIdJoin, getUsersMe } from '../../../src/api/index';
+import { getActivitiesById, postActivitiesByIdJoin, getUsersMe, deleteActivitiesById, putActivitiesById } from '../../../src/api/index';
+import { useAppStore } from '../../../src/stores/app';
 
 interface User {
   id: string;
   nickname?: string;
   avatarUrl?: string;
+  phoneNumber?: string;
   participationCount?: number;
   fulfillmentCount?: number;
   organizationCount?: number;
@@ -36,12 +38,18 @@ interface Activity {
   feeType?: string;
   estimatedCost?: number;
   type?: string;
+  status?: 'draft' | 'active' | 'completed' | 'cancelled';
   minReliabilityRate?: number;
   creatorId: string;
   creator?: User;
   participants?: Participant[];
   isPinPlus?: boolean;
   isBoosted?: boolean;
+}
+
+interface ManageAction {
+  label: string;
+  value: string;
 }
 
 interface PageData {
@@ -59,6 +67,12 @@ interface PageData {
   fastPassPrice: number;
   participantStatus: 'pending' | 'approved' | 'rejected' | null;
   isCreator: boolean;
+  // 管理操作面板
+  showManageSheet: boolean;
+  manageActions: ManageAction[];
+  // Auth sheet
+  isAuthSheetVisible: boolean;
+  pendingAction: 'join' | null;
 }
 
 interface PageOptions {
@@ -88,6 +102,12 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     fastPassPrice: 2,
     participantStatus: null,
     isCreator: false,
+    // 管理操作面板
+    showManageSheet: false,
+    manageActions: [],
+    // Auth sheet
+    isAuthSheetVisible: false,
+    pendingAction: null,
   },
 
   onLoad(options: PageOptions) {
@@ -103,7 +123,24 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         errorMsg: '活动ID不存在',
       });
     }
+    
+    // 订阅 auth sheet 状态
+    this.unsubscribeAppStore = useAppStore.subscribe((state) => {
+      if (this.data.isAuthSheetVisible !== state.isAuthSheetVisible) {
+        this.setData({ isAuthSheetVisible: state.isAuthSheetVisible });
+      }
+    });
   },
+  
+  onUnload() {
+    // 取消订阅
+    if (this.unsubscribeAppStore) {
+      this.unsubscribeAppStore();
+    }
+  },
+  
+  // Store 订阅取消函数
+  unsubscribeAppStore: null as (() => void) | null,
 
   onShow() {
     if (this.data.activityId) {
@@ -154,7 +191,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     }
   },
 
-  async loadCurrentUser() {
+  async loadCurrentUser(): Promise<void> {
     const token = wx.getStorageSync('token');
     if (!token) return;
 
@@ -227,6 +264,13 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       wx.showToast({ title: STATUS_TEXT[participantStatus] || '已报名', icon: 'none' });
       return;
     }
+    
+    // CP-9: 未绑定手机号的用户不能报名活动
+    if (!currentUser?.phoneNumber) {
+      this.setData({ pendingAction: 'join' });
+      useAppStore.getState().showAuthSheet({ type: 'join' });
+      return;
+    }
 
     if (activity?.minReliabilityRate && currentUser) {
       const userReliability = this.calculateReliability(currentUser);
@@ -242,6 +286,184 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     }
 
     this.setData({ showJoinDialog: true });
+  },
+  
+  /** 手机号绑定成功回调 */
+  onAuthSuccess() {
+    useAppStore.getState().hideAuthSheet();
+    // 重新加载用户信息
+    this.loadCurrentUser().then(() => {
+      // 如果有待执行的操作，继续执行
+      if (this.data.pendingAction === 'join') {
+        this.setData({ pendingAction: null, showJoinDialog: true });
+      }
+    });
+  },
+  
+  /** 关闭 auth sheet */
+  onAuthClose() {
+    useAppStore.getState().hideAuthSheet();
+    this.setData({ pendingAction: null });
+  },
+  
+  /** 打开活动管理面板 - Requirements: 16.1-16.6 */
+  onManageActivity() {
+    const { activity } = this.data;
+    if (!activity) return;
+    
+    const actions: ManageAction[] = [];
+    
+    // 根据活动状态显示不同操作
+    if (activity.status === 'active') {
+      actions.push({ label: '编辑活动', value: 'edit' });
+      actions.push({ label: '查看报名列表', value: 'participants' });
+      
+      // 只有未开始的活动可以取消
+      const startAt = activity.startAt ? new Date(activity.startAt) : null;
+      if (startAt && startAt > new Date()) {
+        actions.push({ label: '取消活动', value: 'cancel' });
+      }
+      
+      // 已开始的活动可以标记完成
+      if (startAt && startAt <= new Date()) {
+        actions.push({ label: '标记完成', value: 'complete' });
+      }
+    } else if (activity.status === 'draft') {
+      actions.push({ label: '编辑活动', value: 'edit' });
+      actions.push({ label: '删除草稿', value: 'delete' });
+    }
+    
+    this.setData({
+      showManageSheet: true,
+      manageActions: actions,
+    });
+  },
+  
+  /** 管理操作选择 */
+  onManageActionSelect(e: WechatMiniprogram.CustomEvent<{ selected: ManageAction }>) {
+    const { value } = e.detail.selected;
+    this.setData({ showManageSheet: false });
+    
+    switch (value) {
+      case 'edit':
+        this.onEditActivity();
+        break;
+      case 'participants':
+        this.onViewParticipants();
+        break;
+      case 'cancel':
+        this.onCancelActivity();
+        break;
+      case 'complete':
+        this.onCompleteActivity();
+        break;
+      case 'delete':
+        this.onDeleteActivity();
+        break;
+    }
+  },
+  
+  /** 关闭管理面板 */
+  onManageSheetClose() {
+    this.setData({ showManageSheet: false });
+  },
+  
+  /** 编辑活动 */
+  onEditActivity() {
+    const { activityId } = this.data;
+    wx.navigateTo({
+      url: `/subpackages/activity/confirm/index?id=${activityId}&mode=edit`,
+    });
+  },
+  
+  /** 查看报名列表 */
+  onViewParticipants() {
+    const { activityId } = this.data;
+    wx.navigateTo({
+      url: `/subpackages/activity/participants/index?id=${activityId}`,
+    });
+  },
+  
+  /** 取消活动 - CP-5: 只有活动创建者可以更新状态 */
+  onCancelActivity() {
+    wx.showModal({
+      title: '确认取消',
+      content: '取消后活动将不再显示，已报名的用户会收到通知',
+      confirmColor: '#FF4D4F',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            const response = await putActivitiesById(this.data.activityId, {
+              status: 'cancelled',
+            });
+            if (response.status === 200) {
+              wx.showToast({ title: '活动已取消', icon: 'success' });
+              this.loadActivityDetail(this.data.activityId);
+            } else {
+              throw new Error((response.data as { msg?: string })?.msg || '操作失败');
+            }
+          } catch (error) {
+            wx.showToast({ title: (error as Error).message || '操作失败', icon: 'none' });
+          }
+        }
+      },
+    });
+  },
+  
+  /** 标记活动完成 */
+  onCompleteActivity() {
+    wx.showModal({
+      title: '确认完成',
+      content: '标记完成后可以进行履约确认',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            const response = await putActivitiesById(this.data.activityId, {
+              status: 'completed',
+            });
+            if (response.status === 200) {
+              wx.showToast({ title: '活动已完成', icon: 'success' });
+              this.loadActivityDetail(this.data.activityId);
+            } else {
+              throw new Error((response.data as { msg?: string })?.msg || '操作失败');
+            }
+          } catch (error) {
+            wx.showToast({ title: (error as Error).message || '操作失败', icon: 'none' });
+          }
+        }
+      },
+    });
+  },
+  
+  /** 删除草稿 - CP-6: 只有 active 且未开始的活动可以删除 */
+  onDeleteActivity() {
+    wx.showModal({
+      title: '确认删除',
+      content: '删除后无法恢复',
+      confirmColor: '#FF4D4F',
+      success: async (res) => {
+        if (res.confirm) {
+          try {
+            const response = await deleteActivitiesById(this.data.activityId);
+            if (response.status === 200) {
+              wx.showToast({ title: '已删除', icon: 'success' });
+              setTimeout(() => {
+                const pages = getCurrentPages();
+                if (pages.length > 1) {
+                  wx.navigateBack();
+                } else {
+                  wx.reLaunch({ url: '/pages/home/index' });
+                }
+              }, 1500);
+            } else {
+              throw new Error((response.data as { msg?: string })?.msg || '删除失败');
+            }
+          } catch (error) {
+            wx.showToast({ title: (error as Error).message || '删除失败', icon: 'none' });
+          }
+        }
+      },
+    });
   },
 
   onCloseJoinDialog() {

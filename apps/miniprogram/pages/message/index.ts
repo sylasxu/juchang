@@ -400,6 +400,16 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   // ==================== 辅助方法 ====================
 
+  /** 返回上一页 */
+  goBack() {
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      wx.navigateBack();
+    } else {
+      wx.switchTab({ url: '/pages/home/index' });
+    }
+  },
+
   /** 格式化时间 */
   formatTime(dateStr: string): string {
     if (!dateStr) return '';

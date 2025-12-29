@@ -1,6 +1,6 @@
 {
   "usingComponents": {
-    "t-navbar": "tdesign-miniprogram/navbar/navbar",
+    "custom-navbar": "/components/custom-navbar/index",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-badge": "tdesign-miniprogram/badge/badge",
     "t-button": "tdesign-miniprogram/button/button"

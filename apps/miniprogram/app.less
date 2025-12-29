@@ -1,6 +1,6 @@
 /**
- * 全局样式入口
- * 聚场小程序 - Atomic Less Architecture
+ * 全局样式入口 v3.2
+ * 聚场小程序 - Crypto-Clean 视觉风格
  * 
  * 加载顺序：
  * 1. tokens.less - Design Token 变量定义
@@ -17,18 +17,542 @@
 // 3. TDesign 主题覆盖
 @import './styles/tdesign-theme.less';
 
+// ==================== CSS Variables (语义化变量) ====================
+// 使用 CSS Variables 实现深色模式切换
+// Crypto-Clean 视觉风格 - 超大圆角、彩色弥散阴影、渐变边框
+
+:root {
+  // ========== 背景色 ==========
+  --bg-page: @bg-page;                    // #FAFBFC 极简白
+  --bg-card: @bg-card;                    // #FFFFFF 纯白卡片
+  --bg-input: @bg-input;                  // #F3F4F6 输入框
+  --bg-hover: @bg-hover;                  // #F9FAFB 悬停态
+  --bg-overlay: rgba(0, 0, 0, 0.5);       // 遮罩层
+  
+  // ========== 文字色 ==========
+  --text-main: @text-main;                // #1F2937 主文字
+  --text-secondary: @text-secondary;      // #6B7280 次要文字
+  --text-tertiary: @text-tertiary;        // #9CA3AF 辅助文字
+  --text-placeholder: @text-placeholder;  // #D1D5DB 占位符
+  --text-inverse: #FFFFFF;                // 反色文字（用于深色背景）
+  
+  // ========== 边框 ==========
+  --border-default: @border-default;      // rgba(0, 0, 0, 0.04) 极细描边
+  --border-light: @border-light;          // #F3F4F6
+  --border-card: 1rpx solid rgba(0, 0, 0, 0.04);  // 卡片边框
+  
+  // ========== 品牌色 (Cornflower Blue) ==========
+  --color-primary: @color-primary;        // #5B75FB 矢车菊蓝
+  --color-primary-light: @color-primary-light;  // #8B9DFC
+  --color-primary-dark: @color-primary-dark;    // #4A5FD9
+  --color-secondary: @color-secondary;    // #8B5CF6 紫罗兰
+  --color-accent: @color-accent;          // #C4B5FD 淡紫
+  
+  // ========== 功能色 ==========
+  --color-success: @success-color;        // #10B981 翡翠绿
+  --color-warning: @warning-color;        // #F59E0B 琥珀黄
+  --color-error: @error-color;            // #EF4444 珊瑚红
+  --color-info: @info-color;              // #3B82F6 天蓝
+  
+  // ========== 同色系图标底色 (Colorful Icons) ==========
+  --icon-bg-blue: rgba(91, 117, 251, 0.1);    // 淡蓝
+  --icon-bg-purple: rgba(139, 92, 246, 0.1);  // 淡紫
+  --icon-bg-mint: rgba(110, 231, 183, 0.1);   // 薄荷青
+  --icon-bg-amber: rgba(245, 158, 11, 0.1);   // 琥珀
+  
+  // ========== 阴影 (Colored Diffusion Shadow) ==========
+  --shadow-sm: @shadow-sm;                // 小阴影
+  --shadow-card: @shadow-card;            // 0 8rpx 32rpx rgba(91, 117, 251, 0.08) 彩色弥散阴影
+  --shadow-lg: @shadow-lg;                // 大阴影
+  --shadow-xl: @shadow-xl;                // 特大阴影
+  
+  // ========== 圆角 (Squircle - 超圆角) ==========
+  --radius-sm: @rounded-sm;               // 8rpx 微圆角
+  --radius-md: @rounded-md;               // 24rpx 中等圆角
+  --radius-lg: @rounded-lg;               // 40rpx 大圆角 - 卡片标准
+  --radius-xl: @rounded-xl;               // 48rpx 超大圆角 - AI Dock 胶囊
+  --radius-2xl: @rounded-2xl;             // 56rpx 特大圆角
+  --radius-full: @rounded-full;           // 9999px 完美圆形
+  
+  // ========== 渐变 ==========
+  --gradient-primary: @gradient-primary;  // 主色渐变
+  --gradient-card: @gradient-card;        // 卡片边框渐变
+  --gradient-halo: linear-gradient(135deg, rgba(91, 117, 251, 0.15) 0%, rgba(196, 181, 253, 0.15) 100%);
+  
+  // ========== 动效曲线 (Fluid Physics) ==========
+  --ease-default: @ease-default;          // 默认曲线
+  --ease-in: @ease-in;                    // 加速曲线
+  --ease-out: @ease-out;                  // 减速曲线
+  --ease-out-expo: @ease-out-expo;        // cubic-bezier(0.16, 1, 0.3, 1) 快速减速
+  --ease-out-back: @ease-out-back;        // cubic-bezier(0.34, 1.56, 0.64, 1) 回弹效果
+  --ease-spring: @ease-spring;            // 弹簧效果
+  
+  // ========== 动画时长 ==========
+  --duration-fast: @duration-fast;        // 150ms
+  --duration-normal: @duration-normal;    // 250ms
+  --duration-slow: @duration-slow;        // 350ms
+}
+
+// ==================== 深色模式 (Dark Mode - Slate/Navy 色板) ====================
+// 深色模式使用 Slate/Navy 色板，非纯黑
+// 卡片用边框代替阴影
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    // ========== 背景色 (Slate/Navy 色板) ==========
+    --bg-page: @bg-page-dark;             // #0F172A Slate-900 深邃蓝黑
+    --bg-card: @bg-card-dark;             // #1E293B Slate-800
+    --bg-input: @bg-input-dark;           // #334155 Slate-700
+    --bg-hover: @bg-hover-dark;           // #475569 Slate-600
+    --bg-overlay: rgba(0, 0, 0, 0.7);     // 深色遮罩
+    
+    // ========== 文字色 ==========
+    --text-main: @text-main-dark;         // #F1F5F9 Slate-100
+    --text-secondary: @text-secondary-dark; // #94A3B8 Slate-400
+    --text-tertiary: @text-tertiary-dark; // #64748B Slate-500
+    --text-placeholder: @text-placeholder-dark; // #475569 Slate-600
+    --text-inverse: #0F172A;              // 反色文字
+    
+    // ========== 边框 (深色模式用边框代替阴影) ==========
+    --border-default: @border-default-dark; // rgba(255, 255, 255, 0.1)
+    --border-light: @border-light-dark;   // rgba(255, 255, 255, 0.05)
+    --border-card: 1rpx solid rgba(255, 255, 255, 0.1);  // 深色卡片边框
+    
+    // ========== 同色系图标底色 (深色模式增强) ==========
+    --icon-bg-blue: rgba(91, 117, 251, 0.2);
+    --icon-bg-purple: rgba(139, 92, 246, 0.2);
+    --icon-bg-mint: rgba(110, 231, 183, 0.2);
+    --icon-bg-amber: rgba(245, 158, 11, 0.2);
+    
+    // ========== 阴影 (深色模式无阴影) ==========
+    --shadow-sm: none;
+    --shadow-card: none;
+    --shadow-lg: none;
+    --shadow-xl: none;
+    
+    // ========== 渐变 (深色模式增强对比度) ==========
+    --gradient-halo: linear-gradient(135deg, rgba(91, 117, 251, 0.25) 0%, rgba(196, 181, 253, 0.25) 100%);
+  }
+  
+  page {
+    background-color: @bg-page-dark;
+    color: @text-main-dark;
+  }
+}
+
 // ==================== 全局基础样式 ====================
 
 page {
-  background-color: @gray-50;
+  background-color: var(--bg-page, @bg-page);
   font-size: @text-base;
-  color: @gray-900;
+  color: var(--text-main, @text-main);
   line-height: 1.5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 .page {
   min-height: 100vh;
-  background-color: #ffffff;
+  background-color: var(--bg-page, @bg-page);
+}
+
+// ==================== Crypto-Clean 组件样式 ====================
+
+// Halo Card - 渐变边框卡片 (使用 background-origin/clip 技术)
+// 核心视觉元素：超大圆角 + 彩色弥散阴影 + 渐变细边框
+.halo-card {
+  position: relative;
+  background: var(--bg-card, @bg-card);
+  border-radius: var(--radius-lg, @rounded-lg);  // 40rpx 超大圆角
+  box-shadow: var(--shadow-card, @shadow-card);  // 彩色弥散阴影
+  overflow: hidden;
+  
+  // 渐变边框效果 (使用 -webkit-mask 实现)
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 2rpx;  // 边框宽度
+    background: var(--gradient-halo, @gradient-card);
+    border-radius: inherit;
+    // 使用 mask 技术实现渐变边框
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+// Halo Card Mini - 紧凑版渐变边框 (用于小型组件)
+.halo-card-mini {
+  position: relative;
+  background: var(--bg-card, @bg-card);
+  border-radius: var(--radius-md, @rounded-md);  // 24rpx 中等圆角
+  box-shadow: var(--shadow-sm, @shadow-sm);
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1rpx;  // 更细的边框
+    background: var(--gradient-halo, @gradient-card);
+    border-radius: inherit;
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+// Soft Card - 无渐变边框的柔和卡片
+.soft-card {
+  background: var(--bg-card, @bg-card);
+  border-radius: var(--radius-lg, @rounded-lg);
+  box-shadow: var(--shadow-card, @shadow-card);
+  border: var(--border-card, 1rpx solid rgba(0, 0, 0, 0.04));
+}
+
+// 深色模式 Halo Card
+@media (prefers-color-scheme: dark) {
+  .halo-card {
+    background: var(--bg-card, @bg-card-dark);
+    box-shadow: none;  // 深色模式无阴影
+    border: 1rpx solid var(--border-default, @border-default-dark);  // 用边框代替阴影
+    
+    &::before {
+      background: var(--gradient-halo, linear-gradient(135deg, 
+        rgba(91, 117, 251, 0.25) 0%, 
+        rgba(196, 181, 253, 0.25) 100%
+      ));
+    }
+  }
+  
+  .halo-card-mini {
+    background: var(--bg-card, @bg-card-dark);
+    box-shadow: none;
+    border: 1rpx solid var(--border-default, @border-default-dark);
+    
+    &::before {
+      background: var(--gradient-halo, linear-gradient(135deg, 
+        rgba(91, 117, 251, 0.25) 0%, 
+        rgba(196, 181, 253, 0.25) 100%
+      ));
+    }
+  }
+  
+  .soft-card {
+    background: var(--bg-card, @bg-card-dark);
+    box-shadow: none;
+    border: 1rpx solid var(--border-default, @border-default-dark);
+  }
+}
+
+// ==================== 图标圆形底色 (Colorful Icons) ====================
+
+.icon-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: var(--radius-full, @rounded-full);
+  
+  &--blue {
+    background: var(--icon-bg-blue, rgba(91, 117, 251, 0.1));
+    color: var(--color-primary, @color-primary);
+  }
+  
+  &--purple {
+    background: var(--icon-bg-purple, rgba(139, 92, 246, 0.1));
+    color: var(--color-secondary, @color-secondary);
+  }
+  
+  &--mint {
+    background: var(--icon-bg-mint, rgba(110, 231, 183, 0.1));
+    color: @success-color;
+  }
+  
+  &--amber {
+    background: var(--icon-bg-amber, rgba(245, 158, 11, 0.1));
+    color: @warning-color;
+  }
+}
+
+// 小号图标圆形
+.icon-circle-sm {
+  width: 56rpx;
+  height: 56rpx;
+}
+
+// 按钮回弹效果 (Scale Down Feedback)
+.btn-pressable {
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+// ==================== Floating Capsule (悬浮胶囊 - AI Dock 样式) ====================
+// 距离底部和左右都有间距，像 iOS 灵动岛
+
+.floating-capsule {
+  position: fixed;
+  left: 32rpx;
+  right: 32rpx;
+  bottom: calc(32rpx + env(safe-area-inset-bottom));
+  background: var(--bg-card, @bg-card);
+  border-radius: var(--radius-xl, @rounded-xl);  // 48rpx 胶囊形
+  box-shadow: var(--shadow-lg, @shadow-lg);
+  z-index: 100;
+  
+  // 渐变边框效果
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 2rpx;
+    background: var(--gradient-halo, @gradient-card);
+    border-radius: inherit;
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+// 深色模式 Floating Capsule
+@media (prefers-color-scheme: dark) {
+  .floating-capsule {
+    background: var(--bg-card, @bg-card-dark);
+    box-shadow: none;
+    border: 1rpx solid var(--border-default, @border-default-dark);
+    
+    &::before {
+      background: var(--gradient-halo, linear-gradient(135deg, 
+        rgba(91, 117, 251, 0.25) 0%, 
+        rgba(196, 181, 253, 0.25) 100%
+      ));
+    }
+  }
+}
+
+// 主按钮样式 (Cornflower Blue 渐变)
+.btn-primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  height: 88rpx;
+  padding: 0 48rpx;
+  background: var(--gradient-primary, @gradient-primary);
+  border-radius: 44rpx;
+  color: var(--text-inverse, #FFFFFF);
+  font-size: @text-base;
+  font-weight: 500;
+  border: none;
+  
+  &:active {
+    transform: scale(0.95);
+    transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  }
+  
+  &.disabled,
+  &[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+// 次要按钮样式
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  height: 88rpx;
+  padding: 0 48rpx;
+  background: var(--bg-input, @bg-input);
+  border-radius: 44rpx;
+  color: var(--text-main, @text-main);
+  font-size: @text-base;
+  font-weight: 500;
+  border: none;
+  
+  &:active {
+    transform: scale(0.95);
+    transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  }
+  
+  &.disabled,
+  &[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+// 幽灵按钮样式
+.btn-ghost {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  height: 88rpx;
+  padding: 0 48rpx;
+  background: transparent;
+  border: 2rpx solid var(--border-default, @border-default);
+  border-radius: 44rpx;
+  color: var(--text-main, @text-main);
+  font-size: @text-base;
+  font-weight: 500;
+  
+  &:active {
+    transform: scale(0.95);
+    transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  }
+  
+  &.disabled,
+  &[disabled] {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+// 小号按钮
+.btn-sm {
+  height: 64rpx;
+  padding: 0 32rpx;
+  font-size: @text-sm;
+}
+
+// 大号按钮
+.btn-lg {
+  height: 104rpx;
+  padding: 0 64rpx;
+  font-size: @text-lg;
+}
+
+// ==================== 消息气泡样式 ====================
+
+// 用户消息气泡
+.bubble-user {
+  background: @gradient-primary;
+  color: #FFFFFF;
+  border-radius: @rounded-lg @rounded-lg 8rpx @rounded-lg;
+  padding: 24rpx 32rpx;
+  max-width: 70%;
+  word-break: break-word;
+}
+
+// AI 消息气泡
+.bubble-ai {
+  background: transparent;
+  color: var(--text-main, @text-main);
+  padding: 24rpx 0;
+  max-width: 85%;
+  word-break: break-word;
+}
+
+// ==================== 动画类 ====================
+
+// 淡入动画
+.fade-in {
+  animation: fadeIn @duration-normal @ease-out-expo;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// 上浮淡入动画
+.slide-up-fade-in {
+  animation: slideUpFadeIn @duration-normal @ease-out-expo;
+}
+
+@keyframes slideUpFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(32rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 缩放弹入动画
+.scale-in {
+  animation: scaleIn @duration-normal @ease-out-back;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+// 思考气泡跳动动画
+.thinking-dot {
+  animation: thinkingBounce 1.4s infinite ease-in-out both;
+  
+  &:nth-child(1) { animation-delay: -0.32s; }
+  &:nth-child(2) { animation-delay: -0.16s; }
+  &:nth-child(3) { animation-delay: 0s; }
+}
+
+@keyframes thinkingBounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-12rpx);
+  }
+}
+
+// 骨架屏流光动画
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-input, @bg-input) 0%,
+    var(--bg-hover, @bg-hover) 50%,
+    var(--bg-input, @bg-input) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 // ==================== 全局辅助类 ====================
@@ -51,4 +575,33 @@ page {
   &:active {
     opacity: 0.7;
   }
+}
+
+// 单行省略
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 多行省略
+.ellipsis-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ellipsis-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+// 安全区域底部
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
 }

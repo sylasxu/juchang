@@ -13,7 +13,7 @@ import { Elysia, t, type Static } from 'elysia';
  */
 
 // 参与者信息
-const ParticipantInfo = t.Object({
+export const ParticipantInfoSchema = t.Object({
   id: t.String(),
   userId: t.String(),
   status: t.String(),
@@ -42,12 +42,12 @@ const ErrorResponse = t.Object({
 // 注册到 Elysia
 export const participantModel = new Elysia({ name: 'participantModel' })
   .model({
-    'participant.info': ParticipantInfo,
+    'participant.info': ParticipantInfoSchema,
     'participant.idParams': IdParams,
     'participant.error': ErrorResponse,
   });
 
 // 导出 TS 类型
-export type ParticipantInfo = Static<typeof ParticipantInfo>;
+export type ParticipantInfo = Static<typeof ParticipantInfoSchema>;
 export type IdParams = Static<typeof IdParams>;
 export type ErrorResponse = Static<typeof ErrorResponse>;

@@ -1,0 +1,102 @@
+<!--
+  沉浸式地图页 - 探索附近
+  Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8
+  
+  使用原生 `<map>` 组件实现全屏可交互地图（免费，无需 Key）
+  - 显示活动 Markers（限制 ≤ 20 个）
+  - 点击 Marker 显示 activity-preview-sheet（轻量预览）
+  - 地图拖拽后自动加载新区域活动（防抖）
+  - 底部 Sheet 显示活动列表
+  - 支持展开/收缩动画
+-->
+<view class="explore-page {{animateIn ? 'explore-page--animate-in' : ''}} {{animateOut ? 'explore-page--animate-out' : ''}}">
+  <!-- 自定义导航栏 -->
+  <custom-navbar 
+    title="探索附近" 
+    showBack="{{true}}"
+    showMenu="{{false}}"
+    showMore="{{false}}"
+    transparent="{{true}}"
+    bindback="goBack"
+  />
+  
+  <!-- 筛选栏 -->
+  <view class="filter-bar-wrapper">
+    <filter-bar 
+      value="{{activeFilter}}"
+      bindchange="onFilterChange"
+    />
+  </view>
+  
+  <!-- 全屏地图 -->
+  <map
+    id="exploreMap"
+    class="explore-map"
+    latitude="{{latitude}}"
+    longitude="{{longitude}}"
+    scale="{{scale}}"
+    markers="{{markers}}"
+    show-location="{{true}}"
+    enable-zoom="{{true}}"
+    enable-scroll="{{true}}"
+    enable-rotate="{{false}}"
+    bindmarkertap="onMarkerTap"
+    bindregionchange="onRegionChange"
+    bindtap="onMapTap"
+  />
+  
+  <!-- 底部活动列表 Sheet -->
+  <view class="bottom-sheet {{sheetExpanded ? 'bottom-sheet--expanded' : ''}}">
+    <!-- 拖拽指示条 -->
+    <view class="sheet-handle" bindtap="toggleSheet">
+      <view class="handle-bar"></view>
+    </view>
+    
+    <!-- Sheet 头部 -->
+    <view class="sheet-header">
+      <text class="sheet-title">附近活动</text>
+      <text class="sheet-count">{{activities.length}} 个</text>
+    </view>
+    
+    <!-- 活动列表 -->
+    <scroll-view scroll-y class="sheet-scroll" enhanced show-scrollbar="{{false}}">
+      <!-- 加载中 -->
+      <view wx:if="{{loading}}" class="loading-container">
+        <t-loading theme="circular" size="48rpx" />
+        <text class="loading-text">搜索中...</text>
+      </view>
+      
+      <!-- 活动列表 -->
+      <view wx:elif="{{activities.length > 0}}" class="activity-list">
+        <view 
+          wx:for="{{activities}}" 
+          wx:key="id"
+          class="activity-item-wrapper"
+        >
+          <activity-list-item 
+            activity="{{item}}"
+            showDistance="{{true}}"
+            bindtap="onActivityTap"
+          />
+        </view>
+      </view>
+      
+      <!-- 空状态 -->
+      <view wx:else class="empty-state">
+        <t-icon name="location" size="80rpx" color="#9CA3AF" />
+        <text class="empty-text">附近暂无活动</text>
+        <text class="empty-hint">试试拖动地图扩大搜索范围</text>
+      </view>
+    </scroll-view>
+  </view>
+  
+  <!-- 活动预览浮层 -->
+  <activity-preview-sheet 
+    show="{{showPreview}}"
+    activity="{{selectedActivity}}"
+    joined="{{isJoined}}"
+    bindhide="onPreviewHide"
+    bindviewdetail="onViewDetail"
+    bindjoin="onJoin"
+  />
+</view>

@@ -1,0 +1,215 @@
+/**
+ * AI Dock 样式 (Floating Capsule)
+ * Requirements: 5.1, 5.2, 5.3, 15.1, 15.17
+ * 
+ * Crypto-Clean 视觉风格
+ * - 悬浮胶囊样式（距离底部/左右 32rpx，圆角 48rpx）
+ * - Halo Card 渐变边框效果
+ */
+@import '/styles/tokens.less';
+
+.ai-dock {
+  position: fixed;
+  left: 32rpx;
+  right: 32rpx;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: @spacing-2;
+  padding: @spacing-2 @spacing-3;
+  min-height: 96rpx;
+  background: var(--bg-card, @bg-card);
+  border-radius: var(--radius-xl, @rounded-xl);  // 48rpx 胶囊形
+  box-shadow: var(--shadow-lg, @shadow-lg);
+  transition: all var(--duration-normal, @duration-normal) var(--ease-out-expo, @ease-out-expo);
+  
+  // Halo Card 渐变边框效果
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 2rpx;
+    background: var(--gradient-halo, @gradient-card);
+    border-radius: inherit;
+    -webkit-mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    mask: 
+      linear-gradient(#fff 0 0) content-box, 
+      linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  
+  // 聚焦状态
+  &.focused {
+    box-shadow: var(--shadow-xl, @shadow-xl);
+    
+    &::before {
+      padding: 3rpx;
+      background: linear-gradient(135deg, 
+        rgba(91, 117, 251, 0.3) 0%, 
+        rgba(196, 181, 253, 0.3) 100%
+      );
+    }
+  }
+  
+  // 禁用状态
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+// 快捷按钮区域
+.dock-actions {
+  display: flex;
+  align-items: center;
+  gap: @spacing-2;
+  flex-shrink: 0;
+}
+
+// 快捷按钮
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: @spacing-1;
+  padding: @spacing-2 @spacing-3;
+  background: var(--bg-input, @bg-input);
+  border-radius: var(--radius-full, @rounded-full);
+  color: var(--text-secondary, @text-secondary);
+  transition: all var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &--hover {
+    background: var(--bg-hover, @bg-hover);
+  }
+  
+  &.recording {
+    background: rgba(239, 68, 68, 0.1);
+    color: @error-color;
+  }
+}
+
+.action-text {
+  font-size: @text-sm;
+  font-weight: 500;
+}
+
+// 录音指示器
+.recording-indicator {
+  display: flex;
+  align-items: center;
+  gap: @spacing-1;
+}
+
+.recording-dot {
+  width: 16rpx;
+  height: 16rpx;
+  background: @error-color;
+  border-radius: var(--radius-full, @rounded-full);
+  animation: blink 1s infinite;
+}
+
+.recording-time {
+  font-size: @text-sm;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+// 输入区域
+.dock-input-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.dock-input {
+  flex: 1;
+  height: 64rpx;
+  font-size: @text-base;
+  color: var(--text-main, @text-main);
+  background: transparent;
+}
+
+.dock-placeholder {
+  color: var(--text-placeholder, @text-placeholder);
+}
+
+// 清空按钮
+.clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48rpx;
+  height: 48rpx;
+  flex-shrink: 0;
+}
+
+// 发送按钮
+.send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72rpx;
+  height: 72rpx;
+  background: var(--gradient-primary, @gradient-primary);
+  border-radius: var(--radius-full, @rounded-full);
+  flex-shrink: 0;
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &--hover {
+    transform: scale(0.95);
+  }
+}
+
+// 深色模式
+@media (prefers-color-scheme: dark) {
+  .ai-dock {
+    background: var(--bg-card, @bg-card-dark);
+    box-shadow: none;
+    border: 1rpx solid var(--border-default, @border-default-dark);
+    
+    &::before {
+      background: linear-gradient(135deg, 
+        rgba(91, 117, 251, 0.25) 0%, 
+        rgba(196, 181, 253, 0.25) 100%
+      );
+    }
+    
+    &.focused {
+      box-shadow: none;
+      border-color: var(--color-primary, @color-primary);
+      
+      &::before {
+        background: linear-gradient(135deg, 
+          rgba(91, 117, 251, 0.4) 0%, 
+          rgba(196, 181, 253, 0.4) 100%
+        );
+      }
+    }
+  }
+  
+  .action-btn {
+    background: var(--bg-input, @bg-input-dark);
+    color: var(--text-secondary, @text-secondary-dark);
+    
+    &--hover {
+      background: var(--bg-hover, @bg-hover-dark);
+    }
+  }
+  
+  .dock-input {
+    color: var(--text-main, @text-main-dark);
+  }
+  
+  .dock-placeholder {
+    color: var(--text-placeholder, @text-placeholder-dark);
+  }
+}

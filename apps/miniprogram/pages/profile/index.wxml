@@ -1,0 +1,127 @@
+<!--
+  个人中心页面 - Inset Grouped List 风格
+  Requirements: 8.1, 8.2, 8.3, 8.4, 8.5, 8.6, 8.7, 8.8, 8.9, 8.10
+-->
+<view class="profile-page">
+  <!-- 自定义导航栏 -->
+  <custom-navbar 
+    title="个人中心" 
+    showMenu="{{false}}" 
+    showMore="{{false}}"
+    showBack="{{true}}"
+    bindback="goBack"
+  />
+  
+  <!-- 导航栏占位 -->
+  <view class="navbar-placeholder" style="height: {{navbarHeight}}px;"></view>
+  
+  <!-- Header: 用户信息 -->
+  <view class="profile-header" bindtap="onHeaderTap">
+    <view class="avatar-wrapper">
+      <t-avatar 
+        image="{{user.avatarUrl || '/static/avatar1.png'}}" 
+        size="128rpx"
+        class="avatar"
+      />
+      <view wx:if="{{!isLoggedIn}}" class="avatar-badge">
+        <t-icon name="add" size="24rpx" color="#FFFFFF" />
+      </view>
+    </view>
+    <view class="user-info">
+      <text class="nickname">{{user.nickname || '未登录'}}</text>
+      <text class="slogan">{{user.slogan || '在聚场，遇见有趣的人'}}</text>
+    </view>
+    <view wx:if="{{isLoggedIn}}" class="user-stats">
+      <view class="stat-item">
+        <text class="stat-value">{{user.activitiesCreatedCount || 0}}</text>
+        <text class="stat-label">发起</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <text class="stat-value">{{user.participationCount || 0}}</text>
+        <text class="stat-label">参与</text>
+      </view>
+    </view>
+    <view class="header-arrow">
+      <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+    </view>
+  </view>
+
+  <!-- Group 1: 活动相关 -->
+  <view class="cell-group">
+    <view class="group-title">我的活动</view>
+    <view class="cell-list">
+      <view class="cell-item" bindtap="goToCreated">
+        <view class="cell-icon cell-icon--blue">
+          <t-icon name="add-circle" size="40rpx" />
+        </view>
+        <text class="cell-title">我发布的</text>
+        <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+      </view>
+      <view class="cell-item" bindtap="goToJoined">
+        <view class="cell-icon cell-icon--mint">
+          <t-icon name="user-add" size="40rpx" />
+        </view>
+        <text class="cell-title">我参与的</text>
+        <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+      </view>
+      <view class="cell-item" bindtap="goToArchived">
+        <view class="cell-icon cell-icon--purple">
+          <t-icon name="time" size="40rpx" />
+        </view>
+        <text class="cell-title">历史归档</text>
+        <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+      </view>
+    </view>
+  </view>
+
+  <!-- Group 2: 账号设置 -->
+  <view class="cell-group">
+    <view class="group-title">账号设置</view>
+    <view class="cell-list">
+      <view class="cell-item" bindtap="goToBindPhone">
+        <view class="cell-icon cell-icon--amber">
+          <t-icon name="mobile" size="40rpx" />
+        </view>
+        <text class="cell-title">手机绑定</text>
+        <view class="cell-note {{user.phoneNumber ? 'cell-note--success' : 'cell-note--warning'}}">
+          {{user.phoneNumber ? '已绑定' : '未绑定'}}
+        </view>
+        <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+      </view>
+      <view class="cell-item" bindtap="goToPrivacy">
+        <view class="cell-icon cell-icon--blue">
+          <t-icon name="lock-on" size="40rpx" />
+        </view>
+        <text class="cell-title">隐私设置</text>
+        <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+      </view>
+    </view>
+  </view>
+
+  <!-- Group 3: 其他 -->
+  <view class="cell-group">
+    <view class="group-title">其他</view>
+    <view class="cell-list">
+      <view class="cell-item" bindtap="goToAbout">
+        <view class="cell-icon cell-icon--purple">
+          <t-icon name="info-circle" size="40rpx" />
+        </view>
+        <text class="cell-title">关于聚场</text>
+        <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+      </view>
+      <view class="cell-item" bindtap="goToFeedback">
+        <view class="cell-icon cell-icon--mint">
+          <t-icon name="chat" size="40rpx" />
+        </view>
+        <text class="cell-title">意见反馈</text>
+        <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+      </view>
+    </view>
+  </view>
+  
+  <!-- 版本信息 -->
+  <view class="version-info">
+    <text>聚场 v1.0.0</text>
+  </view>
+</view>

@@ -1,0 +1,71 @@
+<!--
+  Auth Sheet 组件 - 半屏登录授权
+  Requirements: 12.2, 12.3, CP-9
+  
+  使用 page-container 实现半屏弹出
+  视觉结构：Header (Logo + 标题) + Body (说明文案) + Footer (绑定按钮 + 隐私协议)
+-->
+<page-container
+  show="{{visible}}"
+  position="bottom"
+  round="{{true}}"
+  close-on-slide-down="{{true}}"
+  overlay="{{true}}"
+  duration="{{300}}"
+  z-index="{{1000}}"
+  bind:beforeleave="onBeforeLeave"
+  bind:afterleave="onAfterLeave"
+>
+  <view class="auth-sheet">
+    <!-- Header: 品牌 Logo + 标题 -->
+    <view class="auth-sheet__header">
+      <view class="auth-sheet__logo">
+        <text class="auth-sheet__logo-text">聚</text>
+      </view>
+      <view class="auth-sheet__title">加入聚场，认识新朋友</view>
+    </view>
+    
+    <!-- Body: 说明文案 -->
+    <view class="auth-sheet__body">
+      <text class="auth-sheet__desc">
+        绑定手机号后可以发布和报名活动，我们会在活动有变动时通知你
+      </text>
+    </view>
+    
+    <!-- Footer: 绑定按钮 + 隐私协议 -->
+    <view class="auth-sheet__footer">
+      <!-- 隐私协议勾选 -->
+      <view class="auth-sheet__agreement">
+        <view 
+          class="auth-sheet__checkbox {{agreedPrivacy ? 'auth-sheet__checkbox--checked' : ''}}"
+          bindtap="onToggleAgreement"
+        >
+          <text wx:if="{{agreedPrivacy}}" class="auth-sheet__checkbox-icon">✓</text>
+        </view>
+        <text class="auth-sheet__agreement-text">
+          我已阅读并同意
+          <text class="auth-sheet__link" bindtap="onViewUserAgreement">《用户协议》</text>
+          和
+          <text class="auth-sheet__link" bindtap="onViewPrivacyPolicy">《隐私政策》</text>
+        </text>
+      </view>
+      
+      <!-- 绑定手机号按钮 -->
+      <button
+        class="auth-sheet__btn {{!agreedPrivacy ? 'auth-sheet__btn--disabled' : ''}}"
+        open-type="{{agreedPrivacy ? 'getPhoneNumber' : ''}}"
+        bindgetphonenumber="onGetPhoneNumber"
+        bindtap="{{!agreedPrivacy ? 'onDisabledTap' : ''}}"
+        loading="{{loading}}"
+        disabled="{{loading}}"
+      >
+        <text class="auth-sheet__btn-text">{{loading ? '绑定中...' : '一键绑定手机号'}}</text>
+      </button>
+      
+      <!-- 跳过按钮 -->
+      <view class="auth-sheet__skip" bindtap="onSkip">
+        <text class="auth-sheet__skip-text">暂不绑定</text>
+      </view>
+    </view>
+  </view>
+</page-container>

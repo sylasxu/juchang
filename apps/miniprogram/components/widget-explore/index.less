@@ -1,0 +1,179 @@
+/**
+ * Widget Explore 样式 (Generative UI)
+ * Requirements: 17.1-17.6
+ * 
+ * Crypto-Clean 视觉风格 (v3.5 零成本地图方案)
+ * - Halo Card 渐变边框
+ * - 位置文字卡片（替代静态地图）
+ */
+@import '/styles/tokens.less';
+
+.widget-explore {
+  padding: @spacing-4;
+  margin: @spacing-2 0;
+}
+
+// ==================== 头部区域 ====================
+
+.explore-header {
+  display: flex;
+  align-items: center;
+  gap: @spacing-3;
+  margin-bottom: @spacing-4;
+}
+
+.header-icon {
+  flex-shrink: 0;
+}
+
+.header-title {
+  flex: 1;
+  font-size: @text-base;
+  font-weight: 500;
+  color: var(--text-main, @text-main);
+  line-height: 1.4;
+}
+
+// ==================== 位置卡片（替代静态地图） ====================
+
+.location-card {
+  display: flex;
+  align-items: center;
+  gap: @spacing-3;
+  padding: @spacing-4;
+  margin-bottom: @spacing-4;
+  background: var(--bg-input, @bg-input);
+  border-radius: var(--radius-md, @rounded-md);
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  &__icon {
+    flex-shrink: 0;
+    width: 80rpx;
+    height: 80rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-bg-blue, rgba(91, 117, 251, 0.1));
+    border-radius: var(--radius-md, @rounded-md);
+  }
+  
+  &__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4rpx;
+  }
+  
+  &__name {
+    font-size: @text-base;
+    font-weight: 500;
+    color: var(--text-main, @text-main);
+    line-height: 1.4;
+  }
+  
+  &__hint {
+    font-size: @text-sm;
+    color: var(--text-secondary, @text-secondary);
+    line-height: 1.4;
+  }
+  
+  &__arrow {
+    flex-shrink: 0;
+  }
+}
+
+// ==================== 活动列表 ====================
+
+.explore-list {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: @spacing-4;
+}
+
+.explore-item {
+  border-bottom: 1rpx solid var(--border-default, @border-default);
+  
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+// ==================== 空状态 ====================
+
+.explore-empty {
+  padding: @spacing-6 @spacing-4;
+  text-align: center;
+  
+  .empty-text {
+    font-size: @text-sm;
+    color: var(--text-secondary, @text-secondary);
+  }
+}
+
+// ==================== 操作按钮 ====================
+
+.explore-action {
+  .action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: @spacing-2;
+    width: 100%;
+    height: 88rpx;
+    border-radius: 44rpx;
+    font-size: @text-base;
+    font-weight: 500;
+    transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+    
+    &:active {
+      transform: scale(0.98);
+    }
+    
+    &--secondary {
+      background: var(--bg-input, @bg-input);
+      color: var(--text-main, @text-main);
+    }
+  }
+}
+
+// ==================== 深色模式 ====================
+
+@media (prefers-color-scheme: dark) {
+  .header-title {
+    color: var(--text-main, @text-main-dark);
+  }
+  
+  .location-card {
+    background: var(--bg-input, @bg-input-dark);
+    
+    &__name {
+      color: var(--text-main, @text-main-dark);
+    }
+    
+    &__hint {
+      color: var(--text-secondary, @text-secondary-dark);
+    }
+    
+    &__icon {
+      background: rgba(91, 117, 251, 0.15);
+    }
+  }
+  
+  .explore-item {
+    border-bottom-color: var(--border-default, @border-default-dark);
+  }
+  
+  .explore-empty .empty-text {
+    color: var(--text-secondary, @text-secondary-dark);
+  }
+  
+  .action-btn--secondary {
+    background: var(--bg-input, @bg-input-dark);
+    color: var(--text-main, @text-main-dark);
+  }
+}

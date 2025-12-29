@@ -1,0 +1,100 @@
+/**
+ * Activity List Item 样式
+ * Requirements: 17.5, 18.6
+ * 
+ * Crypto-Clean 视觉风格
+ * - 同色系淡色图标底色
+ */
+@import '/styles/tokens.less';
+
+.activity-list-item {
+  display: flex;
+  align-items: center;
+  gap: @spacing-3;
+  padding: @spacing-3 0;
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// ==================== 类型图标 ====================
+
+.item-icon {
+  flex-shrink: 0;
+}
+
+// ==================== 活动信息 ====================
+
+.item-content {
+  flex: 1;
+  min-width: 0; // 允许内容收缩
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-1;
+}
+
+.item-title {
+  font-size: @text-base;
+  font-weight: 500;
+  color: var(--text-main, @text-main);
+  line-height: 1.3;
+}
+
+.item-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: @spacing-1;
+  font-size: @text-xs;
+  color: var(--text-tertiary, @text-tertiary);
+}
+
+.meta-distance {
+  color: var(--color-primary, @color-primary);
+  font-weight: 500;
+  // 等宽字体，数据仪表盘精密感
+  font-variant-numeric: tabular-nums;
+}
+
+.meta-separator {
+  color: var(--text-placeholder, @text-placeholder);
+}
+
+.meta-time {
+  // 保持不换行
+  white-space: nowrap;
+}
+
+.meta-location {
+  flex: 1;
+  min-width: 0;
+}
+
+// ==================== 箭头 ====================
+
+.item-arrow {
+  flex-shrink: 0;
+  color: var(--text-placeholder, @text-placeholder);
+}
+
+// ==================== 深色模式 ====================
+
+@media (prefers-color-scheme: dark) {
+  .item-title {
+    color: var(--text-main, @text-main-dark);
+  }
+  
+  .item-meta {
+    color: var(--text-tertiary, @text-tertiary-dark);
+  }
+  
+  .meta-separator {
+    color: var(--text-placeholder, @text-placeholder-dark);
+  }
+  
+  .item-arrow {
+    color: var(--text-placeholder, @text-placeholder-dark);
+  }
+}

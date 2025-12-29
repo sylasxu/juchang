@@ -1,0 +1,240 @@
+/**
+ * Activity Preview Sheet 组件样式 - 地图浮层预览
+ * Requirements: 18.4, 轻量预览
+ * 
+ * Crypto-Clean 视觉风格
+ * - 超大圆角
+ * - 彩色弥散阴影
+ * - 按钮回弹效果
+ */
+
+@import '../../styles/tokens.less';
+
+.preview-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-card, @bg-card);
+  border-radius: @rounded-lg @rounded-lg 0 0;
+  box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.1);
+  transform: translateY(100%);
+  transition: transform @duration-normal @ease-out-expo;
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+  
+  &--visible {
+    transform: translateY(0);
+  }
+  
+  // 拖拽指示条
+  &__handle {
+    display: flex;
+    justify-content: center;
+    padding: @spacing-3 0;
+  }
+  
+  &__handle-bar {
+    width: 80rpx;
+    height: 8rpx;
+    background: var(--border-default, @gray-300);
+    border-radius: @rounded-full;
+  }
+  
+  // 内容区
+  &__content {
+    padding: 0 @spacing-4 @spacing-4;
+  }
+  
+  // Header
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: @spacing-3;
+    margin-bottom: @spacing-4;
+  }
+  
+  &__type-icon {
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: @rounded-md;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    
+    &--amber {
+      background: rgba(245, 158, 11, 0.1);
+    }
+    
+    &--purple {
+      background: rgba(139, 92, 246, 0.1);
+    }
+    
+    &--mint {
+      background: rgba(16, 185, 129, 0.1);
+    }
+    
+    &--blue {
+      background: rgba(91, 117, 251, 0.1);
+    }
+  }
+  
+  &__type-icon-text {
+    font-size: 32rpx;
+  }
+  
+  &__title-wrap {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  &__title {
+    font-size: @text-lg;
+    font-weight: 600;
+    color: var(--text-main, @text-main);
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  &__type-label {
+    font-size: @text-sm;
+    color: var(--text-secondary, @text-secondary);
+  }
+  
+  // Info
+  &__info {
+    display: flex;
+    flex-direction: column;
+    gap: @spacing-2;
+    margin-bottom: @spacing-4;
+  }
+  
+  &__info-row {
+    display: flex;
+    align-items: center;
+    gap: @spacing-2;
+  }
+  
+  &__info-icon {
+    font-size: @text-base;
+    width: 32rpx;
+    text-align: center;
+  }
+  
+  &__info-text {
+    font-size: @text-base;
+    color: var(--text-secondary, @text-secondary);
+    
+    &--highlight {
+      color: @color-primary;
+      font-weight: 500;
+    }
+    
+    &--full {
+      color: @error-color;
+      font-weight: 500;
+    }
+  }
+  
+  // Actions
+  &__actions {
+    display: flex;
+    gap: @spacing-3;
+  }
+  
+  &__btn {
+    flex: 1;
+    height: 88rpx;
+    border-radius: @rounded-xl;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: @text-base;
+    font-weight: 600;
+    transition: transform @duration-fast @ease-out-back;
+    
+    &::after {
+      border: none;
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+    
+    &--secondary {
+      background: var(--bg-input, @bg-input);
+      color: var(--text-main, @text-main);
+    }
+    
+    &--primary {
+      background: @gradient-primary;
+      color: #FFFFFF;
+      box-shadow: @shadow-card;
+    }
+    
+    &--disabled {
+      background: var(--bg-input, @bg-input);
+      color: var(--text-tertiary, @text-tertiary);
+      box-shadow: none;
+      
+      &:active {
+        transform: none;
+      }
+    }
+  }
+  
+  // 空状态
+  &__empty {
+    padding: @spacing-6 @spacing-4;
+    text-align: center;
+  }
+  
+  &__empty-text {
+    font-size: @text-base;
+    color: var(--text-tertiary, @text-tertiary);
+  }
+}
+
+// 深色模式适配
+@media (prefers-color-scheme: dark) {
+  .preview-sheet {
+    background: var(--bg-card-dark, @bg-card-dark);
+    box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.3);
+    
+    &__handle-bar {
+      background: var(--border-default-dark, @border-default-dark);
+    }
+    
+    &__title {
+      color: var(--text-main-dark, @text-main-dark);
+    }
+    
+    &__type-label {
+      color: var(--text-secondary-dark, @text-secondary-dark);
+    }
+    
+    &__info-text {
+      color: var(--text-secondary-dark, @text-secondary-dark);
+    }
+    
+    &__btn {
+      &--secondary {
+        background: var(--bg-input-dark, @bg-input-dark);
+        color: var(--text-main-dark, @text-main-dark);
+      }
+      
+      &--disabled {
+        background: var(--bg-input-dark, @bg-input-dark);
+        color: var(--text-tertiary-dark, @text-tertiary-dark);
+      }
+    }
+    
+    &__empty-text {
+      color: var(--text-tertiary-dark, @text-tertiary-dark);
+    }
+  }
+}

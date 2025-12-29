@@ -1,0 +1,277 @@
+/**
+ * Widget Draft 样式 (v3.5 零成本地图方案)
+ * Requirements: 6.1-6.9
+ * 
+ * Crypto-Clean 视觉风格
+ * - Halo Card 渐变边框
+ * - 位置文字卡片（替代静态地图）
+ * - 过期状态样式
+ */
+@import '/styles/tokens.less';
+
+.widget-draft {
+  padding: @spacing-4;
+  margin: @spacing-2 0;
+  position: relative;
+  
+  // 过期状态
+  &--expired {
+    opacity: 0.7;
+    
+    .location-card {
+      opacity: 0.6;
+    }
+  }
+}
+
+// ==================== 过期标签 ====================
+
+.expired-badge {
+  position: absolute;
+  top: @spacing-3;
+  right: @spacing-3;
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  padding: @spacing-1 @spacing-2;
+  background: var(--color-error, @error-color);
+  color: #FFFFFF;
+  border-radius: var(--radius-sm, @rounded-sm);
+  font-size: @text-xs;
+  z-index: 1;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ==================== 头部区域 ====================
+
+.draft-header {
+  display: flex;
+  align-items: flex-start;
+  gap: @spacing-3;
+  margin-bottom: @spacing-4;
+}
+
+.type-icon {
+  flex-shrink: 0;
+}
+
+.header-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-1;
+}
+
+.draft-title {
+  font-size: @text-lg;
+  font-weight: 600;
+  color: var(--text-main, @text-main);
+  line-height: 1.4;
+}
+
+.type-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: @spacing-1 @spacing-2;
+  background: var(--icon-bg-blue, rgba(91, 117, 251, 0.1));
+  border-radius: var(--radius-sm, @rounded-sm);
+  
+  .type-text {
+    font-size: @text-xs;
+    color: var(--color-primary, @color-primary);
+  }
+}
+
+// ==================== 位置卡片（替代静态地图） ====================
+
+.location-card {
+  display: flex;
+  align-items: center;
+  gap: @spacing-3;
+  padding: @spacing-4;
+  margin-bottom: @spacing-4;
+  background: var(--bg-input, @bg-input);
+  border-radius: var(--radius-md, @rounded-md);
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  &__icon {
+    flex-shrink: 0;
+    width: 80rpx;
+    height: 80rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-bg-blue, rgba(91, 117, 251, 0.1));
+    border-radius: var(--radius-md, @rounded-md);
+  }
+  
+  &__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4rpx;
+  }
+  
+  &__name {
+    font-size: @text-base;
+    font-weight: 500;
+    color: var(--text-main, @text-main);
+    line-height: 1.4;
+  }
+  
+  &__hint {
+    font-size: @text-sm;
+    color: var(--text-secondary, @text-secondary);
+    line-height: 1.4;
+  }
+  
+  &__arrow {
+    flex-shrink: 0;
+  }
+}
+
+// ==================== 活动信息 ====================
+
+.draft-info {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-3;
+  margin-bottom: @spacing-4;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: @spacing-3;
+}
+
+.info-icon {
+  flex-shrink: 0;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary, @text-tertiary);
+}
+
+.info-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.info-label {
+  font-size: @text-xs;
+  color: var(--text-tertiary, @text-tertiary);
+}
+
+.info-value {
+  font-size: @text-base;
+  color: var(--text-main, @text-main);
+  font-weight: 500;
+}
+
+.info-hint {
+  font-size: @text-xs;
+  color: var(--text-secondary, @text-secondary);
+}
+
+// ==================== 操作按钮 ====================
+
+.draft-actions {
+  display: flex;
+  gap: @spacing-3;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: @spacing-2;
+  height: 88rpx;
+  border-radius: 44rpx;
+  font-size: @text-base;
+  font-weight: 500;
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  &--primary {
+    background: var(--gradient-primary, @gradient-primary);
+    color: #FFFFFF;
+  }
+  
+  &--secondary {
+    background: var(--bg-input, @bg-input);
+    color: var(--text-main, @text-main);
+  }
+  
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+// ==================== 深色模式 ====================
+
+@media (prefers-color-scheme: dark) {
+  .draft-title {
+    color: var(--text-main, @text-main-dark);
+  }
+  
+  .info-label {
+    color: var(--text-tertiary, @text-tertiary-dark);
+  }
+  
+  .info-value {
+    color: var(--text-main, @text-main-dark);
+  }
+  
+  .info-hint {
+    color: var(--text-secondary, @text-secondary-dark);
+  }
+  
+  .location-card {
+    background: var(--bg-input, @bg-input-dark);
+    
+    &__name {
+      color: var(--text-main, @text-main-dark);
+    }
+    
+    &__hint {
+      color: var(--text-secondary, @text-secondary-dark);
+    }
+    
+    &__icon {
+      background: rgba(91, 117, 251, 0.15);
+    }
+  }
+  
+  .action-btn--secondary {
+    background: var(--bg-input, @bg-input-dark);
+    color: var(--text-main, @text-main-dark);
+  }
+}

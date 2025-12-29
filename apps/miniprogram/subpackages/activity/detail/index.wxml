@@ -54,6 +54,15 @@
 </wxs>
 
 <view class="min-h-screen bg-gray-50 pb-bottom-bar">
+  <!-- 自定义导航栏 -->
+  <custom-navbar 
+    title="活动详情" 
+    showMenu="{{false}}" 
+    showMore="{{false}}"
+    showBack="{{true}}"
+    transparent="{{!loading && !error}}"
+  />
+
   <!-- 加载状态 -->
   <view wx:if="{{loading}}" class="flex flex-col items-center justify-center min-h-screen py-5">
     <t-loading theme="circular" size="80rpx" />
@@ -279,4 +288,20 @@
       </view>
     </view>
   </t-popup>
+  
+  <!-- 活动管理操作面板 -->
+  <t-action-sheet
+    visible="{{showManageSheet}}"
+    items="{{manageActions}}"
+    bind:selected="onManageActionSelect"
+    bind:cancel="onManageSheetClose"
+    bind:close="onManageSheetClose"
+  />
+  
+  <!-- 手机号绑定半屏 -->
+  <auth-sheet 
+    visible="{{isAuthSheetVisible}}" 
+    bind:success="onAuthSuccess"
+    bind:close="onAuthClose"
+  />
 </view>

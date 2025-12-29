@@ -1,0 +1,223 @@
+/**
+ * Widget Share 样式 (v3.5 零成本地图方案)
+ * Requirements: 7.1-7.6
+ * 
+ * Crypto-Clean 视觉风格
+ * - Halo Card 渐变边框
+ * - 位置文字卡片（替代静态地图）
+ * - 分享卡片预览
+ */
+@import '/styles/tokens.less';
+
+.widget-share {
+  padding: @spacing-4;
+  margin: @spacing-2 0;
+}
+
+// ==================== 成功提示 ====================
+
+.share-header {
+  display: flex;
+  align-items: flex-start;
+  gap: @spacing-3;
+  margin-bottom: @spacing-4;
+}
+
+.success-icon {
+  flex-shrink: 0;
+}
+
+.header-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-1;
+}
+
+.success-title {
+  font-size: @text-lg;
+  font-weight: 600;
+  color: var(--text-main, @text-main);
+}
+
+.success-hint {
+  font-size: @text-sm;
+  color: var(--text-secondary, @text-secondary);
+}
+
+// ==================== 分享卡片预览 ====================
+
+.share-preview {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-3;
+  padding: @spacing-3;
+  background: var(--bg-input, @bg-input);
+  border-radius: var(--radius-md, @rounded-md);
+  margin-bottom: @spacing-4;
+}
+
+// ==================== 位置卡片（替代静态地图） ====================
+
+.location-card {
+  display: flex;
+  align-items: center;
+  gap: @spacing-3;
+  padding: @spacing-3;
+  background: var(--bg-card, @bg-card);
+  border-radius: var(--radius-sm, @rounded-sm);
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  &__icon {
+    flex-shrink: 0;
+    width: 64rpx;
+    height: 64rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--icon-bg-blue, rgba(91, 117, 251, 0.1));
+    border-radius: var(--radius-sm, @rounded-sm);
+  }
+  
+  &__content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2rpx;
+  }
+  
+  &__name {
+    font-size: @text-sm;
+    font-weight: 500;
+    color: var(--text-main, @text-main);
+    line-height: 1.4;
+  }
+  
+  &__hint {
+    font-size: @text-xs;
+    color: var(--text-secondary, @text-secondary);
+    line-height: 1.4;
+  }
+}
+
+.preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-2;
+}
+
+.preview-title {
+  font-size: @text-base;
+  font-weight: 500;
+  color: var(--text-main, @text-main);
+  line-height: 1.4;
+}
+
+.preview-meta {
+  display: flex;
+  gap: @spacing-4;
+  
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4rpx;
+    font-size: @text-xs;
+    color: var(--text-tertiary, @text-tertiary);
+    
+    text {
+      flex-shrink: 0;
+    }
+  }
+}
+
+// ==================== 操作按钮 ====================
+
+.share-actions {
+  display: flex;
+  gap: @spacing-3;
+}
+
+.action-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: @spacing-2;
+  height: 88rpx;
+  border-radius: 44rpx;
+  font-size: @text-base;
+  font-weight: 500;
+  border: none;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &::after {
+    display: none;
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  &--primary {
+    background: var(--gradient-primary, @gradient-primary);
+    color: #FFFFFF;
+  }
+  
+  &--secondary {
+    background: var(--bg-hover, @bg-hover);
+    color: var(--text-main, @text-main);
+  }
+}
+
+// ==================== 深色模式 ====================
+
+@media (prefers-color-scheme: dark) {
+  .success-title {
+    color: var(--text-main, @text-main-dark);
+  }
+  
+  .success-hint {
+    color: var(--text-secondary, @text-secondary-dark);
+  }
+  
+  .share-preview {
+    background: var(--bg-input, @bg-input-dark);
+  }
+  
+  .location-card {
+    background: var(--bg-card, @bg-card-dark);
+    
+    &__name {
+      color: var(--text-main, @text-main-dark);
+    }
+    
+    &__hint {
+      color: var(--text-secondary, @text-secondary-dark);
+    }
+    
+    &__icon {
+      background: rgba(91, 117, 251, 0.15);
+    }
+  }
+  
+  .preview-title {
+    color: var(--text-main, @text-main-dark);
+  }
+  
+  .preview-meta .meta-item {
+    color: var(--text-tertiary, @text-tertiary-dark);
+  }
+  
+  .action-btn--secondary {
+    background: var(--bg-hover, @bg-hover-dark);
+    color: var(--text-main, @text-main-dark);
+  }
+}

@@ -1,59 +1,372 @@
 /**
- * 消息中心页面样式
- * 仅保留原子类无法实现的特殊样式
+ * 消息中心页面样式 - Crypto-Clean 风格
+ * Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
  */
 @import '/styles/tokens.less';
 
-// 固定尺寸类（原子类未覆盖）
-.w-80 { width: 80rpx; }
-.h-80 { height: 80rpx; }
-.w-100 { width: 100rpx; }
-.h-100 { height: 100rpx; }
-
-// 底部安全区 + TabBar 高度
-.pb-safe {
-  padding-bottom: calc(env(safe-area-inset-bottom) + @tab-bar-height);
+.message-page {
+  min-height: 100vh;
+  background: var(--bg-page, #FAFBFC);
 }
 
-// 通知图标颜色（根据类型变化）
+// ==================== 滚动区域 ====================
+
+.message-scroll {
+  height: calc(100vh - 88rpx);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 32rpx);
+}
+
+// ==================== Section Card ====================
+
+.section-card {
+  margin: 24rpx 32rpx;
+  background: var(--bg-card, #FFFFFF);
+  border-radius: var(--radius-lg, 40rpx);
+  overflow: hidden;
+  box-shadow: var(--shadow-card, 0 8rpx 32rpx rgba(91, 117, 251, 0.08));
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
+  border-bottom: 1rpx solid var(--border-card, rgba(0, 0, 0, 0.04));
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--text-main, #1F2937);
+}
+
+.section-icon {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: var(--radius-md, 24rpx);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &--blue {
+    background: var(--icon-bg-blue, rgba(91, 117, 251, 0.1));
+    color: var(--color-primary, #5B75FB);
+  }
+  
+  &--amber {
+    background: var(--icon-bg-amber, rgba(251, 191, 36, 0.15));
+    color: var(--color-amber, #F59E0B);
+  }
+}
+
+// ==================== 通知列表 ====================
+
+.notification-list {
+  padding: 0;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 24rpx 32rpx;
+  border-bottom: 1rpx solid var(--border-card, rgba(0, 0, 0, 0.04));
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:active {
+    background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+  }
+  
+  &--unread {
+    background: var(--icon-bg-blue, rgba(91, 117, 251, 0.05));
+  }
+}
+
 .notification-icon {
-  background-color: @gray-100;
-  color: @gray-600;
-
-  &.join_request {
-    background-color: fade(@brand-color, 15%);
-    color: @brand-color;
+  flex-shrink: 0;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 24rpx;
+  background: var(--bg-input, #F3F4F6);
+  color: var(--text-secondary, #6B7280);
+  
+  &--join_request {
+    background: var(--icon-bg-blue, rgba(91, 117, 251, 0.1));
+    color: var(--color-primary, #5B75FB);
   }
-
-  &.join_approved {
-    background-color: fade(@success-color, 15%);
-    color: @success-color;
+  
+  &--join_approved {
+    background: var(--icon-bg-mint, rgba(110, 231, 183, 0.15));
+    color: var(--color-mint, #10B981);
   }
-
-  &.join_rejected,
-  &.no_show {
-    background-color: fade(@error-color, 15%);
-    color: @error-color;
+  
+  &--join_rejected,
+  &--no_show {
+    background: rgba(239, 68, 68, 0.1);
+    color: #EF4444;
   }
-
-  &.fulfillment {
-    background-color: fade(@info-color, 15%);
-    color: @info-color;
+  
+  &--fulfillment {
+    background: var(--icon-bg-amber, rgba(251, 191, 36, 0.15));
+    color: var(--color-amber, #F59E0B);
   }
 }
 
-// 点击态
-.notification-item:active,
-.chat-item:active {
-  background-color: @gray-50;
+.notification-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
 }
 
-// 归档徽章
-.archived-badge {
-  background-color: rgba(0, 0, 0, 0.6);
+.notification-title {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-main, #1F2937);
 }
 
-// 半透明背景
-.bg-opacity-60 {
-  background-color: rgba(0, 0, 0, 0.6);
+.notification-desc {
+  font-size: 26rpx;
+  color: var(--text-secondary, #6B7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-time {
+  font-size: 24rpx;
+  color: var(--text-tertiary, #9CA3AF);
+}
+
+.notification-action {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+}
+
+.notification-arrow {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  display: flex;
+  align-items: center;
+}
+
+// ==================== 群聊列表 ====================
+
+.chat-list {
+  padding: 0;
+}
+
+.chat-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  border-bottom: 1rpx solid var(--border-card, rgba(0, 0, 0, 0.04));
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:active {
+    background: var(--bg-hover, rgba(0, 0, 0, 0.02));
+  }
+  
+  &--archived {
+    opacity: 0.6;
+  }
+}
+
+.chat-avatar {
+  position: relative;
+  flex-shrink: 0;
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: var(--radius-md, 24rpx);
+  overflow: hidden;
+  margin-right: 24rpx;
+  
+  &__img {
+    width: 100%;
+    height: 100%;
+  }
+  
+  &__badge {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0, 0, 0, 0.6);
+    color: #FFFFFF;
+    font-size: 20rpx;
+    text-align: center;
+    padding: 4rpx 0;
+  }
+}
+
+.chat-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-title {
+  flex: 1;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: var(--text-main, #1F2937);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 16rpx;
+}
+
+.chat-time {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: var(--text-tertiary, #9CA3AF);
+}
+
+.chat-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chat-message {
+  flex: 1;
+  font-size: 26rpx;
+  color: var(--text-secondary, #6B7280);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 16rpx;
+}
+
+.chat-meta {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  font-size: 24rpx;
+  color: var(--text-tertiary, #9CA3AF);
+}
+
+// ==================== 空状态 ====================
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+  color: var(--text-tertiary, #9CA3AF);
+  font-size: 26rpx;
+  
+  &--large {
+    padding: 64rpx;
+  }
+}
+
+.empty-title {
+  font-size: 28rpx;
+  margin-top: 16rpx;
+}
+
+.empty-desc {
+  font-size: 24rpx;
+  margin-top: 8rpx;
+}
+
+// ==================== 深色模式 ====================
+
+@media (prefers-color-scheme: dark) {
+  .message-page {
+    background: var(--bg-page-dark, #0F172A);
+  }
+  
+  .section-card {
+    background: var(--bg-card-dark, #1E293B);
+    box-shadow: none;
+    border: 1rpx solid rgba(255, 255, 255, 0.1);
+  }
+  
+  .section-header {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+  }
+  
+  .section-title {
+    color: var(--text-main-dark, #F1F5F9);
+  }
+  
+  .notification-item {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+    
+    &:active {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    &--unread {
+      background: rgba(91, 117, 251, 0.1);
+    }
+  }
+  
+  .notification-icon {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .notification-title {
+    color: var(--text-main-dark, #F1F5F9);
+  }
+  
+  .notification-desc {
+    color: var(--text-secondary-dark, #94A3B8);
+  }
+  
+  .notification-time {
+    color: var(--text-tertiary-dark, #64748B);
+  }
+  
+  .chat-item {
+    border-bottom-color: rgba(255, 255, 255, 0.05);
+    
+    &:active {
+      background: rgba(255, 255, 255, 0.05);
+    }
+  }
+  
+  .chat-title {
+    color: var(--text-main-dark, #F1F5F9);
+  }
+  
+  .chat-time {
+    color: var(--text-tertiary-dark, #64748B);
+  }
+  
+  .chat-message {
+    color: var(--text-secondary-dark, #94A3B8);
+  }
+  
+  .chat-meta {
+    color: var(--text-tertiary-dark, #64748B);
+  }
+  
+  .empty-state {
+    color: var(--text-tertiary-dark, #64748B);
+  }
 }

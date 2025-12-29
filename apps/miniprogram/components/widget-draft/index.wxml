@@ -1,0 +1,87 @@
+<!--
+  Widget Draft 组件 (v3.5 零成本地图方案)
+  Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9
+  
+  意图解析卡片
+  - 显示 AI 预填的标题、时间、地点、类型
+  - 使用位置文字卡片替代静态地图（零成本）
+  - 实现 [📍 调整位置] 和 [✅ 确认发布] 按钮
+-->
+<view class="widget-draft halo-card {{isExpired ? 'widget-draft--expired' : ''}}">
+  <!-- 过期标签 -->
+  <view wx:if="{{isExpired}}" class="expired-badge">
+    <t-icon name="error-circle" size="24rpx" />
+    <text>已过期</text>
+  </view>
+  
+  <!-- 头部：类型图标 + 标题 -->
+  <view class="draft-header">
+    <view class="type-icon icon-circle icon-circle--{{colorClass}}">
+      <t-icon name="{{typeIcon}}" size="40rpx" />
+    </view>
+    <view class="header-content">
+      <text class="draft-title ellipsis-2">{{draft.title}}</text>
+      <view class="type-badge">
+        <text class="type-text">{{typeLabel}}</text>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 位置卡片（替代静态地图，零成本方案） -->
+  <view class="location-card" bindtap="onLocationTap">
+    <view class="location-card__icon">
+      <t-icon name="location" size="48rpx" color="#5B75FB" />
+    </view>
+    <view class="location-card__content">
+      <text class="location-card__name ellipsis">{{draft.locationName || '点击查看地图'}}</text>
+      <text wx:if="{{draft.locationHint}}" class="location-card__hint ellipsis">{{draft.locationHint}}</text>
+      <text wx:elif="{{draft.address}}" class="location-card__hint ellipsis">{{draft.address}}</text>
+    </view>
+    <view class="location-card__arrow">
+      <t-icon name="chevron-right" size="32rpx" color="#9CA3AF" />
+    </view>
+  </view>
+  
+  <!-- 活动信息 -->
+  <view class="draft-info">
+    <!-- 时间 -->
+    <view class="info-item">
+      <view class="info-icon">
+        <t-icon name="time" size="32rpx" />
+      </view>
+      <view class="info-content">
+        <text class="info-label">时间</text>
+        <text class="info-value">{{formattedTime}}</text>
+      </view>
+    </view>
+    
+    <!-- 人数 -->
+    <view class="info-item">
+      <view class="info-icon">
+        <t-icon name="user" size="32rpx" />
+      </view>
+      <view class="info-content">
+        <text class="info-label">人数</text>
+        <text class="info-value">最多 {{draft.maxParticipants}} 人</text>
+      </view>
+    </view>
+  </view>
+  
+  <!-- 操作按钮 -->
+  <view class="draft-actions">
+    <!-- 调整位置按钮 -->
+    <view class="action-btn action-btn--secondary btn-pressable" bindtap="onAdjustLocation">
+      <t-icon name="location" size="32rpx" />
+      <text>调整位置</text>
+    </view>
+    
+    <!-- 确认发布按钮 -->
+    <view 
+      class="action-btn action-btn--primary btn-pressable {{isExpired ? 'disabled' : ''}}" 
+      bindtap="onConfirm"
+    >
+      <t-icon name="check" size="32rpx" />
+      <text>确认发布</text>
+    </view>
+  </view>
+</view>

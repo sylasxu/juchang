@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as LegalTypeRouteImport } from './routes/legal.$type'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
@@ -40,6 +41,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const LegalTypeRoute = LegalTypeRouteImport.update({
+  id: '/legal/$type',
+  path: '/legal/$type',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const errors503Route = errors503RouteImport.update({
   id: '/(errors)/503',
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/legal/$type': typeof LegalTypeRoute
   '/': typeof AuthenticatedIndexRoute
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/legal/$type': typeof LegalTypeRoute
   '/': typeof AuthenticatedIndexRoute
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -209,6 +217,7 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
+  '/legal/$type': typeof LegalTypeRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/activities/$id': typeof AuthenticatedActivitiesIdRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/legal/$type'
     | '/'
     | '/activities/$id'
     | '/errors/$error'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/legal/$type'
     | '/'
     | '/activities/$id'
     | '/errors/$error'
@@ -280,6 +291,7 @@ export interface FileRouteTypes {
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
+    | '/legal/$type'
     | '/_authenticated/'
     | '/_authenticated/activities/$id'
     | '/_authenticated/errors/$error'
@@ -304,6 +316,7 @@ export interface RootRouteChildren {
   errors404Route: typeof errors404Route
   errors500Route: typeof errors500Route
   errors503Route: typeof errors503Route
+  LegalTypeRoute: typeof LegalTypeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -321,6 +334,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/legal/$type': {
+      id: '/legal/$type'
+      path: '/legal/$type'
+      fullPath: '/legal/$type'
+      preLoaderRoute: typeof LegalTypeRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/(errors)/503': {
       id: '/(errors)/503'
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   errors404Route: errors404Route,
   errors500Route: errors500Route,
   errors503Route: errors503Route,
+  LegalTypeRoute: LegalTypeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

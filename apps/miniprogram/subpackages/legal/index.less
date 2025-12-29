@@ -1,0 +1,58 @@
+/* 法务页面样式 - web-view 降级时使用 */
+@import '../../styles/tokens.less';
+
+.error-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 64rpx;
+  background: var(--bg-page, #FAFBFC);
+}
+
+.error-icon {
+  font-size: 96rpx;
+  margin-bottom: 32rpx;
+}
+
+.error-text {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: var(--text-main, #1F2937);
+  margin-bottom: 16rpx;
+}
+
+.error-hint {
+  font-size: 28rpx;
+  color: var(--text-secondary, #6B7280);
+  margin-bottom: 48rpx;
+}
+
+.retry-btn {
+  padding: 24rpx 64rpx;
+  font-size: 28rpx;
+  color: #fff;
+  background: var(--color-primary, #5B75FB);
+  border-radius: var(--radius-lg, 40rpx);
+  border: none;
+  
+  &::after {
+    border: none;
+  }
+}
+
+/* 深色模式 */
+@media (prefers-color-scheme: dark) {
+  .error-container {
+    background: var(--bg-page-dark, #0F172A);
+  }
+  
+  .error-text {
+    color: var(--text-main-dark, #F1F5F9);
+  }
+  
+  .error-hint {
+    color: var(--text-secondary-dark, #94A3B8);
+  }
+}

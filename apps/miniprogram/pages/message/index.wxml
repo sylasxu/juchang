@@ -1,13 +1,24 @@
 <!--
   消息中心页面
-  TDesign + Atomic Less 重构
+  Requirements: 9.1, 9.2, 9.3, 9.4, 9.5
+  
+  - 显示所有参与的活动群聊列表
+  - 显示活动标题、最后一条消息、未读数量
+  - 点击跳转到 Lite_Chat 页面
 -->
-<view class="flex flex-col h-screen bg-gray-50">
-  <!-- 导航栏 -->
-  <t-navbar title="消息" fixed />
+<view class="message-page">
+  <!-- 自定义导航栏 -->
+  <custom-navbar 
+    title="消息中心" 
+    showMenu="{{false}}" 
+    showMore="{{false}}"
+    showBack="{{true}}"
+    bindback="goBack"
+  />
 
+  <!-- 内容区域 -->
   <scroll-view
-    class="flex-1 pb-safe"
+    class="message-scroll"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
@@ -16,13 +27,15 @@
     bindrefresherrefresh="loadData"
   >
     <!-- 系统通知区域 -->
-    <view class="m-3 bg-white rounded-lg overflow-hidden">
+    <view class="section-card">
       <view 
-        class="flex items-center justify-between px-4 py-3 border-b border-gray-100"
+        class="section-header"
         bind:tap="toggleNotificationExpand"
       >
-        <view class="flex items-center gap-2 text-base font-medium text-gray-900">
-          <t-icon name="notification" size="40rpx" />
+        <view class="section-title">
+          <view class="section-icon section-icon--amber">
+            <t-icon name="notification" size="36rpx" />
+          </view>
           <text>系统通知</text>
           <t-badge
             wx:if="{{unreadNotificationCount > 0}}"
@@ -36,12 +49,12 @@
         />
       </view>
 
-      <view wx:if="{{notificationExpanded}}">
+      <view wx:if="{{notificationExpanded}}" class="notification-list">
         <block wx:if="{{notifications.length > 0}}">
           <view
             wx:for="{{notifications}}"
             wx:key="id"
-            class="notification-item flex items-start px-4 py-3 border-b border-gray-100 {{item.read ? '' : 'bg-brand-light'}}"
+            class="notification-item {{item.read ? '' : 'notification-item--unread'}}"
             data-id="{{item.id}}"
             data-type="{{item.type}}"
             data-activity-id="{{item.activityId}}"
@@ -49,22 +62,22 @@
             bind:tap="onNotificationTap"
           >
             <!-- 图标 -->
-            <view class="notification-icon flex-shrink-0 w-80 h-80 rounded-full flex items-center justify-center mr-3 {{item.type}}">
+            <view class="notification-icon notification-icon--{{item.type}}">
               <t-icon
                 name="{{item.type === 'join_request' ? 'user-add' : item.type === 'no_show' ? 'error-circle' : 'notification'}}"
-                size="44rpx"
+                size="40rpx"
               />
             </view>
             <!-- 内容 -->
-            <view class="flex-1 min-w-0">
-              <view class="text-base font-medium text-gray-900 mb-1">{{item.title}}</view>
-              <view class="text-sm text-gray-600 truncate mb-1">{{item.content}}</view>
-              <view class="text-xs text-gray-400">{{item.createdAt}}</view>
+            <view class="notification-content">
+              <text class="notification-title">{{item.title}}</text>
+              <text class="notification-desc">{{item.content}}</text>
+              <text class="notification-time">{{item.createdAt}}</text>
             </view>
             <!-- 操作 -->
             <view
               wx:if="{{item.type === 'no_show' && item.canDispute}}"
-              class="flex items-center ml-2"
+              class="notification-action"
               data-activity-id="{{item.activityId}}"
               data-participant-id="{{item.participantId}}"
               catch:tap="onDisputeTap"
@@ -73,70 +86,72 @@
                 我到场了
               </t-button>
             </view>
-            <view wx:else class="flex items-center ml-2">
-              <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+            <view wx:else class="notification-arrow">
+              <t-icon name="chevron-right" size="36rpx" color="#9CA3AF" />
             </view>
           </view>
         </block>
-        <view wx:else class="flex flex-col items-center justify-center py-8 text-gray-400 text-sm">
+        <view wx:else class="empty-state">
           <text>暂无系统通知</text>
         </view>
       </view>
     </view>
 
     <!-- 群聊列表区域 -->
-    <view class="m-3 bg-white rounded-lg overflow-hidden">
-      <view class="flex items-center px-4 py-3 border-b border-gray-100">
-        <view class="flex items-center gap-2 text-base font-medium text-gray-900">
-          <t-icon name="chat" size="40rpx" />
+    <view class="section-card">
+      <view class="section-header">
+        <view class="section-title">
+          <view class="section-icon section-icon--blue">
+            <t-icon name="chat" size="36rpx" />
+          </view>
           <text>活动群聊</text>
         </view>
       </view>
 
-      <view>
+      <view class="chat-list">
         <block wx:if="{{chatList.length > 0}}">
           <view
             wx:for="{{chatList}}"
             wx:key="activityId"
-            class="chat-item flex items-center px-4 py-3 border-b border-gray-100 {{item.isArchived ? 'opacity-50' : ''}}"
+            class="chat-item {{item.isArchived ? 'chat-item--archived' : ''}}"
             data-activity-id="{{item.activityId}}"
             bind:tap="onChatTap"
           >
             <!-- 头像 -->
-            <view class="relative flex-shrink-0 w-100 h-100 rounded-lg overflow-hidden mr-3">
+            <view class="chat-avatar">
               <image
                 src="{{item.activityImage || '/static/images/default-activity.png'}}"
                 mode="aspectFill"
-                class="w-full h-full"
+                class="chat-avatar__img"
               />
-              <view wx:if="{{item.isArchived}}" class="archived-badge absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs text-center py-1">
-                已归档
+              <view wx:if="{{item.isArchived}}" class="chat-avatar__badge">
+                <text>已归档</text>
               </view>
             </view>
             <!-- 信息 -->
-            <view class="flex-1 min-w-0">
-              <view class="flex items-center justify-between mb-1">
-                <text class="text-base font-medium text-gray-900 truncate flex-1 mr-2">{{item.activityTitle}}</text>
-                <text class="text-xs text-gray-400 flex-shrink-0">{{item.lastMessageTime}}</text>
+            <view class="chat-content">
+              <view class="chat-header">
+                <text class="chat-title">{{item.activityTitle}}</text>
+                <text class="chat-time">{{item.lastMessageTime}}</text>
               </view>
-              <view class="flex items-center justify-between mb-1">
-                <text class="text-sm text-gray-600 truncate flex-1 mr-2">{{item.lastMessage || '暂无消息'}}</text>
+              <view class="chat-footer">
+                <text class="chat-message">{{item.lastMessage || '暂无消息'}}</text>
                 <t-badge
                   wx:if="{{item.unreadCount > 0}}"
                   count="{{item.unreadCount}}"
                 />
               </view>
-              <view class="flex items-center gap-1 text-xs text-gray-400">
-                <t-icon name="user" size="28rpx" />
+              <view class="chat-meta">
+                <t-icon name="user" size="24rpx" />
                 <text>{{item.participantCount}}人</text>
               </view>
             </view>
           </view>
         </block>
-        <view wx:else class="flex flex-col items-center justify-center py-8 text-gray-400">
+        <view wx:else class="empty-state empty-state--large">
           <t-icon name="chat" size="96rpx" color="#E5E7EB" />
-          <text class="text-sm mt-2">暂无群聊</text>
-          <text class="text-xs mt-1">参与活动后即可加入群聊</text>
+          <text class="empty-title">暂无群聊</text>
+          <text class="empty-desc">参与活动后即可加入群聊</text>
         </view>
       </view>
     </view>

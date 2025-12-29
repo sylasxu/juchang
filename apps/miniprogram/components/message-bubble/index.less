@@ -1,0 +1,117 @@
+/**
+ * Message Bubble 样式
+ * Requirements: 15.6, 15.7
+ * 
+ * Crypto-Clean 视觉风格
+ * - 用户气泡：矢车菊蓝渐变 + 白色文字
+ * - AI 气泡：透明背景 + 深灰文字
+ */
+@import '/styles/tokens.less';
+
+.message-bubble {
+  max-width: 70%;
+  word-break: break-word;
+  
+  // 用户消息气泡
+  // Requirements: 15.6 - 矢车菊蓝渐变 + 白色文字
+  &--user {
+    .bubble-content {
+      background: var(--gradient-primary, @gradient-primary);
+      color: #FFFFFF;
+      border-radius: var(--radius-lg, @rounded-lg) var(--radius-lg, @rounded-lg) 8rpx var(--radius-lg, @rounded-lg);
+      padding: @spacing-3 @spacing-4;
+      box-shadow: var(--shadow-sm, @shadow-sm);
+    }
+    
+    .bubble-text {
+      color: #FFFFFF;
+      font-size: @text-base;
+      line-height: 1.6;
+    }
+    
+    .bubble-timestamp {
+      text-align: right;
+      margin-top: @spacing-1;
+      color: var(--text-tertiary, @text-tertiary);
+    }
+  }
+  
+  // AI 消息气泡
+  // Requirements: 15.7 - 透明背景 + 深灰文字
+  &--assistant {
+    max-width: 85%;
+    
+    .bubble-content {
+      background: transparent;
+      padding: @spacing-3 0;
+    }
+    
+    .bubble-text {
+      color: var(--text-main, @text-main);
+      font-size: @text-base;
+      line-height: 1.7;
+    }
+    
+    .bubble-timestamp {
+      text-align: left;
+      margin-top: @spacing-1;
+      color: var(--text-tertiary, @text-tertiary);
+    }
+  }
+}
+
+.bubble-content {
+  position: relative;
+}
+
+.bubble-text {
+  display: block;
+}
+
+.bubble-timestamp {
+  font-size: @text-xs;
+  padding: 0 @spacing-1;
+}
+
+// 链接样式
+.link {
+  color: var(--color-primary, @color-primary);
+  text-decoration: underline;
+}
+
+// 深色模式
+@media (prefers-color-scheme: dark) {
+  .message-bubble {
+    &--user {
+      .bubble-content {
+        box-shadow: none;
+      }
+    }
+    
+    &--assistant {
+      .bubble-text {
+        color: var(--text-main, @text-main-dark);
+      }
+    }
+  }
+  
+  .bubble-timestamp {
+    color: var(--text-tertiary, @text-tertiary-dark);
+  }
+}
+
+// 消息入场动画
+.message-bubble {
+  animation: bubbleIn var(--duration-normal, @duration-normal) var(--ease-out-back, @ease-out-back);
+}
+
+@keyframes bubbleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

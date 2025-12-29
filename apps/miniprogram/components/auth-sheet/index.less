@@ -1,0 +1,203 @@
+/**
+ * Auth Sheet 组件样式
+ * Requirements: 12.2, 12.3, CP-9
+ * 
+ * Crypto-Clean 视觉风格
+ * - 超大圆角
+ * - 彩色弥散阴影
+ * - 按钮回弹效果
+ */
+
+@import '../../styles/tokens.less';
+
+.auth-sheet {
+  padding: @spacing-6 @spacing-4 @spacing-8;
+  background: var(--bg-card, @bg-card);
+  
+  // Header
+  &__header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: @spacing-6;
+  }
+  
+  &__logo {
+    width: 128rpx;
+    height: 128rpx;
+    border-radius: @rounded-lg;
+    background: @gradient-primary;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: @spacing-4;
+    box-shadow: @shadow-card;
+  }
+  
+  &__logo-text {
+    font-size: 64rpx;
+    font-weight: 700;
+    color: #FFFFFF;
+  }
+  
+  &__title {
+    font-size: @text-xl;
+    font-weight: 600;
+    color: var(--text-main, @text-main);
+    text-align: center;
+  }
+  
+  // Body
+  &__body {
+    margin-bottom: @spacing-6;
+    padding: 0 @spacing-4;
+  }
+  
+  &__desc {
+    font-size: @text-base;
+    color: var(--text-secondary, @text-secondary);
+    line-height: 1.6;
+    text-align: center;
+  }
+  
+  // Footer
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: @spacing-4;
+  }
+  
+  // 隐私协议勾选
+  &__agreement {
+    display: flex;
+    align-items: flex-start;
+    gap: @spacing-2;
+    padding: 0 @spacing-2;
+  }
+  
+  &__checkbox {
+    width: 36rpx;
+    height: 36rpx;
+    border-radius: @rounded-sm;
+    border: 2rpx solid var(--border-default, @border-default);
+    background: var(--bg-input, @bg-input);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 4rpx;
+    transition: all @duration-fast @ease-default;
+    
+    &--checked {
+      background: @color-primary;
+      border-color: @color-primary;
+    }
+  }
+  
+  &__checkbox-icon {
+    font-size: 24rpx;
+    color: #FFFFFF;
+    font-weight: 600;
+  }
+  
+  &__agreement-text {
+    font-size: @text-sm;
+    color: var(--text-secondary, @text-secondary);
+    line-height: 1.5;
+    flex: 1;
+  }
+  
+  &__link {
+    color: @color-primary;
+  }
+  
+  // 绑定按钮
+  &__btn {
+    width: 100%;
+    height: 96rpx;
+    border-radius: @rounded-xl;
+    background: @gradient-primary;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: @shadow-card;
+    transition: transform @duration-fast @ease-out-back;
+    
+    &::after {
+      border: none;
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+    
+    &--disabled {
+      background: var(--bg-input, @bg-input);
+      box-shadow: none;
+      
+      .auth-sheet__btn-text {
+        color: var(--text-tertiary, @text-tertiary);
+      }
+      
+      &:active {
+        transform: none;
+      }
+    }
+  }
+  
+  &__btn-text {
+    font-size: @text-lg;
+    font-weight: 600;
+    color: #FFFFFF;
+  }
+  
+  // 跳过按钮
+  &__skip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: @spacing-3 0;
+  }
+  
+  &__skip-text {
+    font-size: @text-sm;
+    color: var(--text-tertiary, @text-tertiary);
+  }
+}
+
+// 深色模式适配
+@media (prefers-color-scheme: dark) {
+  .auth-sheet {
+    background: var(--bg-card-dark, @bg-card-dark);
+    
+    &__title {
+      color: var(--text-main-dark, @text-main-dark);
+    }
+    
+    &__desc {
+      color: var(--text-secondary-dark, @text-secondary-dark);
+    }
+    
+    &__checkbox {
+      border-color: var(--border-default-dark, @border-default-dark);
+      background: var(--bg-input-dark, @bg-input-dark);
+    }
+    
+    &__agreement-text {
+      color: var(--text-secondary-dark, @text-secondary-dark);
+    }
+    
+    &__btn--disabled {
+      background: var(--bg-input-dark, @bg-input-dark);
+      
+      .auth-sheet__btn-text {
+        color: var(--text-tertiary-dark, @text-tertiary-dark);
+      }
+    }
+    
+    &__skip-text {
+      color: var(--text-tertiary-dark, @text-tertiary-dark);
+    }
+  }
+}

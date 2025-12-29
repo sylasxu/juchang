@@ -1,0 +1,8 @@
+{
+  "component": true,
+  "styleIsolation": "apply-shared",
+  "usingComponents": {
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "activity-mini-card": "../activity-mini-card/index"
+  }
+}

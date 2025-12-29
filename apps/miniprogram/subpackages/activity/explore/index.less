@@ -1,0 +1,203 @@
+/**
+ * 沉浸式地图页样式
+ * Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8
+ * 
+ * Crypto-Clean 视觉风格
+ * - 全屏可交互地图
+ * - 底部 Sheet 活动列表
+ * - 活动预览浮层
+ */
+@import '../../../styles/tokens.less';
+
+.explore-page {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-page, @bg-page);
+}
+
+/* 筛选栏容器 */
+.filter-bar-wrapper {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 88rpx + 16rpx);
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 0 @spacing-2;
+}
+
+/* 全屏地图 */
+.explore-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* 底部 Sheet */
+.bottom-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--bg-card, @bg-card);
+  border-radius: @rounded-lg @rounded-lg 0 0;
+  box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.1);
+  transition: transform @duration-normal @ease-out-expo;
+  transform: translateY(calc(100% - 240rpx));
+  max-height: 60vh;
+  z-index: 50;
+  
+  &--expanded {
+    transform: translateY(0);
+  }
+}
+
+/* 拖拽指示条 */
+.sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: @spacing-3 0;
+  cursor: pointer;
+}
+
+.handle-bar {
+  width: 80rpx;
+  height: 8rpx;
+  background: var(--border-default, @gray-300);
+  border-radius: @rounded-full;
+}
+
+/* Sheet 头部 */
+.sheet-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 @spacing-4 @spacing-3;
+}
+
+.sheet-title {
+  font-size: @text-lg;
+  font-weight: 600;
+  color: var(--text-main, @text-main);
+}
+
+.sheet-count {
+  font-size: @text-sm;
+  color: var(--text-secondary, @text-secondary);
+}
+
+/* Sheet 滚动区域 */
+.sheet-scroll {
+  max-height: calc(60vh - 120rpx);
+  padding: 0 @spacing-4;
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: @spacing-8 0;
+  gap: @spacing-3;
+}
+
+.loading-text {
+  font-size: @text-sm;
+  color: var(--text-secondary, @text-secondary);
+}
+
+/* 活动列表 */
+.activity-list {
+  padding-bottom: calc(env(safe-area-inset-bottom) + @spacing-4);
+}
+
+.activity-item-wrapper {
+  margin-bottom: @spacing-2;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: @spacing-8 0;
+  gap: @spacing-2;
+}
+
+.empty-text {
+  font-size: @text-base;
+  font-weight: 500;
+  color: var(--text-main, @text-main);
+}
+
+.empty-hint {
+  font-size: @text-sm;
+  color: var(--text-secondary, @text-secondary);
+}
+
+/* ==================== 沉浸式展开/收缩动画 ==================== */
+/* Requirements: 18.8 */
+
+@keyframes explore-expand {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes explore-shrink {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.explore-page--animate-in {
+  animation: explore-expand @duration-normal @ease-out-expo forwards;
+}
+
+.explore-page--animate-out {
+  animation: explore-shrink @duration-fast @ease-out forwards;
+}
+
+/* ==================== 深色模式 ==================== */
+
+@media (prefers-color-scheme: dark) {
+  .explore-page {
+    background: var(--bg-page-dark, @bg-page-dark);
+  }
+  
+  .bottom-sheet {
+    background: var(--bg-card-dark, @bg-card-dark);
+    box-shadow: 0 -8rpx 32rpx rgba(0, 0, 0, 0.3);
+  }
+  
+  .handle-bar {
+    background: var(--border-default-dark, @border-default-dark);
+  }
+  
+  .sheet-title,
+  .empty-text {
+    color: var(--text-main-dark, @text-main-dark);
+  }
+  
+  .sheet-count,
+  .loading-text,
+  .empty-hint {
+    color: var(--text-secondary-dark, @text-secondary-dark);
+  }
+}

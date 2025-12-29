@@ -1,0 +1,62 @@
+<!-- 活动列表页 -->
+<view class="activity-list-page">
+  <custom-navbar 
+    title="{{title}}" 
+    showMenu="{{false}}"
+    showMore="{{false}}"
+    showBack="{{true}}"
+  />
+  
+  <scroll-view 
+    scroll-y 
+    class="list-scroll"
+    refresher-enabled
+    bindrefresherrefresh="onRefresh"
+    refresher-triggered="{{refreshing}}"
+  >
+    <!-- 加载中 -->
+    <view wx:if="{{loading && !activities.length}}" class="loading-container">
+      <t-loading theme="circular" size="40rpx" />
+    </view>
+    
+    <!-- 空状态 -->
+    <t-empty 
+      wx:elif="{{!loading && !activities.length}}"
+      icon="info-circle"
+      description="{{emptyText}}"
+    />
+    
+    <!-- 活动列表 -->
+    <view wx:else class="list-container">
+      <view 
+        wx:for="{{activities}}" 
+        wx:key="id" 
+        class="activity-item"
+        bind:tap="goToDetail"
+        data-id="{{item.id}}"
+      >
+        <view class="item-header">
+          <text class="item-title">{{item.title}}</text>
+          <text class="item-status status-{{item.status}}">{{item.statusText}}</text>
+        </view>
+        <view class="item-info">
+          <view class="info-item">
+            <t-icon name="location" size="28rpx" />
+            <text>{{item.locationHint}}</text>
+          </view>
+          <view class="info-item">
+            <t-icon name="time" size="28rpx" />
+            <text>{{item.startAtText}}</text>
+          </view>
+        </view>
+        <view class="item-footer">
+          <view class="participants">
+            <t-icon name="user" size="28rpx" />
+            <text>{{item.currentParticipants}}/{{item.maxParticipants}} 人</text>
+          </view>
+          <t-icon name="chevron-right" size="32rpx" color="#D1D5DB" />
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+</view>
