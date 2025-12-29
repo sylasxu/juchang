@@ -25,8 +25,7 @@ const profileFormSchema = Type.Object({
 type ProfileFormValues = Static<typeof profileFormSchema>
 
 export function ProfileForm() {
-  const { auth } = useAuthStore()
-  const user = auth.user
+  const { user, setUser } = useAuthStore()
 
   const form = useForm<ProfileFormValues>({
     resolver: typeboxResolver(profileFormSchema),
@@ -43,7 +42,7 @@ export function ProfileForm() {
     
     // 更新本地状态
     if (user) {
-      auth.setUser({
+      setUser({
         ...user,
         username: data.nickname,
         avatarUrl: data.avatarUrl,

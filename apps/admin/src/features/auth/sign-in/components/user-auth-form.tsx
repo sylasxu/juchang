@@ -42,7 +42,7 @@ export function UserAuthForm({
   const [countdown, setCountdown] = useState(0)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const navigate = useNavigate()
-  const { auth } = useAuthStore()
+  const { setUser, setAccessToken } = useAuthStore()
 
   const form = useForm<PhoneFormValues>({
     resolver: typeboxResolver(phoneFormSchema),
@@ -106,7 +106,7 @@ export function UserAuthForm({
       const { user, token, exp } = result
 
       // 设置认证状态
-      auth.setUser({
+      setUser({
         id: user.id,
         username: user.nickname || '管理员',
         email: `${user.phoneNumber}@juchang.app`,
@@ -115,7 +115,7 @@ export function UserAuthForm({
         role: user.role,
         exp,
       })
-      auth.setAccessToken(token)
+      setAccessToken(token)
 
       toast.success('登录成功')
 

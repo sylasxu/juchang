@@ -32,8 +32,7 @@ const accountFormSchema = Type.Object({
 type AccountFormValues = Static<typeof accountFormSchema>
 
 export function AccountForm() {
-  const { auth } = useAuthStore()
-  const user = auth.user
+  const { user, reset } = useAuthStore()
 
   const form = useForm<AccountFormValues>({
     resolver: typeboxResolver(accountFormSchema),
@@ -164,7 +163,7 @@ export function AccountForm() {
               variant='outline' 
               size='sm'
               onClick={() => {
-                auth.reset()
+                reset()
                 window.location.href = '/sign-in'
               }}
             >

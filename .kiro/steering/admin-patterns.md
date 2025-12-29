@@ -162,15 +162,51 @@ const table = useReactTable({
 
 ---
 
-## 🔐 认证
+## 🔐 认证 (Auth Store)
+
+使用扁平结构访问 auth store：
 
 ```typescript
 import { useAuthStore } from '@/stores/auth-store'
 
+// ✅ 正确 - 扁平结构
+const { user, setUser, reset, isAuthenticated } = useAuthStore()
+
+// ❌ 错误 - 不要使用嵌套结构
 const { auth } = useAuthStore()
-const user = auth.user
-const isLoggedIn = auth.isAuthenticated()
+auth.user // 已废弃
 ```
+
+**可用方法**：
+- `user` - 当前用户信息
+- `accessToken` - JWT token
+- `setUser(user)` - 设置用户
+- `setAccessToken(token)` - 设置 token
+- `reset()` - 清除认证状态（退出登录）
+- `isAuthenticated()` - 检查是否已登录
+- `hasPermission(resource, action)` - 检查权限
+
+---
+
+## 🎨 UI 基础设施 (已有组件)
+
+**不要重复造轮子！** 以下组件已经存在：
+
+| 组件 | 位置 | 用途 |
+|------|------|------|
+| `NavigationProgress` | `components/navigation-progress.tsx` | 顶部路由加载进度条 |
+| `Toaster` | `components/ui/sonner` | 全局 Toast 提示 |
+| `ConfirmDialog` | `components/confirm-dialog.tsx` | 确认对话框 |
+| `SignOutDialog` | `components/sign-out-dialog.tsx` | 退出登录对话框 |
+| `ProfileDropdown` | `components/profile-dropdown.tsx` | 头像下拉菜单 |
+| `CommandMenu` | `components/command-menu.tsx` | 全局命令面板 (⌘K) |
+| `ConfigDrawer` | `components/config-drawer.tsx` | 设置抽屉 |
+| `ThemeSwitch` | `components/theme-switch.tsx` | 主题切换 |
+
+**Loading 状态**：
+- 路由切换：`NavigationProgress` 自动处理
+- API 请求：使用 `isLoading` 状态在组件内显示 Skeleton
+- 不需要额外的全局 loading 指示器
 
 ---
 

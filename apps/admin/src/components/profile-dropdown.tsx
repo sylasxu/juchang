@@ -17,8 +17,7 @@ import { SignOutDialog } from '@/components/sign-out-dialog'
 
 export function ProfileDropdown() {
   const [open, setOpen] = useDialogState()
-  const { auth } = useAuthStore()
-  const user = auth.user
+  const { user } = useAuthStore()
 
   // 获取用户名首字作为头像 fallback
   const getInitials = (name: string) => {

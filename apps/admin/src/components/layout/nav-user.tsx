@@ -35,10 +35,9 @@ type NavUserProps = {
 export function NavUser({ user: _fallbackUser }: NavUserProps) {
   const { isMobile } = useSidebar()
   const [open, setOpen] = useDialogState()
-  const { auth } = useAuthStore()
+  const { user: authUser } = useAuthStore()
   
   // 优先使用 auth store 中的真实用户信息
-  const authUser = auth.user
   const user = {
     name: authUser?.username || _fallbackUser.name,
     email: authUser?.phoneNumber || authUser?.email || _fallbackUser.email,
