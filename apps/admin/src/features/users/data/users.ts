@@ -1,10 +1,9 @@
 import { type User } from './schema'
 
-// MVP 用户 Mock 数据 (简化版)
+// MVP 用户 Mock 数据 (简化版，匹配 schema)
 export const users: User[] = [
   {
     id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    wxOpenId: 'wx_openid_001',
     nickname: '张三',
     phoneNumber: '138****1234',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=zhang',
@@ -17,7 +16,6 @@ export const users: User[] = [
   },
   {
     id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012',
-    wxOpenId: 'wx_openid_002',
     nickname: '李四',
     phoneNumber: '139****5678',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=li',
@@ -30,12 +28,11 @@ export const users: User[] = [
   },
   {
     id: 'c3d4e5f6-a7b8-9012-cdef-345678901234',
-    wxOpenId: 'wx_openid_003',
     nickname: '王五',
-    phoneNumber: undefined,
-    avatarUrl: undefined,
+    phoneNumber: null,
+    avatarUrl: null,
     aiCreateQuotaToday: 3,
-    aiQuotaResetAt: undefined,
+    aiQuotaResetAt: null,
     activitiesCreatedCount: 2,
     participationCount: 3,
     createdAt: '2024-03-10T09:15:00Z',
@@ -43,8 +40,7 @@ export const users: User[] = [
   },
   {
     id: 'd4e5f6a7-b8c9-0123-defa-456789012345',
-    wxOpenId: 'wx_openid_004',
-    nickname: undefined,
+    nickname: null,
     phoneNumber: '137****3456',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=zhao',
     aiCreateQuotaToday: 0,
@@ -56,7 +52,6 @@ export const users: User[] = [
   },
   {
     id: 'e5f6a7b8-c9d0-1234-efab-567890123456',
-    wxOpenId: 'wx_openid_005',
     nickname: '孙七',
     phoneNumber: '135****7890',
     avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sun',

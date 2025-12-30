@@ -1,6 +1,6 @@
 // 仪表板数据 Hooks - 使用真实 API
 import { useQuery } from '@tanstack/react-query'
-import { api, apiCall } from '@/lib/eden'
+import { api, unwrap } from '@/lib/eden'
 import { queryKeys } from '@/lib/query-client'
 
 // 仪表板 KPI 数据类型 (MVP 简化版)
@@ -46,7 +46,7 @@ export function useDashboardKPIs() {
     queryKey: queryKeys.dashboard.kpis(),
     queryFn: async (): Promise<DashboardKPIs> => {
       try {
-        const stats = await apiCall(() => api.dashboard.stats.get())
+        const stats = await unwrap(api.dashboard.stats.get())
         const statsData = stats as {
           totalUsers?: number
           activeUsers?: number
@@ -87,7 +87,9 @@ export function useUserGrowthTrend(days: number = 30) {
     queryKey: queryKeys.dashboard.userGrowth(days),
     queryFn: async (): Promise<UserGrowthData[]> => {
       try {
-        const response = await apiCall(() => (api.dashboard as any)['user-growth'].get({ query: { days: String(days) } }))
+        const response = await unwrap(
+          api.dashboard.userGrowth.get({ query: { days: String(days) } })
+        )
         const data = response as Array<{
           date: string
           totalUsers: number
@@ -115,7 +117,7 @@ export function useRecentActivities(limit: number = 10) {
     queryKey: queryKeys.dashboard.recentActivities(limit),
     queryFn: async (): Promise<RecentActivity[]> => {
       try {
-        const response = await apiCall(() => api.dashboard.activities.get())
+        const response = await unwrap(api.dashboard.activities.get())
         const responseData = response as Array<{
           id: string
           title: string
@@ -153,7 +155,7 @@ export function useActivityTypeDistribution() {
     queryKey: queryKeys.dashboard.activityTypes(),
     queryFn: async () => {
       try {
-        const response = await apiCall(() => (api.dashboard as any)['activity-types'].get())
+        const response = await unwrap(api.dashboard.activityTypes.get())
         return response as {
           food: number
           sports: number
@@ -175,7 +177,7 @@ export function useGeographicDistribution() {
     queryKey: queryKeys.dashboard.geographic(),
     queryFn: async (): Promise<GeographicItem[]> => {
       try {
-        const response = await apiCall(() => (api.dashboard as any).geographic.get())
+        const response = await unwrap(api.dashboard.geographic.get())
         return response as GeographicItem[]
       } catch {
         return []

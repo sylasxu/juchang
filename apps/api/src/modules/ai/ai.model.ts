@@ -1,6 +1,5 @@
 // AI Model - v3.3 Chat-First: AI 解析 + 对话历史管理 (行业标准命名)
 import { Elysia, t, type Static } from 'elysia';
-import { selectConversationSchema } from '@juchang/db';
 
 /**
  * AI Model Plugin - v3.3 Chat-First (行业标准命名)

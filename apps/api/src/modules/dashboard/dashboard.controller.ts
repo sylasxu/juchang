@@ -62,7 +62,7 @@ export const dashboardController = new Elysia({ prefix: '/dashboard' })
 
   // 获取用户增长趋势
   .get(
-    '/user-growth',
+    '/userGrowth',
     async ({ query, set }) => {
       try {
         const days = query.days ? parseInt(query.days) : 30;
@@ -89,7 +89,7 @@ export const dashboardController = new Elysia({ prefix: '/dashboard' })
 
   // 获取活动类型分布
   .get(
-    '/activity-types',
+    '/activityTypes',
     async ({ set }) => {
       try {
         const data = await getActivityTypeDistribution();

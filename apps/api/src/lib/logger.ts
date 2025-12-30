@@ -147,7 +147,7 @@ export const loggerPlugin = new Elysia({ name: 'logger' })
     }
     
     const contentLength = set.headers?.['content-length'] || '-';
-    const userId = (request as any).userId || '-';
+    const userId = '-'; // userId 从 JWT 解析，logger 层无法直接获取
     const statusIcon = status >= 400 ? icon.fail : icon.ok;
     
     const logData = {
@@ -181,7 +181,7 @@ export const loggerPlugin = new Elysia({ name: 'logger' })
       return;
     }
     
-    const userId = (request as any).userId || '-';
+    const userId = '-'; // userId 从 JWT 解析，logger 层无法直接获取
     
     log.error({
       method,

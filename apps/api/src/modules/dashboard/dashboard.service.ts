@@ -1,5 +1,5 @@
 // Dashboard Service - MVP 简化版：只保留 Admin 基础统计
-import { db, users, activities, eq, gte, desc, count, sql, and, lte } from '@juchang/db';
+import { db, users, activities, eq, gte, desc, count, and, lte } from '@juchang/db';
 import type { DashboardStats, RecentActivity, UserGrowthItem, ActivityTypeDistribution, GeographicItem } from './dashboard.model';
 
 /**

@@ -47,7 +47,7 @@ function isEdenError(error: unknown): error is EdenError {
     typeof error === 'object' &&
     'status' in error &&
     'value' in error &&
-    typeof (error as any).status === 'number'
+    typeof (error as { status: unknown }).status === 'number'
   )
 }
 
@@ -104,7 +104,7 @@ function getEdenErrorMessage(error: EdenError): string {
 // 获取 Axios 错误消息（向后兼容）
 function getAxiosErrorMessage(error: AxiosError): string {
   if (error.response?.data) {
-    const data = error.response.data as any
+    const data = error.response.data as { title?: string; message?: string; msg?: string }
     
     if (typeof data === 'string') {
       return data

@@ -37,16 +37,16 @@ export async function getActivitiesList(
   const conditions = [];
   
   if (status) {
-    const statusList = status.split(',').filter(Boolean);
+    const statusList = status.split(',').filter(Boolean) as Array<'draft' | 'active' | 'completed' | 'cancelled'>;
     if (statusList.length > 0) {
-      conditions.push(inArray(activities.status, statusList as any));
+      conditions.push(inArray(activities.status, statusList));
     }
   }
   
   if (type) {
-    const typeList = type.split(',').filter(Boolean);
+    const typeList = type.split(',').filter(Boolean) as Array<'food' | 'entertainment' | 'sports' | 'boardgame' | 'other'>;
     if (typeList.length > 0) {
-      conditions.push(inArray(activities.type, typeList as any));
+      conditions.push(inArray(activities.type, typeList));
     }
   }
   

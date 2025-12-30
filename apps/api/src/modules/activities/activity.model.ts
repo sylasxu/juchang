@@ -1,6 +1,5 @@
 // Activity Model - TypeBox schemas (MVP 简化版 + v3.2 附近搜索)
 import { Elysia, t, type Static } from 'elysia';
-import { selectActivitySchema, selectUserSchema, selectParticipantSchema } from '@juchang/db';
 
 /**
  * Activity Model Plugin (MVP 简化版 + v3.2 附近搜索)
@@ -299,6 +298,10 @@ export const activityModel = new Elysia({ name: 'activityModel' })
     // 活动列表
     'activity.listQuery': ActivitiesListQuery,
     'activity.listResponse': ActivitiesListResponse,
+    // Admin 活动列表
+    'activity.adminQuery': AdminActivitiesQuery,
+    'activity.adminItem': AdminActivityItem,
+    'activity.adminResponse': AdminActivitiesResponse,
     // v3.2 附近搜索
     'activity.nearbyQuery': NearbyActivitiesQuery,
     'activity.nearbyItem': NearbyActivityItem,
@@ -322,6 +325,9 @@ export type MyActivitiesResponse = Static<typeof MyActivitiesResponse>;
 export type MyActivitiesQuery = Static<typeof MyActivitiesQuery>;
 export type ActivitiesListQuery = Static<typeof ActivitiesListQuery>;
 export type ActivitiesListResponse = Static<typeof ActivitiesListResponse>;
+export type AdminActivitiesQuery = Static<typeof AdminActivitiesQuery>;
+export type AdminActivityItem = Static<typeof AdminActivityItem>;
+export type AdminActivitiesResponse = Static<typeof AdminActivitiesResponse>;
 export type NearbyActivitiesQuery = Static<typeof NearbyActivitiesQuery>;
 export type NearbyActivityItem = Static<typeof NearbyActivityItem>;
 export type NearbyActivitiesResponse = Static<typeof NearbyActivitiesResponse>;

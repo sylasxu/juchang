@@ -37,7 +37,7 @@ export const notificationController = new Elysia({ prefix: '/notifications' })
 
   // 获取未读通知数量
   .get(
-    '/unread-count',
+    '/unreadCount',
     async ({ set, jwt, headers }) => {
       const user = await verifyAuth(jwt, headers);
       if (!user) {

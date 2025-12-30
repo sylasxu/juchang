@@ -28,6 +28,13 @@ import { activitiesColumns as columns } from './activities-columns'
 
 const route = getRouteApi('/_authenticated/activities/')
 
+// 筛选选项类型
+interface FilterOption {
+  label: string
+  value: string
+  icon?: React.ComponentType<{ className?: string }>
+}
+
 type DataTableProps = {
   data: Activity[]
   pageCount?: number
@@ -60,6 +67,18 @@ export function ActivitiesTable({ data, pageCount: externalPageCount }: DataTabl
       { columnId: 'type', searchKey: 'type', type: 'array' },
     ],
   })
+
+  // 转换筛选选项格式
+  const statusOptions: FilterOption[] = statuses.map(s => ({
+    label: s.label,
+    value: s.value,
+    icon: s.icon,
+  }))
+
+  const typeOptions: FilterOption[] = activityTypes.map(t => ({
+    label: t.label,
+    value: t.value,
+  }))
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -109,12 +128,12 @@ export function ActivitiesTable({ data, pageCount: externalPageCount }: DataTabl
           {
             columnId: 'status',
             title: '状态',
-            options: statuses,
+            options: statusOptions,
           },
           {
             columnId: 'type',
             title: '类型',
-            options: activityTypes,
+            options: typeOptions,
           },
         ]}
       />

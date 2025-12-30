@@ -21,27 +21,12 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { SelectDropdown } from '@/components/select-dropdown'
-import { Switch } from '@/components/ui/switch'
-import { genderOptions, membershipOptions } from '../data/data'
 import { useUpdateUser } from '../hooks/use-users'
 import { type User } from '../data/schema'
 
+// MVP 简化版表单 - 只允许编辑昵称
 const formSchema = Type.Object({
   nickname: Type.Optional(Type.String({ maxLength: 50 })),
-  bio: Type.Optional(Type.String({ maxLength: 200 })),
-  gender: Type.Optional(Type.Union([
-    Type.Literal('male'),
-    Type.Literal('female'),
-    Type.Literal('other'),
-    Type.Literal('unknown'),
-  ])),
-  membershipType: Type.Optional(Type.Union([
-    Type.Literal('free'),
-    Type.Literal('pro'),
-  ])),
-  isBlocked: Type.Optional(Type.Boolean()),
 })
 
 type UserForm = Static<typeof formSchema>
@@ -63,10 +48,6 @@ export function UsersActionDialog({
     resolver: typeboxResolver(formSchema),
     defaultValues: {
       nickname: currentRow.nickname || '',
-      bio: currentRow.bio || '',
-      gender: currentRow.gender,
-      membershipType: currentRow.membershipType,
-      isBlocked: currentRow.isBlocked,
     },
   })
 
@@ -121,82 +102,35 @@ export function UsersActionDialog({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name='bio'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-start space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end pt-2'>简介</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder='用户简介'
-                        className='col-span-4'
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='gender'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>性别</FormLabel>
-                    <SelectDropdown
-                      defaultValue={field.value}
-                      onValueChange={field.onChange}
-                      placeholder='选择性别'
-                      className='col-span-4'
-                      items={genderOptions.map(({ label, value }) => ({
-                        label,
-                        value,
-                      }))}
-                    />
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='membershipType'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>会员类型</FormLabel>
-                    <SelectDropdown
-                      defaultValue={field.value}
-                      onValueChange={field.onChange}
-                      placeholder='选择会员类型'
-                      className='col-span-4'
-                      items={membershipOptions.map(({ label, value }) => ({
-                        label,
-                        value,
-                      }))}
-                    />
-                    <FormMessage className='col-span-4 col-start-3' />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='isBlocked'
-                render={({ field }) => (
-                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
-                    <FormLabel className='col-span-2 text-end'>封禁状态</FormLabel>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <span className='col-span-3 text-sm text-muted-foreground'>
-                      {field.value ? '已封禁' : '正常'}
-                    </span>
-                  </FormItem>
-                )}
-              />
+              
+              {/* 只读信息展示 */}
+              <div className='grid grid-cols-6 items-center gap-x-4 gap-y-1'>
+                <span className='col-span-2 text-end text-sm text-muted-foreground'>手机号</span>
+                <span className='col-span-4 text-sm'>
+                  {currentRow.phoneNumber || '未绑定'}
+                </span>
+              </div>
+              
+              <div className='grid grid-cols-6 items-center gap-x-4 gap-y-1'>
+                <span className='col-span-2 text-end text-sm text-muted-foreground'>AI 额度</span>
+                <span className='col-span-4 text-sm'>
+                  {currentRow.aiCreateQuotaToday}/3 次/天
+                </span>
+              </div>
+              
+              <div className='grid grid-cols-6 items-center gap-x-4 gap-y-1'>
+                <span className='col-span-2 text-end text-sm text-muted-foreground'>发布活动</span>
+                <span className='col-span-4 text-sm'>
+                  {currentRow.activitiesCreatedCount} 个
+                </span>
+              </div>
+              
+              <div className='grid grid-cols-6 items-center gap-x-4 gap-y-1'>
+                <span className='col-span-2 text-end text-sm text-muted-foreground'>参与活动</span>
+                <span className='col-span-4 text-sm'>
+                  {currentRow.participationCount} 个
+                </span>
+              </div>
             </form>
           </Form>
         </div>

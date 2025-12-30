@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useBlockUser, useUnblockUser } from '../hooks/use-users'
+import { useBlockUser } from '../hooks/use-users'
 import { type User } from '../data/schema'
 
 interface Props {
@@ -21,16 +21,14 @@ interface Props {
 
 export function UsersBlockDialog({ open, onOpenChange, currentRow, action }: Props) {
   const blockMutation = useBlockUser()
-  const unblockMutation = useUnblockUser()
   const [isLoading, setIsLoading] = useState(false)
 
   const isBlock = action === 'block'
-  const mutation = isBlock ? blockMutation : unblockMutation
 
   const handleConfirm = async () => {
     setIsLoading(true)
     try {
-      await mutation.mutateAsync(currentRow.id)
+      await blockMutation.mutateAsync({ id: currentRow.id, blocked: isBlock })
       onOpenChange()
     } finally {
       setIsLoading(false)
