@@ -7,6 +7,9 @@
   - 空气感渐变背景
 -->
 <view class="home-page">
+  <!-- 网络状态通知条 -->
+  <network-status bind:retry="onNetworkRetry" />
+  
   <!-- 空气感渐变背景 -->
   <view class="atmospheric-bg"></view>
   
@@ -87,7 +90,7 @@
             <block wx:elif="{{item.type === 'widget_share'}}">
               <widget-share 
                 activity="{{item.content}}"
-                bind:share="onShareTap"
+                bind:share="onWidgetShareTap"
               />
             </block>
             
@@ -103,12 +106,12 @@
             
             <!-- Widget_Error -->
             <block wx:elif="{{item.type === 'widget_error'}}">
-              <view class="widget-error halo-card">
-                <view class="error-icon icon-circle icon-circle--amber">
-                  <t-icon name="error-circle" size="40rpx" />
-                </view>
-                <text class="error-text">{{item.content.message || '出了点问题'}}</text>
-              </view>
+              <widget-error 
+                message="{{item.content.message || '出了点问题'}}"
+                showRetry="{{item.content.showRetry !== false}}"
+                data-original-text="{{item.content.originalText}}"
+                bind:retry="onWidgetErrorRetry"
+              />
             </block>
           </block>
         </view>

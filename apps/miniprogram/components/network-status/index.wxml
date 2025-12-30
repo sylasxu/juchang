@@ -1,0 +1,17 @@
+<!--
+  Network Status 组件 - 网络状态通知条
+  Requirements: 错误处理, 用户引导
+  
+  功能：
+  - 网络断开时显示红色通知条
+  - 网络恢复时自动隐藏
+-->
+<view wx:if="{{visible}}" class="network-status network-status--offline">
+  <view class="network-status__content">
+    <t-icon name="wifi-off" size="32rpx" />
+    <text class="network-status__text">网络连接已断开</text>
+  </view>
+  <view class="network-status__action" bindtap="onRetry">
+    <text>重试</text>
+  </view>
+</view>

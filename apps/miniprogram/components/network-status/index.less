@@ -1,0 +1,58 @@
+/**
+ * Network Status 组件样式 - 网络状态通知条
+ * Requirements: 错误处理, 用户引导
+ */
+
+@import '../../styles/tokens.less';
+
+.network-status {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: @spacing-2 @spacing-4;
+  padding-top: calc(env(safe-area-inset-top) + @spacing-2);
+  animation: slide-down 0.3s ease-out;
+  
+  &--offline {
+    background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
+    color: #FFFFFF;
+  }
+  
+  &__content {
+    display: flex;
+    align-items: center;
+    gap: @spacing-2;
+  }
+  
+  &__text {
+    font-size: @text-sm;
+    font-weight: 500;
+  }
+  
+  &__action {
+    padding: @spacing-1 @spacing-3;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: @rounded-full;
+    font-size: @text-sm;
+    
+    &:active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}

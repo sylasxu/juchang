@@ -57,15 +57,20 @@ export const MAP_CONFIG = {
 /**
  * 使用 wx.chooseLocation 选择位置
  * 一步到位：选点 + 获取地址，无需 API Key
+ * 
+ * @param options 可选的初始位置参数
  */
-export function chooseLocation(): Promise<{
+export function chooseLocation(options?: {
+  latitude?: number
+  longitude?: number
+}): Promise<{
   name: string
   address: string
   latitude: number
   longitude: number
 }> {
   return new Promise((resolve, reject) => {
-    wx.chooseLocation({
+    const params: WechatMiniprogram.ChooseLocationOption = {
       success: (res) => {
         resolve({
           name: res.name || '已选择位置',
@@ -82,7 +87,15 @@ export function chooseLocation(): Promise<{
           reject(new Error(err.errMsg || '选择位置失败'))
         }
       },
-    })
+    }
+    
+    // 如果提供了初始坐标，设置地图中心点
+    if (options?.latitude !== undefined && options?.longitude !== undefined) {
+      params.latitude = options.latitude
+      params.longitude = options.longitude
+    }
+    
+    wx.chooseLocation(params)
   })
 }
 

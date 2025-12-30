@@ -437,12 +437,16 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         })
         this.sseController = null
 
-        // 显示错误消息
+        // 显示 Widget_Error 带重试按钮
         homeStore.addAIMessage({
           id: aiMessageId,
           role: 'assistant',
-          type: 'text',
-          content: { text: '抱歉，我没理解你的意思，试试换个说法？' },
+          type: 'widget_error',
+          content: { 
+            message: '抱歉，我没理解你的意思，试试换个说法？',
+            showRetry: true,
+            originalText: text, // 保存原始文本用于重试
+          },
           activityId: null,
         })
 
@@ -599,14 +603,6 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   },
 
   /**
-   * Widget_Share 分享
-   * Requirements: 7.3
-   */
-  onShareTap(_e: WechatMiniprogram.CustomEvent<{ activity: any }>) {
-    // 由 widget-share 组件内部处理
-  },
-
-  /**
    * Widget_Explore 展开地图
    * Requirements: 17.4
    */
@@ -640,11 +636,43 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   // ==================== 分享相关 ====================
 
+  // 当前分享的活动数据（用于 Widget_Share 触发的分享）
+  shareActivityData: null as any,
+
   /**
-   * 页面分享
-   * Requirements: 13.1
+   * Widget_Share 分享事件
+   * Requirements: 7.3, 13.1
    */
-  onShareAppMessage() {
+  onWidgetShareTap(e: WechatMiniprogram.CustomEvent<{ activity: any; shareTitle: string }>) {
+    const { activity, shareTitle } = e.detail
+    // 保存分享数据，供 onShareAppMessage 使用
+    this.shareActivityData = { ...activity, shareTitle }
+  },
+
+  /**
+   * 页面分享 - Requirements: 13.1, 13.2, 13.3, 13.4
+   * 
+   * 零成本方案：分享卡片不使用地图预览图，使用默认封面或纯文字
+   */
+  onShareAppMessage(): WechatMiniprogram.Page.ICustomShareContent {
+    // 如果有 Widget_Share 触发的分享数据，使用该数据
+    if (this.shareActivityData) {
+      const activity = this.shareActivityData
+      const shareTitle = activity.shareTitle || `🔥 ${activity.title}，快来！`
+      
+      // 清除分享数据
+      const result = {
+        title: shareTitle,
+        path: `/subpackages/activity/detail/index?id=${activity.id}&share=1`,
+        // 零成本方案：不使用地图预览图
+        imageUrl: '',
+      }
+      
+      this.shareActivityData = null
+      return result
+    }
+    
+    // 默认分享首页
     return {
       title: '聚场 - 微信群组局神器',
       path: '/pages/home/index',
@@ -658,5 +686,28 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     return {
       title: '聚场 - 微信群组局神器',
     }
+  },
+
+  // ==================== 错误处理 ====================
+
+  /**
+   * Widget_Error 重试
+   * Requirements: 错误处理, 用户引导
+   */
+  onWidgetErrorRetry(e: WechatMiniprogram.CustomEvent) {
+    const originalText = e.currentTarget.dataset.originalText
+    if (originalText) {
+      // 重新发起 AI 解析
+      this.startAIParse(originalText)
+    }
+  },
+
+  /**
+   * 网络恢复重试
+   * Requirements: 错误处理
+   */
+  onNetworkRetry() {
+    // 刷新消息列表
+    this.loadMessages()
   },
 })

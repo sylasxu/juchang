@@ -1,93 +1,130 @@
 <!--
-  群聊页面
-  TDesign + Atomic Less 重构
+  活动群聊页面 (Lite_Chat)
+  Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8
 -->
-<view class="flex flex-col h-screen bg-gray-50">
+<view class="chat-page">
+  <!-- 自定义导航栏 -->
+  <custom-navbar 
+    title="{{activity.title || '群聊'}}" 
+    showBack="{{true}}"
+    showMenu="{{false}}"
+    showMore="{{false}}"
+    bind:back="onBackTap"
+  />
+
   <!-- 活动信息头部 -->
   <view 
-    class="activity-header flex items-center px-4 py-3 bg-white border-b border-gray-100" 
+    class="activity-header" 
     bind:tap="onActivityTap" 
     wx:if="{{activity}}"
   >
-    <image
-      class="w-88 h-88 rounded-md flex-shrink-0 mr-3"
-      src="{{activity.image || '/static/images/default-activity.png'}}"
-      mode="aspectFill"
-    />
-    <view class="flex-1 min-w-0">
-      <view class="text-base font-medium text-gray-900 truncate mb-1">{{activity.title}}</view>
-      <view class="flex items-center gap-1 text-xs text-gray-600">
-        <t-icon name="location" size="28rpx" />
-        <text>{{activity.locationName}}</text>
-        <text class="mx-1">·</text>
-        <t-icon name="user" size="28rpx" />
-        <text>{{activity.participantCount}}人</text>
+    <view class="activity-info">
+      <view class="activity-title">{{activity.title}}</view>
+      <view class="activity-meta">
+        <text class="meta-item">
+          <text class="icon-location"></text>
+          {{activity.locationName}}
+        </text>
+        <text class="meta-divider">·</text>
+        <text class="meta-item">
+          <text class="icon-users"></text>
+          {{activity.currentParticipants}}/{{activity.maxParticipants}}人
+        </text>
       </view>
     </view>
-    <view class="activity-status text-xs px-2 py-1 rounded-sm mr-2 {{activity.isArchived ? 'archived' : ''}}">
-      {{activity.isArchived ? '已归档' : '进行中'}}
+    <view class="activity-status {{isArchived ? 'archived' : 'active'}}">
+      {{isArchived ? '已归档' : '进行中'}}
     </view>
-    <t-icon name="chevron-right" size="40rpx" color="#9CA3AF" />
+    <view class="chevron-icon">
+      <text class="icon-chevron-right"></text>
+    </view>
+  </view>
+
+  <!-- 归档提示条 -->
+  <view class="archive-banner" wx:if="{{isArchived}}">
+    <text class="icon-info"></text>
+    <text>群聊已归档，无法发送新消息</text>
   </view>
 
   <!-- 消息列表 -->
   <scroll-view
-    class="flex-1 px-4 py-3 pb-140"
+    class="message-list"
     scroll-y
     enhanced
     show-scrollbar="{{false}}"
     scroll-into-view="{{scrollToMessage}}"
     scroll-with-animation
-    bindscrolltoupper="onLoadMore"
-    style="padding-bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '140rpx'}}"
+    style="padding-bottom: {{keyboardHeight > 0 ? (keyboardHeight + 120) + 'px' : '140rpx'}}"
   >
-    <!-- 加载更多提示 -->
-    <view class="flex items-center justify-center gap-2 py-3 text-xs text-gray-400" wx:if="{{hasMore}}">
-      <t-loading theme="circular" size="40rpx" />
-      <text>加载更多...</text>
+    <!-- 加载状态 -->
+    <view class="loading-container" wx:if="{{loading}}">
+      <t-loading theme="circular" size="48rpx" />
+      <text class="loading-text">加载中...</text>
     </view>
 
     <!-- 消息列表 -->
     <block wx:for="{{messages}}" wx:key="id">
-      <view
+      <!-- 系统消息 -->
+      <view 
+        wx:if="{{item.isSystem}}"
         id="msg-{{item.id}}"
-        class="message-item flex items-start mb-4 {{item.isSelf ? 'self flex-row-reverse' : 'other'}}"
+        class="system-message"
+      >
+        <text class="system-text">{{item.content}}</text>
+      </view>
+
+      <!-- 普通消息 -->
+      <view
+        wx:else
+        id="msg-{{item.id}}"
+        class="message-item {{item.isSelf ? 'self' : 'other'}}"
       >
         <!-- 头像 -->
         <image
-          class="avatar w-80 h-80 rounded-full flex-shrink-0"
-          src="{{item.senderAvatar || '/static/images/default-avatar.png'}}"
+          class="avatar"
+          src="{{item.senderAvatarUrl || '/static/images/default-avatar.png'}}"
           mode="aspectFill"
         />
+        
         <!-- 消息内容 -->
-        <view class="message-content flex flex-col mx-3 max-w-70 {{item.isSelf ? 'items-end' : 'items-start'}}">
-          <view class="text-xs text-gray-600 mb-1" wx:if="{{!item.isSelf}}">{{item.senderName}}</view>
-          <view class="message-bubble px-4 py-3 text-base leading-normal {{item.isSelf ? 'self-bubble' : 'other-bubble'}}">
-            <text>{{item.content}}</text>
+        <view class="message-content">
+          <!-- 发送者昵称（非自己的消息显示） -->
+          <view class="sender-name" wx:if="{{!item.isSelf}}">
+            {{item.senderNickname || '用户'}}
           </view>
-          <view class="text-xs text-gray-400 mt-1">{{item.createdAt}}</view>
+          
+          <!-- 消息气泡 -->
+          <view class="message-bubble {{item.isSelf ? 'self-bubble' : 'other-bubble'}}">
+            <text class="message-text">{{item.content}}</text>
+          </view>
+          
+          <!-- 时间 -->
+          <view class="message-time">{{item.formattedTime}}</view>
         </view>
       </view>
     </block>
 
     <!-- 空状态 -->
-    <view class="flex flex-col items-center justify-center py-12 text-gray-400" wx:if="{{!loading && messages.length === 0}}">
-      <t-icon name="chat" size="96rpx" color="#E5E7EB" />
-      <text class="text-sm mt-2">暂无消息</text>
-      <text class="text-xs mt-1">发送第一条消息开始聊天吧</text>
+    <view class="empty-state" wx:if="{{!loading && messages.length === 0}}">
+      <view class="empty-icon">💬</view>
+      <text class="empty-title">暂无消息</text>
+      <text class="empty-desc">发送第一条消息开始聊天吧</text>
     </view>
   </scroll-view>
 
   <!-- 输入区域 -->
-  <view class="input-area fixed left-0 right-0 bottom-0 bg-white border-t border-gray-100" style="bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '0'}}">
-    <view class="flex items-center px-4 py-3 gap-3">
+  <view 
+    class="input-area {{isArchived ? 'disabled' : ''}}" 
+    style="bottom: {{keyboardHeight > 0 ? keyboardHeight + 'px' : '0'}}"
+  >
+    <view class="input-container">
       <input
-        class="message-input flex-1 h-80 px-4 bg-gray-100 rounded-full text-base text-gray-900"
+        class="message-input"
         type="text"
-        placeholder="{{activity && activity.isArchived ? '群聊已归档' : '输入消息...'}}"
-        placeholder-class="text-gray-400"
+        placeholder="{{isArchived ? '群聊已归档' : '输入消息...'}}"
+        placeholder-class="input-placeholder"
         value="{{inputValue}}"
-        disabled="{{activity && activity.isArchived}}"
+        disabled="{{isArchived}}"
         confirm-type="send"
         adjust-position="{{false}}"
         bindinput="onInputChange"
@@ -96,12 +133,12 @@
         bindblur="onInputBlur"
       />
       <view
-        class="send-btn w-80 h-80 flex items-center justify-center rounded-full {{inputValue.trim() ? 'active' : 'bg-gray-100 text-gray-400'}}"
+        class="send-btn {{inputValue.trim() && !isArchived ? 'active' : ''}}"
         bind:tap="onSendMessage"
       >
-        <t-icon name="send" size="44rpx" />
+        <text class="icon-send"></text>
       </view>
     </view>
-    <view class="safe-bottom"></view>
+    <view class="safe-area-bottom"></view>
   </view>
 </view>

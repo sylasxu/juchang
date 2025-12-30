@@ -12,28 +12,16 @@
  * - 按钮 Scale Down 回弹效果 + wx.vibrateShort 触感反馈
  */
 
-// 防抖定时器
-let debounceTimer: number | null = null;
+// 防抖定时器 (模块级变量)
+let _debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 录音计时器 (模块级变量)
+let _recordingTimer: ReturnType<typeof setInterval> | null = null;
 
 // 防抖延迟时间 (ms) - Requirements: 5.8
-const DEBOUNCE_DELAY = 800;
+const _DEBOUNCE_DELAY = 800;
 
-interface ComponentData {
-  inputValue: string;
-  isFocused: boolean;
-  isRecording: boolean;
-  recordingDuration: number;
-  keyboardHeight: number;
-  bottomOffset: number;
-  safeAreaBottom: number;
-}
-
-interface ComponentProperties {
-  placeholder: WechatMiniprogram.Component.PropertyOption;
-  disabled: WechatMiniprogram.Component.PropertyOption;
-}
-
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -69,9 +57,9 @@ Component<ComponentData, ComponentProperties>({
 
     detached() {
       // 清理防抖定时器
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
+      if (_debounceTimer) {
+        clearTimeout(_debounceTimer);
+        _debounceTimer = null;
       }
       // 清理录音定时器
       this.stopRecordingTimer();
@@ -141,8 +129,8 @@ Component<ComponentData, ComponentProperties>({
       this.setData({ inputValue: value });
 
       // 清除之前的防抖定时器
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
+      if (_debounceTimer) {
+        clearTimeout(_debounceTimer);
       }
 
       // 如果输入为空，不触发解析
@@ -151,9 +139,9 @@ Component<ComponentData, ComponentProperties>({
       }
 
       // 防抖：800ms 后触发 AI 解析 - Requirements: 5.8
-      debounceTimer = setTimeout(() => {
+      _debounceTimer = setTimeout(() => {
         this.triggerEvent('parse', { text: value });
-      }, DEBOUNCE_DELAY) as unknown as number;
+      }, _DEBOUNCE_DELAY);
     },
 
     /**
@@ -165,9 +153,9 @@ Component<ComponentData, ComponentProperties>({
       if (!value) return;
 
       // 清除防抖定时器，立即触发
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
+      if (_debounceTimer) {
+        clearTimeout(_debounceTimer);
+        _debounceTimer = null;
       }
 
       // 触感反馈
@@ -199,12 +187,12 @@ Component<ComponentData, ComponentProperties>({
             this.triggerEvent('paste', { text: res.data });
             
             // 自动触发解析
-            if (debounceTimer) {
-              clearTimeout(debounceTimer);
+            if (_debounceTimer) {
+              clearTimeout(_debounceTimer);
             }
-            debounceTimer = setTimeout(() => {
+            _debounceTimer = setTimeout(() => {
               this.triggerEvent('parse', { text: res.data });
-            }, DEBOUNCE_DELAY) as unknown as number;
+            }, _DEBOUNCE_DELAY);
           } else {
             wx.showToast({ title: '剪贴板为空', icon: 'none' });
           }
@@ -297,23 +285,18 @@ Component<ComponentData, ComponentProperties>({
       recorderManager.stop();
     },
 
-    /**
-     * 录音计时器
-     */
-    recordingTimer: null as number | null,
-
     startRecordingTimer() {
-      this.recordingTimer = setInterval(() => {
+      _recordingTimer = setInterval(() => {
         this.setData({
           recordingDuration: this.data.recordingDuration + 1,
         });
-      }, 1000) as unknown as number;
+      }, 1000);
     },
 
     stopRecordingTimer() {
-      if (this.recordingTimer) {
-        clearInterval(this.recordingTimer);
-        this.recordingTimer = null;
+      if (_recordingTimer) {
+        clearInterval(_recordingTimer);
+        _recordingTimer = null;
       }
     },
 
@@ -340,12 +323,12 @@ Component<ComponentData, ComponentProperties>({
               this.triggerEvent('voice', { text: res.result });
               
               // 自动触发解析
-              if (debounceTimer) {
-                clearTimeout(debounceTimer);
+              if (_debounceTimer) {
+                clearTimeout(_debounceTimer);
               }
-              debounceTimer = setTimeout(() => {
+              _debounceTimer = setTimeout(() => {
                 this.triggerEvent('parse', { text: res.result });
-              }, DEBOUNCE_DELAY) as unknown as number;
+              }, _DEBOUNCE_DELAY);
             } else {
               wx.showToast({ title: '识别失败，请重试', icon: 'none' });
             }
@@ -371,9 +354,9 @@ Component<ComponentData, ComponentProperties>({
       
       this.setData({ inputValue: '' });
       
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-        debounceTimer = null;
+      if (_debounceTimer) {
+        clearTimeout(_debounceTimer);
+        _debounceTimer = null;
       }
     },
 

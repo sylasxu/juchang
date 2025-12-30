@@ -1,0 +1,56 @@
+/**
+ * Widget Error 组件样式 - 错误提示卡片
+ * Requirements: 错误处理, 用户引导
+ */
+
+@import '../../styles/tokens.less';
+
+.widget-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: @spacing-6 @spacing-4;
+  text-align: center;
+  
+  .error-icon {
+    margin-bottom: @spacing-4;
+    
+    &.icon-circle--amber {
+      background: rgba(245, 158, 11, 0.1);
+      color: #F59E0B;
+    }
+  }
+  
+  .error-message {
+    font-size: @text-base;
+    color: var(--text-primary, @text-primary);
+    line-height: 1.6;
+    margin-bottom: @spacing-4;
+    max-width: 80%;
+  }
+  
+  .error-action {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    
+    .action-btn {
+      min-width: 200rpx;
+    }
+  }
+}
+
+// 深色模式适配
+@media (prefers-color-scheme: dark) {
+  .widget-error {
+    .error-icon {
+      &.icon-circle--amber {
+        background: rgba(245, 158, 11, 0.15);
+      }
+    }
+    
+    .error-message {
+      color: var(--text-primary-dark, @text-primary-dark);
+    }
+  }
+}

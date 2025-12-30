@@ -9,9 +9,11 @@
     "widget-draft": "/components/widget-draft/index",
     "widget-share": "/components/widget-share/index",
     "widget-explore": "/components/widget-explore/index",
+    "widget-error": "/components/widget-error/index",
     "thinking-bubble": "/components/thinking-bubble/index",
     "widget-skeleton": "/components/widget-skeleton/index",
     "auth-sheet": "/components/auth-sheet/index",
-    "share-guide": "/components/share-guide/index"
+    "share-guide": "/components/share-guide/index",
+    "network-status": "/components/network-status/index"
   }
 }

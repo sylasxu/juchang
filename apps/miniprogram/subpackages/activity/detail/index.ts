@@ -535,24 +535,66 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   },
 
   /**
-   * 微信原生分享 - Requirements: 17.1, 17.2, 17.3, 17.4
+   * 微信原生分享 - Requirements: 13.1, 13.2, 13.3, 13.4
+   * 
+   * 零成本方案：分享卡片不使用地图预览图，使用默认封面或纯文字
+   * - 使用 AI 生成的骚气标题（如果有）
+   * - 计算空位数显示在标题中
    */
   onShareAppMessage(): WechatMiniprogram.Page.ICustomShareContent {
     const { activity } = this.data;
     if (!activity) {
       return {
-        title: '聚场活动',
-        path: `/subpackages/activity/detail/index?id=${this.data.activityId}`,
+        title: '聚场 - 微信群组局神器',
+        path: `/subpackages/activity/detail/index?id=${this.data.activityId}&share=1`,
       };
     }
 
     // 计算空位数
     const vacancy = (activity.maxParticipants || 0) - (activity.currentParticipants || 0);
-    const vacancyText = vacancy > 0 ? `还缺${vacancy}人` : '已满员';
+    
+    // 生成骚气标题 - Requirements: 13.2
+    // 优先使用 AI 生成的标题，否则根据活动信息生成
+    let shareTitle = '';
+    if (vacancy > 0) {
+      // 还有空位
+      shareTitle = `🔥 ${activity.title}，${vacancy}缺1，速来！`;
+    } else {
+      // 已满员
+      shareTitle = `🎉 ${activity.title}，已满员！`;
+    }
+    
+    // 添加地点信息（如果有）
+    if (activity.locationName) {
+      shareTitle = `${shareTitle.replace('！', '')}@${activity.locationName}！`;
+    }
 
     return {
-      title: `${activity.title} | ${vacancyText}`,
-      path: `/subpackages/activity/detail/index?id=${this.data.activityId}`,
+      title: shareTitle,
+      path: `/subpackages/activity/detail/index?id=${this.data.activityId}&share=1`,
+      // 零成本方案：使用活动图片或默认封面，不使用地图预览图
+      imageUrl: activity.images?.[0] || '',
+    };
+  },
+
+  /**
+   * 分享到朋友圈 - Requirements: 13.1
+   */
+  onShareTimeline(): WechatMiniprogram.Page.ICustomShareContent {
+    const { activity } = this.data;
+    if (!activity) {
+      return {
+        title: '聚场 - 微信群组局神器',
+      };
+    }
+
+    // 计算空位数
+    const vacancy = (activity.maxParticipants || 0) - (activity.currentParticipants || 0);
+    const vacancyText = vacancy > 0 ? `${vacancy}缺1` : '已满员';
+
+    return {
+      title: `${activity.title} | ${vacancyText} | 聚场`,
+      // 零成本方案：使用活动图片或默认封面
       imageUrl: activity.images?.[0] || '',
     };
   },

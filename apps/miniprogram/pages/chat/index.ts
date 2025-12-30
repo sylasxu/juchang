@@ -1,14 +1,16 @@
 /**
- * 群聊页面
- * Requirements: 9.1, 9.2, 9.3, 9.4
- * - 显示活动信息头部和消息列表
- * - 发送文本消息
- * - WebSocket 实时接收消息
- * - 活动结束后标记为"已归档"
+ * 活动群聊页面 (Lite_Chat)
+ * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8
+ * 
+ * - 显示活动信息头部
+ * - 实现消息发送和显示
+ * - 实现轮询机制（5-10 秒）
+ * - 实现 onHide 停止轮询、onShow 恢复轮询
+ * - 实现归档状态（只读 + 提示）
  */
-import { getChatMessages, postChatMessages } from '../../src/api/endpoints/chat/chat';
+import { getChatByActivityIdMessages, postChatByActivityIdMessages } from '../../src/api/endpoints/chat/chat';
 import { getActivitiesById } from '../../src/api/endpoints/activities/activities';
-import type { GetChatMessagesParams } from '../../src/api/model';
+import type { GetChatByActivityIdMessagesParams } from '../../src/api/model';
 
 // ==================== 类型定义 ====================
 
@@ -16,25 +18,30 @@ import type { GetChatMessagesParams } from '../../src/api/model';
 interface ChatMessage {
   id: string;
   content: string;
-  senderId: string;
-  senderName: string;
-  senderAvatar: string;
+  senderId: string | null;
+  senderNickname: string | null;
+  senderAvatarUrl: string | null;
+  type: string;
   createdAt: string;
   /** 是否是自己发送的 */
   isSelf: boolean;
+  /** 是否是系统消息 */
+  isSystem: boolean;
+  /** 格式化后的时间 */
+  formattedTime: string;
 }
 
 /** 活动信息 */
 interface ActivityInfo {
   id: string;
   title: string;
-  image?: string;
+  type: string;
   startAt: string;
-  endAt?: string;
   locationName: string;
   status: string;
   isArchived: boolean;
-  participantCount: number;
+  currentParticipants: number;
+  maxParticipants: number;
 }
 
 /** 页面数据 */
@@ -57,38 +64,12 @@ interface PageData {
   sending: boolean;
   /** 当前用户 ID */
   currentUserId: string;
-  /** 是否有更多历史消息 */
-  hasMore: boolean;
-  /** 分页游标 */
-  cursor: string;
-}
-
-/** App 实例类型 */
-interface AppInstance {
-  globalData: {
-    socket?: WechatMiniprogram.SocketTask;
-    userInfo?: {
-      id: string;
-      nickname: string;
-      avatarUrl: string;
-    };
-  };
-}
-
-/** WebSocket 消息类型 */
-interface SocketMessage {
-  type: 'message' | 'typing' | 'read';
-  data: {
-    activityId: string;
-    message?: {
-      id: string;
-      content: string;
-      senderId: string;
-      senderName: string;
-      senderAvatar: string;
-      createdAt: string;
-    };
-  };
+  /** 是否已归档 */
+  isArchived: boolean;
+  /** 最后一条消息 ID（用于增量轮询） */
+  lastMessageId: string;
+  /** 是否正在轮询 */
+  isPolling: boolean;
 }
 
 /** 页面参数 */
@@ -96,7 +77,8 @@ interface PageOptions {
   activityId?: string;
 }
 
-const app = getApp<AppInstance>();
+// 轮询间隔（毫秒）
+const POLL_INTERVAL = 5000; // 5 秒
 
 Page<PageData, WechatMiniprogram.Page.CustomOption>({
   data: {
@@ -109,9 +91,13 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     loading: true,
     sending: false,
     currentUserId: '',
-    hasMore: true,
-    cursor: '',
+    isArchived: false,
+    lastMessageId: '',
+    isPolling: false,
   },
+
+  // 轮询定时器
+  _pollTimer: null as number | null,
 
   onLoad(options: PageOptions) {
     const { activityId } = options;
@@ -121,167 +107,212 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       return;
     }
 
-    const currentUserId = app.globalData.userInfo?.id || wx.getStorageSync('userId') || '';
+    // 获取当前用户 ID
+    const currentUserId = wx.getStorageSync('userId') || '';
 
     this.setData({
       activityId,
       currentUserId,
     });
 
+    // 加载数据
     this.loadActivityInfo();
     this.loadMessages();
-    this.setupWebSocket();
+  },
+
+  /**
+   * 页面显示时恢复轮询
+   * Requirements: 11.6 - onShow 恢复轮询
+   */
+  onShow() {
+    if (this.data.activityId && !this.data.isArchived) {
+      this.startPolling();
+    }
+  },
+
+  /**
+   * 页面隐藏时停止轮询
+   * Requirements: 11.5 - onHide 停止轮询
+   */
+  onHide() {
+    this.stopPolling();
   },
 
   onUnload() {
-    // 清理 WebSocket 监听
+    this.stopPolling();
   },
 
   // ==================== 数据加载 ====================
 
-  /** 加载活动信息 (Requirements: 9.1) */
+  /**
+   * 加载活动信息
+   * Requirements: 11.2 - 显示活动信息头部
+   */
   async loadActivityInfo() {
     try {
       const response = await getActivitiesById(this.data.activityId);
-      if (response.status === 200) {
-        const data = response.data as {
-          id: string;
-          title: string;
-          images?: string[];
-          startAt: string;
-          endAt?: string;
-          locationName: string;
-          status: string;
-          participantCount?: number;
-        };
+      if (response.status === 200 && response.data) {
+        const data = response.data;
 
         const activity: ActivityInfo = {
           id: data.id,
           title: data.title,
-          image: data.images?.[0],
+          type: data.type,
           startAt: data.startAt,
-          endAt: data.endAt,
           locationName: data.locationName,
           status: data.status,
-          isArchived: data.status === 'completed' || data.status === 'cancelled',
-          participantCount: data.participantCount || 0,
+          isArchived: data.isArchived || false,
+          currentParticipants: data.currentParticipants || 0,
+          maxParticipants: data.maxParticipants || 0,
         };
 
-        this.setData({ activity });
+        this.setData({ 
+          activity,
+          isArchived: activity.isArchived,
+        });
 
         // 设置导航栏标题
         wx.setNavigationBarTitle({ title: activity.title });
       }
     } catch (error) {
       console.error('加载活动信息失败', error);
+      wx.showToast({ title: '加载活动信息失败', icon: 'none' });
     }
   },
 
-  /** 加载消息列表 (Requirements: 9.1) */
-  async loadMessages(loadMore = false) {
-    if (!loadMore) {
+  /**
+   * 加载消息列表
+   * Requirements: 11.2 - 显示消息列表
+   */
+  async loadMessages(isPolling = false) {
+    if (!isPolling) {
       this.setData({ loading: true });
     }
 
     try {
-      const params: GetChatMessagesParams = {
-        activityId: this.data.activityId,
-        limit: 20,
+      const params: GetChatByActivityIdMessagesParams = {
+        limit: 50,
       };
 
-      // 使用 before 参数进行分页
-      if (loadMore && this.data.cursor) {
-        params.before = this.data.cursor;
+      // 增量获取：使用 since 参数
+      if (isPolling && this.data.lastMessageId) {
+        params.since = this.data.lastMessageId;
       }
 
-      const response = await getChatMessages(params);
+      const response = await getChatByActivityIdMessages(this.data.activityId, params);
 
-      if (response.status === 200) {
-        const data = response.data as {
-          messages: Array<{
-            id: string;
-            content: string;
-            senderId: string;
-            senderName: string;
-            senderAvatar: string;
-            createdAt: string;
-          }>;
-          cursor?: string;
-          hasMore?: boolean;
-        };
+      if (response.status === 200 && response.data) {
+        const { messages: rawMessages, isArchived } = response.data;
 
-        const newMessages: ChatMessage[] = (data.messages || []).map((msg) => ({
-          ...msg,
+        // 更新归档状态
+        if (isArchived !== this.data.isArchived) {
+          this.setData({ isArchived });
+          
+          // 如果变为归档状态，停止轮询
+          if (isArchived) {
+            this.stopPolling();
+          }
+        }
+
+        // 格式化消息
+        const newMessages: ChatMessage[] = (rawMessages || []).map((msg) => ({
+          id: msg.id,
+          content: msg.content,
+          senderId: msg.senderId,
+          senderNickname: msg.senderNickname,
+          senderAvatarUrl: msg.senderAvatarUrl,
+          type: msg.type,
+          createdAt: msg.createdAt,
           isSelf: msg.senderId === this.data.currentUserId,
+          isSystem: msg.type === 'system' || !msg.senderId,
+          formattedTime: this.formatTime(msg.createdAt),
         }));
 
-        const messages = loadMore ? [...newMessages, ...this.data.messages] : newMessages;
-
-        this.setData({
-          messages,
-          cursor: data.cursor || '',
-          hasMore: data.hasMore ?? false,
-          loading: false,
-        });
-
-        // 滚动到底部
-        if (!loadMore && messages.length > 0) {
+        if (isPolling && newMessages.length > 0) {
+          // 增量更新：追加新消息
+          const messages = [...this.data.messages, ...newMessages];
+          const lastMessageId = newMessages[newMessages.length - 1].id;
+          
+          this.setData({
+            messages,
+            lastMessageId,
+            loading: false,
+          });
+          
+          // 滚动到底部
           this.scrollToBottom();
+        } else if (!isPolling) {
+          // 首次加载
+          const lastMessageId = newMessages.length > 0 
+            ? newMessages[newMessages.length - 1].id 
+            : '';
+          
+          this.setData({
+            messages: newMessages,
+            lastMessageId,
+            loading: false,
+          });
+          
+          // 滚动到底部
+          this.scrollToBottom();
+          
+          // 开始轮询（如果未归档）
+          if (!isArchived) {
+            this.startPolling();
+          }
         }
       }
     } catch (error) {
       console.error('加载消息失败', error);
-      this.setData({ loading: false });
+      if (!isPolling) {
+        this.setData({ loading: false });
+        wx.showToast({ title: '加载消息失败', icon: 'none' });
+      }
     }
   },
 
-  // ==================== WebSocket ====================
+  // ==================== 轮询机制 ====================
 
-  /** 设置 WebSocket 监听 (Requirements: 9.3) */
-  setupWebSocket() {
-    const socket = app.globalData?.socket;
-    if (!socket) return;
+  /**
+   * 开始轮询
+   * Requirements: 11.4 - 每 5-10 秒轮询新消息
+   */
+  startPolling() {
+    if (this.data.isPolling || this.data.isArchived) {
+      return;
+    }
 
-    socket.onMessage((result) => {
-      try {
-        const data = JSON.parse(result.data as string) as SocketMessage;
-
-        if (data.type === 'message' && data.data.activityId === this.data.activityId && data.data.message) {
-          this.handleNewMessage(data.data.message);
-        }
-      } catch (error) {
-        console.error('解析 WebSocket 消息失败', error);
-      }
-    });
+    this.setData({ isPolling: true });
+    
+    this._pollTimer = setInterval(() => {
+      this.loadMessages(true);
+    }, POLL_INTERVAL) as unknown as number;
   },
 
-  /** 处理新消息 */
-  handleNewMessage(message: {
-    id: string;
-    content: string;
-    senderId: string;
-    senderName: string;
-    senderAvatar: string;
-    createdAt: string;
-  }) {
-    const newMessage: ChatMessage = {
-      ...message,
-      isSelf: message.senderId === this.data.currentUserId,
-    };
-
-    const messages = [...this.data.messages, newMessage];
-    this.setData({ messages });
-    this.scrollToBottom();
+  /**
+   * 停止轮询
+   * Requirements: 11.5 - onHide 停止轮询
+   */
+  stopPolling() {
+    if (this._pollTimer) {
+      clearInterval(this._pollTimer);
+      this._pollTimer = null;
+    }
+    this.setData({ isPolling: false });
   },
 
   // ==================== 事件处理 ====================
 
-  /** 输入框内容变化 */
+  /**
+   * 输入框内容变化
+   */
   onInputChange(e: WechatMiniprogram.Input) {
     this.setData({ inputValue: e.detail.value });
   },
 
-  /** 键盘高度变化 */
+  /**
+   * 键盘高度变化
+   */
   onKeyboardHeightChange(e: WechatMiniprogram.CustomEvent<{ height: number }>) {
     const { height } = e.detail;
     this.setData({ keyboardHeight: height });
@@ -291,29 +322,33 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     }
   },
 
-  /** 输入框失焦 */
+  /**
+   * 输入框失焦
+   */
   onInputBlur() {
     this.setData({ keyboardHeight: 0 });
   },
 
-  /** 发送消息 (Requirements: 9.2) */
+  /**
+   * 发送消息
+   * Requirements: 11.3 - 发送文本消息
+   */
   async onSendMessage() {
-    const { inputValue, activityId, sending, activity } = this.data;
+    const { inputValue, activityId, sending, isArchived } = this.data;
 
     if (!inputValue.trim() || sending) return;
 
-    // 检查是否已归档 (Requirements: 9.4)
-    if (activity?.isArchived) {
-      wx.showToast({ title: '群聊已归档', icon: 'none' });
+    // 检查是否已归档
+    // Requirements: 11.7, 11.8 - 归档状态禁用发送
+    if (isArchived) {
+      wx.showToast({ title: '群聊已归档，无法发送消息', icon: 'none' });
       return;
     }
 
     this.setData({ sending: true });
 
     try {
-      const response = await postChatMessages({
-        activityId,
-        type: 'text',
+      const response = await postChatByActivityIdMessages(activityId, {
         content: inputValue.trim(),
       });
 
@@ -321,21 +356,30 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         // 清空输入框
         this.setData({ inputValue: '' });
 
-        // 消息会通过 WebSocket 推送回来，这里不需要手动添加
-        // 但为了更好的用户体验，可以先本地添加
-        const userInfo = app.globalData.userInfo;
+        // 本地添加消息（乐观更新）
+        const userInfo = {
+          nickname: wx.getStorageSync('userNickname') || '我',
+          avatarUrl: wx.getStorageSync('userAvatarUrl') || '',
+        };
+        
         const localMessage: ChatMessage = {
-          id: `local_${Date.now()}`,
+          id: response.data.id || `local_${Date.now()}`,
           content: inputValue.trim(),
           senderId: this.data.currentUserId,
-          senderName: userInfo?.nickname || '我',
-          senderAvatar: userInfo?.avatarUrl || '',
+          senderNickname: userInfo.nickname,
+          senderAvatarUrl: userInfo.avatarUrl,
+          type: 'text',
           createdAt: new Date().toISOString(),
           isSelf: true,
+          isSystem: false,
+          formattedTime: this.formatTime(new Date().toISOString()),
         };
 
         const messages = [...this.data.messages, localMessage];
-        this.setData({ messages });
+        this.setData({ 
+          messages,
+          lastMessageId: localMessage.id,
+        });
         this.scrollToBottom();
       } else {
         const errorData = response.data as { msg?: string };
@@ -352,59 +396,84 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     }
   },
 
-  /** 加载更多历史消息 */
-  onLoadMore() {
-    if (this.data.hasMore && !this.data.loading) {
-      this.loadMessages(true);
-    }
-  },
-
-  /** 点击活动头部，跳转到活动详情 */
+  /**
+   * 点击活动头部，跳转到活动详情
+   */
   onActivityTap() {
     wx.navigateTo({
       url: `/subpackages/activity/detail/index?id=${this.data.activityId}`,
     });
   },
 
-  // ==================== 辅助方法 ====================
-
-  /** 滚动到底部 */
-  scrollToBottom() {
-    const { messages } = this.data;
-    if (messages.length > 0) {
-      this.setData({
-        scrollToMessage: `msg-${messages[messages.length - 1].id}`,
-      });
+  /**
+   * 返回上一页
+   */
+  onBackTap() {
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      wx.navigateBack();
+    } else {
+      wx.reLaunch({ url: '/pages/home/index' });
     }
   },
 
-  /** 格式化时间 */
+  // ==================== 辅助方法 ====================
+
+  /**
+   * 滚动到底部
+   */
+  scrollToBottom() {
+    const { messages } = this.data;
+    if (messages.length > 0) {
+      setTimeout(() => {
+        this.setData({
+          scrollToMessage: `msg-${messages[messages.length - 1].id}`,
+        });
+      }, 100);
+    }
+  },
+
+  /**
+   * 格式化时间
+   */
   formatTime(dateStr: string): string {
     if (!dateStr) return '';
 
     const date = new Date(dateStr);
+    const now = new Date();
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${minutes}`;
-  },
+    const timeStr = `${hours}:${minutes}`;
 
-  /** 格式化日期分隔 */
-  formatDateSeparator(dateStr: string): string {
-    if (!dateStr) return '';
-
-    const date = new Date(dateStr);
-    const now = new Date();
-
+    // 今天只显示时间
     if (date.toDateString() === now.toDateString()) {
-      return '今天';
+      return timeStr;
     }
 
+    // 昨天
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
     if (date.toDateString() === yesterday.toDateString()) {
-      return '昨天';
+      return `昨天 ${timeStr}`;
     }
 
-    return `${date.getMonth() + 1}月${date.getDate()}日`;
+    // 其他日期
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    return `${month}/${day} ${timeStr}`;
+  },
+
+  /**
+   * 获取活动类型图标
+   */
+  getTypeIcon(type: string): string {
+    const iconMap: Record<string, string> = {
+      food: 'restaurant',
+      sports: 'sports',
+      boardgame: 'extension',
+      entertainment: 'movie',
+      other: 'more',
+    };
+    return iconMap[type] || 'more';
   },
 });

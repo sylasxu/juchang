@@ -1,0 +1,25 @@
+<!--
+  Widget Error 组件 - 错误提示卡片
+  Requirements: 错误处理, 用户引导
+  
+  功能：
+  - AI 解析失败时显示
+  - 带重试按钮
+-->
+<view class="widget-error halo-card">
+  <!-- 错误图标 -->
+  <view class="error-icon icon-circle icon-circle--amber">
+    <t-icon name="error-circle" size="48rpx" />
+  </view>
+  
+  <!-- 错误消息 -->
+  <text class="error-message">{{message}}</text>
+  
+  <!-- 重试按钮 -->
+  <view wx:if="{{showRetry}}" class="error-action">
+    <view class="action-btn action-btn--secondary btn-pressable" bindtap="onRetry">
+      <t-icon name="refresh" size="32rpx" />
+      <text>{{retryText}}</text>
+    </view>
+  </view>
+</view>

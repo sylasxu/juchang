@@ -1,12 +1,13 @@
 /**
  * Widget Share 组件
- * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
+ * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 13.1, 13.2, 13.3, 13.4
  * 
  * 创建成功卡片 (v3.5 零成本地图方案)
  * - 显示原生分享卡片预览
  * - 使用位置文字卡片替代静态地图（零成本）
  * - 实现 [📤 分享到群] 按钮
  * - 实现 [👀 查看详情] 按钮
+ * - 使用 AI 生成的骚气标题
  */
 
 import { openMapNavigation } from '../../src/config/index';
@@ -44,6 +45,14 @@ Component({
     participantsText: '',
   },
 
+  lifetimes: {
+    attached() {
+      // 启用分享功能
+      // 注意：实际分享需要在页面的 onShareAppMessage 中处理
+      // 这里只是确保分享菜单可用
+    },
+  },
+
   observers: {
     'activity': function(activity: ActivityData) {
       if (!activity || !activity.id) return;
@@ -51,8 +60,8 @@ Component({
       // 格式化时间
       const formattedTime = this.formatTime(activity.startAt);
       
-      // 分享标题（优先使用 AI 生成的骚气标题）
-      const shareTitle = activity.shareTitle || `🔥 ${activity.title}，快来！`;
+      // 生成骚气分享标题 - Requirements: 13.2
+      const shareTitle = this.generateShareTitle(activity);
       
       // 参与人数
       const current = activity.currentParticipants || 1;
@@ -71,6 +80,37 @@ Component({
   },
 
   methods: {
+    /**
+     * 生成骚气分享标题 - Requirements: 13.2
+     * 优先使用 AI 生成的标题，否则根据活动信息生成
+     */
+    generateShareTitle(activity: ActivityData): string {
+      // 如果有 AI 生成的标题，直接使用
+      if (activity.shareTitle) {
+        return activity.shareTitle;
+      }
+      
+      // 计算空位数
+      const current = activity.currentParticipants || 1;
+      const max = activity.maxParticipants;
+      const remaining = max - current;
+      
+      // 根据活动类型和空位数生成标题
+      let title = '';
+      if (remaining > 0) {
+        title = `🔥 ${activity.title}，${remaining}缺1，速来！`;
+      } else {
+        title = `🎉 ${activity.title}，已满员！`;
+      }
+      
+      // 添加地点信息
+      if (activity.locationName) {
+        title = `${title.replace('！', '')}@${activity.locationName}！`;
+      }
+      
+      return title;
+    },
+
     /**
      * 格式化时间
      */
@@ -127,20 +167,22 @@ Component({
 
     /**
      * 点击分享到群
-     * Requirements: 7.3, 7.4
+     * Requirements: 7.3, 7.4, 13.1
+     * 
+     * 注意：button 的 open-type="share" 会自动触发页面的 onShareAppMessage
+     * 这里只需要触发事件通知父组件
      */
     onShareTap() {
       const activity = this.properties.activity as ActivityData;
       if (!activity || !activity.id) return;
       
-      // 触发分享事件
-      this.triggerEvent('share', { activity });
+      // 触感反馈
+      wx.vibrateShort({ type: 'light' });
       
-      // 触发微信分享
-      // 注意：实际分享需要在页面的 onShareAppMessage 中处理
-      wx.showShareMenu({
-        withShareTicket: true,
-        menus: ['shareAppMessage', 'shareTimeline'],
+      // 触发分享事件，通知父组件
+      this.triggerEvent('share', { 
+        activity,
+        shareTitle: this.data.shareTitle,
       });
     },
 
@@ -151,6 +193,9 @@ Component({
     onViewDetail() {
       const activity = this.properties.activity as ActivityData;
       if (!activity || !activity.id) return;
+      
+      // 触感反馈
+      wx.vibrateShort({ type: 'light' });
       
       // 触发事件
       this.triggerEvent('viewdetail', { activity });

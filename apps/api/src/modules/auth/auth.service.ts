@@ -198,13 +198,14 @@ export async function bindPhone(userId: string, params: BindPhoneRequest) {
 async function getWxOpenId(code: string): Promise<WxLoginResponse> {
   const WECHAT_APP_ID = process.env.WECHAT_APP_ID;
   const WECHAT_APP_SECRET = process.env.WECHAT_APP_SECRET;
+  const isDev = process.env.NODE_ENV === 'development';
 
-  if (!WECHAT_APP_ID || !WECHAT_APP_SECRET) {
-    console.warn('微信配置未设置，使用模拟数据');
-    // 开发环境返回模拟数据
+  // 开发环境：跳过微信验证，直接返回测试用户
+  if (isDev || !WECHAT_APP_ID || !WECHAT_APP_SECRET) {
+    console.warn('[Auth] 开发环境：跳过微信验证，使用模拟数据');
     return {
-      openid: `wx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      session_key: 'mock_session_key'
+      openid: `wx_dev_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      session_key: 'mock_session_key_dev'
     };
   }
 
@@ -231,10 +232,11 @@ async function getWxOpenId(code: string): Promise<WxLoginResponse> {
 async function getWxPhoneNumber(code: string): Promise<WxPhoneResponse> {
   const WECHAT_APP_ID = process.env.WECHAT_APP_ID;
   const WECHAT_APP_SECRET = process.env.WECHAT_APP_SECRET;
+  const isDev = process.env.NODE_ENV === 'development';
 
-  if (!WECHAT_APP_ID || !WECHAT_APP_SECRET) {
-    console.warn('微信配置未设置，使用模拟数据');
-    // 开发环境返回模拟数据
+  // 开发环境：跳过微信解密，直接返回测试手机号
+  if (isDev || !WECHAT_APP_ID || !WECHAT_APP_SECRET) {
+    console.warn('[Auth] 开发环境：跳过微信解密，使用测试手机号');
     return {
       phone_info: {
         phoneNumber: '13800138000',
