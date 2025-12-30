@@ -85,25 +85,41 @@ export function UserAuthForm({
       })
 
       if (response.error) {
-        const errorMsg = (response.error as any)?.msg || '登录失败'
+        const errorData = response.error as { msg?: string }
+        const errorMsg = errorData?.msg || '登录失败'
         toast.error(errorMsg)
         setIsLoading(false)
         return
       }
 
-      // Eden Treaty 返回的 data 可能是 Response 对象，需要解析
-      let result = response.data as any
+      // Eden Treaty 返回的 data
+      const result = response.data as {
+        user: {
+          id: string
+          nickname?: string
+          phoneNumber?: string
+          avatarUrl?: string
+          role?: { name: string; permissions: string[] }
+        }
+        token: string
+        exp: number
+      } | Response
+
+      // 如果是 Response 对象，需要解析
+      let parsedResult: typeof result
       if (result instanceof Response) {
-        result = await result.json()
+        parsedResult = await result.json()
+      } else {
+        parsedResult = result
       }
 
-      if (!result || !result.user) {
+      if (!parsedResult || typeof parsedResult !== 'object' || !('user' in parsedResult)) {
         toast.error('登录失败，服务器返回数据异常')
         setIsLoading(false)
         return
       }
 
-      const { user, token, exp } = result
+      const { user, token, exp } = parsedResult
 
       // 设置认证状态
       setUser({

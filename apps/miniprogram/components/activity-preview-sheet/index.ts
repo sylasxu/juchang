@@ -82,7 +82,7 @@ Component({
     },
     'activity': function(activity: ActivityData) {
       if (!activity || !activity.id) {
-        this.setData({ activityData: null } as any)
+        this.setData({ activityData: null })
         return
       }
       
@@ -104,7 +104,7 @@ Component({
         formattedTime,
         spotsLeft,
         isFull,
-      } as any)
+      })
     },
     'joined': function(joined: boolean) {
       this.setData({ isJoined: joined })
@@ -161,7 +161,7 @@ Component({
      * 查看详情
      */
     onViewDetail() {
-      const activity = (this.data as any).activityData as ActivityData | null
+      const activity = this.data.activityData
       if (!activity?.id) return
       
       // 触感反馈
@@ -180,7 +180,7 @@ Component({
      * 直接报名
      */
     onJoin() {
-      const activity = (this.data as any).activityData as ActivityData | null
+      const activity = this.data.activityData
       if (!activity?.id) return
       
       // 检查是否已满员或已报名

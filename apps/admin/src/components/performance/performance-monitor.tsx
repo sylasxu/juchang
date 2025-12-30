@@ -69,16 +69,33 @@ export function PerformanceMonitor() {
     // Web Vitals 指标
     const fcp = paint.find(entry => entry.name === 'first-contentful-paint')?.startTime || 0
     
-    // 内存使用情况
-    const memory = (performance as any).memory
+    // 内存使用情况 - 使用类型断言处理非标准 API
+    interface PerformanceMemory {
+      usedJSHeapSize: number
+      jsHeapSizeLimit: number
+      totalJSHeapSize: number
+    }
+    const performanceWithMemory = performance as Performance & { memory?: PerformanceMemory }
+    const memory = performanceWithMemory.memory
     const memoryUsage = memory ? (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100 : 0
     const jsHeapSize = memory ? memory.usedJSHeapSize / 1024 / 1024 : 0 // MB
     
     // DOM 节点数量
     const domNodes = document.querySelectorAll('*').length
     
-    // 网络信息
-    const connection = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection
+    // 网络信息 - 使用类型断言处理非标准 API
+    interface NetworkInformation {
+      type?: string
+      effectiveType?: string
+      downlink?: number
+      rtt?: number
+    }
+    const navigatorWithConnection = navigator as Navigator & {
+      connection?: NetworkInformation
+      mozConnection?: NetworkInformation
+      webkitConnection?: NetworkInformation
+    }
+    const connection = navigatorWithConnection.connection || navigatorWithConnection.mozConnection || navigatorWithConnection.webkitConnection
     
     setMetrics({
       fcp,

@@ -3,28 +3,22 @@
  */
 
 // API 响应格式
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   code: number
   msg: string
   data?: T
 }
 
-// 用户类型定义
+// 用户类型定义 (MVP v3.3)
 export interface User {
   id: string
-  wxOpenId: string
   phoneNumber: string | null
   nickname: string | null
   avatarUrl: string | null
-  bio: string | null
-  gender: 'male' | 'female' | 'unknown'
-  participationCount: number
-  fulfillmentCount: number
-  disputeCount: number
+  aiCreateQuotaToday: number
+  aiQuotaResetAt: string | null
   activitiesCreatedCount: number
-  membershipType: 'free' | 'pro'
-  isRegistered: boolean
-  isBlocked: boolean
+  participationCount: number
   createdAt: string
   updatedAt: string
 }
@@ -40,8 +34,6 @@ export interface LoginParams {
 // 更新用户参数
 export interface UpdateUserParams {
   nickname?: string
-  bio?: string
-  gender?: 'male' | 'female' | 'unknown'
   avatarUrl?: string
 }
 
@@ -49,4 +41,107 @@ export interface UpdateUserParams {
 export interface LoginResponse {
   user: User
   token: string
+  isNewUser: boolean
+}
+
+// 活动类型
+export type ActivityType = 'food' | 'entertainment' | 'sports' | 'boardgame' | 'other'
+
+// 活动状态
+export type ActivityStatus = 'draft' | 'active' | 'completed' | 'cancelled'
+
+// 活动数据
+export interface ActivityData {
+  id: string
+  creatorId: string
+  title: string
+  description?: string | null
+  location: [number, number] // [lng, lat]
+  locationName: string
+  address?: string | null
+  locationHint: string
+  startAt: string
+  type: ActivityType
+  maxParticipants: number
+  currentParticipants: number
+  status: ActivityStatus
+  isArchived?: boolean
+  createdAt: string
+  updatedAt: string
+  creator?: {
+    id: string
+    nickname: string | null
+    avatarUrl: string | null
+  } | null
+}
+
+// 草稿数据 (AI 解析结果)
+export interface DraftData {
+  id?: string
+  activityId?: string
+  title: string
+  description?: string
+  type: ActivityType
+  location?: {
+    lat: number
+    lng: number
+    name: string
+    address?: string
+  }
+  locationHint?: string
+  startAt?: string
+  maxParticipants?: number
+}
+
+// 探索数据 (Widget_Explore)
+export interface ExploreData {
+  results?: Array<{
+    id: string
+    title: string
+    type: ActivityType
+    lat: number
+    lng: number
+    locationName: string
+    distance?: number
+  }>
+  // 兼容 AI 返回的 activities 字段
+  activities?: Array<{
+    id: string
+    title: string
+    type: ActivityType
+    lat: number
+    lng: number
+    locationName: string
+    distance?: number
+  }>
+  center?: {
+    lat: number
+    lng: number
+    name?: string
+  }
+  // 兼容 AI 返回的扁平结构
+  lat?: number
+  lng?: number
+  locationName?: string
+  title?: string
+}
+
+// 分享活动数据
+export interface ShareActivityData extends ActivityData {
+  shareTitle?: string
+}
+
+// 自定义事件类型
+export interface SendEventDetail {
+  text: string
+}
+
+// 页面间通信回调
+export interface LocationSelectedCallback {
+  onLocationSelected?: (location: {
+    latitude: number
+    longitude: number
+    name: string
+    address: string
+  }) => void
 }

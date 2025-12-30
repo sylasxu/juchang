@@ -8,7 +8,7 @@ interface PageData {
   emergencyPhone: string;
 }
 
-Page<PageData, WechatMiniprogram.Page.CustomOption>({
+Page({
   data: {
     safetyTips: [
       '选择公共场所见面，避免偏僻地点',

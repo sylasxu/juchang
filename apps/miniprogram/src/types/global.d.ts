@@ -2,21 +2,6 @@
  * 全局类型定义
  */
 
-// 扩展微信小程序全局类型
-declare global {
-  interface WechatMiniprogram {
-    // 扩展 Page 类型支持泛型
-    Page<TData = Record<string, any>, TCustom = {}>(
-      options: WechatMiniprogram.Page.Options<TData, TCustom>
-    ): void
-    
-    // 扩展 Component 类型
-    Component<TData = Record<string, any>, TProperty = Record<string, any>, TMethod = Record<string, any>>(
-      options: WechatMiniprogram.Component.Options<TData, TProperty, TMethod>
-    ): void
-  }
-}
-
 // 应用全局类型
 export interface AppGlobalData {
   userInfo?: User

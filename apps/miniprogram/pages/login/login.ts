@@ -1,4 +1,5 @@
-import { wxLogin } from '../../src/api/user'
+import { postAuthLogin } from '../../src/api/endpoints/auth/auth'
+import type { AuthLoginResponse } from '../../src/api/model'
 
 interface LoginPageData {
   phoneNumber: string
@@ -14,7 +15,7 @@ interface LoginPageData {
   isLoading: boolean
 }
 
-Page<LoginPageData>({
+Page<LoginPageData, WechatMiniprogram.Page.CustomOption>({
   data: {
     phoneNumber: '',
     isPhoneNumber: false,
@@ -31,7 +32,7 @@ Page<LoginPageData>({
 
   onLoad() {
     // 检查是否已登录
-    const token = wx.getStorageSync('token') as string
+    const token = wx.getStorageSync('token') || ''
     if (token) {
       wx.switchTab({
         url: '/pages/home/index'
@@ -56,7 +57,7 @@ Page<LoginPageData>({
 
   // 手机号变更
   onPhoneInput(e: WechatMiniprogram.Input) {
-    const value = e.detail.value as string
+    const value = e.detail.value
     const isPhoneNumber = /^[1][3,4,5,7,8,9][0-9]{9}$/.test(value);
     this.setData({
       isPhoneNumber,
@@ -69,7 +70,7 @@ Page<LoginPageData>({
   onCheckChange(e: WechatMiniprogram.RadioGroupChange) {
     const { value } = e.detail;
     this.setData({
-      radioValue: value as string,
+      radioValue: value,
       isCheck: value === 'agree',
     });
     this.changeSubmit();
@@ -79,7 +80,7 @@ Page<LoginPageData>({
     this.setData({ 
       passwordInfo: { 
         ...this.data.passwordInfo, 
-        account: e.detail.value as string 
+        account: e.detail.value 
       } 
     });
     this.changeSubmit();
@@ -89,7 +90,7 @@ Page<LoginPageData>({
     this.setData({ 
       passwordInfo: { 
         ...this.data.passwordInfo, 
-        password: e.detail.value as string 
+        password: e.detail.value 
       } 
     });
     this.changeSubmit();
@@ -144,7 +145,14 @@ Page<LoginPageData>({
       }
 
       console.log('调用后端登录接口:', loginParams)
-      const result = await wxLogin(loginParams)
+      const response = await postAuthLogin(loginParams)
+
+      if (response.status !== 200) {
+        const errorData = response.data as { msg?: string }
+        throw new Error(errorData?.msg || '登录失败')
+      }
+
+      const result = response.data as AuthLoginResponse
 
       // 4. 保存登录信息
       wx.setStorageSync('token', result.token)

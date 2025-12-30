@@ -20,7 +20,7 @@ interface ComponentProperties {
   type: WechatMiniprogram.Component.PropertyOption
 }
 
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },

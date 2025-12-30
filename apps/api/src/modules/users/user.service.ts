@@ -8,17 +8,10 @@ import type {
   UpdateUserRequest 
 } from './user.model';
 
-interface GetUserOptions {
-  excludeSensitive?: boolean;
-}
-
 /**
  * 根据 ID 获取用户详情
  */
-export async function getUserById(
-  id: string, 
-  options: GetUserOptions = {}
-): Promise<UserResponse | null> {
+export async function getUserById(id: string): Promise<UserResponse | null> {
   const [user] = await db
     .select()
     .from(users)
@@ -28,12 +21,8 @@ export async function getUserById(
   if (!user) return null;
 
   // 排除敏感字段
-  if (options.excludeSensitive) {
-    const { wxOpenId, ...rest } = user;
-    return rest as UserResponse;
-  }
-
-  return user as UserResponse;
+  const { wxOpenId, ...rest } = user;
+  return rest;
 }
 
 /**
@@ -73,7 +62,7 @@ export async function getUserList(query: UserListQuery): Promise<UserListRespons
   const sanitizedList = userList.map(({ wxOpenId, ...rest }) => rest);
 
   return {
-    data: sanitizedList as UserResponse[],
+    data: sanitizedList,
     total: totalResult?.total ?? 0,
     page,
     limit,
@@ -107,8 +96,8 @@ export async function updateUser(
     .set(updateData)
     .where(eq(users.id, id));
 
-  // 返回更新后的用户 (排除敏感字段)
-  return getUserById(id, { excludeSensitive: true });
+  // 返回更新后的用户
+  return getUserById(id);
 }
 
 /**

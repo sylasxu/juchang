@@ -17,7 +17,7 @@ interface ComponentProperties {
   showRetry: WechatMiniprogram.Component.PropertyOption
 }
 
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },

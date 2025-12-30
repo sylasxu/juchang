@@ -13,6 +13,7 @@ import { useUserStore } from '../../src/stores/user'
 import { sendAIChat, type ToolCall } from '../../src/utils/sse-request'
 import { getWidgetTypeFromToolCall } from '../../src/utils/data-stream-parser'
 import { postActivitiesByIdPublish } from '../../src/api/endpoints/activities/activities'
+import type { DraftData, ExploreData, ShareActivityData, SendEventDetail } from '../../src/types/global'
 
 // 生成唯一 ID
 const generateId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -363,7 +364,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         if (widgetType === 'widget_draft') {
           // 创建场景：显示 Widget_Draft
           // Requirements: 3.7
-          const draftData = result.result as any
+          const draftData = result.result as DraftData
           this.setData({ 
             currentDraft: draftData,
             skeletonType: null,
@@ -379,9 +380,10 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         } else if (widgetType === 'widget_explore') {
           // 探索场景：显示 Widget_Explore
           // Requirements: 17.1, 17.2, 19.4
-          const exploreData = result.result as any
+          const exploreData = result.result as ExploreData
           
           // 构建 Widget_Explore 需要的数据结构
+          // 兼容 AI 返回的 activities 字段和 results 字段
           const exploreContent = {
             results: exploreData?.results || exploreData?.activities || [],
             center: exploreData?.center || {
@@ -486,7 +488,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       aiDock.setValue(prompt)
     }
     // 触发发送
-    this.onSend({ detail: { text: prompt } } as any)
+    this.onSend({ detail: { text: prompt } } as WechatMiniprogram.CustomEvent<SendEventDetail>)
   },
 
   /**
@@ -637,7 +639,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   // ==================== 分享相关 ====================
 
   // 当前分享的活动数据（用于 Widget_Share 触发的分享）
-  shareActivityData: null as any,
+  shareActivityData: null as ShareActivityData | null,
 
   /**
    * Widget_Share 分享事件

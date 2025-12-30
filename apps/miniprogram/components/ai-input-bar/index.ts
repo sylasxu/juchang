@@ -12,6 +12,8 @@
 
 // 防抖定时器
 let debounceTimer: number | null = null;
+// 录音计时器
+let recordingTimer: number | null = null;
 
 // 防抖延迟时间 (ms) - Requirements: 2.6
 const DEBOUNCE_DELAY = 500;
@@ -31,7 +33,7 @@ interface ComponentProperties {
   prefillLocation: WechatMiniprogram.Component.PropertyOption;
 }
 
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -55,7 +57,7 @@ Component<ComponentData, ComponentProperties>({
     // 预填位置 [lng, lat]
     prefillLocation: {
       type: Array,
-      value: null,
+      value: [] as number[],
     },
   },
 
@@ -65,15 +67,16 @@ Component<ComponentData, ComponentProperties>({
     isRecording: false,
     recordingDuration: 0,
     placeholder: '本周想玩什么...',
-  },
+  } as ComponentData,
 
   lifetimes: {
     attached() {
       // 如果有预填文本，自动展开并填入
-      if (this.properties.prefillText) {
+      const prefillText = this.data.prefillText as string;
+      if (prefillText) {
         this.setData({
           isExpanded: true,
-          inputValue: this.properties.prefillText,
+          inputValue: prefillText,
         });
       }
     },
@@ -83,6 +86,11 @@ Component<ComponentData, ComponentProperties>({
       if (debounceTimer) {
         clearTimeout(debounceTimer);
         debounceTimer = null;
+      }
+      // 清理录音定时器
+      if (recordingTimer) {
+        clearInterval(recordingTimer);
+        recordingTimer = null;
       }
     },
   },
@@ -143,10 +151,12 @@ Component<ComponentData, ComponentProperties>({
      * 触发 AI 解析
      */
     triggerAIParse(text: string) {
+      const prefillType = this.data.prefillType as string;
+      const prefillLocation = this.data.prefillLocation as number[];
       this.triggerEvent('parse', {
         text,
-        prefillType: this.properties.prefillType,
-        prefillLocation: this.properties.prefillLocation,
+        prefillType,
+        prefillLocation,
       });
     },
 
@@ -246,23 +256,18 @@ Component<ComponentData, ComponentProperties>({
       recorderManager.stop();
     },
 
-    /**
-     * 录音计时器
-     */
-    recordingTimer: null as number | null,
-
     startRecordingTimer() {
-      this.recordingTimer = setInterval(() => {
+      recordingTimer = Number(setInterval(() => {
         this.setData({
           recordingDuration: this.data.recordingDuration + 1,
         });
-      }, 1000) as unknown as number;
+      }, 1000));
     },
 
     stopRecordingTimer() {
-      if (this.recordingTimer) {
-        clearInterval(this.recordingTimer);
-        this.recordingTimer = null;
+      if (recordingTimer !== null) {
+        clearInterval(recordingTimer);
+        recordingTimer = null;
       }
     },
 
@@ -346,11 +351,11 @@ Component<ComponentData, ComponentProperties>({
       this.setData(updates as ComponentData);
       
       if (data.type) {
-        this.setData({ prefillType: data.type } as any);
+        this.setData({ prefillType: data.type });
       }
       
       if (data.location) {
-        this.setData({ prefillLocation: data.location } as any);
+        this.setData({ prefillLocation: data.location });
       }
     },
   },

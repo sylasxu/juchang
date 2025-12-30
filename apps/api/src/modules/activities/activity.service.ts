@@ -16,6 +16,38 @@ import { deductAiCreateQuota } from '../users/user.service';
 // 群聊归档时间：活动开始后 24 小时
 const ARCHIVE_HOURS = 24;
 
+// ==========================================
+// 类型守卫函数
+// ==========================================
+
+/** 活动状态枚举值 */
+const ACTIVITY_STATUSES = ['draft', 'active', 'completed', 'cancelled'] as const;
+type ActivityStatus = typeof ACTIVITY_STATUSES[number];
+
+/** 活动类型枚举值 */
+const ACTIVITY_TYPES = ['food', 'entertainment', 'sports', 'boardgame', 'other'] as const;
+type ActivityType = typeof ACTIVITY_TYPES[number];
+
+/** 类型守卫：检查是否为有效的活动状态 */
+export function isActivityStatus(value: string): value is ActivityStatus {
+  return ACTIVITY_STATUSES.includes(value as ActivityStatus);
+}
+
+/** 类型守卫：检查是否为有效的活动类型 */
+export function isActivityType(value: string): value is ActivityType {
+  return ACTIVITY_TYPES.includes(value as ActivityType);
+}
+
+/** 过滤并返回有效的活动状态数组 */
+function filterActivityStatuses(values: string[]): ActivityStatus[] {
+  return values.filter(isActivityStatus);
+}
+
+/** 过滤并返回有效的活动类型数组 */
+function filterActivityTypes(values: string[]): ActivityType[] {
+  return values.filter(isActivityType);
+}
+
 /**
  * 计算活动是否已归档
  */
@@ -37,14 +69,14 @@ export async function getActivitiesList(
   const conditions = [];
   
   if (status) {
-    const statusList = status.split(',').filter(Boolean) as Array<'draft' | 'active' | 'completed' | 'cancelled'>;
+    const statusList = filterActivityStatuses(status.split(',').filter(Boolean));
     if (statusList.length > 0) {
       conditions.push(inArray(activities.status, statusList));
     }
   }
   
   if (type) {
-    const typeList = type.split(',').filter(Boolean) as Array<'food' | 'entertainment' | 'sports' | 'boardgame' | 'other'>;
+    const typeList = filterActivityTypes(type.split(',').filter(Boolean));
     if (typeList.length > 0) {
       conditions.push(inArray(activities.type, typeList));
     }

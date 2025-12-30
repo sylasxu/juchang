@@ -17,33 +17,33 @@ const route = getRouteApi('/_authenticated/activities/')
 
 export function Activities() {
   const search = route.useSearch()
-  const pageSize = (search as Record<string, unknown>).pageSize as number ?? 10
+  const pageSize = search.pageSize ?? 10
   
   const { data, isLoading, error } = useActivities({
-    page: (search as Record<string, unknown>).page as number ?? 1,
+    page: search.page ?? 1,
     limit: pageSize,
-    status: (search as Record<string, unknown>).status as string | undefined,
-    type: (search as Record<string, unknown>).type as string | undefined,
-    search: (search as Record<string, unknown>).filter as string | undefined,
+    status: search.status?.join(','),
+    type: search.category?.join(','),
+    search: search.filter,
   })
   
   // 转换 API 返回数据为组件需要的格式
-  const activities: Activity[] = (data?.data ?? []).map((item: Record<string, unknown>) => ({
-    id: item.id as string,
-    creatorId: item.creatorId as string,
-    title: item.title as string,
-    description: item.description as string | undefined,
-    location: item.location as { x: number; y: number },
-    locationName: item.locationName as string,
-    address: item.address as string | undefined,
-    locationHint: item.locationHint as string,
-    startAt: item.startAt as string,
-    type: item.type as 'food' | 'sports' | 'entertainment' | 'boardgame' | 'other',
-    maxParticipants: item.maxParticipants as number,
-    currentParticipants: item.currentParticipants as number,
-    status: item.status as 'draft' | 'active' | 'completed' | 'cancelled',
-    createdAt: item.createdAt as string,
-    updatedAt: item.updatedAt as string,
+  const activities: Activity[] = (data?.data ?? []).map((item) => ({
+    id: item.id,
+    creatorId: item.creator?.id ?? '',
+    title: item.title,
+    description: item.description ?? undefined,
+    location: { x: item.location[0], y: item.location[1] },
+    locationName: item.locationName,
+    address: undefined,
+    locationHint: item.locationHint,
+    startAt: item.startAt,
+    type: item.type as Activity['type'],
+    maxParticipants: item.maxParticipants,
+    currentParticipants: item.currentParticipants,
+    status: item.status as Activity['status'],
+    createdAt: '',
+    updatedAt: '',
   }))
   const total = data?.total ?? 0
 

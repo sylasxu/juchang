@@ -14,7 +14,7 @@ interface Activity {
   title: string;
   type: string;
   startAt: string;
-  locationName: string;
+  locationName?: string;
   locationHint?: string;
   currentParticipants?: number;
   maxParticipants?: number;
@@ -41,7 +41,7 @@ interface ComponentProperties {
   activities: WechatMiniprogram.Component.PropertyOption;
 }
 
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -65,7 +65,7 @@ Component<ComponentData, ComponentProperties>({
     displayActivities: [] as Activity[],
     hotPrompts: HOT_PROMPTS,
     hasActivities: false,
-  },
+  } as ComponentData,
 
   observers: {
     'activities': function(activities: Activity[]) {

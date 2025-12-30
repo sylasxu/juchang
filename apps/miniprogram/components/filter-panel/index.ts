@@ -3,10 +3,7 @@
  * Requirements: 5.1, 5.2, 5.3, 5.4
  */
 
-interface FilterOption {
-  value: string | number;
-  label: string;
-}
+import { FILTER_PANEL_OPTIONS, FilterPanelOption } from '../../src/constants/filter-options';
 
 interface FilterOptions {
   time: string;
@@ -19,62 +16,15 @@ interface FilterOptions {
 }
 
 interface ComponentData {
-  timeOptions: FilterOption[];
-  typeOptions: FilterOption[];
-  genderOptions: FilterOption[];
-  distanceOptions: FilterOption[];
-  statusOptions: FilterOption[];
-  feeTypeOptions: FilterOption[];
+  timeOptions: FilterPanelOption[];
+  typeOptions: FilterPanelOption[];
+  genderOptions: FilterPanelOption[];
+  distanceOptions: FilterPanelOption[];
+  statusOptions: FilterPanelOption[];
+  feeTypeOptions: FilterPanelOption[];
   localFilters: FilterOptions;
   reliabilityMarks: Record<number, string>;
 }
-
-interface ComponentProperties {
-  visible: boolean;
-  filters: FilterOptions;
-}
-
-const FILTER_OPTIONS = {
-  time: [
-    { value: 'all', label: '全部' },
-    { value: 'today', label: '今天' },
-    { value: 'tomorrow', label: '明天' },
-    { value: 'week', label: '本周' },
-  ],
-  type: [
-    { value: 'all', label: '全部' },
-    { value: 'sports', label: '运动' },
-    { value: 'food', label: '美食' },
-    { value: 'game', label: '游戏' },
-    { value: 'travel', label: '出行' },
-    { value: 'study', label: '学习' },
-    { value: 'social', label: '社交' },
-    { value: 'other', label: '其他' },
-  ],
-  gender: [
-    { value: 'all', label: '不限' },
-    { value: 'female_only', label: '仅限女生' },
-    { value: 'male_only', label: '仅限男生' },
-  ],
-  distance: [
-    { value: 1, label: '1km' },
-    { value: 3, label: '3km' },
-    { value: 5, label: '5km' },
-    { value: 10, label: '10km' },
-  ],
-  status: [
-    { value: 'all', label: '全部' },
-    { value: 'recruiting', label: '招募中' },
-    { value: 'full', label: '已满员' },
-    { value: 'ongoing', label: '进行中' },
-  ],
-  feeType: [
-    { value: 'all', label: '全部' },
-    { value: 'free', label: '免费' },
-    { value: 'aa', label: 'AA制' },
-    { value: 'fixed', label: '固定费用' },
-  ],
-};
 
 const DEFAULT_FILTERS: FilterOptions = {
   time: 'all',
@@ -86,7 +36,7 @@ const DEFAULT_FILTERS: FilterOptions = {
   feeType: 'all',
 };
 
-Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.MethodOption>({
+Component({
   options: {
     addGlobalClass: true,
   },
@@ -103,12 +53,12 @@ Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.Method
   },
 
   data: {
-    timeOptions: FILTER_OPTIONS.time,
-    typeOptions: FILTER_OPTIONS.type,
-    genderOptions: FILTER_OPTIONS.gender,
-    distanceOptions: FILTER_OPTIONS.distance,
-    statusOptions: FILTER_OPTIONS.status,
-    feeTypeOptions: FILTER_OPTIONS.feeType,
+    timeOptions: FILTER_PANEL_OPTIONS.time,
+    typeOptions: FILTER_PANEL_OPTIONS.type,
+    genderOptions: FILTER_PANEL_OPTIONS.gender,
+    distanceOptions: FILTER_PANEL_OPTIONS.distance,
+    statusOptions: FILTER_PANEL_OPTIONS.status,
+    feeTypeOptions: FILTER_PANEL_OPTIONS.feeType,
     localFilters: { ...DEFAULT_FILTERS },
     reliabilityMarks: {
       0: '不限',
@@ -116,7 +66,7 @@ Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.Method
       80: '80%',
       100: '100%',
     },
-  },
+  } as ComponentData,
 
   observers: {
     filters: function (filters: FilterOptions) {

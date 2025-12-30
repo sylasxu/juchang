@@ -6,8 +6,9 @@ import { immer } from 'zustand/middleware/immer'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { User, LoginParams, UpdateUserParams } from '../types/global'
 // 使用生成的 API
-import { getUsersMe, putUsersMe } from '../api/endpoints/users/users'
-import { postAuthWxLogin } from '../api/endpoints/auth/auth'
+import { getUsersById, putUsersById } from '../api/endpoints/users/users'
+import { postAuthLogin } from '../api/endpoints/auth/auth'
+import type { AuthLoginResponse } from '../api/model'
 
 interface UserState {
   // 状态
@@ -53,17 +54,17 @@ export const useUserStore = create<UserState>()(
         })
 
         try {
-          const response = await postAuthWxLogin({ code: params.code })
+          const response = await postAuthLogin({ code: params.code })
           
           // 检查响应状态
           if (response.status !== 200) {
             throw new Error('登录失败')
           }
           
-          const result = response.data as any // 临时使用 any，因为生成的类型有问题
+          const result = response.data as AuthLoginResponse
           
           set((state) => {
-            state.user = result.user
+            state.user = result.user as User
             state.token = result.token
             state.isLoggedIn = true
             state.isLoading = false
@@ -73,7 +74,7 @@ export const useUserStore = create<UserState>()(
           wx.setStorageSync('token', result.token)
           wx.setStorageSync('userInfo', result.user)
 
-        } catch (error: any) {
+        } catch (error: unknown) {
           set((state) => {
             state.isLoading = false
           })
@@ -104,24 +105,24 @@ export const useUserStore = create<UserState>()(
         })
 
         try {
-          const response = await putUsersMe(data)
+          const response = await putUsersById(user.id, data)
           
           // 检查响应状态
           if (response.status !== 200) {
             throw new Error('更新用户信息失败')
           }
           
-          const updatedUser = response.data as any // 临时使用 any，因为生成的类型有问题
+          const updatedUser = response.data
           
           set((state) => {
-            state.user = updatedUser
+            state.user = updatedUser as User
             state.isLoading = false
           })
 
           // 同步到微信存储
           wx.setStorageSync('userInfo', updatedUser)
 
-        } catch (error: any) {
+        } catch (error: unknown) {
           set((state) => {
             state.isLoading = false
           })
@@ -131,28 +132,29 @@ export const useUserStore = create<UserState>()(
 
       // 刷新用户信息
       refreshUserInfo: async () => {
-        const { token } = get()
-        if (!token) return
+        const { token, user } = get()
+        if (!token || !user) return
 
         try {
-          const response = await getUsersMe()
+          const response = await getUsersById(user.id)
           
           // 检查响应状态
           if (response.status !== 200) {
             throw new Error('获取用户信息失败')
           }
           
-          const userInfo = response.data as any // 临时使用 any，因为生成的类型有问题
+          const userInfo = response.data
           
           set((state) => {
-            state.user = userInfo
+            state.user = userInfo as User
           })
 
           wx.setStorageSync('userInfo', userInfo)
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('刷新用户信息失败:', error)
           // 如果是认证错误，自动退出登录
-          if (error?.message?.includes('401') || error?.message?.includes('未授权')) {
+          const errorMessage = error instanceof Error ? error.message : ''
+          if (errorMessage.includes('401') || errorMessage.includes('未授权')) {
             get().logout()
           }
         }

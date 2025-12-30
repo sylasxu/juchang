@@ -9,6 +9,9 @@
  * - 新消息"上浮 + 淡入"组合动画
  */
 
+// 滚动防抖定时器（模块级变量）
+let scrollTimer: number | null = null;
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -24,12 +27,7 @@ interface ComponentData {
   isScrolling: boolean;
 }
 
-interface ComponentProperties {
-  messages: WechatMiniprogram.Component.PropertyOption;
-  loading: WechatMiniprogram.Component.PropertyOption;
-}
-
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
     virtualHost: true,
@@ -52,7 +50,7 @@ Component<ComponentData, ComponentProperties>({
     scrollToView: '',
     scrollTop: 0,
     isScrolling: false,
-  },
+  } as ComponentData,
 
   observers: {
     /**
@@ -74,6 +72,13 @@ Component<ComponentData, ComponentProperties>({
       // 初始滚动到底部
       this.scrollToBottom();
     },
+    detached() {
+      // 清理定时器
+      if (scrollTimer !== null) {
+        clearTimeout(scrollTimer);
+        scrollTimer = null;
+      }
+    },
   },
 
   methods: {
@@ -82,8 +87,8 @@ Component<ComponentData, ComponentProperties>({
      * Requirements: 1.4
      */
     scrollToBottom() {
-      const messages = this.properties.messages as ChatMessage[];
-      if (messages.length > 0) {
+      const messages = this.data.messages as ChatMessage[];
+      if (messages && messages.length > 0) {
         const lastMessage = messages[messages.length - 1];
         this.setData({
           scrollToView: `msg-${lastMessage.id}`,
@@ -101,17 +106,15 @@ Component<ComponentData, ComponentProperties>({
       });
       
       // 防抖：滚动停止后重置状态
-      if (this.scrollTimer) {
-        clearTimeout(this.scrollTimer);
+      if (scrollTimer !== null) {
+        clearTimeout(scrollTimer);
       }
-      this.scrollTimer = setTimeout(() => {
+      scrollTimer = Number(setTimeout(() => {
         this.setData({ isScrolling: false });
-      }, 150) as unknown as number;
+      }, 150));
       
       this.triggerEvent('scroll', e.detail);
     },
-
-    scrollTimer: null as number | null,
 
     /**
      * 滚动到顶部事件
@@ -125,8 +128,8 @@ Component<ComponentData, ComponentProperties>({
      */
     onMessageTap(e: WechatMiniprogram.TouchEvent) {
       const { id, index } = e.currentTarget.dataset;
-      const messages = this.properties.messages as ChatMessage[];
-      const message = messages[index];
+      const messages = this.data.messages as ChatMessage[];
+      const message = messages ? messages[index] : null;
       
       if (message) {
         this.triggerEvent('messagetap', { id, message, index });
@@ -145,9 +148,9 @@ Component<ComponentData, ComponentProperties>({
      * Requirements: 15.16 - 新消息"上浮 + 淡入"组合动画
      */
     getMessageAnimationClass(message: ChatMessage, index: number): string {
-      const messages = this.properties.messages as ChatMessage[];
+      const messages = this.data.messages as ChatMessage[];
       // 最后 3 条消息使用入场动画
-      if (index >= messages.length - 3) {
+      if (messages && index >= messages.length - 3) {
         return 'slide-up-fade-in';
       }
       return '';

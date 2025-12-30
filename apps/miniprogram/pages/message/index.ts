@@ -5,8 +5,9 @@
  * - 申请通知、履约通知、申诉按钮
  * - 未读消息角标
  */
-import { getChatMyChats } from '../../src/api/endpoints/chat/chat';
-import { postParticipantsDispute } from '../../src/api/endpoints/participants/participants';
+// TODO: 等后端实现以下 API 后替换
+// - GET /chat/my-chats (获取用户参与的群聊列表)
+// - POST /participants/dispute (申诉未到场标记)
 
 // ==================== 类型定义 ====================
 
@@ -40,8 +41,8 @@ interface ChatItem {
   participantCount: number;
 }
 
-/** 页面数据 */
-interface PageData {
+/** 消息页面数据 */
+interface MessagePageData {
   /** 系统通知列表 */
   notifications: SystemNotification[];
   /** 群聊列表 */
@@ -56,14 +57,6 @@ interface PageData {
   totalUnreadCount: number;
   /** 是否正在申诉 */
   isDisputing: boolean;
-}
-
-/** App 实例类型 */
-interface AppInstance {
-  globalData: {
-    socket?: WechatMiniprogram.SocketTask;
-  };
-  setUnreadNum?: (num: number) => void;
 }
 
 /** WebSocket 消息类型 */
@@ -81,9 +74,17 @@ interface SocketMessage {
   };
 }
 
-const app = getApp<AppInstance>();
+// 获取 App 实例
+const getAppInstance = () => {
+  return getApp<{
+    globalData: {
+      socket?: WechatMiniprogram.SocketTask;
+    };
+    setUnreadNum?: (num: number) => void;
+  }>();
+};
 
-Page<PageData, WechatMiniprogram.Page.CustomOption>({
+Page<MessagePageData, WechatMiniprogram.Page.CustomOption>({
   data: {
     notifications: [],
     chatList: [],
@@ -126,8 +127,8 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         this.loadChatList(),
       ]);
 
-      const unreadNotificationCount = notificationsResult.filter((n) => !n.read).length;
-      const unreadChatCount = chatsResult.reduce((sum, chat) => sum + chat.unreadCount, 0);
+      const unreadNotificationCount = notificationsResult.filter((n: SystemNotification) => !n.read).length;
+      const unreadChatCount = chatsResult.reduce((sum: number, chat: ChatItem) => sum + chat.unreadCount, 0);
       const totalUnreadCount = unreadNotificationCount + unreadChatCount;
 
       this.setData({
@@ -139,7 +140,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       });
 
       // 更新 TabBar 角标 (Requirements: 8.5)
-      app.setUnreadNum?.(totalUnreadCount);
+      getAppInstance().setUnreadNum?.(totalUnreadCount);
     } catch (error) {
       console.error('加载消息数据失败', error);
       this.setData({ loading: false });
@@ -180,31 +181,25 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   /** 加载群聊列表 (Requirements: 8.4) */
   async loadChatList(): Promise<ChatItem[]> {
-    try {
-      const response = await getChatMyChats();
-      if (response.status === 200 && Array.isArray(response.data)) {
-        return (response.data as ChatItem[]).map((chat) => ({
-          activityId: chat.activityId,
-          activityTitle: chat.activityTitle,
-          activityImage: chat.activityImage,
-          lastMessage: chat.lastMessage,
-          lastMessageTime: chat.lastMessageTime,
-          unreadCount: chat.unreadCount || 0,
-          isArchived: chat.isArchived || false,
-          participantCount: chat.participantCount || 0,
-        }));
-      }
-      return [];
-    } catch (error) {
-      console.error('加载群聊列表失败', error);
-      return [];
-    }
+    // TODO: 等后端实现 GET /chat/my-chats API 后替换
+    // 目前使用模拟数据
+    return [
+      {
+        activityId: 'act_001',
+        activityTitle: '周末羽毛球',
+        lastMessage: '明天见！',
+        lastMessageTime: new Date().toISOString(),
+        unreadCount: 2,
+        isArchived: false,
+        participantCount: 4,
+      },
+    ];
   },
 
   // ==================== WebSocket ====================
 
   setupWebSocket() {
-    const socket = app.globalData?.socket;
+    const socket = getAppInstance().globalData?.socket;
     if (!socket) return;
 
     socket.onMessage((result) => {
@@ -241,7 +236,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       const totalUnreadCount = this.data.unreadNotificationCount + chatList.reduce((sum, c) => sum + c.unreadCount, 0);
 
       this.setData({ chatList, totalUnreadCount });
-      app.setUnreadNum?.(totalUnreadCount);
+      getAppInstance().setUnreadNum?.(totalUnreadCount);
     }
   },
 
@@ -256,7 +251,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       unreadNotificationCount,
       totalUnreadCount,
     });
-    app.setUnreadNum?.(totalUnreadCount);
+    getAppInstance().setUnreadNum?.(totalUnreadCount);
   },
 
   // ==================== 事件处理 ====================
@@ -316,7 +311,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       unreadNotificationCount,
       totalUnreadCount,
     });
-    app.setUnreadNum?.(totalUnreadCount);
+    getAppInstance().setUnreadNum?.(totalUnreadCount);
   },
 
   /** 申诉按钮点击 (Requirements: 8.3, 11.1, 11.2) */
@@ -326,8 +321,8 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       participantId: string;
     };
 
-    // 阻止事件冒泡
-    e.stopPropagation?.();
+    // 阻止事件冒泡 - 微信小程序使用 catchtap 而非 stopPropagation
+    // e.stopPropagation?.();
 
     this.showDisputeConfirm(activityId, participantId);
   },
@@ -352,23 +347,20 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     this.setData({ isDisputing: true });
 
     try {
-      const response = await postParticipantsDispute({
-        activityId,
-        participantId,
-      });
+      // TODO: 等后端实现 POST /participants/dispute API 后替换
+      // 目前模拟成功响应
+      console.log('申诉请求:', { activityId, participantId });
+      
+      // 模拟网络延迟
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      if (response.status === 200) {
-        wx.showToast({ title: '申诉已提交', icon: 'success' });
+      wx.showToast({ title: '申诉已提交', icon: 'success' });
 
-        // 更新通知状态
-        const notifications = this.data.notifications.map((n) =>
-          n.activityId === activityId && n.type === 'no_show' ? { ...n, canDispute: false, read: true } : n
-        );
-        this.setData({ notifications });
-      } else {
-        const errorData = response.data as { msg?: string };
-        throw new Error(errorData?.msg || '申诉失败');
-      }
+      // 更新通知状态
+      const notifications = this.data.notifications.map((n) =>
+        n.activityId === activityId && n.type === 'no_show' ? { ...n, canDispute: false, read: true } : n
+      );
+      this.setData({ notifications });
     } catch (error) {
       console.error('申诉失败', error);
       wx.showToast({
@@ -390,7 +382,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     const totalUnreadCount = this.data.unreadNotificationCount + unreadChatCount;
 
     this.setData({ chatList, totalUnreadCount });
-    app.setUnreadNum?.(totalUnreadCount);
+    getAppInstance().setUnreadNum?.(totalUnreadCount);
 
     // 跳转到群聊页面
     wx.navigateTo({

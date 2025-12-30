@@ -6,31 +6,13 @@
  * - 筛选项：全部、美食、运动、桌游、娱乐
  */
 
-// 筛选项配置
-const FILTER_OPTIONS = [
-  { key: 'all', label: '全部', icon: '' },
-  { key: 'food', label: '美食', icon: 'shop' },
-  { key: 'sports', label: '运动', icon: 'heart' },
-  { key: 'boardgame', label: '桌游', icon: 'app' },
-  { key: 'entertainment', label: '娱乐', icon: 'film' },
-];
-
-interface FilterOption {
-  key: string;
-  label: string;
-  icon: string;
-}
+import { FILTER_BAR_OPTIONS, FilterBarOption } from '../../src/constants/filter-options';
 
 interface ComponentData {
-  filters: FilterOption[];
+  filters: FilterBarOption[];
 }
 
-interface ComponentProperties {
-  value: WechatMiniprogram.Component.PropertyOption;
-  options: WechatMiniprogram.Component.PropertyOption;
-}
-
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -44,21 +26,21 @@ Component<ComponentData, ComponentProperties>({
     // 自定义筛选项（可选）
     options: {
       type: Array,
-      value: null,
+      value: [] as FilterBarOption[],
     },
   },
 
   data: {
-    filters: FILTER_OPTIONS,
-  },
+    filters: FILTER_BAR_OPTIONS,
+  } as ComponentData,
 
   observers: {
-    'options': function(options: FilterOption[] | null) {
+    'options': function(options: FilterBarOption[] | null) {
       // 如果传入了自定义选项，使用自定义选项
       if (options && options.length > 0) {
         this.setData({ filters: options });
       } else {
-        this.setData({ filters: FILTER_OPTIONS });
+        this.setData({ filters: FILTER_BAR_OPTIONS });
       }
     },
   },

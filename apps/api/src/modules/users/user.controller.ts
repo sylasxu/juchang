@@ -42,7 +42,7 @@ export const userController = new Elysia({ prefix: '/users' })
   .get(
     '/:id',
     async ({ params, set }) => {
-      const user = await getUserById(params.id, { excludeSensitive: true });
+      const user = await getUserById(params.id);
       if (!user) {
         set.status = 404;
         return { code: 404, msg: '用户不存在' } satisfies ErrorResponse;

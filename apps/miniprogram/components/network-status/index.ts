@@ -15,7 +15,7 @@ interface ComponentData {
   isOnline: boolean
 }
 
-Component<ComponentData>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },

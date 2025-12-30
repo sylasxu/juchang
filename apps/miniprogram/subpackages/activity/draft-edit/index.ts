@@ -5,7 +5,8 @@
  * - 校验时间不能是过去
  * - 发布草稿活动
  */
-import { getActivitiesById, putActivitiesById } from '../../../src/api/index';
+import { getActivitiesById, postActivitiesByIdPublish } from '../../../src/api/endpoints/activities/activities';
+import type { ActivityDetailResponse } from '../../../src/api/model';
 import { chooseLocation } from '../../../src/config/index';
 
 interface DraftData {
@@ -119,18 +120,18 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     try {
       const response = await getActivitiesById(id);
       if (response.status === 200) {
-        const data = response.data as any;
+        const data = response.data as ActivityDetailResponse;
         const draft: DraftData = {
           id: data.id,
           title: data.title,
           type: data.type,
           startAt: data.startAt,
-          location: data.location || [0, 0],
+          location: data.location as [number, number] || [0, 0],
           locationName: data.locationName,
-          address: data.address,
+          address: data.address || undefined,
           locationHint: data.locationHint,
           maxParticipants: data.maxParticipants,
-          description: data.description,
+          description: data.description || undefined,
         };
 
         const formattedTime = this.formatTime(draft.startAt);
@@ -271,15 +272,14 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     this.setData({ submitting: true });
 
     try {
-      // 更新活动并发布
-      const response = await putActivitiesById(activityId || draft.id, {
+      // 发布草稿活动
+      const response = await postActivitiesByIdPublish(activityId || draft.id, {
         title: draft.title.trim(),
         startAt: new Date(draft.startAt).toISOString(),
         locationName: draft.locationName,
         address: draft.address,
         locationHint: draft.locationHint.trim(),
         location: draft.location,
-        status: 'active', // 发布活动
       });
 
       if (response.status === 200) {
@@ -287,13 +287,14 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
         // 跳转到活动详情页
         setTimeout(() => {
-          const id = activityId || draft.id || (response.data as any)?.id;
+          const id = activityId || draft.id || response.data?.id;
           wx.redirectTo({
             url: `/subpackages/activity/detail/index?id=${id}&share=1`,
           });
         }, 1500);
       } else {
-        throw new Error((response.data as any)?.msg || '发布失败');
+        const errorData = response.data as { msg?: string } | undefined;
+        throw new Error(errorData?.msg || '发布失败');
       }
     } catch (error) {
       console.error('发布失败', error);

@@ -13,6 +13,8 @@ import { getActivitiesNearby } from '../../../src/api/endpoints/activities/activ
 import { postActivitiesByIdJoin } from '../../../src/api/endpoints/activities/activities'
 import { useUserStore } from '../../../src/stores/user'
 import { useAppStore } from '../../../src/stores/app'
+import type { ActivityNearbyResponseDataItem } from '../../../src/api/model'
+import type { ActivityType } from '../../../src/types/global'
 
 // 活动类型
 interface Activity {
@@ -170,13 +172,12 @@ Page({
       const response = await getActivitiesNearby({
         lat: latitude,
         lng: longitude,
-        type: activeFilter === 'all' ? undefined : activeFilter as any,
+        type: activeFilter === 'all' ? undefined : activeFilter as ActivityType,
         radius: 5000, // 5km
       })
       
       if (response.status === 200 && response.data) {
-        const data = response.data as any
-        this.processActivities(data.data || [])
+        this.processActivities(response.data.data || [])
       }
     } catch (err) {
       console.error('Load nearby activities failed:', err)
@@ -287,7 +288,8 @@ Page({
    * Requirements: 18.4
    */
   onMarkerTap(e: WechatMiniprogram.MarkerTap) {
-    const markerId = e.detail?.markerId ?? (e as any).markerId
+    const markerId = e.detail?.markerId ?? (e.detail as { markerId?: number })?.markerId
+    if (markerId === undefined) return
     const activity = this.data.activities[markerId]
     
     if (activity) {
@@ -366,7 +368,7 @@ Page({
         // 刷新活动列表
         this.loadNearbyActivities()
       } else {
-        const errorData = response.data as any
+        const errorData = response.data as { msg?: string } | undefined
         wx.showToast({
           title: errorData?.msg || '报名失败',
           icon: 'none',

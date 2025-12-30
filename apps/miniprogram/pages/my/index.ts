@@ -6,7 +6,8 @@
  * - 我发布的/我参与的活动列表入口
  * - 未登录显示登录入口
  */
-import { getUsersMe } from '../../src/api/endpoints/users/users';
+import { getUsersById } from '../../src/api/endpoints/users/users';
+import type { GetUsersById200 } from '../../src/api/model';
 
 // ==================== 类型定义 ====================
 
@@ -110,9 +111,10 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   // ==================== 登录状态检查 ====================
 
   async checkLoginStatus() {
-    const token = wx.getStorageSync('token') as string;
+    const token = wx.getStorageSync('token') || '';
+    const cachedUserInfo = wx.getStorageSync('userInfo') as UserInfo | null;
 
-    if (!token) {
+    if (!token || !cachedUserInfo?.id) {
       this.setData({
         isLoad: false,
         userInfo: null,
@@ -123,10 +125,19 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     }
 
     try {
-      const response = await getUsersMe();
+      const response = await getUsersById(cachedUserInfo.id);
 
       if (response.status === 200) {
-        const userInfo = response.data as UserInfo;
+        const apiUser = response.data as GetUsersById200;
+        const userInfo: UserInfo = {
+          id: apiUser.id,
+          nickname: apiUser.nickname || '',
+          avatarUrl: apiUser.avatarUrl || undefined,
+          phoneNumber: apiUser.phoneNumber || undefined,
+          participationCount: apiUser.participationCount,
+          fulfillmentCount: apiUser.participationCount, // TODO: 后端需要添加 fulfillmentCount 字段
+          activitiesCreatedCount: apiUser.activitiesCreatedCount,
+        };
 
         // 计算靠谱度 (Requirements: 12.1)
         const { reliabilityLabel, reliabilityRate } = this.calculateReliability(userInfo);

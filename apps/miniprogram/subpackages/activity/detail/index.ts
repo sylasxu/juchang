@@ -2,8 +2,10 @@
  * 活动详情页
  * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 10.1-10.7, 16.1-16.6
  */
-import { getActivitiesById, postActivitiesByIdJoin, getUsersMe, deleteActivitiesById, putActivitiesById } from '../../../src/api/index';
+import { getActivitiesById, postActivitiesByIdJoin, deleteActivitiesById, patchActivitiesByIdStatus } from '../../../src/api/endpoints/activities/activities';
+import { getUsersById } from '../../../src/api/endpoints/users/users';
 import { useAppStore } from '../../../src/stores/app';
+import type { ActivityDetailResponse } from '../../../src/api/model';
 
 interface User {
   id: string;
@@ -193,10 +195,11 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   async loadCurrentUser(): Promise<void> {
     const token = wx.getStorageSync('token');
-    if (!token) return;
+    const cachedUserInfo = wx.getStorageSync('userInfo') as { id?: string } | null;
+    if (!token || !cachedUserInfo?.id) return;
 
     try {
-      const response = await getUsersMe();
+      const response = await getUsersById(cachedUserInfo.id);
       if (response.status === 200) {
         this.setData({ currentUser: response.data as User });
       }
@@ -393,7 +396,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       success: async (res) => {
         if (res.confirm) {
           try {
-            const response = await putActivitiesById(this.data.activityId, {
+            const response = await patchActivitiesByIdStatus(this.data.activityId, {
               status: 'cancelled',
             });
             if (response.status === 200) {
@@ -418,7 +421,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       success: async (res) => {
         if (res.confirm) {
           try {
-            const response = await putActivitiesById(this.data.activityId, {
+            const response = await patchActivitiesByIdStatus(this.data.activityId, {
               status: 'completed',
             });
             if (response.status === 200) {
@@ -490,10 +493,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     this.setData({ isJoining: true });
 
     try {
-      const response = await postActivitiesByIdJoin(activityId, {
-        applicationMsg: joinMessage || undefined,
-        isFastPass: useFastPass,
-      });
+      const response = await postActivitiesByIdJoin(activityId);
 
       if (response.status === 200) {
         wx.showToast({ title: '报名成功', icon: 'success' });

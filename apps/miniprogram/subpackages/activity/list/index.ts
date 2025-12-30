@@ -4,6 +4,7 @@
  * 支持三种类型：created（我发布的）、joined（我参与的）、archived（历史归档）
  */
 import { getActivitiesMine } from '../../../src/api/endpoints/activities/activities';
+import type { ActivityMyActivitiesResponseDataItem } from '../../../src/api/model';
 
 type ListType = 'created' | 'joined' | 'archived';
 
@@ -87,17 +88,17 @@ Page({
       });
 
       if (response.status === 200) {
-        let activities = (response.data as any)?.activities || [];
+        let activities = response.data?.data || [];
         
         // 处理归档筛选 - CP-7: isArchived = now > startAt + 24h
         if (type === 'archived') {
-          activities = activities.filter((a: any) => a.isArchived === true);
+          activities = activities.filter((a: ActivityMyActivitiesResponseDataItem) => a.isArchived === true);
         } else {
-          activities = activities.filter((a: any) => a.isArchived !== true);
+          activities = activities.filter((a: ActivityMyActivitiesResponseDataItem) => a.isArchived !== true);
         }
 
         // 格式化活动数据
-        const formattedActivities: Activity[] = activities.map((a: any) => ({
+        const formattedActivities: Activity[] = activities.map((a: ActivityMyActivitiesResponseDataItem) => ({
           id: a.id,
           title: a.title,
           status: a.status,
@@ -113,7 +114,8 @@ Page({
 
         this.setData({ activities: formattedActivities });
       } else {
-        throw new Error((response.data as any)?.msg || '加载失败');
+        const errorData = response.data as { msg?: string } | undefined;
+        throw new Error(errorData?.msg || '加载失败');
       }
     } catch (err) {
       console.error('Load activities failed:', err);

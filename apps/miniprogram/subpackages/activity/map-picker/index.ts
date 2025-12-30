@@ -28,10 +28,13 @@ Page({
       if (result) {
         // 获取上一页实例，传递选择的位置
         const pages = getCurrentPages()
-        const prevPage = pages[pages.length - 2]
+        const prevPage = pages[pages.length - 2] as WechatMiniprogram.Page.Instance<
+          Record<string, unknown>,
+          { onLocationSelected?: (location: { latitude: number; longitude: number; addressName: string; addressDetail: string }) => void }
+        > | undefined
 
-        if (prevPage && typeof (prevPage as any).onLocationSelected === 'function') {
-          (prevPage as any).onLocationSelected({
+        if (prevPage && typeof prevPage.onLocationSelected === 'function') {
+          prevPage.onLocationSelected({
             latitude: result.latitude,
             longitude: result.longitude,
             addressName: result.name,

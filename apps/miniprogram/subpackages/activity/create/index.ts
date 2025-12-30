@@ -9,17 +9,16 @@
  * - 推广选项（Boost/Pin+）
  * - 活动发布额度检查
  */
-import { postActivities } from '../../../src/api/index';
-import {
-  postTransactionsBoost,
-  postTransactionsPinPlus,
-} from '../../../src/api/endpoints/transactions/transactions';
+import { postActivities } from '../../../src/api/endpoints/activities/activities';
 import type { ActivityCreateRequest } from '../../../src/api/model';
 import {
   checkActivityCreateQuota,
   consumeActivityCreateQuota,
   showActivityCreateQuotaExhaustedTip,
 } from '../../../src/services/quota';
+
+// TODO: 等后端实现交易相关 API 后启用
+// import { postTransactionsBoost, postTransactionsPinPlus } from '../../../src/api/endpoints/transactions/transactions';
 
 // 类型定义
 interface PickerOption {
@@ -473,21 +472,13 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       const requestData: ActivityCreateRequest = {
         title: form.title.trim(),
         description: form.description?.trim() || undefined,
-        images: form.images.length > 0 ? form.images : undefined,
         locationName: form.locationName,
         address: form.address || undefined,
         locationHint: form.locationHint.trim(),
-        location: [form.longitude, form.latitude], // GeoJSON格式 [lng, lat]
-        startAt: new Date(form.startAt).toISOString() as unknown,
-        endAt: form.endAt ? new Date(form.endAt).toISOString() : undefined,
+        location: [form.longitude as number, form.latitude as number], // GeoJSON格式 [lng, lat]
+        startAt: new Date(form.startAt).toISOString(),
         type: form.type as ActivityCreateRequest['type'],
         maxParticipants: form.maxParticipants,
-        feeType: form.feeType as ActivityCreateRequest['feeType'],
-        estimatedCost: form.estimatedCost ? parseFloat(form.estimatedCost) : undefined,
-        joinMode: form.joinMode as ActivityCreateRequest['joinMode'],
-        genderRequirement: form.genderRequirement || undefined,
-        minReliabilityRate: form.minReliabilityRate ? parseInt(form.minReliabilityRate, 10) : undefined,
-        isLocationBlurred: form.isLocationBlurred,
       };
 
       const response = await postActivities(requestData);
@@ -514,55 +505,11 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     }
   },
 
-  async handlePremiumServices(activityId: string, enableBoost: boolean, enablePinPlus: boolean) {
-    const services: string[] = [];
-    let totalPrice = 0;
-
-    if (enableBoost) {
-      services.push('Boost强力召唤');
-      totalPrice += this.data.boostPrice;
-    }
-    if (enablePinPlus) {
-      services.push('Pin+黄金置顶');
-      totalPrice += this.data.pinPlusPrice;
-    }
-
-    wx.showModal({
-      title: '购买增值服务',
-      content: `您选择了${services.join('、')}服务，共需支付¥${totalPrice}`,
-      confirmText: '去支付',
-      cancelText: '稍后再说',
-      success: async (res) => {
-        if (res.confirm) {
-          try {
-            if (enableBoost) {
-              const boostResponse = await postTransactionsBoost({ activityId });
-              const boostData = boostResponse.data as { paymentParams?: WxPaymentParams };
-              if (boostResponse.status === 200 && boostData?.paymentParams) {
-                await this.callWxPay(boostData.paymentParams);
-              }
-            }
-
-            if (enablePinPlus) {
-              const pinPlusResponse = await postTransactionsPinPlus({ activityId });
-              const pinPlusData = pinPlusResponse.data as { paymentParams?: WxPaymentParams };
-              if (pinPlusResponse.status === 200 && pinPlusData?.paymentParams) {
-                await this.callWxPay(pinPlusData.paymentParams);
-              }
-            }
-
-            wx.showToast({ title: '购买成功', icon: 'success' });
-            this.showSuccessAndShare(activityId);
-          } catch (error) {
-            console.error('购买增值服务失败', error);
-            wx.showToast({ title: '支付失败，请稍后重试', icon: 'none' });
-            this.showSuccessAndShare(activityId);
-          }
-        } else {
-          this.showSuccessAndShare(activityId);
-        }
-      },
-    });
+  async handlePremiumServices(activityId: string, _enableBoost: boolean, _enablePinPlus: boolean) {
+    // TODO: 等后端实现交易相关 API 后启用
+    // 目前直接显示成功
+    wx.showToast({ title: '增值服务暂未开放', icon: 'none' });
+    this.showSuccessAndShare(activityId);
   },
 
   callWxPay(paymentParams: WxPaymentParams): Promise<void> {

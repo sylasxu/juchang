@@ -23,7 +23,7 @@ interface ComponentProperties {
   loading: boolean;
 }
 
-Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.MethodOption>({
+Component({
   options: {
     addGlobalClass: true,
     multipleSlots: true,
@@ -62,7 +62,7 @@ Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.Method
     isDragging: false,
     tabBarHeight: 0,
     isAnimating: false,
-  },
+  } as ComponentData,
 
   lifetimes: {
     attached() {

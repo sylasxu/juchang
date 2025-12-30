@@ -36,7 +36,7 @@ interface ComponentMethods {
   closeGuide: () => void
 }
 
-Component<ComponentData, ComponentProperties, ComponentMethods>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -73,7 +73,7 @@ Component<ComponentData, ComponentProperties, ComponentMethods>({
     visible: false,
     activityTitle: '',
     locationName: '',
-    autoCloseTimer: null,
+    autoCloseTimer: null as number | null,
   },
 
   observers: {
@@ -142,11 +142,11 @@ Component<ComponentData, ComponentProperties, ComponentMethods>({
       
       this.clearAutoCloseTimer()
       
-      const timer = setTimeout(() => {
+      const timer = Number(setTimeout(() => {
         this.closeGuide()
-      }, this.properties.autoCloseDelay as number)
+      }, this.properties.autoCloseDelay as number))
       
-      this.setData({ autoCloseTimer: timer as unknown as number })
+      this.setData({ autoCloseTimer: timer })
     },
 
     /**

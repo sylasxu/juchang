@@ -32,11 +32,11 @@ interface AppInstance {
 
 const app = getApp<AppInstance>();
 
-Component<ComponentData, WechatMiniprogram.Component.PropertyOption, WechatMiniprogram.Component.MethodOption>({
+Component({
   data: {
     value: '',
     unreadNum: 0,
-    badgeProps: {},
+    badgeProps: {} as BadgeProps,
     list: [
       {
         icon: 'home',
@@ -53,7 +53,7 @@ Component<ComponentData, WechatMiniprogram.Component.PropertyOption, WechatMinip
         value: 'my',
         label: '我的',
       },
-    ],
+    ] as TabItem[],
   },
 
   lifetimes: {

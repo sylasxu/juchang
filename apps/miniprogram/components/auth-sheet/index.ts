@@ -140,9 +140,9 @@ Component({
           }
         } else {
           // 绑定失败
-          const errorData = response.data as any
+          const errorData = response.data as { message?: string; msg?: string }
           wx.showToast({
-            title: errorData?.message || '绑定失败，请重试',
+            title: errorData?.message || errorData?.msg || '绑定失败，请重试',
             icon: 'none',
           })
         }

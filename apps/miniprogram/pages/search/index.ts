@@ -17,12 +17,23 @@ interface SearchResult {
   distance?: number;
 }
 
-Page({
+/** 搜索页面数据 */
+interface SearchPageData {
+  searchValue: string;
+  historyWords: string[];
+  popularWords: string[];
+  searchResults: SearchResult[];
+  isSearching: boolean;
+  hasSearched: boolean;
+  loading: boolean;
+}
+
+Page<SearchPageData, WechatMiniprogram.Page.CustomOption>({
   data: {
     searchValue: '',
-    historyWords: [] as string[],
+    historyWords: [],
     popularWords: ['火锅', '剧本杀', '运动', '聚餐', '桌游', '户外'],
-    searchResults: [] as SearchResult[],
+    searchResults: [],
     isSearching: false,
     hasSearched: false,
     loading: false,

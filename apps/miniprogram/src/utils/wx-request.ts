@@ -64,7 +64,7 @@ export const wxRequest = <T>(url: string, options?: RequestInit): Promise<T> => 
     // 3. 发起请求
     wx.request({
       url: url.startsWith('http') ? url : `${BASE_URL}${url}`,
-      method: (options?.method as any) || 'GET',
+      method: (options?.method?.toUpperCase() || 'GET') as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS' | 'HEAD' | 'TRACE' | 'CONNECT',
       data: data,
       header: header,
       success: (res) => {

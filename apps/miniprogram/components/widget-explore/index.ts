@@ -42,7 +42,7 @@ interface ComponentProperties {
   title: WechatMiniprogram.Component.PropertyOption;
 }
 
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -111,9 +111,9 @@ Component<ComponentData, ComponentProperties>({
       // 跳转到沉浸式地图页，使用放大动画效果
       wx.navigateTo({
         url: `/subpackages/activity/explore/index?lat=${center.lat}&lng=${center.lng}&results=${encodeURIComponent(JSON.stringify(results))}&animate=expand`,
-        // 使用自定义动画类型
-        routeType: 'none' as any, // 禁用默认动画，使用页面内动画
-      });
+        // 使用自定义动画类型（微信小程序扩展属性）
+        routeType: 'none',
+      } as WechatMiniprogram.NavigateToOption & { routeType?: string });
     },
 
     /**

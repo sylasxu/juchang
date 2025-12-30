@@ -23,8 +23,7 @@
       "@/components/*": ["./src/components/*"]
     },
     "types": [
-      "miniprogram-api-typings",
-      "@types/wechat-miniprogram"
+      "miniprogram-api-typings"
     ]
   },
   "include": [
@@ -38,6 +37,7 @@
   ],
   "exclude": [
     "node_modules",
-    "miniprogram_npm"
+    "miniprogram_npm",
+    "orval.config.ts"
   ]
 }

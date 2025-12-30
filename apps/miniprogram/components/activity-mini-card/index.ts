@@ -7,24 +7,7 @@
  * - 使用同色系淡色图标底色
  */
 
-// 活动类型映射
-const TYPE_CONFIG: Record<string, { icon: string; label: string; colorClass: string }> = {
-  food: { icon: 'shop', label: '美食', colorClass: 'amber' },
-  entertainment: { icon: 'film', label: '娱乐', colorClass: 'purple' },
-  sports: { icon: 'heart', label: '运动', colorClass: 'mint' },
-  boardgame: { icon: 'app', label: '桌游', colorClass: 'blue' },
-  study: { icon: 'books', label: '学习', colorClass: 'blue' },
-  travel: { icon: 'location', label: '旅行', colorClass: 'mint' },
-  mahjong: { icon: 'app', label: '麻将', colorClass: 'amber' },
-  hotpot: { icon: 'shop', label: '火锅', colorClass: 'amber' },
-  ktv: { icon: 'sound', label: 'KTV', colorClass: 'purple' },
-  movie: { icon: 'film', label: '电影', colorClass: 'purple' },
-  game: { icon: 'app', label: '游戏', colorClass: 'purple' },
-  drink: { icon: 'shop', label: '喝酒', colorClass: 'amber' },
-  coffee: { icon: 'shop', label: '咖啡', colorClass: 'amber' },
-  hiking: { icon: 'location', label: '徒步', colorClass: 'mint' },
-  other: { icon: 'ellipsis', label: '其他', colorClass: 'blue' },
-};
+import { ACTIVITY_TYPE_CONFIG } from '../../src/constants/activity-types';
 
 interface Activity {
   id: string;
@@ -51,7 +34,7 @@ interface ComponentProperties {
   showParticipants: WechatMiniprogram.Component.PropertyOption;
 }
 
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -60,7 +43,7 @@ Component<ComponentData, ComponentProperties>({
     // 活动数据
     activity: {
       type: Object,
-      value: null as Activity | null,
+      value: {} as Activity,
     },
     // 是否显示参与人数
     showParticipants: {
@@ -76,14 +59,14 @@ Component<ComponentData, ComponentProperties>({
     formattedTime: '',
     locationText: '',
     participantsText: '',
-  },
+  } as ComponentData,
 
   observers: {
     'activity': function(activity: Activity) {
       if (!activity) return;
       
       // 更新类型信息
-      const typeConfig = TYPE_CONFIG[activity.type] || TYPE_CONFIG.other;
+      const typeConfig = ACTIVITY_TYPE_CONFIG[activity.type] || ACTIVITY_TYPE_CONFIG.other;
       
       // 格式化时间
       const formattedTime = this.formatTime(activity.startAt);

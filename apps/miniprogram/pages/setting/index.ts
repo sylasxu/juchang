@@ -2,6 +2,23 @@
  * 设置页面
  */
 
+interface SettingItem {
+  title: string;
+  key: string;
+  type: 'switch' | 'action' | 'link';
+  value?: boolean;
+}
+
+interface SettingGroup {
+  title: string;
+  items: SettingItem[];
+}
+
+interface PageData {
+  menuData: SettingGroup[];
+  isLoggedIn: boolean;
+}
+
 Page({
   data: {
     menuData: [
@@ -54,7 +71,7 @@ Page({
           },
         ],
       },
-    ],
+    ] as SettingGroup[],
     isLoggedIn: false,
   },
 
@@ -79,8 +96,8 @@ Page({
    * 加载设置
    */
   loadSettings() {
-    const settings = wx.getStorageSync('app_settings') || {};
-    const { menuData } = this.data;
+    const settings = wx.getStorageSync('app_settings') as Record<string, boolean> || {};
+    const menuData = [...this.data.menuData];
 
     menuData.forEach((group) => {
       group.items.forEach((item) => {
@@ -100,7 +117,7 @@ Page({
     const settings: Record<string, boolean> = {};
     this.data.menuData.forEach((group) => {
       group.items.forEach((item) => {
-        if (item.type === 'switch') {
+        if (item.type === 'switch' && item.value !== undefined) {
           settings[item.key] = item.value;
         }
       });

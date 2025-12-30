@@ -12,7 +12,7 @@ interface ComponentProperties {
   showLocation: boolean;
 }
 
-Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.MethodOption>({
+Component({
   options: {
     addGlobalClass: true,
   },

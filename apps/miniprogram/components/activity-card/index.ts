@@ -69,7 +69,7 @@ const ACTIVITY_TYPE_MAP: Record<string, string> = {
   other: '其他',
 };
 
-Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.MethodOption>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -77,7 +77,7 @@ Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.Method
   properties: {
     activity: {
       type: Object,
-      value: null,
+      value: {} as Activity,
     },
     mode: {
       type: String,
@@ -90,7 +90,7 @@ Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.Method
   },
 
   data: {
-    activityDetail: null,
+    activityDetail: null as ActivityDetail | null,
     loading: false,
     error: false,
   },
@@ -146,7 +146,7 @@ Component<ComponentData, ComponentProperties, WechatMiniprogram.Component.Method
     },
 
     onCreatorTap(e: WechatMiniprogram.TouchEvent) {
-      e.stopPropagation();
+      // 阻止事件冒泡
       const { activityDetail } = this.data;
       if (activityDetail?.creator) {
         this.triggerEvent('creatortap', {

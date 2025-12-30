@@ -23,7 +23,7 @@ interface ComponentProperties {
   transparent: WechatMiniprogram.Component.PropertyOption;
 }
 
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
     multipleSlots: true,
@@ -60,7 +60,7 @@ Component<ComponentData, ComponentProperties>({
   data: {
     statusBarHeight: 0,
     navBarHeight: 44,
-    menuButtonInfo: null,
+    menuButtonInfo: null as WechatMiniprogram.ClientRect | null,
     showDropmenu: false,
   },
 

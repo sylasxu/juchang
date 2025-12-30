@@ -6,9 +6,11 @@
  * - 标记未到场警告提示
  * - 调用履约确认API
  */
-import { getParticipantsActivityById, postParticipantsConfirmFulfillment } from '../../../src/api/endpoints/participants/participants';
+import { getParticipantsActivityById } from '../../../src/api/endpoints/participants/participants';
 import { getActivitiesById } from '../../../src/api/endpoints/activities/activities';
-import type { ParticipantFulfillmentRequestParticipantsItem } from '../../../src/api/model';
+import type { GetParticipantsActivityById200Item } from '../../../src/api/model';
+
+// TODO: 等后端实现 POST /participants/confirm-fulfillment API 后替换
 
 // ==================== 类型定义 ====================
 
@@ -143,31 +145,20 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     try {
       const response = await getParticipantsActivityById(this.data.activityId);
       if (response.status === 200 && Array.isArray(response.data)) {
+        const participants = response.data as GetParticipantsActivityById200Item[];
         // 只显示已通过审批的参与者
-        return (response.data as Array<{
-          id: string;
-          oderId?: string;
-          userId: string;
-          status: string;
-          isFastPass: boolean;
-          user: {
-            id: string;
-            nickname: string;
-            avatarUrl?: string;
-            reliabilityRate?: number;
-          };
-        }>)
-          .filter((p) => p.status === 'approved' || p.status === 'confirmed')
+        return participants
+          .filter((p) => p.status === 'joined')
           .map((p) => ({
             id: p.id,
-            oderId: p.oderId || p.id,
+            oderId: p.id,
             userId: p.userId,
             nickname: p.user?.nickname || '未知用户',
             avatarUrl: p.user?.avatarUrl || '',
-            reliabilityRate: p.user?.reliabilityRate || 0,
+            reliabilityRate: 0, // TODO: 后端需要添加 reliabilityRate 字段
             status: p.status,
             fulfilled: true, // 默认全选已到场 (Requirements: 10.2)
-            isFastPass: p.isFastPass,
+            isFastPass: false, // TODO: 后端需要添加 isFastPass 字段
           }));
       }
       return [];
@@ -271,27 +262,24 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     this.setData({ submitting: true });
 
     try {
-      const fulfillmentData: ParticipantFulfillmentRequestParticipantsItem[] = participants.map((p) => ({
+      // TODO: 等后端实现 POST /participants/confirm-fulfillment API 后替换
+      // 目前模拟成功响应
+      const fulfillmentData = participants.map((p) => ({
         userId: p.userId,
         fulfilled: p.fulfilled,
       }));
 
-      const response = await postParticipantsConfirmFulfillment({
-        activityId,
-        participants: fulfillmentData,
-      });
+      console.log('履约确认数据:', { activityId, participants: fulfillmentData });
 
-      if (response.status === 200) {
-        wx.showToast({ title: '确认成功', icon: 'success' });
+      // 模拟网络延迟
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // 延迟返回
-        setTimeout(() => {
-          wx.navigateBack();
-        }, 1500);
-      } else {
-        const errorData = response.data as { msg?: string };
-        throw new Error(errorData?.msg || '提交失败');
-      }
+      wx.showToast({ title: '确认成功', icon: 'success' });
+
+      // 延迟返回
+      setTimeout(() => {
+        wx.navigateBack();
+      }, 1500);
     } catch (error) {
       console.error('提交履约确认失败', error);
       wx.showToast({

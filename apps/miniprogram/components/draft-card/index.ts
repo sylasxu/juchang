@@ -42,7 +42,7 @@ interface ComponentProperties {
   draft: WechatMiniprogram.Component.PropertyOption;
 }
 
-Component<ComponentData, ComponentProperties>({
+Component({
   options: {
     styleIsolation: 'apply-shared',
   },
@@ -50,7 +50,7 @@ Component<ComponentData, ComponentProperties>({
   properties: {
     draft: {
       type: Object,
-      value: null,
+      value: {} as ActivityDraft,
     },
   },
 
