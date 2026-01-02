@@ -24,13 +24,20 @@ import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-p
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports/index'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
+import { Route as AuthenticatedNotificationsIndexRouteImport } from './routes/_authenticated/notifications/index'
 import { Route as AuthenticatedConversationsIndexRouteImport } from './routes/_authenticated/conversations/index'
+import { Route as AuthenticatedAiOpsIndexRouteImport } from './routes/_authenticated/ai-ops/index'
 import { Route as AuthenticatedActivitiesIndexRouteImport } from './routes/_authenticated/activities/index'
 import { Route as AuthenticatedUsersIdRouteImport } from './routes/_authenticated/users/$id'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings/appearance'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
+import { Route as AuthenticatedAiOpsTokenUsageRouteImport } from './routes/_authenticated/ai-ops/token-usage'
+import { Route as AuthenticatedAiOpsQuotaRouteImport } from './routes/_authenticated/ai-ops/quota'
+import { Route as AuthenticatedAiOpsPromptViewerRouteImport } from './routes/_authenticated/ai-ops/prompt-viewer'
+import { Route as AuthenticatedAiOpsPlaygroundRouteImport } from './routes/_authenticated/ai-ops/playground'
 import { Route as AuthenticatedActivitiesIdRouteImport } from './routes/_authenticated/activities/$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -109,10 +116,22 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedReportsIndexRoute =
+  AuthenticatedReportsIndexRouteImport.update({
+    id: '/reports/',
+    path: '/reports/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPlaygroundIndexRoute =
   AuthenticatedPlaygroundIndexRouteImport.update({
     id: '/playground/',
     path: '/playground/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedNotificationsIndexRoute =
+  AuthenticatedNotificationsIndexRouteImport.update({
+    id: '/notifications/',
+    path: '/notifications/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedConversationsIndexRoute =
@@ -121,6 +140,11 @@ const AuthenticatedConversationsIndexRoute =
     path: '/conversations/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAiOpsIndexRoute = AuthenticatedAiOpsIndexRouteImport.update({
+  id: '/ai-ops/',
+  path: '/ai-ops/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedActivitiesIndexRoute =
   AuthenticatedActivitiesIndexRouteImport.update({
     id: '/activities/',
@@ -150,6 +174,29 @@ const AuthenticatedErrorsErrorRoute =
     path: '/errors/$error',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAiOpsTokenUsageRoute =
+  AuthenticatedAiOpsTokenUsageRouteImport.update({
+    id: '/ai-ops/token-usage',
+    path: '/ai-ops/token-usage',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAiOpsQuotaRoute = AuthenticatedAiOpsQuotaRouteImport.update({
+  id: '/ai-ops/quota',
+  path: '/ai-ops/quota',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAiOpsPromptViewerRoute =
+  AuthenticatedAiOpsPromptViewerRouteImport.update({
+    id: '/ai-ops/prompt-viewer',
+    path: '/ai-ops/prompt-viewer',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAiOpsPlaygroundRoute =
+  AuthenticatedAiOpsPlaygroundRouteImport.update({
+    id: '/ai-ops/playground',
+    path: '/ai-ops/playground',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedActivitiesIdRoute =
   AuthenticatedActivitiesIdRouteImport.update({
     id: '/activities/$id',
@@ -171,13 +218,20 @@ export interface FileRoutesByFullPath {
   '/legal/$type': typeof LegalTypeRoute
   '/': typeof AuthenticatedIndexRoute
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
+  '/ai-ops/playground': typeof AuthenticatedAiOpsPlaygroundRoute
+  '/ai-ops/prompt-viewer': typeof AuthenticatedAiOpsPromptViewerRoute
+  '/ai-ops/quota': typeof AuthenticatedAiOpsQuotaRoute
+  '/ai-ops/token-usage': typeof AuthenticatedAiOpsTokenUsageRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
+  '/ai-ops': typeof AuthenticatedAiOpsIndexRoute
   '/conversations': typeof AuthenticatedConversationsIndexRoute
+  '/notifications': typeof AuthenticatedNotificationsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
+  '/reports': typeof AuthenticatedReportsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
 }
@@ -194,13 +248,20 @@ export interface FileRoutesByTo {
   '/legal/$type': typeof LegalTypeRoute
   '/': typeof AuthenticatedIndexRoute
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
+  '/ai-ops/playground': typeof AuthenticatedAiOpsPlaygroundRoute
+  '/ai-ops/prompt-viewer': typeof AuthenticatedAiOpsPromptViewerRoute
+  '/ai-ops/quota': typeof AuthenticatedAiOpsQuotaRoute
+  '/ai-ops/token-usage': typeof AuthenticatedAiOpsTokenUsageRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
+  '/ai-ops': typeof AuthenticatedAiOpsIndexRoute
   '/conversations': typeof AuthenticatedConversationsIndexRoute
+  '/notifications': typeof AuthenticatedNotificationsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
+  '/reports': typeof AuthenticatedReportsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
 }
@@ -220,13 +281,20 @@ export interface FileRoutesById {
   '/legal/$type': typeof LegalTypeRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/activities/$id': typeof AuthenticatedActivitiesIdRoute
+  '/_authenticated/ai-ops/playground': typeof AuthenticatedAiOpsPlaygroundRoute
+  '/_authenticated/ai-ops/prompt-viewer': typeof AuthenticatedAiOpsPromptViewerRoute
+  '/_authenticated/ai-ops/quota': typeof AuthenticatedAiOpsQuotaRoute
+  '/_authenticated/ai-ops/token-usage': typeof AuthenticatedAiOpsTokenUsageRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/users/$id': typeof AuthenticatedUsersIdRoute
   '/_authenticated/activities/': typeof AuthenticatedActivitiesIndexRoute
+  '/_authenticated/ai-ops/': typeof AuthenticatedAiOpsIndexRoute
   '/_authenticated/conversations/': typeof AuthenticatedConversationsIndexRoute
+  '/_authenticated/notifications/': typeof AuthenticatedNotificationsIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
+  '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
 }
@@ -246,13 +314,20 @@ export interface FileRouteTypes {
     | '/legal/$type'
     | '/'
     | '/activities/$id'
+    | '/ai-ops/playground'
+    | '/ai-ops/prompt-viewer'
+    | '/ai-ops/quota'
+    | '/ai-ops/token-usage'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
     | '/users/$id'
     | '/activities'
+    | '/ai-ops'
     | '/conversations'
+    | '/notifications'
     | '/playground'
+    | '/reports'
     | '/settings/'
     | '/users'
   fileRoutesByTo: FileRoutesByTo
@@ -269,13 +344,20 @@ export interface FileRouteTypes {
     | '/legal/$type'
     | '/'
     | '/activities/$id'
+    | '/ai-ops/playground'
+    | '/ai-ops/prompt-viewer'
+    | '/ai-ops/quota'
+    | '/ai-ops/token-usage'
     | '/errors/$error'
     | '/settings/account'
     | '/settings/appearance'
     | '/users/$id'
     | '/activities'
+    | '/ai-ops'
     | '/conversations'
+    | '/notifications'
     | '/playground'
+    | '/reports'
     | '/settings'
     | '/users'
   id:
@@ -294,13 +376,20 @@ export interface FileRouteTypes {
     | '/legal/$type'
     | '/_authenticated/'
     | '/_authenticated/activities/$id'
+    | '/_authenticated/ai-ops/playground'
+    | '/_authenticated/ai-ops/prompt-viewer'
+    | '/_authenticated/ai-ops/quota'
+    | '/_authenticated/ai-ops/token-usage'
     | '/_authenticated/errors/$error'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/users/$id'
     | '/_authenticated/activities/'
+    | '/_authenticated/ai-ops/'
     | '/_authenticated/conversations/'
+    | '/_authenticated/notifications/'
     | '/_authenticated/playground/'
+    | '/_authenticated/reports/'
     | '/_authenticated/settings/'
     | '/_authenticated/users/'
   fileRoutesById: FileRoutesById
@@ -426,6 +515,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/reports/': {
+      id: '/_authenticated/reports/'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/playground/': {
       id: '/_authenticated/playground/'
       path: '/playground'
@@ -433,11 +529,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPlaygroundIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/notifications/': {
+      id: '/_authenticated/notifications/'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/conversations/': {
       id: '/_authenticated/conversations/'
       path: '/conversations'
       fullPath: '/conversations'
       preLoaderRoute: typeof AuthenticatedConversationsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ai-ops/': {
+      id: '/_authenticated/ai-ops/'
+      path: '/ai-ops'
+      fullPath: '/ai-ops'
+      preLoaderRoute: typeof AuthenticatedAiOpsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/activities/': {
@@ -475,6 +585,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedErrorsErrorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/ai-ops/token-usage': {
+      id: '/_authenticated/ai-ops/token-usage'
+      path: '/ai-ops/token-usage'
+      fullPath: '/ai-ops/token-usage'
+      preLoaderRoute: typeof AuthenticatedAiOpsTokenUsageRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ai-ops/quota': {
+      id: '/_authenticated/ai-ops/quota'
+      path: '/ai-ops/quota'
+      fullPath: '/ai-ops/quota'
+      preLoaderRoute: typeof AuthenticatedAiOpsQuotaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ai-ops/prompt-viewer': {
+      id: '/_authenticated/ai-ops/prompt-viewer'
+      path: '/ai-ops/prompt-viewer'
+      fullPath: '/ai-ops/prompt-viewer'
+      preLoaderRoute: typeof AuthenticatedAiOpsPromptViewerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ai-ops/playground': {
+      id: '/_authenticated/ai-ops/playground'
+      path: '/ai-ops/playground'
+      fullPath: '/ai-ops/playground'
+      preLoaderRoute: typeof AuthenticatedAiOpsPlaygroundRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/activities/$id': {
       id: '/_authenticated/activities/$id'
       path: '/activities/$id'
@@ -507,11 +645,18 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedActivitiesIdRoute: typeof AuthenticatedActivitiesIdRoute
+  AuthenticatedAiOpsPlaygroundRoute: typeof AuthenticatedAiOpsPlaygroundRoute
+  AuthenticatedAiOpsPromptViewerRoute: typeof AuthenticatedAiOpsPromptViewerRoute
+  AuthenticatedAiOpsQuotaRoute: typeof AuthenticatedAiOpsQuotaRoute
+  AuthenticatedAiOpsTokenUsageRoute: typeof AuthenticatedAiOpsTokenUsageRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedUsersIdRoute: typeof AuthenticatedUsersIdRoute
   AuthenticatedActivitiesIndexRoute: typeof AuthenticatedActivitiesIndexRoute
+  AuthenticatedAiOpsIndexRoute: typeof AuthenticatedAiOpsIndexRoute
   AuthenticatedConversationsIndexRoute: typeof AuthenticatedConversationsIndexRoute
+  AuthenticatedNotificationsIndexRoute: typeof AuthenticatedNotificationsIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
+  AuthenticatedReportsIndexRoute: typeof AuthenticatedReportsIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
 }
 
@@ -519,11 +664,18 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedActivitiesIdRoute: AuthenticatedActivitiesIdRoute,
+  AuthenticatedAiOpsPlaygroundRoute: AuthenticatedAiOpsPlaygroundRoute,
+  AuthenticatedAiOpsPromptViewerRoute: AuthenticatedAiOpsPromptViewerRoute,
+  AuthenticatedAiOpsQuotaRoute: AuthenticatedAiOpsQuotaRoute,
+  AuthenticatedAiOpsTokenUsageRoute: AuthenticatedAiOpsTokenUsageRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedUsersIdRoute: AuthenticatedUsersIdRoute,
   AuthenticatedActivitiesIndexRoute: AuthenticatedActivitiesIndexRoute,
+  AuthenticatedAiOpsIndexRoute: AuthenticatedAiOpsIndexRoute,
   AuthenticatedConversationsIndexRoute: AuthenticatedConversationsIndexRoute,
+  AuthenticatedNotificationsIndexRoute: AuthenticatedNotificationsIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
+  AuthenticatedReportsIndexRoute: AuthenticatedReportsIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
 }
 

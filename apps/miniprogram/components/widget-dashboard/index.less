@@ -1,11 +1,13 @@
 /**
  * Widget Dashboard 样式
  * Requirements: 3.2, 3.3, 3.4, 3.5, 4.1-4.8
+ * v3.4 新增: 7.1, 7.2, 7.3, 7.4, 7.5 - 智能欢迎卡片
  * 
  * Crypto-Clean 视觉风格
  * - Halo Card 渐变边框
  * - 超大圆角
  * - 彩色弥散阴影
+ * - 快捷按钮白底 + 渐变文字
  */
 @import '/styles/tokens.less';
 
@@ -45,6 +47,86 @@
   font-size: @text-base;
   color: var(--text-secondary, @text-secondary);
   line-height: 1.4;
+}
+
+// ==================== 快捷操作按钮区域 (v3.4 新增) ====================
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: @spacing-2;
+  margin-bottom: @spacing-3;
+}
+
+.quick-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: @spacing-2 @spacing-4;
+  background: var(--bg-card, #FFFFFF);
+  border-radius: var(--radius-full, @rounded-full);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back),
+              box-shadow var(--duration-fast, @duration-fast);
+  
+  &:active {
+    transform: scale(0.96);
+    box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.08);
+  }
+}
+
+.quick-action-text {
+  font-size: @text-sm;
+  font-weight: 500;
+  line-height: 1.4;
+  // 默认渐变文字
+  background: linear-gradient(135deg, #5B75FB 0%, #8B5CF6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// 不同类型按钮的渐变色区分 (Requirements: 7.3)
+.quick-action-btn--explore_nearby {
+  .quick-action-text {
+    // 蓝色系 - 探索附近
+    background: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+.quick-action-btn--continue_draft {
+  .quick-action-text {
+    // 橙色系 - 继续草稿
+    background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+.quick-action-btn--find_partner {
+  .quick-action-text {
+    // 紫色系 - 找搭子
+    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+}
+
+// ==================== 兜底询问文案 (v3.4 新增) ====================
+
+.fallback-prompt {
+  margin-top: @spacing-2;
+}
+
+.fallback-text {
+  font-size: @text-sm;
+  color: var(--text-tertiary, @text-tertiary);
+  line-height: 1.5;
 }
 
 // ==================== 活动列表区域 ====================
@@ -186,5 +268,15 @@
   
   .prompt-text {
     color: var(--text-main, @text-main-dark);
+  }
+  
+  // v3.4 新增：快捷按钮深色模式
+  .quick-action-btn {
+    background: var(--bg-card-dark, rgba(255, 255, 255, 0.08));
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.2);
+  }
+  
+  .fallback-text {
+    color: var(--text-tertiary, @text-tertiary-dark);
   }
 }

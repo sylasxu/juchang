@@ -75,6 +75,8 @@ interface PageData {
   // Auth sheet
   isAuthSheetVisible: boolean;
   pendingAction: 'join' | null;
+  // 举报弹窗
+  showReportSheet: boolean;
 }
 
 interface PageOptions {
@@ -110,6 +112,8 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     // Auth sheet
     isAuthSheetVisible: false,
     pendingAction: null,
+    // 举报弹窗
+    showReportSheet: false,
   },
 
   onLoad(options: PageOptions) {
@@ -603,6 +607,26 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     if (this.data.activityId) {
       this.loadActivityDetail(this.data.activityId);
     }
+  },
+
+  /** 打开举报弹窗 */
+  onReportTap() {
+    const token = wx.getStorageSync('token');
+    if (!token) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
+    this.setData({ showReportSheet: true });
+  },
+
+  /** 关闭举报弹窗 */
+  onReportClose() {
+    this.setData({ showReportSheet: false });
+  },
+
+  /** 举报成功回调 */
+  onReportSuccess() {
+    this.setData({ showReportSheet: false });
   },
 
   getDisplayAddress(): string {

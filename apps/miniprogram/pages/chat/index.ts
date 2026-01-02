@@ -70,6 +70,10 @@ interface PageData {
   lastMessageId: string;
   /** 是否正在轮询 */
   isPolling: boolean;
+  /** 举报弹窗 */
+  showReportSheet: boolean;
+  /** 当前举报的消息 ID */
+  reportMessageId: string;
 }
 
 /** 页面参数 */
@@ -94,6 +98,8 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     isArchived: false,
     lastMessageId: '',
     isPolling: false,
+    showReportSheet: false,
+    reportMessageId: '',
   },
 
   // 轮询定时器
@@ -415,6 +421,50 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     } else {
       wx.reLaunch({ url: '/pages/home/index' });
     }
+  },
+
+  /**
+   * 长按消息举报
+   */
+  onMessageLongPress(e: WechatMiniprogram.CustomEvent<{}, {}, { id: string; isSelf: boolean }>) {
+    const { id, isSelf } = e.currentTarget.dataset;
+    
+    // 不能举报自己的消息
+    if (isSelf) return;
+    
+    const token = wx.getStorageSync('token');
+    if (!token) {
+      wx.showToast({ title: '请先登录', icon: 'none' });
+      return;
+    }
+
+    // 触感反馈
+    wx.vibrateShort({ type: 'light' });
+
+    this.setData({
+      reportMessageId: id,
+      showReportSheet: true,
+    });
+  },
+
+  /**
+   * 关闭举报弹窗
+   */
+  onReportClose() {
+    this.setData({
+      showReportSheet: false,
+      reportMessageId: '',
+    });
+  },
+
+  /**
+   * 举报成功回调
+   */
+  onReportSuccess() {
+    this.setData({
+      showReportSheet: false,
+      reportMessageId: '',
+    });
   },
 
   // ==================== 辅助方法 ====================

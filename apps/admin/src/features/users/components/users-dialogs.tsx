@@ -1,10 +1,12 @@
+import { useListContext } from '@/components/list-page'
+import { type User } from '../data/schema'
+import { type UserDialogType } from './users-columns'
 import { UsersImportDialog } from './users-import-dialog'
 import { UsersMutateDrawer } from './users-mutate-drawer'
 import { UsersDeleteDialog } from './users-delete-dialog'
-import { useUsers } from './users-provider'
 
 export function UsersDialogs() {
-  const { open, setOpen, currentRow } = useUsers()
+  const { open, setOpen, currentRow } = useListContext<User, UserDialogType>()
 
   return (
     <>

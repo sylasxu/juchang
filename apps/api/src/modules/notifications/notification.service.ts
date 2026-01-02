@@ -1,29 +1,143 @@
-// Notification Service - MVP 简化版
-import { db, notifications, eq, count, and, desc } from '@juchang/db';
+// Notification Service - MVP 简化版 + Admin 扩展
+import { db, notifications, users, eq, count, and, desc } from '@juchang/db';
 import type { NotificationListQuery, NotificationListResponse, UnreadCountResponse } from './notification.model';
 
+// 通知类型枚举值
+const NOTIFICATION_TYPES = ['join', 'quit', 'activity_start', 'completed', 'cancelled'] as const;
+type NotificationType = typeof NOTIFICATION_TYPES[number];
+
+/** 类型守卫：检查是否为有效的通知类型 */
+function isNotificationType(value: string): value is NotificationType {
+  return NOTIFICATION_TYPES.includes(value as NotificationType);
+}
+
 /**
- * 获取用户通知列表
+ * 获取用户通知列表（用户模式）
  */
 export async function getNotifications(
   userId: string,
   query: NotificationListQuery
 ): Promise<NotificationListResponse> {
-  const { page = 1, limit = 20 } = query;
+  const { page = 1, limit = 20, type } = query;
   const offset = (page - 1) * limit;
+
+  // 构建查询条件
+  const conditions = [eq(notifications.userId, userId)];
+  if (type && isNotificationType(type)) {
+    conditions.push(eq(notifications.type, type));
+  }
 
   const [data, totalResult] = await Promise.all([
     db
       .select()
       .from(notifications)
-      .where(eq(notifications.userId, userId))
+      .where(and(...conditions))
       .limit(limit)
       .offset(offset)
       .orderBy(desc(notifications.createdAt)),
     db
       .select({ count: count() })
       .from(notifications)
-      .where(eq(notifications.userId, userId)),
+      .where(and(...conditions)),
+  ]);
+
+  const total = totalResult[0]?.count || 0;
+  const totalPages = Math.ceil(total / limit);
+
+  return { data, total, page, totalPages };
+}
+
+/**
+ * 获取所有用户的通知列表（Admin 模式）
+ */
+export async function getAllNotifications(
+  query: NotificationListQuery
+): Promise<NotificationListResponse & { data: Array<any> }> {
+  const { page = 1, limit = 20, type } = query;
+  const offset = (page - 1) * limit;
+
+  // 构建查询条件
+  const conditions = [];
+  if (type && isNotificationType(type)) {
+    conditions.push(eq(notifications.type, type));
+  }
+
+  const whereCondition = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // 查询通知列表（包含用户信息）
+  const [data, totalResult] = await Promise.all([
+    db
+      .select({
+        id: notifications.id,
+        userId: notifications.userId,
+        type: notifications.type,
+        title: notifications.title,
+        content: notifications.content,
+        isRead: notifications.isRead,
+        activityId: notifications.activityId,
+        createdAt: notifications.createdAt,
+        userNickname: users.nickname,
+        userAvatarUrl: users.avatarUrl,
+      })
+      .from(notifications)
+      .leftJoin(users, eq(notifications.userId, users.id))
+      .where(whereCondition)
+      .limit(limit)
+      .offset(offset)
+      .orderBy(desc(notifications.createdAt)),
+    db
+      .select({ count: count() })
+      .from(notifications)
+      .where(whereCondition),
+  ]);
+
+  const total = totalResult[0]?.count || 0;
+  const totalPages = Math.ceil(total / limit);
+
+  return { data, total, page, totalPages };
+}
+
+/**
+ * 获取指定用户的通知列表（Admin 查指定用户）
+ */
+export async function getNotificationsByUserId(
+  targetUserId: string,
+  query: NotificationListQuery
+): Promise<NotificationListResponse & { data: Array<any> }> {
+  const { page = 1, limit = 20, type } = query;
+  const offset = (page - 1) * limit;
+
+  // 构建查询条件
+  const conditions = [eq(notifications.userId, targetUserId)];
+  if (type && isNotificationType(type)) {
+    conditions.push(eq(notifications.type, type));
+  }
+
+  // 查询通知列表（包含用户信息）
+  const [data, totalResult] = await Promise.all([
+    db
+      .select({
+        id: notifications.id,
+        userId: notifications.userId,
+        type: notifications.type,
+        title: notifications.title,
+        content: notifications.content,
+        isRead: notifications.isRead,
+        activityId: notifications.activityId,
+        createdAt: notifications.createdAt,
+        userNickname: users.nickname,
+        userAvatarUrl: users.avatarUrl,
+      })
+      .from(notifications)
+      .leftJoin(users, eq(notifications.userId, users.id))
+      .where(and(...conditions))
+      .limit(limit)
+      .offset(offset)
+      .orderBy(desc(notifications.createdAt)),
+    db
+      .select({ count: count() })
+      .from(notifications)
+      .where(and(...conditions)),
   ]);
 
   const total = totalResult[0]?.count || 0;
@@ -63,8 +177,6 @@ export async function getUnreadCount(userId: string): Promise<UnreadCountRespons
 // 内部调用：创建通知
 // DB 枚举类型: join, quit, activity_start, completed, cancelled
 // ==========================================
-
-type NotificationType = 'join' | 'quit' | 'activity_start' | 'completed' | 'cancelled';
 
 interface CreateNotificationParams {
   userId: string;

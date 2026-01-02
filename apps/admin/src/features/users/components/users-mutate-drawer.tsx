@@ -21,8 +21,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import { useListContext } from '@/components/list-page'
 import { useUpdateUser } from '@/hooks/use-users'
-import { useUsers } from './users-provider'
+import { type User } from '../data/schema'
+import { type UserDialogType } from './users-columns'
 
 // 表单 Schema - 仅包含可编辑的真实字段
 const formSchema = Type.Object({
@@ -33,7 +35,7 @@ const formSchema = Type.Object({
 type UserForm = Static<typeof formSchema>
 
 export function UsersMutateDrawer() {
-  const { open, setOpen, currentRow } = useUsers()
+  const { open, setOpen, currentRow } = useListContext<User, UserDialogType>()
   const isOpen = open === 'update'
   const updateMutation = useUpdateUser()
 

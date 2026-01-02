@@ -92,14 +92,18 @@ export function UserAuthForm({
         return
       }
 
-      // Eden Treaty 返回的 data
-      const result = response.data as {
+      // Eden Treaty 返回的 data - 使用 unknown 中间类型避免类型冲突
+      const result = response.data as unknown as {
         user: {
           id: string
-          nickname?: string
+          nickname?: string | null
           phoneNumber?: string
-          avatarUrl?: string
-          role?: { name: string; permissions: string[] }
+          avatarUrl?: string | null
+          role?: { 
+            id: string
+            name: string
+            permissions: Array<{ resource: string; actions: string[] }>
+          }
         }
         token: string
         exp: number
@@ -127,8 +131,12 @@ export function UserAuthForm({
         username: user.nickname || '管理员',
         email: `${user.phoneNumber}@juchang.app`,
         phoneNumber: user.phoneNumber,
-        avatarUrl: user.avatarUrl,
-        role: user.role,
+        avatarUrl: user.avatarUrl || undefined,
+        role: user.role ? {
+          id: user.role.id,
+          name: user.role.name,
+          permissions: user.role.permissions,
+        } : undefined,
         exp,
       })
       setAccessToken(token)

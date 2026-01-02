@@ -21,6 +21,7 @@ import { participantController } from './modules/participants/participant.contro
 import { dashboardController } from './modules/dashboard/dashboard.controller';
 import { chatController } from './modules/chat/chat.controller';
 import { notificationController } from './modules/notifications/notification.controller';
+import { reportController } from './modules/reports/report.controller';
 
 // 导入定时任务调度器
 import { startScheduler, stopScheduler, getJobStatuses } from './jobs';
@@ -48,6 +49,7 @@ const app = new Elysia()
         { name: 'Chat', description: '群聊消息' },
         { name: 'Dashboard', description: '仪表板数据' },
         { name: 'Notifications', description: '通知系统' },
+        { name: 'Reports', description: '内容审核' },
       ],
     },
     scalar: {
@@ -82,6 +84,7 @@ const app = new Elysia()
   .use(chatController)
   .use(dashboardController)
   .use(notificationController)
+  .use(reportController)
   // 健康检查
   .get('/', () => 'Hello Juchang API')
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }))

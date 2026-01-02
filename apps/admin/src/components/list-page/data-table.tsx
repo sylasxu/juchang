@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
-import { getRouteApi } from '@tanstack/react-router'
+import { useEffect, useMemo, useState } from 'react'
 import {
+  type ColumnDef,
   type SortingState,
   type VisibilityState,
+  type Table as TanStackTable,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -11,7 +12,7 @@ import {
   useReactTable,
 } from '@tanstack/react-table'
 import { cn } from '@/lib/utils'
-import { useTableUrlState } from '@/hooks/use-table-url-state'
+import { type NavigateFn, useTableUrlState } from '@/hooks/use-table-url-state'
 import {
   Table,
   TableBody,
@@ -21,23 +22,71 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { DataTablePagination, DataTableToolbar } from '@/components/data-table'
-import { phoneBindStatus } from '../data/data'
-import { type User } from '../data/schema'
-import { DataTableBulkActions } from './data-table-bulk-actions'
-import { usersColumns as columns } from './users-columns'
+import { createSelectColumn } from './select-column'
 
-const route = getRouteApi('/_authenticated/users/')
-
-type DataTableProps = {
-  data: User[]
-  pageCount?: number
+export interface FacetedFilterConfig {
+  columnId: string
+  title: string
+  options: {
+    label: string
+    value: string
+    icon?: React.ComponentType<{ className?: string }>
+  }[]
 }
 
-export function UsersTable({ data, pageCount: externalPageCount }: DataTableProps) {
+interface DataTableProps<TData> {
+  data: TData[]
+  columns: ColumnDef<TData>[]
+  pageCount: number
+  search: Record<string, unknown>
+  navigate: NavigateFn
+  getRowId?: (row: TData) => string
+  searchPlaceholder?: string
+  emptyMessage?: string
+  enableRowSelection?: boolean
+  enableSorting?: boolean
+  enableColumnVisibility?: boolean
+  facetedFilters?: FacetedFilterConfig[]
+  toolbarActions?: React.ReactNode
+  bulkActions?: (table: TanStackTable<TData>) => React.ReactNode
+}
+
+
+export function DataTable<TData>({
+  data,
+  columns,
+  pageCount: externalPageCount,
+  search,
+  navigate,
+  getRowId,
+  searchPlaceholder = '搜索...',
+  emptyMessage = '暂无数据',
+  enableRowSelection = true,
+  enableSorting = true,
+  enableColumnVisibility = true,
+  facetedFilters = [],
+  toolbarActions,
+  bulkActions,
+}: DataTableProps<TData>) {
+  // Auto-add select column when row selection is enabled
+  const columnsWithSelect = useMemo(() => {
+    if (!enableRowSelection) return columns
+    // Check if select column already exists
+    const hasSelectColumn = columns.some((col) => col.id === 'select')
+    if (hasSelectColumn) return columns
+    return [createSelectColumn<TData>(), ...columns]
+  }, [columns, enableRowSelection])
   // Local UI-only states
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+
+  // Build columnFilters config from facetedFilters
+  const columnFiltersConfig = facetedFilters.map((f) => ({
+    columnId: f.columnId,
+    searchKey: f.columnId,
+    type: 'array' as const,
+  }))
 
   // Synced with URL states
   const {
@@ -49,18 +98,18 @@ export function UsersTable({ data, pageCount: externalPageCount }: DataTableProp
     onPaginationChange,
     ensurePageInRange,
   } = useTableUrlState({
-    search: route.useSearch(),
-    navigate: route.useNavigate(),
+    search,
+    navigate,
     pagination: { defaultPage: 1, defaultPageSize: 10 },
     globalFilter: { enabled: true, key: 'filter' },
-    columnFilters: [],
+    columnFilters: columnFiltersConfig,
   })
 
-  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
-    columns,
-    pageCount: externalPageCount ?? -1, // -1 表示未知总页数
+    columns: columnsWithSelect,
+    pageCount: externalPageCount ?? -1,
+    getRowId,
     state: {
       sorting,
       columnVisibility,
@@ -69,11 +118,12 @@ export function UsersTable({ data, pageCount: externalPageCount }: DataTableProp
       globalFilter,
       pagination,
     },
-    enableRowSelection: true,
+    enableRowSelection,
+    enableSorting,
+    enableHiding: enableColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    // 服务端分页和过滤，客户端只做排序和展示
     manualPagination: true,
     manualFiltering: true,
     getCoreRowModel: getCoreRowModel(),
@@ -93,39 +143,43 @@ export function UsersTable({ data, pageCount: externalPageCount }: DataTableProp
   return (
     <div
       className={cn(
-        'max-sm:has-[div[role="toolbar"]]:mb-16', // Add margin bottom to the table on mobile when the toolbar is visible
+        'max-sm:has-[div[role="toolbar"]]:mb-16',
         'flex flex-1 flex-col gap-4'
       )}
     >
       <DataTableToolbar
         table={table}
-        searchPlaceholder='按昵称、ID或手机号搜索...'
-        filters={[]}
+        searchPlaceholder={searchPlaceholder}
+        filters={facetedFilters}
       />
+      {toolbarActions && (
+        <div className='flex items-center gap-2'>
+          {toolbarActions}
+        </div>
+      )}
+
       <div className='overflow-hidden rounded-md border'>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead
-                      key={header.id}
-                      colSpan={header.colSpan}
-                      className={cn(
-                        header.column.columnDef.meta?.className,
-                        header.column.columnDef.meta?.thClassName
-                      )}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
+                {headerGroup.headers.map((header) => (
+                  <TableHead
+                    key={header.id}
+                    colSpan={header.colSpan}
+                    className={cn(
+                      header.column.columnDef.meta?.className,
+                      header.column.columnDef.meta?.thClassName
+                    )}
+                  >
+                    {header.isPlaceholder
+                      ? null
+                      : flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
+                  </TableHead>
+                ))}
               </TableRow>
             ))}
           </TableHeader>
@@ -155,21 +209,20 @@ export function UsersTable({ data, pageCount: externalPageCount }: DataTableProp
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={columnsWithSelect.length}
                   className='h-24 text-center'
                 >
-                  暂无数据
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
+
       <DataTablePagination table={table} className='mt-auto' />
-      <DataTableBulkActions table={table} />
+
+      {bulkActions?.(table)}
     </div>
   )
 }
-
-// Suppress unused variable warning
-void phoneBindStatus

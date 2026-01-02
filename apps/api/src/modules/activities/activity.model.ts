@@ -95,6 +95,7 @@ const ActivitiesListQuery = t.Object({
   status: t.Optional(t.String({ description: '状态筛选，逗号分隔' })),
   type: t.Optional(t.String({ description: '类型筛选，逗号分隔' })),
   search: t.Optional(t.String({ description: '搜索关键词' })),
+  creatorId: t.Optional(t.String({ description: '创建者ID筛选' })),
 });
 
 // 活动列表响应

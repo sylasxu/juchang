@@ -235,6 +235,14 @@
         <text>群聊</text>
       </button>
       
+      <!-- 举报入口（非创建者可见） -->
+      <button wx:if="{{!isCreator}}" 
+              class="report-btn flex flex-col items-center justify-center w-100 h-100 text-xs text-gray-600 ml-2" 
+              bindtap="onReportTap">
+        <t-icon name="flag" size="40rpx" />
+        <text>举报</text>
+      </button>
+      
       <button wx:if="{{!isCreator && !participantStatus}}" 
               class="join-btn flex-1 h-88 ml-4 text-white text-lg font-medium rounded-full" 
               bindtap="onJoinTap">
@@ -303,5 +311,14 @@
     visible="{{isAuthSheetVisible}}" 
     bind:success="onAuthSuccess"
     bind:close="onAuthClose"
+  />
+  
+  <!-- 举报弹窗 -->
+  <report-sheet
+    visible="{{showReportSheet}}"
+    type="activity"
+    targetId="{{activityId}}"
+    bind:close="onReportClose"
+    bind:success="onReportSuccess"
   />
 </view>

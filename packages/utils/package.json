@@ -11,6 +11,9 @@
       "default": "./src/index.ts"
     }
   },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.33"
+  },
   "devDependencies": {
     "@juchang/ts-config": "workspace:*",
     "typescript": "^5.9.3"

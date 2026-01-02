@@ -1,11 +1,13 @@
 <!--
   Widget Draft 组件 (v3.5 零成本地图方案)
   Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9
+  v3.4 新增: 多轮对话支持 - 快捷操作按钮
   
   意图解析卡片
   - 显示 AI 预填的标题、时间、地点、类型
   - 使用位置文字卡片替代静态地图（零成本）
   - 实现 [📍 调整位置] 和 [✅ 确认发布] 按钮
+  - v3.4: 快捷操作按钮（换地方、换时间、加人）
 -->
 <view class="widget-draft halo-card {{isExpired ? 'widget-draft--expired' : ''}}">
   <!-- 过期标签 -->
@@ -64,6 +66,22 @@
         <text class="info-label">人数</text>
         <text class="info-value">最多 {{draft.maxParticipants}} 人</text>
       </view>
+    </view>
+  </view>
+  
+  <!-- v3.4 新增：快捷操作按钮（多轮对话） -->
+  <view class="quick-actions">
+    <view class="quick-action-btn btn-pressable" bindtap="onChangeLocation">
+      <t-icon name="location" size="28rpx" />
+      <text>换地方</text>
+    </view>
+    <view class="quick-action-btn btn-pressable" bindtap="onChangeTime">
+      <t-icon name="time" size="28rpx" />
+      <text>换时间</text>
+    </view>
+    <view class="quick-action-btn btn-pressable" bindtap="onChangeParticipants">
+      <t-icon name="user-add" size="28rpx" />
+      <text>加人</text>
     </view>
   </view>
   

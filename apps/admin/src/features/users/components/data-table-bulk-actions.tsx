@@ -20,18 +20,16 @@ import { statuses } from '../data/data'
 import { type User } from '../data/schema'
 import { UsersMultiDeleteDialog } from './users-multi-delete-dialog'
 
-type DataTableBulkActionsProps<TData> = {
-  table: Table<TData>
+interface UsersBulkActionsProps {
+  table: Table<User>
 }
 
-export function DataTableBulkActions<TData>({
-  table,
-}: DataTableBulkActionsProps<TData>) {
+export function UsersBulkActions({ table }: UsersBulkActionsProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const selectedRows = table.getFilteredSelectedRowModel().rows
 
   const handleBulkStatusChange = (status: string) => {
-    const selectedUsers = selectedRows.map((row) => row.original as User)
+    const selectedUsers = selectedRows.map((row) => row.original)
     toast.promise(sleep(2000), {
       loading: '更新状态中...',
       success: () => {
@@ -44,7 +42,7 @@ export function DataTableBulkActions<TData>({
   }
 
   const handleBulkExport = () => {
-    const selectedUsers = selectedRows.map((row) => row.original as User)
+    const selectedUsers = selectedRows.map((row) => row.original)
     toast.promise(sleep(2000), {
       loading: '导出用户数据中...',
       success: () => {

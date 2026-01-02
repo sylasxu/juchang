@@ -37,12 +37,13 @@ export const auth = {
 /**
  * 统一的 API 响应处理器
  * Eden Treaty 返回 { data, error, status } 格式
+ * error 结构为 { status, value } 其中 value 是实际的错误数据
  * 
  * 使用方式：
  * const result = await unwrap(api.users.get({ query: { page: 1 } }))
  */
 export async function unwrap<T>(
-  promise: Promise<{ data: T; error: any; status: number }>
+  promise: Promise<{ data: T; error: unknown; status: number }>
 ): Promise<T> {
   const response = await promise
   
@@ -58,11 +59,34 @@ export async function unwrap<T>(
     }
     
     // 提取错误信息
-    const errorMsg = 
-      response.error?.msg || 
-      response.error?.message || 
-      response.error?.value ||
-      getErrorMessage(status)
+    // Eden Treaty 错误结构: { status: number, value: { code, msg } | string }
+    let errorMsg: string = getErrorMessage(status)
+    const err = response.error
+    
+    if (typeof err === 'string') {
+      errorMsg = err
+    } else if (err && typeof err === 'object') {
+      const errObj = err as Record<string, unknown>
+      
+      // Eden Treaty 将实际错误数据放在 value 字段中
+      const value = errObj.value
+      if (value && typeof value === 'object') {
+        const valueObj = value as Record<string, unknown>
+        if (typeof valueObj.msg === 'string') {
+          errorMsg = valueObj.msg
+        } else if (typeof valueObj.message === 'string') {
+          errorMsg = valueObj.message
+        }
+      } else if (typeof value === 'string') {
+        errorMsg = value
+      }
+      // 直接在 error 对象上查找（兼容其他格式）
+      else if (typeof errObj.msg === 'string') {
+        errorMsg = errObj.msg
+      } else if (typeof errObj.message === 'string') {
+        errorMsg = errObj.message
+      }
+    }
     
     // 显示错误提示
     toast.error(errorMsg)

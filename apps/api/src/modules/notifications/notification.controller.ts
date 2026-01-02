@@ -1,14 +1,20 @@
-// Notification Controller - MVP 简化版
+// Notification Controller - MVP 简化版 + Admin 扩展
 import { Elysia } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { notificationModel, type ErrorResponse } from './notification.model';
-import { getNotifications, markAsRead, getUnreadCount } from './notification.service';
+import { 
+  getNotifications, 
+  getAllNotifications,
+  getNotificationsByUserId,
+  markAsRead, 
+  getUnreadCount 
+} from './notification.service';
 
 export const notificationController = new Elysia({ prefix: '/notifications' })
   .use(basePlugins)
   .use(notificationModel)
 
-  // 获取通知列表
+  // 获取通知列表（支持显式的 scope 参数）
   .get(
     '/',
     async ({ query, set, jwt, headers }) => {
@@ -18,6 +24,23 @@ export const notificationController = new Elysia({ prefix: '/notifications' })
         return { code: 401, msg: '未授权' } satisfies ErrorResponse;
       }
 
+      const { scope = 'mine', userId } = query;
+
+      // 如果指定了 userId，Admin 查指定用户的通知
+      if (userId) {
+        // TODO: 添加 Admin 角色验证
+        const result = await getNotificationsByUserId(userId, query);
+        return result;
+      }
+
+      // scope=all：Admin 查所有用户的通知
+      if (scope === 'all') {
+        // TODO: 添加 Admin 角色验证
+        const result = await getAllNotifications(query);
+        return result;
+      }
+
+      // scope=mine（默认）：查当前用户的通知
       const result = await getNotifications(user.id, query);
       return result;
     },
@@ -25,7 +48,10 @@ export const notificationController = new Elysia({ prefix: '/notifications' })
       detail: {
         tags: ['Notifications'],
         summary: '获取通知列表',
-        description: '分页获取当前用户的通知列表',
+        description: `获取通知列表，支持显式的 scope 参数区分模式：
+- scope=mine（默认）：获取当前用户的通知
+- scope=all：获取所有用户的通知（需 Admin 权限）
+- userId 参数：获取指定用户的通知（需 Admin 权限）`,
       },
       query: 'notification.listQuery',
       response: {

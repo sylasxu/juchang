@@ -72,8 +72,14 @@
               <widget-dashboard 
                 nickname="{{item.content.nickname || userNickname}}"
                 activities="{{item.content.activities || upcomingActivities}}"
+                greeting="{{item.content.greeting}}"
+                quickActions="{{item.content.quickActions}}"
+                fallbackPrompt="{{item.content.fallbackPrompt}}"
                 bind:activitytap="onDashboardActivityTap"
                 bind:prompttap="onDashboardPromptTap"
+                bind:quickactiontap="onDashboardQuickActionTap"
+                bind:explorenearby="onDashboardExploreNearby"
+                bind:findpartner="onDashboardFindPartner"
               />
             </block>
             
@@ -83,6 +89,7 @@
                 draft="{{item.content}}"
                 bind:confirm="onDraftConfirm"
                 bind:adjustlocation="onDraftAdjustLocation"
+                bind:sendMessage="onDraftSendMessage"
               />
             </block>
             

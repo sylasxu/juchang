@@ -5,6 +5,7 @@ import { participants } from "./participants";
 import { notifications } from "./notifications";
 import { activityMessages } from "./activity_messages";
 import { conversations } from "./conversations";
+import { reports } from "./reports";
 
 // ==========================================
 // User Relations (v3.3 行业标准命名)
@@ -15,6 +16,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   notifications: many(notifications),
   activityMessages: many(activityMessages),
   conversations: many(conversations),
+  reportsSubmitted: many(reports, { relationName: "reporter" }),
+  reportsResolved: many(reports, { relationName: "resolver" }),
 }));
 
 // ==========================================
@@ -84,6 +87,22 @@ export const conversationsRelations = relations(conversations, ({ one }) => ({
   activity: one(activities, {
     fields: [conversations.activityId],
     references: [activities.id],
+  }),
+}));
+
+// ==========================================
+// Report Relations (内容审核)
+// ==========================================
+export const reportsRelations = relations(reports, ({ one }) => ({
+  reporter: one(users, {
+    fields: [reports.reporterId],
+    references: [users.id],
+    relationName: "reporter",
+  }),
+  resolver: one(users, {
+    fields: [reports.resolvedBy],
+    references: [users.id],
+    relationName: "resolver",
   }),
 }));
 

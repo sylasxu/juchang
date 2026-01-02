@@ -30,7 +30,7 @@ Component({
     // 提示文案
     placeholder: {
       type: String,
-      value: '粘贴文字，或直接告诉我...',
+      value: '粘贴群聊天记录，或直接告诉我怎么玩...',
     },
     // 是否禁用
     disabled: {

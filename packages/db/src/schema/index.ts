@@ -17,7 +17,10 @@ export * from "./conversations";      // AI 对话历史 (原 home_messages)
 // 4. Notification System
 export * from "./notifications";
 
-// 5. Relations (must be last to avoid circular imports)
+// 5. Report System (内容审核)
+export * from "./reports";
+
+// 6. Relations (must be last to avoid circular imports)
 export * from "./relations";
 
 // ==========================================

@@ -7,9 +7,15 @@ import {
   consumeAIQuota, 
   streamChat,
   getConversations,
+  getAllConversations,
+  getConversationsByUserId,
   addUserMessage,
   clearConversations,
+  getWelcomeCard,
 } from './ai.service';
+import { getPromptInfo, buildSystemPrompt } from './prompts/xiaoju-v34';
+import { getTokenUsageStats, getTokenUsageSummary, getToolCallStats } from './services/metrics';
+import { db, users, eq } from '@juchang/db';
 
 export const aiController = new Elysia({ prefix: '/ai' })
   .use(basePlugins)
@@ -71,6 +77,63 @@ export const aiController = new Elysia({ prefix: '/ai' })
   )
   
   // ==========================================
+  // 欢迎卡片 (v3.4 新增)
+  // ==========================================
+  .get(
+    '/welcome',
+    async ({ query, jwt, headers }) => {
+      // 尝试获取用户身份（可选认证）
+      const authResult = await verifyAuth(jwt, headers);
+      
+      // 如果已登录，获取用户昵称
+      let userId: string | null = null;
+      let nickname: string | null = null;
+      
+      if (authResult) {
+        userId = authResult.id;
+        // 从数据库获取用户昵称
+        const [user] = await db
+          .select({ nickname: users.nickname })
+          .from(users)
+          .where(eq(users.id, authResult.id))
+          .limit(1);
+        nickname = user?.nickname || null;
+      }
+      
+      // 解析位置参数
+      const location = (query.lat !== undefined && query.lng !== undefined)
+        ? { lat: query.lat, lng: query.lng }
+        : null;
+      
+      // 获取欢迎卡片数据
+      const welcomeCard = await getWelcomeCard(
+        userId,
+        nickname,
+        location
+      );
+      
+      return welcomeCard;
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: '获取欢迎卡片',
+        description: `获取个性化的欢迎卡片数据，包含问候语和快捷操作按钮。
+
+支持两种模式：
+- 已登录：返回个性化问候语和基于用户偏好的快捷按钮
+- 未登录：返回通用问候语和默认快捷按钮
+
+位置参数可选，传入后可生成"探索附近"按钮。`,
+      },
+      query: 'ai.welcomeQuery',
+      response: {
+        200: 'ai.welcomeResponse',
+      },
+    }
+  )
+  
+  // ==========================================
   // 统一 AI Chat 接口 - Data Stream Protocol
   // 小程序和 Admin 都用这个接口
   // ==========================================
@@ -78,7 +141,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
     '/chat',
     async ({ body, set, jwt, headers }) => {
       // 解析请求参数
-      const { messages, source = 'miniprogram', mockUserId, mockLocation } = body;
+      const { messages, source = 'miniprogram', mockUserId, mockLocation, sandboxMode, trace } = body;
       
       // 获取用户身份
       const user = await verifyAuth(jwt, headers);
@@ -87,8 +150,8 @@ export const aiController = new Elysia({ prefix: '/ai' })
       const effectiveUserId = (source === 'admin' && mockUserId) ? mockUserId : user?.id || null;
       const effectiveLocation = mockLocation || body.location;
       
-      // 有真实用户时检查额度（Admin mock 不消耗额度）
-      if (user && source !== 'admin') {
+      // 有真实用户时检查额度（Admin mock 不消耗额度，沙盒模式不消耗额度）
+      if (user && source !== 'admin' && !sandboxMode) {
         const quota = await checkAIQuota(user.id);
         if (!quota.hasQuota) {
           set.status = 403;
@@ -103,12 +166,15 @@ export const aiController = new Elysia({ prefix: '/ai' })
       }
 
       try {
-        // 获取 Data Stream Response
+        // 获取 Data Stream Response (v3.4 支持 draftContext 和 sandboxMode, v3.5 支持 trace)
         const response = await streamChat({
           messages,
           userId: effectiveUserId,
           location: effectiveLocation,
           source,
+          draftContext: body.draftContext,
+          sandboxMode: sandboxMode ?? false,
+          trace: trace ?? false,
         });
         
         return response;
@@ -128,6 +194,10 @@ export const aiController = new Elysia({ prefix: '/ai' })
 - 小程序：传 JWT Token，正常消耗额度
 - Admin：传 source='admin'，可 mock 用户测试，不消耗额度
 
+v3.4 新增：
+- draftContext：草稿上下文，用于多轮对话修改草稿
+- sandboxMode：沙盒模式，使用完整 Prompt 但 Tool 不写数据库
+
 Data Stream 格式：
 - 0:"text" - 文本增量
 - 9:{...} - Tool Call
@@ -143,28 +213,72 @@ Data Stream 格式：
         source: t.Optional(t.Union([t.Literal('miniprogram'), t.Literal('admin')])),
         mockUserId: t.Optional(t.String()),
         mockLocation: t.Optional(t.Tuple([t.Number(), t.Number()])),
+        // v3.4 新增：草稿上下文
+        draftContext: t.Optional(t.Object({
+          activityId: t.String(),
+          currentDraft: t.Object({
+            title: t.String(),
+            type: t.String(),
+            locationName: t.String(),
+            locationHint: t.String(),
+            startAt: t.String(),
+            maxParticipants: t.Number(),
+          }),
+        })),
+        // v3.4 新增：沙盒模式
+        sandboxMode: t.Optional(t.Boolean({ 
+          default: false,
+          description: '沙盒模式：使用完整 Prompt 但 Tool 不写数据库' 
+        })),
+        // v3.5 新增：执行追踪
+        trace: t.Optional(t.Boolean({
+          default: false,
+          description: '是否返回执行追踪数据（Admin Playground 调试用）'
+        })),
       }),
     }
   )
   
   // ==========================================
-  // 对话历史管理 (v3.2 新增)
+  // 对话历史管理 (v3.2 新增，v3.5 重构为显式参数)
   // ==========================================
   
   // 获取对话历史（分页）
-  // 支持两种模式：
-  // 1. 有 JWT：查询当前用户的对话
-  // 2. 无 JWT：Admin 模式，可查询所有用户的对话
+  // 支持显式的 scope 参数区分模式：
+  // - scope=mine（默认）：查当前用户的对话
+  // - scope=all：查所有用户的对话（需 Admin 权限）
+  // - userId 参数：查指定用户的对话（需 Admin 权限）
   .get(
     '/conversations',
     async ({ query, set, jwt, headers }) => {
       const user = await verifyAuth(jwt, headers);
-      
-      // Admin 模式：无 JWT 时查询所有用户
-      const userId = user?.id || 'admin';
+      if (!user) {
+        set.status = 401;
+        return {
+          code: 401,
+          msg: '未授权',
+        } satisfies ErrorResponse;
+      }
+
+      const { scope = 'mine', userId } = query;
 
       try {
-        const result = await getConversations(userId, query);
+        // 如果指定了 userId，Admin 查指定用户的对话
+        if (userId) {
+          // TODO: 添加 Admin 角色验证
+          const result = await getConversationsByUserId(userId, query);
+          return result;
+        }
+
+        // scope=all：Admin 查所有用户的对话
+        if (scope === 'all') {
+          // TODO: 添加 Admin 角色验证
+          const result = await getAllConversations(query);
+          return result;
+        }
+
+        // scope=mine（默认）：查当前用户的对话
+        const result = await getConversations(user.id, query);
         return result;
       } catch (error: any) {
         set.status = 500;
@@ -178,11 +292,15 @@ Data Stream 格式：
       detail: {
         tags: ['AI'],
         summary: '获取 AI 对话历史',
-        description: '获取对话历史，支持分页。有 JWT 时查当前用户，无 JWT 时查所有用户（Admin 模式）。',
+        description: `获取对话历史，支持显式的 scope 参数区分模式：
+- scope=mine（默认）：获取当前用户的对话
+- scope=all：获取所有用户的对话（需 Admin 权限）
+- userId 参数：获取指定用户的对话（需 Admin 权限）`,
       },
       query: 'ai.conversationsQuery',
       response: {
         200: 'ai.conversationsResponse',
+        401: 'ai.error',
         500: 'ai.error',
       },
     }
@@ -269,5 +387,121 @@ Data Stream 格式：
         401: 'ai.error',
         500: 'ai.error',
       },
+    }
+  )
+  
+  // ==========================================
+  // Token 使用统计 (v3.4 新增)
+  // ==========================================
+  .get(
+    '/metrics/usage',
+    async ({ query }) => {
+      // 解析日期范围，默认最近 30 天
+      const endDate = query.endDate 
+        ? new Date(query.endDate + 'T23:59:59') 
+        : new Date();
+      const startDate = query.startDate 
+        ? new Date(query.startDate + 'T00:00:00') 
+        : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      const [summary, daily, toolCalls] = await Promise.all([
+        getTokenUsageSummary(startDate, endDate),
+        getTokenUsageStats(startDate, endDate),
+        getToolCallStats(startDate, endDate),
+      ]);
+      
+      return { summary, daily, toolCalls };
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: '获取 Token 使用统计',
+        description: `获取 AI Token 使用统计数据（Admin 用）。
+
+返回内容：
+- summary: 汇总数据（总请求数、总 Token 数、平均每次请求 Token 数）
+- daily: 每日统计数据
+- toolCalls: Tool 调用统计`,
+      },
+      query: 'ai.metricsUsageQuery',
+      response: {
+        200: 'ai.metricsUsageResponse',
+      },
+    }
+  )
+  
+  // ==========================================
+  // Prompt 查看 (v3.4 新增 - 代码即配置)
+  // ==========================================
+  .get(
+    '/prompts/current',
+    async () => {
+      const info = getPromptInfo();
+      const content = buildSystemPrompt({
+        currentTime: new Date(),
+        userLocation: { lat: 29.5630, lng: 106.5516, name: '观音桥' },
+        userNickname: '示例用户',
+      });
+      
+      return {
+        ...info,
+        content,
+      };
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: '获取当前 System Prompt',
+        description: `获取当前激活的 System Prompt 信息（Admin 用）。
+
+Prompt 通过 Git 版本控制，此接口为只读查看。
+修改 Prompt 需要通过代码提交。`,
+      },
+      response: {
+        200: 'ai.promptInfoResponse',
+      },
+    }
+  )
+  
+  // ==========================================
+  // Sandbox 测试 (v3.4 新增)
+  // ==========================================
+  .post(
+    '/sandbox/chat',
+    async ({ body, set }) => {
+      const { messages, location, draftContext } = body;
+      
+      try {
+        // 沙盒模式：userId 为 null，不写入数据库，不消耗额度
+        const response = await streamChat({
+          messages,
+          userId: null, // 沙盒模式标识
+          location,
+          source: 'admin',
+          draftContext,
+          sandboxMode: true, // 明确标识沙盒模式
+        });
+        
+        return response;
+      } catch (error: any) {
+        console.error('Sandbox Chat 失败:', error);
+        set.status = 500;
+        return { error: error.message || 'AI 服务暂时不可用' };
+      }
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: 'Sandbox AI 对话测试',
+        description: `沙盒模式的 AI 对话测试（Admin 用）。
+
+特点：
+- 不写入生产数据库（不创建 activities、conversations 记录）
+- 不消耗用户 AI 额度
+- 返回完整的 AI 响应，包括 Tool 调用信息
+
+用于测试 Prompt 效果和调试。`,
+      },
+      body: 'ai.sandboxChatRequest',
     }
   );

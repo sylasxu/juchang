@@ -3,6 +3,7 @@
   "usingComponents": {
     "custom-navbar": "/components/custom-navbar/index",
     "auth-sheet": "/components/auth-sheet/index",
+    "report-sheet": "/components/report-sheet/index",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-avatar": "tdesign-miniprogram/avatar/avatar",

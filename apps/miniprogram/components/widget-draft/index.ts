@@ -1,6 +1,7 @@
 /**
  * Widget Draft 组件
  * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 6.9
+ * v3.4 新增: 多轮对话支持 - 快捷操作按钮触发 sendMessage 事件
  * 
  * 意图解析卡片 (v3.5 零成本地图方案)
  * - 显示 AI 预填的标题、时间、地点、类型
@@ -8,6 +9,7 @@
  * - 点击位置卡片打开原生地图导航
  * - 实现 [📍 调整位置] 按钮（使用 wx.chooseLocation）
  * - 实现 [✅ 确认发布] 按钮
+ * - v3.4: 快捷操作按钮（换地方、换时间）触发 sendMessage 事件带 draftContext
  */
 
 import { openMapNavigation, chooseLocation } from '../../src/config/index';
@@ -41,6 +43,25 @@ interface DraftData {
   address?: string;
   locationHint: string;
   maxParticipants: number;
+}
+
+// v3.4 新增：草稿上下文类型（用于多轮对话）
+interface DraftContext {
+  activityId: string;
+  currentDraft: {
+    title: string;
+    type: string;
+    locationName: string;
+    locationHint: string;
+    startAt: string;
+    maxParticipants: number;
+  };
+}
+
+// v3.4 新增：sendMessage 事件详情类型
+interface SendMessageEventDetail {
+  text: string;
+  draftContext: DraftContext;
 }
 
 Component({
@@ -238,6 +259,78 @@ Component({
           this.triggerEvent('confirm', { draft });
         },
       });
+    },
+
+    /**
+     * 构建草稿上下文
+     * v3.4 新增：用于多轮对话
+     */
+    buildDraftContext(draft: DraftData): DraftContext {
+      return {
+        activityId: draft.activityId,
+        currentDraft: {
+          title: draft.title,
+          type: draft.type,
+          locationName: draft.locationName,
+          locationHint: draft.locationHint,
+          startAt: draft.startAt,
+          maxParticipants: draft.maxParticipants,
+        },
+      };
+    },
+
+    /**
+     * 点击换地方按钮
+     * v3.4 新增：触发 sendMessage 事件，带上 draftContext
+     * Requirements: 多轮对话支持
+     */
+    onChangeLocation() {
+      const draft = this.properties.draft as DraftData;
+      if (!draft?.activityId) return;
+
+      const draftContext = this.buildDraftContext(draft);
+      const eventDetail: SendMessageEventDetail = {
+        text: '换个地方',
+        draftContext,
+      };
+
+      this.triggerEvent('sendMessage', eventDetail);
+    },
+
+    /**
+     * 点击换时间按钮
+     * v3.4 新增：触发 sendMessage 事件，带上 draftContext
+     * Requirements: 多轮对话支持
+     */
+    onChangeTime() {
+      const draft = this.properties.draft as DraftData;
+      if (!draft?.activityId) return;
+
+      const draftContext = this.buildDraftContext(draft);
+      const eventDetail: SendMessageEventDetail = {
+        text: '换个时间',
+        draftContext,
+      };
+
+      this.triggerEvent('sendMessage', eventDetail);
+    },
+
+    /**
+     * 点击加人按钮
+     * v3.4 新增：触发 sendMessage 事件，带上 draftContext
+     * Requirements: 多轮对话支持
+     */
+    onChangeParticipants() {
+      const draft = this.properties.draft as DraftData;
+      if (!draft?.activityId) return;
+
+      const draftContext = this.buildDraftContext(draft);
+      const eventDetail: SendMessageEventDetail = {
+        text: '加几个人',
+        draftContext,
+      };
+
+      this.triggerEvent('sendMessage', eventDetail);
     },
   },
 });

@@ -1,9 +1,11 @@
 import { Download, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useUsers } from './users-provider'
+import { useListContext } from '@/components/list-page'
+import { type User } from '../data/schema'
+import { type UserDialogType } from './users-columns'
 
 export function UsersPrimaryButtons() {
-  const { setOpen } = useUsers()
+  const { setOpen } = useListContext<User, UserDialogType>()
   return (
     <div className='flex gap-2'>
       <Button

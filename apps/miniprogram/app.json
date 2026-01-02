@@ -25,7 +25,7 @@
     {
       "root": "subpackages/legal",
       "name": "legal",
-      "pages": ["index"]
+      "pages": ["index", "about/index"]
     },
     {
       "root": "subpackages/safety",

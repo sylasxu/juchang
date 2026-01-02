@@ -134,6 +134,56 @@ You are the Lead Architect for "JuChang" (聚场), an LBS-based P2P social platf
 
 ---
 
+# 🤖 AI Tools Schema 规范
+
+**AI Tools 必须使用 TypeBox，禁止使用 Zod。**
+
+根据 [AI SDK 文档](https://ai-sdk.dev/docs/reference/ai-sdk-core/json-schema)，`jsonSchema()` 是 Zod 的替代方案，支持任意 JSON Schema。TypeBox 本身就是 JSON Schema 超集，可以直接使用。
+
+### AI Tool 标准模式
+
+```typescript
+import { t } from 'elysia';
+import { tool, jsonSchema } from 'ai';
+import { toJsonSchema } from '@juchang/utils';
+
+// 1. TypeBox Schema 定义（description 用于 AI 理解参数含义）
+const myToolSchema = t.Object({
+  title: t.String({ description: '活动标题' }),
+  type: t.Union([
+    t.Literal('food'),
+    t.Literal('entertainment'),
+  ], { description: '活动类型' }),
+});
+
+// 2. 类型自动推导（无需手动定义）
+type MyToolParams = typeof myToolSchema.static;
+
+// 3. Tool 工厂函数
+export function myTool(userId: string | null) {
+  return tool({
+    description: '工具描述',
+    parameters: jsonSchema<MyToolParams>(toJsonSchema(myToolSchema)),
+    execute: async (params) => {
+      // params 类型自动推导为 MyToolParams
+    },
+  });
+}
+```
+
+### Zod → TypeBox 映射
+
+| Zod | TypeBox |
+|-----|---------|
+| `z.string().describe('...')` | `t.String({ description: '...' })` |
+| `z.number().min(2).max(50)` | `t.Number({ minimum: 2, maximum: 50 })` |
+| `z.enum(['a', 'b'])` | `t.Union([t.Literal('a'), t.Literal('b')])` |
+| `z.object({})` | `t.Object({})` |
+| `z.tuple([z.number(), z.number()])` | `t.Tuple([t.Number(), t.Number()])` |
+| `z.optional()` | `t.Optional()` |
+
+---
+
 # 🚫 The "NO MANUAL TYPEBOX" Rule (CRITICAL)
 
 **When defining API Inputs/Outputs:**
@@ -166,13 +216,41 @@ const userResponseSchema = t.Pick(selectUserSchema, ['id', 'nickname']);
 
 # 🛠️ Development Commands
 
+本项目使用 **Bun** 作为包管理器和运行时，**禁止使用 npm/npx/yarn**。
+
 ```bash
 bun install              # 安装依赖
+bun run dev              # 启动所有服务
+bun run build            # 构建所有模块
 bun run db:migrate       # 执行迁移
 bun run db:generate      # 生成迁移文件
-bun run dev              # 启动所有服务
 bun run gen:api          # 生成 Orval SDK
+bunx <package>           # 执行 npx 等效命令
 ```
+
+### 命令规范
+
+| ❌ 禁止 | ✅ 正确 |
+|--------|--------|
+| `npm install` | `bun install` |
+| `npm run dev` | `bun run dev` |
+| `npx tsc --noEmit` | `bunx tsc --noEmit` |
+| `yarn add xxx` | `bun add xxx` |
+
+**注意**：所有脚本执行都使用 `bun run`，临时执行包命令使用 `bunx`。
+
+---
+
+# 🚫 Spec 任务规范
+
+**任务列表不包含测试任务**
+
+在创建 Spec 任务列表时：
+- ❌ **禁止**：包含单元测试、属性测试、集成测试等测试任务
+- ❌ **禁止**：使用 `*` 标记可选测试任务
+- ✅ **正确**：只包含功能实现任务（数据库、API、前端）
+
+测试由开发者在实现过程中自行决定是否编写。
 
 ---
 

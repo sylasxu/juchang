@@ -145,6 +145,7 @@ function arrayBufferToString(buffer: ArrayBuffer): string {
 /**
  * 发送 AI Chat 消息
  * 封装 /ai/chat 端点的调用
+ * v3.4 新增：支持 draftContext 用于多轮对话修改草稿
  */
 export function sendAIChat(
   message: string,
@@ -154,9 +155,21 @@ export function sendAIChat(
     messages?: Array<{ role: 'user' | 'assistant'; content: string }>
     /** 用户位置（可选） */
     location?: { lat: number; lng: number }
+    /** v3.4 新增：草稿上下文（用于多轮对话修改草稿） */
+    draftContext?: {
+      activityId: string
+      currentDraft: {
+        title: string
+        type: string
+        locationName: string
+        locationHint: string
+        startAt: string
+        maxParticipants: number
+      }
+    }
   } = {}
 ): SSEController {
-  const { messages = [], location } = options
+  const { messages = [], location, draftContext } = options
 
   // 构建消息列表
   const allMessages = [
@@ -171,6 +184,7 @@ export function sendAIChat(
         messages: allMessages,
         source: 'miniprogram',
         ...(location ? { location } : {}),
+        ...(draftContext ? { draftContext } : {}),
       },
     },
     callbacks

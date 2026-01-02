@@ -287,7 +287,7 @@ function ConversationRow({
   )
 }
 
-// 对话详情弹窗
+// 对话详情弹窗 - 显示用户完整对话上下文
 function ConversationDetailDialog({
   conversation,
   open,
@@ -297,62 +297,120 @@ function ConversationDetailDialog({
   open: boolean
   onClose: () => void
 }) {
+  // 获取该用户的完整对话历史
+  const { data: userConversations, isLoading } = useQuery({
+    queryKey: queryKeys.ai.conversationsList({ userId: conversation?.userId }),
+    queryFn: async () => {
+      if (!conversation?.userId) return null
+      const response = await api.ai.conversations.get({
+        query: {
+          userId: conversation.userId,
+          limit: 50,
+          scope: 'all',
+        },
+      })
+      if (response.error) throw new Error('获取对话历史失败')
+      return response.data
+    },
+    enabled: !!conversation?.userId && open,
+  })
+
   if (!conversation) return null
 
-  const isUser = conversation.role === 'user'
+  const allMessages = (userConversations?.items || []) as ConversationItem[]
+  // 按时间正序排列
+  const sortedMessages = [...allMessages].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  )
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className='max-w-2xl'>
+      <DialogContent className='max-w-3xl max-h-[80vh] flex flex-col'>
         <DialogHeader>
           <DialogTitle className='flex items-center gap-2'>
-            {isUser ? <User className='h-5 w-5' /> : <Bot className='h-5 w-5' />}
-            {isUser ? '用户消息' : 'AI 响应'}
+            <User className='h-5 w-5' />
+            {conversation.userNickname || '用户'} 的对话历史
             <Badge variant='secondary' className='ml-2'>
-              {messageTypeLabels[conversation.type] || conversation.type}
+              共 {allMessages.length} 条消息
             </Badge>
           </DialogTitle>
         </DialogHeader>
 
-        <div className='space-y-4'>
-          {/* 元信息 */}
-          <div className='grid grid-cols-2 gap-4 text-sm'>
-            <div>
-              <span className='text-muted-foreground'>用户:</span>
-              <span className='ml-2'>{conversation.userNickname || conversation.userId}</span>
-            </div>
-            <div>
-              <span className='text-muted-foreground'>时间:</span>
-              <span className='ml-2'>
-                {format(new Date(conversation.createdAt), 'yyyy-MM-dd HH:mm:ss', { locale: zhCN })}
-              </span>
-            </div>
-            {conversation.activityId && (
-              <div className='col-span-2'>
-                <span className='text-muted-foreground'>关联活动:</span>
-                <span className='ml-2 font-mono text-xs'>{conversation.activityId}</span>
-              </div>
-            )}
+        {isLoading ? (
+          <div className='flex h-40 items-center justify-center text-muted-foreground'>
+            加载中...
           </div>
+        ) : (
+          <ScrollArea className='flex-1 pr-4'>
+            <div className='space-y-4 py-4'>
+              {sortedMessages.map((msg) => {
+                const isUser = msg.role === 'user'
+                const isCurrentMessage = msg.id === conversation.id
+                const typeLabel = messageTypeLabels[msg.type] || msg.type
+                const typeColor = messageTypeColors[msg.type] || 'bg-gray-100 text-gray-800'
 
-          {/* Inspector */}
-          <div className='rounded-lg border p-4'>
-            <InspectorRenderer
-              type={conversation.type}
-              content={conversation.content}
-              showRawJson={true}
-            />
-          </div>
+                return (
+                  <div
+                    key={msg.id}
+                    className={cn(
+                      'flex gap-3 rounded-lg p-3',
+                      isCurrentMessage && 'bg-primary/5 ring-1 ring-primary/20',
+                      msg.type === 'widget_error' && 'bg-red-50/50'
+                    )}
+                  >
+                    {/* 角色图标 */}
+                    <div
+                      className={cn(
+                        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+                        isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                      )}
+                    >
+                      {isUser ? <User className='h-4 w-4' /> : <Bot className='h-4 w-4' />}
+                    </div>
 
-          {/* 操作按钮 */}
-          <div className='flex justify-end gap-2'>
-            <Button variant='outline' asChild>
-              <a href={`/playground?import=${conversation.id}`}>
-                <ExternalLink className='mr-1 h-4 w-4' />
-                在 Playground 中测试
-              </a>
-            </Button>
-          </div>
+                    {/* 内容 */}
+                    <div className='min-w-0 flex-1'>
+                      <div className='flex items-center gap-2 mb-1'>
+                        <span className='text-sm font-medium'>
+                          {isUser ? '用户' : 'AI'}
+                        </span>
+                        <Badge variant='secondary' className={cn('text-xs', typeColor)}>
+                          {typeLabel}
+                        </Badge>
+                        {isCurrentMessage && (
+                          <Badge variant='outline' className='text-xs'>
+                            当前选中
+                          </Badge>
+                        )}
+                        <span className='ml-auto text-xs text-muted-foreground'>
+                          {format(new Date(msg.createdAt), 'HH:mm:ss', { locale: zhCN })}
+                        </span>
+                      </div>
+                      
+                      {/* 消息内容 */}
+                      <div className='rounded-md border bg-background p-3'>
+                        <InspectorRenderer
+                          type={msg.type}
+                          content={msg.content}
+                          showRawJson={msg.type !== 'text'}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </ScrollArea>
+        )}
+
+        {/* 操作按钮 */}
+        <div className='flex justify-end gap-2 pt-4 border-t'>
+          <Button variant='outline' asChild>
+            <a href={`/playground?import=${conversation.id}`}>
+              <ExternalLink className='mr-1 h-4 w-4' />
+              在 Playground 中测试
+            </a>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

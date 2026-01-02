@@ -10,10 +10,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useUsers } from './users-provider'
+import { useListContext } from '@/components/list-page'
+import { type User } from '../data/schema'
+import { type UserDialogType } from './users-columns'
 
 export function UsersImportDialog() {
-  const { open, setOpen } = useUsers()
+  const { open, setOpen } = useListContext<User, UserDialogType>()
   const [isImporting, setIsImporting] = useState(false)
 
   const handleImport = async () => {

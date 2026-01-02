@@ -1,13 +1,20 @@
 // Playground Chat - v3.4 使用 useChat + Data Stream Protocol
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useChat, type UIMessage } from '@ai-sdk/react'
 import { DefaultChatTransport, isToolUIPart, getToolName } from 'ai'
+import { api, unwrap } from '@/lib/eden'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { DraftInspector } from './inspectors/draft-inspector'
+import { ExploreInspector } from './inspectors/explore-inspector'
 import { 
   Send, 
   Trash2, 
@@ -26,8 +33,11 @@ import {
   RefreshCw,
   RotateCcw,
   StopCircle,
+  FlaskConical,
+  Sparkles,
+  Search,
+  MessageSquare,
 } from 'lucide-react'
-import { usePlayground } from './playground-provider'
 import { cn } from '@/lib/utils'
 
 // 余额类型
@@ -46,8 +56,8 @@ interface BalanceResponse {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
 export function PlaygroundChat() {
-  const { settings, updateSettings, resetSettings } = usePlayground()
   const [showSettings, setShowSettings] = useState(false)
+  const [sandboxMode, setSandboxMode] = useState(true) // 默认沙盒模式
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [inputValue, setInputValue] = useState('')
@@ -56,13 +66,14 @@ export function PlaygroundChat() {
   const [balance, setBalance] = useState<BalanceResponse | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
 
-  // 创建 transport（v3 新 API）
+  // 创建 transport（v3 新 API）- 传递 sandboxMode
   const transport = useMemo(() => new DefaultChatTransport({
     api: `${API_BASE_URL}/ai/chat`,
     body: { 
       source: 'admin',
+      sandboxMode, // 沙盒模式：使用完整 prompt 但不写数据库
     },
-  }), [])
+  }), [sandboxMode])
 
   // 使用 useChat hook（v3 新 API）
   const { 
@@ -118,6 +129,12 @@ export function PlaygroundChat() {
     setMessages([])
   }, [setMessages])
 
+  // 切换沙盒模式时清空对话
+  const handleSandboxToggle = useCallback((checked: boolean) => {
+    setSandboxMode(checked)
+    setMessages([]) // 切换模式时清空对话
+  }, [setMessages])
+
   // 发送消息
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -144,6 +161,11 @@ export function PlaygroundChat() {
         <div className='mb-4 flex items-center justify-between'>
           <div className='flex items-center gap-3'>
             <h2 className='text-lg font-medium'>对话测试</h2>
+            {/* 沙盒模式标识 */}
+            <Badge variant={sandboxMode ? 'secondary' : 'destructive'} className='text-xs'>
+              <FlaskConical className='mr-1 h-3 w-3' />
+              {sandboxMode ? '沙盒模式' : '生产模式'}
+            </Badge>
             {/* 余额显示 */}
             <div className='flex items-center gap-2'>
               <Wallet className='h-4 w-4 text-muted-foreground' />
@@ -178,7 +200,12 @@ export function PlaygroundChat() {
         {/* 消息列表 */}
         <ScrollArea className='flex-1' ref={scrollRef}>
           <div className='space-y-6 pb-4 pr-4'>
-            {messages.length === 0 && <EmptyState />}
+            {messages.length === 0 && (
+              <EmptyState onQuickAction={(prompt) => {
+                setInputValue(prompt)
+                inputRef.current?.focus()
+              }} />
+            )}
             {messages.map((message) => (
               <MessageItem key={message.id} message={message} />
             ))}
@@ -233,37 +260,137 @@ export function PlaygroundChat() {
       {/* 设置面板 */}
       {showSettings && (
         <div className='w-80 shrink-0 border-l pl-6'>
-          <h3 className='mb-3 text-sm font-medium'>System Prompt</h3>
-          <Textarea
-            value={settings.systemPrompt}
-            onChange={(e) => updateSettings({ systemPrompt: e.target.value })}
-            placeholder='输入系统提示词...'
-            className='min-h-[200px] text-sm'
-          />
-          <div className='mt-3 flex justify-end'>
-            <Button variant='outline' size='sm' onClick={resetSettings}>
-              重置
-            </Button>
+          <h3 className='mb-4 text-sm font-medium'>运行模式</h3>
+          
+          {/* 沙盒模式开关 */}
+          <div className='flex items-center justify-between rounded-lg border p-3'>
+            <div className='space-y-0.5'>
+              <Label htmlFor='sandbox-mode' className='text-sm font-medium'>
+                沙盒模式
+              </Label>
+              <p className='text-xs text-muted-foreground'>
+                {sandboxMode 
+                  ? 'Tool 调用不写入数据库' 
+                  : '⚠️ Tool 调用会写入生产数据库'}
+              </p>
+            </div>
+            <Switch
+              id='sandbox-mode'
+              checked={sandboxMode}
+              onCheckedChange={handleSandboxToggle}
+            />
           </div>
-          <p className='mt-3 text-xs text-muted-foreground'>
-            注意：修改仅本地生效（MVP 阶段不支持覆盖服务端 Prompt）
-          </p>
+          
+          <div className='mt-4 rounded-lg bg-muted/50 p-3'>
+            <p className='text-xs text-muted-foreground'>
+              <strong>沙盒模式</strong>：使用完整的 System Prompt 和 Tools，但 Tool 执行结果不会写入数据库。适合测试 AI 解析能力。
+            </p>
+            <p className='mt-2 text-xs text-muted-foreground'>
+              <strong>生产模式</strong>：与小程序完全一致，Tool 调用会真实写入数据库。适合端到端测试。
+            </p>
+          </div>
+          
+          <div className='mt-4'>
+            <p className='text-xs text-muted-foreground'>
+              查看当前 System Prompt：
+              <a href='/ai-ops/prompt-viewer' className='ml-1 text-primary hover:underline'>
+                Prompt 查看器 →
+              </a>
+            </p>
+          </div>
         </div>
       )}
     </div>
   )
 }
 
-// 空状态
-function EmptyState() {
-  return (
-    <div className='flex h-40 items-center justify-center text-muted-foreground'>
-      <div className='text-center'>
-        <Bot className='mx-auto mb-2 h-8 w-8 opacity-50' />
-        <p>发送消息测试 AI 解析</p>
-        <p className='mt-1 text-xs'>试试：明晚观音桥打麻将，3缺1</p>
+// 空状态 - 显示欢迎卡片
+function EmptyState({ onQuickAction }: { onQuickAction: (prompt: string) => void }) {
+  // 获取欢迎卡片数据
+  const { data: welcomeData, isLoading } = useQuery({
+    queryKey: ['ai', 'welcome', 'playground'],
+    queryFn: () => unwrap(api.ai.welcome.get({ query: { lat: 29.5630, lng: 106.5516 } })),
+  })
+
+  if (isLoading) {
+    return (
+      <div className='space-y-4 p-4'>
+        <Skeleton className='h-8 w-48' />
+        <Skeleton className='h-12 w-full' />
+        <Skeleton className='h-12 w-full' />
+        <Skeleton className='h-4 w-64' />
       </div>
-    </div>
+    )
+  }
+
+  return (
+    <Card className='mx-auto max-w-md border-primary/20 bg-gradient-to-br from-primary/5 to-transparent'>
+      <CardContent className='p-6'>
+        {/* 问候语 */}
+        <div className='mb-4 flex items-start gap-3'>
+          <div className='flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10'>
+            <Sparkles className='h-5 w-5 text-primary' />
+          </div>
+          <div>
+            <h3 className='text-lg font-semibold'>
+              {welcomeData?.greeting || 'Hi，我是小聚，你的 AI 活动助理。'}
+            </h3>
+          </div>
+        </div>
+
+        {/* 快捷按钮 */}
+        {welcomeData?.quickActions && welcomeData.quickActions.length > 0 && (
+          <div className='mb-4 space-y-2'>
+            {welcomeData.quickActions.map((action, index) => (
+              <Button
+                key={index}
+                variant='outline'
+                className='w-full justify-start gap-2 text-left'
+                onClick={() => {
+                  // 根据按钮类型生成对应的 prompt
+                  const context = action.context as Record<string, unknown>
+                  if (action.type === 'explore_nearby') {
+                    onQuickAction(`看看${context.locationName || '附近'}有什么活动`)
+                  } else if (action.type === 'continue_draft') {
+                    onQuickAction(`继续编辑「${context.activityTitle || '草稿'}」`)
+                  } else if (action.type === 'find_partner') {
+                    onQuickAction(String(context.suggestedPrompt || '想找人一起玩'))
+                  }
+                }}
+              >
+                {action.type === 'explore_nearby' && <Search className='h-4 w-4 text-green-500' />}
+                {action.type === 'continue_draft' && <FileEdit className='h-4 w-4 text-blue-500' />}
+                {action.type === 'find_partner' && <MessageSquare className='h-4 w-4 text-purple-500' />}
+                <span>{action.label}</span>
+              </Button>
+            ))}
+          </div>
+        )}
+
+        {/* 兜底提示 */}
+        <p className='text-sm text-muted-foreground'>
+          {welcomeData?.fallbackPrompt || '或者还有什么想法，今天想玩点什么，告诉我！～'}
+        </p>
+
+        {/* 示例提示 */}
+        <div className='mt-4 rounded-lg bg-muted/50 p-3'>
+          <p className='text-xs font-medium text-muted-foreground'>💡 试试这些：</p>
+          <div className='mt-2 flex flex-wrap gap-2'>
+            {['明晚观音桥打麻将，3缺1', '周末想吃火锅', '附近有什么活动'].map((example) => (
+              <Button
+                key={example}
+                variant='ghost'
+                size='sm'
+                className='h-auto px-2 py-1 text-xs'
+                onClick={() => onQuickAction(example)}
+              >
+                {example}
+              </Button>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

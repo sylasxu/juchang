@@ -62,7 +62,7 @@ function calculateIsArchived(startAt: Date): boolean {
 export async function getActivitiesList(
   query: ActivitiesListQuery
 ): Promise<ActivitiesListResponse> {
-  const { page = 1, limit = 20, status, type, search } = query;
+  const { page = 1, limit = 20, status, type, search, creatorId } = query;
   const offset = (page - 1) * limit;
 
   // 构建查询条件
@@ -84,6 +84,10 @@ export async function getActivitiesList(
   
   if (search) {
     conditions.push(like(activities.title, `%${search}%`));
+  }
+
+  if (creatorId) {
+    conditions.push(eq(activities.creatorId, creatorId));
   }
 
   // 查询活动列表

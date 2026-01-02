@@ -196,6 +196,33 @@
   color: var(--text-secondary, @text-secondary);
 }
 
+// ==================== v3.4 快捷操作按钮 ====================
+
+.quick-actions {
+  display: flex;
+  gap: @spacing-2;
+  margin-bottom: @spacing-4;
+  flex-wrap: wrap;
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  gap: @spacing-1;
+  padding: @spacing-2 @spacing-3;
+  background: var(--bg-input, @bg-input);
+  border-radius: 32rpx;
+  font-size: @text-sm;
+  color: var(--text-secondary, @text-secondary);
+  transition: all var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
+  
+  &:active {
+    transform: scale(0.95);
+    background: var(--icon-bg-blue, rgba(91, 117, 251, 0.1));
+    color: var(--color-primary, @color-primary);
+  }
+}
+
 // ==================== 操作按钮 ====================
 
 .draft-actions {
@@ -273,5 +300,16 @@
   .action-btn--secondary {
     background: var(--bg-input, @bg-input-dark);
     color: var(--text-main, @text-main-dark);
+  }
+  
+  // v3.4 快捷操作按钮深色模式
+  .quick-action-btn {
+    background: var(--bg-input, @bg-input-dark);
+    color: var(--text-secondary, @text-secondary-dark);
+    
+    &:active {
+      background: rgba(91, 117, 251, 0.15);
+      color: var(--color-primary, @color-primary);
+    }
   }
 }

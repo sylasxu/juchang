@@ -78,6 +78,9 @@
         wx:else
         id="msg-{{item.id}}"
         class="message-item {{item.isSelf ? 'self' : 'other'}}"
+        data-id="{{item.id}}"
+        data-is-self="{{item.isSelf}}"
+        bindlongpress="onMessageLongPress"
       >
         <!-- 头像 -->
         <image
@@ -141,4 +144,13 @@
     </view>
     <view class="safe-area-bottom"></view>
   </view>
+  
+  <!-- 举报弹窗 -->
+  <report-sheet
+    visible="{{showReportSheet}}"
+    type="message"
+    targetId="{{reportMessageId}}"
+    bind:close="onReportClose"
+    bind:success="onReportSuccess"
+  />
 </view>

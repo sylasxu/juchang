@@ -143,13 +143,21 @@ const ConversationMessage = t.Object({
   createdAt: t.String(),
 });
 
-// 获取对话历史查询参数 (增强版 - 支持多种筛选)
+// 获取对话历史查询参数 (增强版 - 支持显式 scope 参数)
 const ConversationsQuery = t.Object({
   // 分页参数
   cursor: t.Optional(t.String({ description: '分页游标（上一页最后一条消息的 ID）' })),
   limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20, description: '获取数量' })),
+  // 显式模式参数（避免隐式行为）
+  scope: t.Optional(t.Union([
+    t.Literal('mine'),
+    t.Literal('all'),
+  ], { 
+    default: 'mine',
+    description: 'mine=当前用户的对话, all=所有用户的对话(需Admin权限)' 
+  })),
   // 筛选参数 (可选，用于 Admin 审计等场景)
-  userId: t.Optional(t.String({ description: '按用户 ID 筛选（不传则查当前用户）' })),
+  userId: t.Optional(t.String({ description: 'Admin 可指定查看某用户的对话' })),
   activityId: t.Optional(t.String({ description: '按关联活动 ID 筛选' })),
   messageType: t.Optional(t.String({ description: '按消息类型筛选' })),
   role: t.Optional(t.Union([t.Literal('user'), t.Literal('assistant')], { description: '按角色筛选' })),
@@ -199,6 +207,136 @@ const ErrorResponse = t.Object({
   msg: t.String(),
 });
 
+// ==========================================
+// Welcome Card 相关 Schema (v3.4 新增)
+// ==========================================
+
+// 快捷按钮类型
+const QuickActionType = t.Union([
+  t.Literal('explore_nearby'),
+  t.Literal('continue_draft'),
+  t.Literal('find_partner'),
+]);
+
+// 探索附近按钮上下文
+const ExploreNearbyContext = t.Object({
+  locationName: t.String({ description: '地点名称，如"观音桥"' }),
+  lat: t.Number({ description: '纬度' }),
+  lng: t.Number({ description: '经度' }),
+  activityCount: t.Number({ description: '附近活动数量' }),
+});
+
+// 继续草稿按钮上下文
+const ContinueDraftContext = t.Object({
+  activityId: t.String({ description: '草稿活动 ID' }),
+  activityTitle: t.String({ description: '活动标题' }),
+});
+
+// 找搭子按钮上下文
+const FindPartnerContext = t.Object({
+  activityType: t.String({ description: '活动类型，如 food、boardgame' }),
+  activityTypeLabel: t.String({ description: '活动类型中文标签，如"火锅"、"桌游"' }),
+  suggestedPrompt: t.String({ description: '预填的输入内容' }),
+});
+
+// 快捷按钮
+const QuickAction = t.Object({
+  type: QuickActionType,
+  label: t.String({ description: '按钮文案' }),
+  context: t.Union([ExploreNearbyContext, ContinueDraftContext, FindPartnerContext]),
+});
+
+// Welcome Card 响应
+const WelcomeResponse = t.Object({
+  greeting: t.String({ description: '问候语' }),
+  quickActions: t.Array(QuickAction, { description: '快捷按钮数组，0-3 个' }),
+  fallbackPrompt: t.String({ description: '兜底询问文案' }),
+});
+
+// Welcome Card 查询参数
+const WelcomeQuery = t.Object({
+  lat: t.Optional(t.Number({ description: '用户纬度' })),
+  lng: t.Optional(t.Number({ description: '用户经度' })),
+});
+
+// ==========================================
+// Metrics 相关 Schema (v3.4 新增)
+// ==========================================
+
+// Token 使用统计查询参数
+const MetricsUsageQuery = t.Object({
+  startDate: t.Optional(t.String({ description: '开始日期 YYYY-MM-DD' })),
+  endDate: t.Optional(t.String({ description: '结束日期 YYYY-MM-DD' })),
+});
+
+// 每日 Token 使用统计
+const DailyTokenUsage = t.Object({
+  date: t.String(),
+  totalRequests: t.Number(),
+  inputTokens: t.Number(),
+  outputTokens: t.Number(),
+  totalTokens: t.Number(),
+});
+
+// Token 使用汇总
+const TokenUsageSummary = t.Object({
+  totalRequests: t.Number(),
+  totalInputTokens: t.Number(),
+  totalOutputTokens: t.Number(),
+  totalTokens: t.Number(),
+  avgTokensPerRequest: t.Number(),
+});
+
+// Tool 调用统计
+const ToolCallStats = t.Object({
+  toolName: t.String(),
+  count: t.Number(),
+});
+
+// Metrics 响应
+const MetricsUsageResponse = t.Object({
+  summary: TokenUsageSummary,
+  daily: t.Array(DailyTokenUsage),
+  toolCalls: t.Array(ToolCallStats),
+});
+
+// ==========================================
+// Prompt 相关 Schema (v3.4 新增)
+// ==========================================
+
+// Prompt 信息响应
+const PromptInfoResponse = t.Object({
+  version: t.String(),
+  lastModified: t.String(),
+  description: t.String(),
+  features: t.Array(t.String()),
+  content: t.String({ description: '当前 System Prompt 内容' }),
+});
+
+// ==========================================
+// Sandbox 相关 Schema (v3.4 新增)
+// ==========================================
+
+// Sandbox Chat 请求
+const SandboxChatRequest = t.Object({
+  messages: t.Array(t.Object({
+    role: t.Union([t.Literal('user'), t.Literal('assistant')]),
+    content: t.String(),
+  })),
+  location: t.Optional(t.Tuple([t.Number(), t.Number()])),
+  draftContext: t.Optional(t.Object({
+    activityId: t.String(),
+    currentDraft: t.Object({
+      title: t.String(),
+      type: t.String(),
+      locationName: t.String(),
+      locationHint: t.String(),
+      startAt: t.String(),
+      maxParticipants: t.Number(),
+    }),
+  })),
+});
+
 // 注册到 Elysia
 export const aiModel = new Elysia({ name: 'aiModel' })
   .model({
@@ -217,6 +355,17 @@ export const aiModel = new Elysia({ name: 'aiModel' })
     'ai.addMessageRequest': AddMessageRequest,
     'ai.addMessageResponse': AddMessageResponse,
     'ai.clearConversationsResponse': ClearConversationsResponse,
+    // Welcome Card (v3.4 新增)
+    'ai.welcomeQuery': WelcomeQuery,
+    'ai.welcomeResponse': WelcomeResponse,
+    'ai.quickAction': QuickAction,
+    // Metrics (v3.4 新增)
+    'ai.metricsUsageQuery': MetricsUsageQuery,
+    'ai.metricsUsageResponse': MetricsUsageResponse,
+    // Prompt (v3.4 新增)
+    'ai.promptInfoResponse': PromptInfoResponse,
+    // Sandbox (v3.4 新增)
+    'ai.sandboxChatRequest': SandboxChatRequest,
     // 通用
     'ai.error': ErrorResponse,
   });
@@ -237,3 +386,25 @@ export type AddMessageRequest = Static<typeof AddMessageRequest>;
 export type AddMessageResponse = Static<typeof AddMessageResponse>;
 export type ClearConversationsResponse = Static<typeof ClearConversationsResponse>;
 export type ErrorResponse = Static<typeof ErrorResponse>;
+
+// Welcome Card 类型导出 (v3.4 新增)
+export type QuickActionType = Static<typeof QuickActionType>;
+export type ExploreNearbyContext = Static<typeof ExploreNearbyContext>;
+export type ContinueDraftContext = Static<typeof ContinueDraftContext>;
+export type FindPartnerContext = Static<typeof FindPartnerContext>;
+export type QuickAction = Static<typeof QuickAction>;
+export type WelcomeResponse = Static<typeof WelcomeResponse>;
+export type WelcomeQuery = Static<typeof WelcomeQuery>;
+
+// Metrics 类型导出 (v3.4 新增)
+export type MetricsUsageQuery = Static<typeof MetricsUsageQuery>;
+export type DailyTokenUsage = Static<typeof DailyTokenUsage>;
+export type TokenUsageSummary = Static<typeof TokenUsageSummary>;
+export type ToolCallStats = Static<typeof ToolCallStats>;
+export type MetricsUsageResponse = Static<typeof MetricsUsageResponse>;
+
+// Prompt 类型导出 (v3.4 新增)
+export type PromptInfoResponse = Static<typeof PromptInfoResponse>;
+
+// Sandbox 类型导出 (v3.4 新增)
+export type SandboxChatRequest = Static<typeof SandboxChatRequest>;

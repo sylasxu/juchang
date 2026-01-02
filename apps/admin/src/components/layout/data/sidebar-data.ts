@@ -7,8 +7,13 @@ import {
   Wrench,
   Palette,
   Command,
-  Bot,
   MessageSquare,
+  Gauge,
+  Play,
+  Bell,
+  Shield,
+  TrendingUp,
+  FileCode,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -40,14 +45,44 @@ export const sidebarData: SidebarData = {
       title: 'AI Ops',
       items: [
         {
-          title: 'AI Playground',
-          url: '/playground',
-          icon: Bot,
+          title: 'Playground',
+          url: '/ai-ops',
+          icon: Play,
+        },
+        {
+          title: '额度管理',
+          url: '/ai-ops/quota',
+          icon: Gauge,
+        },
+        {
+          title: 'Token 统计',
+          url: '/ai-ops/token-usage',
+          icon: TrendingUp,
+        },
+        {
+          title: 'Prompt 查看',
+          url: '/ai-ops/prompt-viewer',
+          icon: FileCode,
         },
         {
           title: '对话审计',
           url: '/conversations',
           icon: MessageSquare,
+        },
+      ],
+    },
+    {
+      title: '运营管理',
+      items: [
+        {
+          title: '通知管理',
+          url: '/notifications',
+          icon: Bell,
+        },
+        {
+          title: '内容审核',
+          url: '/reports',
+          icon: Shield,
         },
       ],
     },

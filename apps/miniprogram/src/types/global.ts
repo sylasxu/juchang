@@ -136,6 +136,25 @@ export interface SendEventDetail {
   text: string
 }
 
+// v3.4 新增：草稿上下文类型（用于多轮对话）
+export interface DraftContext {
+  activityId: string
+  currentDraft: {
+    title: string
+    type: string
+    locationName: string
+    locationHint: string
+    startAt: string
+    maxParticipants: number
+  }
+}
+
+// v3.4 新增：带草稿上下文的发送事件详情
+export interface SendMessageEventDetail {
+  text: string
+  draftContext?: DraftContext
+}
+
 // 页面间通信回调
 export interface LocationSelectedCallback {
   onLocationSelected?: (location: {
