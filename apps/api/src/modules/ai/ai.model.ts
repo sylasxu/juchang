@@ -130,6 +130,7 @@ const ConversationMessageType = t.Union([
   t.Literal('widget_share'),
   t.Literal('widget_explore'),
   t.Literal('widget_error'),
+  t.Literal('widget_ask_preference'),  // v3.5 多轮对话偏好询问卡片
 ]);
 
 // 对话消息响应
@@ -313,30 +314,6 @@ const PromptInfoResponse = t.Object({
   content: t.String({ description: '当前 System Prompt 内容' }),
 });
 
-// ==========================================
-// Sandbox 相关 Schema (v3.4 新增)
-// ==========================================
-
-// Sandbox Chat 请求
-const SandboxChatRequest = t.Object({
-  messages: t.Array(t.Object({
-    role: t.Union([t.Literal('user'), t.Literal('assistant')]),
-    content: t.String(),
-  })),
-  location: t.Optional(t.Tuple([t.Number(), t.Number()])),
-  draftContext: t.Optional(t.Object({
-    activityId: t.String(),
-    currentDraft: t.Object({
-      title: t.String(),
-      type: t.String(),
-      locationName: t.String(),
-      locationHint: t.String(),
-      startAt: t.String(),
-      maxParticipants: t.Number(),
-    }),
-  })),
-});
-
 // 注册到 Elysia
 export const aiModel = new Elysia({ name: 'aiModel' })
   .model({
@@ -364,8 +341,6 @@ export const aiModel = new Elysia({ name: 'aiModel' })
     'ai.metricsUsageResponse': MetricsUsageResponse,
     // Prompt (v3.4 新增)
     'ai.promptInfoResponse': PromptInfoResponse,
-    // Sandbox (v3.4 新增)
-    'ai.sandboxChatRequest': SandboxChatRequest,
     // 通用
     'ai.error': ErrorResponse,
   });
@@ -405,6 +380,3 @@ export type MetricsUsageResponse = Static<typeof MetricsUsageResponse>;
 
 // Prompt 类型导出 (v3.4 新增)
 export type PromptInfoResponse = Static<typeof PromptInfoResponse>;
-
-// Sandbox 类型导出 (v3.4 新增)
-export type SandboxChatRequest = Static<typeof SandboxChatRequest>;

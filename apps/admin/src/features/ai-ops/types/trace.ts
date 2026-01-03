@@ -176,6 +176,7 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   refineDraft: '修改草稿',
   publishActivity: '发布活动',
   exploreNearby: '探索附近',
+  askPreference: '询问偏好',
 }
 
 /** 获取 Tool 显示名称 */

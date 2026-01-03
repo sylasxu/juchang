@@ -133,25 +133,30 @@ function DraftPreview({ data }: { data: Record<string, unknown> }) {
   const draft = data.draft as Record<string, unknown> | undefined
   if (!draft) return null
 
+  const title = draft.title ? String(draft.title) : null
+  const type = draft.type ? String(draft.type) : null
+  const startAt = draft.startAt ? String(draft.startAt) : null
+  const locationName = draft.locationName ? String(draft.locationName) : null
+
   return (
     <div className='rounded-lg border bg-gradient-to-br from-primary/5 to-transparent p-4'>
       <div className='space-y-2 text-sm'>
-        {draft.title && (
-          <h4 className='font-semibold'>{String(draft.title)}</h4>
+        {title && (
+          <h4 className='font-semibold'>{title}</h4>
         )}
         <div className='flex flex-wrap gap-2 text-xs text-muted-foreground'>
-          {draft.type && (
+          {type && (
             <span className='rounded bg-muted px-1.5 py-0.5'>
-              {getTypeLabel(String(draft.type))}
+              {getTypeLabel(type)}
             </span>
           )}
-          {draft.startAt && (
+          {startAt && (
             <span>
-              {new Date(String(draft.startAt)).toLocaleString('zh-CN')}
+              {new Date(startAt).toLocaleString('zh-CN')}
             </span>
           )}
-          {draft.locationName && (
-            <span>📍 {String(draft.locationName)}</span>
+          {locationName && (
+            <span>📍 {locationName}</span>
           )}
         </div>
       </div>
@@ -165,12 +170,13 @@ function ExplorePreview({ data }: { data: Record<string, unknown> }) {
   if (!explore) return null
 
   const results = explore.results as unknown[] | undefined
+  const title = explore.title ? String(explore.title) : null
 
   return (
     <div className='rounded-lg border bg-gradient-to-br from-green-500/5 to-transparent p-4'>
       <div className='space-y-2 text-sm'>
-        {explore.title && (
-          <h4 className='font-semibold'>{String(explore.title)}</h4>
+        {title && (
+          <h4 className='font-semibold'>{title}</h4>
         )}
         {results && (
           <p className='text-muted-foreground'>
@@ -187,15 +193,18 @@ function SharePreview({ data }: { data: Record<string, unknown> }) {
   const share = data.share as Record<string, unknown> | undefined
   if (!share) return null
 
+  const title = share.title ? String(share.title) : null
+  const activityId = share.activityId ? String(share.activityId) : null
+
   return (
     <div className='rounded-lg border bg-gradient-to-br from-blue-500/5 to-transparent p-4'>
       <div className='space-y-2 text-sm'>
-        {share.title && (
-          <h4 className='font-semibold'>{String(share.title)}</h4>
+        {title && (
+          <h4 className='font-semibold'>{title}</h4>
         )}
-        {share.activityId && (
+        {activityId && (
           <p className='text-xs text-muted-foreground'>
-            活动 ID: {String(share.activityId)}
+            活动 ID: {activityId}
           </p>
         )}
       </div>

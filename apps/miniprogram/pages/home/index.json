@@ -9,6 +9,7 @@
     "widget-draft": "/components/widget-draft/index",
     "widget-share": "/components/widget-share/index",
     "widget-explore": "/components/widget-explore/index",
+    "widget-ask-preference": "/components/widget-ask-preference/index",
     "widget-error": "/components/widget-error/index",
     "thinking-bubble": "/components/thinking-bubble/index",
     "widget-skeleton": "/components/widget-skeleton/index",

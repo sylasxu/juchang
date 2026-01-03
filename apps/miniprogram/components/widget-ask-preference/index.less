@@ -1,0 +1,128 @@
+/**
+ * Widget Ask Preference 样式
+ * Requirements: 13.1, 13.2, 13.3, 13.4, 13.5
+ * 
+ * Crypto-Clean 视觉风格
+ * - Halo Card 渐变边框
+ * - 选项按钮白底 + 渐变文字
+ * - 跳过按钮次要样式
+ */
+@import '/styles/tokens.less';
+
+.widget-ask-preference {
+  padding: @spacing-4;
+  margin: @spacing-2 0;
+}
+
+// ==================== 问题区域 ====================
+
+.question-section {
+  display: flex;
+  align-items: flex-start;
+  gap: @spacing-3;
+  margin-bottom: @spacing-4;
+}
+
+.question-icon {
+  flex-shrink: 0;
+}
+
+.question-text {
+  flex: 1;
+  font-size: @text-base;
+  font-weight: 500;
+  color: var(--text-main, @text-main);
+  line-height: 1.5;
+}
+
+// ==================== 选项按钮区域 ====================
+
+.options-section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: @spacing-2;
+  margin-bottom: @spacing-3;
+}
+
+.option-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: @spacing-2 @spacing-4;
+  background: var(--bg-card, #FFFFFF);
+  border-radius: var(--radius-full, @rounded-full);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back),
+              box-shadow var(--duration-fast, @duration-fast);
+  
+  &:active {
+    transform: scale(0.96);
+    box-shadow: 0 1rpx 4rpx rgba(0, 0, 0, 0.08);
+  }
+}
+
+.option-label {
+  font-size: @text-sm;
+  font-weight: 500;
+  line-height: 1.4;
+  // 渐变文字 - 紫色系（与 askPreference 主题匹配）
+  background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.option-btn--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+// ==================== 跳过按钮区域 ====================
+
+.skip-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: @spacing-2 0;
+}
+
+.skip-text {
+  font-size: @text-sm;
+  color: var(--text-tertiary, @text-tertiary);
+  transition: color var(--duration-fast, @duration-fast);
+  
+  &:active {
+    color: var(--color-primary, @color-primary);
+  }
+}
+
+// ==================== 禁用状态 ====================
+
+.widget--disabled {
+  opacity: 0.7;
+  
+  .option-btn {
+    pointer-events: none;
+  }
+  
+  .skip-section {
+    display: none;
+  }
+}
+
+// ==================== 深色模式 ====================
+
+@media (prefers-color-scheme: dark) {
+  .question-text {
+    color: var(--text-main, @text-main-dark);
+  }
+  
+  .option-btn {
+    background: var(--bg-card-dark, rgba(255, 255, 255, 0.08));
+    box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.2);
+  }
+  
+  .skip-text {
+    color: var(--text-tertiary, @text-tertiary-dark);
+  }
+}

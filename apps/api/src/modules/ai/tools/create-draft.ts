@@ -46,7 +46,7 @@ export interface CreateActivityDraftResult {
 /**
  * 创建 createActivityDraft Tool
  * 
- * @param userId - 用户 ID，null 时为沙盒模式（不写数据库）
+ * @param userId - 用户 ID，null 时为测试模式（不写数据库）
  */
 export function createActivityDraftTool(userId: string | null) {
   return tool<CreateActivityDraftParams, CreateActivityDraftResult>({
@@ -63,13 +63,13 @@ export function createActivityDraftTool(userId: string | null) {
     inputSchema: jsonSchema<CreateActivityDraftParams>(toJsonSchema(createActivityDraftSchema)),
     
     execute: async (params): Promise<CreateActivityDraftResult> => {
-      // 沙盒模式：不写数据库
+      // 测试模式（无用户）：不写数据库
       if (!userId) {
         return {
           success: true,
-          activityId: 'sandbox-' + Date.now(),
+          activityId: 'test-' + Date.now(),
           draft: params,
-          message: '草稿已创建（沙盒模式）',
+          message: '草稿已创建（测试模式）',
         };
       }
       

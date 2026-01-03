@@ -111,6 +111,20 @@
               />
             </block>
             
+            <!-- Widget_Ask_Preference -->
+            <block wx:elif="{{item.type === 'widget_ask_preference'}}">
+              <widget-ask-preference 
+                questionType="{{item.content.questionType}}"
+                question="{{item.content.question}}"
+                options="{{item.content.options}}"
+                allowSkip="{{item.content.allowSkip}}"
+                collectedInfo="{{item.content.collectedInfo}}"
+                disabled="{{item.content.disabled}}"
+                bind:select="onAskPreferenceSelect"
+                bind:skip="onAskPreferenceSkip"
+              />
+            </block>
+            
             <!-- Widget_Error -->
             <block wx:elif="{{item.type === 'widget_error'}}">
               <widget-error 

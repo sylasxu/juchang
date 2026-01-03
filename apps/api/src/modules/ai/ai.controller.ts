@@ -13,9 +13,23 @@ import {
   clearConversations,
   getWelcomeCard,
 } from './ai.service';
-import { getPromptInfo, buildSystemPrompt } from './prompts/xiaoju-v34';
+import { getPromptInfo, buildSystemPrompt } from './prompts/xiaoju-v35';
 import { getTokenUsageStats, getTokenUsageSummary, getToolCallStats } from './services/metrics';
 import { db, users, eq } from '@juchang/db';
+
+/**
+ * Message Part Schema
+ * AI SDK v6 的 UIMessage.parts 包含多种类型：
+ * - text: 文本内容
+ * - step-start: 步骤开始标记
+ * - tool-{toolName}: 动态 Tool UI 部分
+ * - tool-invocation: Tool 调用（旧格式）
+ * 
+ * 使用宽松的 schema 接受所有格式，API 层只需要提取有用信息
+ */
+const messagePartSchema = t.Object({
+  type: t.String(),
+}, { additionalProperties: true });
 
 export const aiController = new Elysia({ prefix: '/ai' })
   .use(basePlugins)
@@ -141,7 +155,17 @@ export const aiController = new Elysia({ prefix: '/ai' })
     '/chat',
     async ({ body, set, jwt, headers }) => {
       // 解析请求参数
-      const { messages, source = 'miniprogram', mockUserId, mockLocation, sandboxMode, trace } = body;
+      const { messages: rawMessages, source = 'miniprogram', mockUserId, mockLocation, trace } = body;
+      
+      // 直接传递消息给 service，让 AI SDK 的 convertToModelMessages 处理格式转换
+      // 支持两种格式：
+      // 1. 简单格式：{ role, content }
+      // 2. Parts 格式：{ role, content, parts: [...] }（AI SDK UIMessage 格式）
+      const messages = rawMessages.map(m => ({
+        role: m.role,
+        content: m.content || m.text || '',
+        ...(m.parts && { parts: m.parts }),
+      }));
       
       // 获取用户身份
       const user = await verifyAuth(jwt, headers);
@@ -150,8 +174,8 @@ export const aiController = new Elysia({ prefix: '/ai' })
       const effectiveUserId = (source === 'admin' && mockUserId) ? mockUserId : user?.id || null;
       const effectiveLocation = mockLocation || body.location;
       
-      // 有真实用户时检查额度（Admin mock 不消耗额度，沙盒模式不消耗额度）
-      if (user && source !== 'admin' && !sandboxMode) {
+      // 有真实用户时检查额度（Admin 不消耗额度）
+      if (user && source !== 'admin') {
         const quota = await checkAIQuota(user.id);
         if (!quota.hasQuota) {
           set.status = 403;
@@ -166,14 +190,13 @@ export const aiController = new Elysia({ prefix: '/ai' })
       }
 
       try {
-        // 获取 Data Stream Response (v3.4 支持 draftContext 和 sandboxMode, v3.5 支持 trace)
+        // 获取 Data Stream Response (v3.5 支持 trace)
         const response = await streamChat({
-          messages,
+          messages: messages as any, // AI SDK UIMessage 格式
           userId: effectiveUserId,
           location: effectiveLocation,
           source,
           draftContext: body.draftContext,
-          sandboxMode: sandboxMode ?? false,
           trace: trace ?? false,
         });
         
@@ -194,9 +217,8 @@ export const aiController = new Elysia({ prefix: '/ai' })
 - 小程序：传 JWT Token，正常消耗额度
 - Admin：传 source='admin'，可 mock 用户测试，不消耗额度
 
-v3.4 新增：
-- draftContext：草稿上下文，用于多轮对话修改草稿
-- sandboxMode：沙盒模式，使用完整 Prompt 但 Tool 不写数据库
+v3.5 新增：
+- trace：执行追踪，返回详细的执行步骤数据
 
 Data Stream 格式：
 - 0:"text" - 文本增量
@@ -207,13 +229,17 @@ Data Stream 格式：
       body: t.Object({
         messages: t.Array(t.Object({
           role: t.Union([t.Literal('user'), t.Literal('assistant')]),
-          content: t.String(),
-        })),
+          // 支持 content 或 text（简单文本格式）
+          content: t.Optional(t.String()),
+          text: t.Optional(t.String()),
+          // 支持 parts 格式（包含 Tool 调用历史）
+          parts: t.Optional(t.Array(messagePartSchema)),
+        }, { additionalProperties: true })), // AI SDK 会添加 id 等字段
         location: t.Optional(t.Tuple([t.Number(), t.Number()])),
         source: t.Optional(t.Union([t.Literal('miniprogram'), t.Literal('admin')])),
         mockUserId: t.Optional(t.String()),
         mockLocation: t.Optional(t.Tuple([t.Number(), t.Number()])),
-        // v3.4 新增：草稿上下文
+        // 草稿上下文
         draftContext: t.Optional(t.Object({
           activityId: t.String(),
           currentDraft: t.Object({
@@ -225,17 +251,12 @@ Data Stream 格式：
             maxParticipants: t.Number(),
           }),
         })),
-        // v3.4 新增：沙盒模式
-        sandboxMode: t.Optional(t.Boolean({ 
-          default: false,
-          description: '沙盒模式：使用完整 Prompt 但 Tool 不写数据库' 
-        })),
         // v3.5 新增：执行追踪
         trace: t.Optional(t.Boolean({
           default: false,
           description: '是否返回执行追踪数据（Admin Playground 调试用）'
         })),
-      }),
+      }, { additionalProperties: true }), // AI SDK useChat 会添加 id, trigger 等字段
     }
   )
   
@@ -460,48 +481,5 @@ Prompt 通过 Git 版本控制，此接口为只读查看。
       response: {
         200: 'ai.promptInfoResponse',
       },
-    }
-  )
-  
-  // ==========================================
-  // Sandbox 测试 (v3.4 新增)
-  // ==========================================
-  .post(
-    '/sandbox/chat',
-    async ({ body, set }) => {
-      const { messages, location, draftContext } = body;
-      
-      try {
-        // 沙盒模式：userId 为 null，不写入数据库，不消耗额度
-        const response = await streamChat({
-          messages,
-          userId: null, // 沙盒模式标识
-          location,
-          source: 'admin',
-          draftContext,
-          sandboxMode: true, // 明确标识沙盒模式
-        });
-        
-        return response;
-      } catch (error: any) {
-        console.error('Sandbox Chat 失败:', error);
-        set.status = 500;
-        return { error: error.message || 'AI 服务暂时不可用' };
-      }
-    },
-    {
-      detail: {
-        tags: ['AI'],
-        summary: 'Sandbox AI 对话测试',
-        description: `沙盒模式的 AI 对话测试（Admin 用）。
-
-特点：
-- 不写入生产数据库（不创建 activities、conversations 记录）
-- 不消耗用户 AI 额度
-- 返回完整的 AI 响应，包括 Tool 调用信息
-
-用于测试 Prompt 效果和调试。`,
-      },
-      body: 'ai.sandboxChatRequest',
     }
   );

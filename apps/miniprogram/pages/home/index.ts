@@ -378,6 +378,30 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
             content: exploreContent,
             activityId: null,
           })
+        } else if (widgetType === 'widget_ask_preference') {
+          // askPreference Tool 结果
+          const askData = result.result as {
+            questionType: 'location' | 'type';
+            question: string;
+            options: Array<{ label: string; value: string }>;
+            allowSkip: boolean;
+            collectedInfo?: { location?: string; type?: string };
+          }
+          this.setData({ skeletonType: null })
+          homeStore.addAIMessage({
+            id: aiMessageId,
+            role: 'assistant',
+            type: 'widget_ask_preference',
+            content: {
+              questionType: askData.questionType,
+              question: askData.question,
+              options: askData.options,
+              allowSkip: askData.allowSkip !== false,
+              collectedInfo: askData.collectedInfo,
+              disabled: false,
+            },
+            activityId: null,
+          })
         }
       },
 
@@ -600,6 +624,48 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     if (originalText) {
       this.startAIParse(originalText)
     }
+  },
+
+  /**
+   * 处理 Widget_Ask_Preference 选项选择
+   * Requirements: 13.4, 13.5
+   */
+  onAskPreferenceSelect(e: WechatMiniprogram.CustomEvent<{
+    questionType: 'location' | 'type';
+    selectedOption: { label: string; value: string };
+    collectedInfo?: { location?: string; type?: string };
+  }>) {
+    const { questionType, selectedOption, collectedInfo } = e.detail
+    console.log('[Home] Ask preference select:', questionType, selectedOption)
+    
+    // 将用户选择作为新消息发送
+    const userMessage = selectedOption.label
+    const homeStore = useHomeStore.getState()
+    homeStore.addUserMessage(userMessage)
+    
+    // 发起新的 AI 请求，携带已收集的信息
+    // AI 会根据上下文继续对话或调用 exploreNearby
+    this.startAIParse(userMessage)
+  },
+
+  /**
+   * 处理 Widget_Ask_Preference 跳过按钮
+   * Requirements: 13.4, 13.5
+   */
+  onAskPreferenceSkip(e: WechatMiniprogram.CustomEvent<{
+    questionType: 'location' | 'type';
+    collectedInfo?: { location?: string; type?: string };
+  }>) {
+    const { questionType } = e.detail
+    console.log('[Home] Ask preference skip:', questionType)
+    
+    // 发送"随便"作为用户消息
+    const userMessage = '随便，你推荐吧'
+    const homeStore = useHomeStore.getState()
+    homeStore.addUserMessage(userMessage)
+    
+    // AI 会识别快捷路径关键词，直接调用 exploreNearby
+    this.startAIParse(userMessage)
   },
 
   onNetworkRetry() {

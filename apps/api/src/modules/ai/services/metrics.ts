@@ -26,9 +26,9 @@ export async function recordTokenUsage(
   usage: TokenUsage,
   toolCalls?: Array<{ toolName: string }>
 ): Promise<void> {
-  // 沙盒模式不记录
+  // 测试模式（无用户）不记录
   if (!userId) {
-    console.log(`[AI Metrics] Sandbox mode, Tokens: ${usage.totalTokens}, Tools: ${toolCalls?.length || 0}`);
+    console.log(`[AI Metrics] Test mode, Tokens: ${usage.totalTokens}, Tools: ${toolCalls?.length || 0}`);
     return;
   }
   

@@ -1,11 +1,14 @@
 // AI Service - v3.5 统一 AI Chat (Data Stream Protocol + Execution Trace)
 import { db, users, conversations, activities, participants, eq, desc, sql } from '@juchang/db';
-import { createOpenAI } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { createDeepSeek } from '@ai-sdk/deepseek';
+import { 
+  streamText, 
+  createUIMessageStream, 
+  createUIMessageStreamResponse,
+  convertToModelMessages,
+  type UIMessage,
+} from 'ai';
 import { randomUUID } from 'crypto';
-
-/** Message format for AI SDK */
-type AIMessage = { role: 'user' | 'assistant'; content: string };
 import type { 
   AIParseRequest, 
   AIParseResponse, 
@@ -17,7 +20,7 @@ import type {
   ContinueDraftContext,
   FindPartnerContext,
 } from './ai.model';
-import { buildSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v34';
+import { buildSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v35';
 import { getAIToolsV34 } from './tools';
 import { recordTokenUsage } from './services/metrics';
 
@@ -35,36 +38,19 @@ const SYSTEM_PROMPT_TEST = `你是聚场 AI 助手，专门帮助用户组织线
 语气要接地气，不要太正式。`;
 
 /**
+ * DeepSeek Provider 配置
+ * 使用官方 @ai-sdk/deepseek provider
+ */
+const deepseek = createDeepSeek({
+  apiKey: process.env.DEEPSEEK_API_KEY || '',
+});
+
+/**
  * 获取 AI 模型配置
+ * 简化为单一 DeepSeek provider
  */
 function getAIModel() {
-  const provider = process.env.AI_PROVIDER || 'deepseek';
-  
-  switch (provider) {
-    case 'openai':
-      const openaiClient = createOpenAI({
-        baseURL: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-        apiKey: process.env.OPENAI_API_KEY || '',
-      });
-      return openaiClient('gpt-4o-mini');
-    
-    case 'deepseek':
-      // DeepSeek - 使用 OpenAI 兼容接口
-      const deepseekClient = createOpenAI({
-        baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/v1',
-        apiKey: process.env.DEEPSEEK_API_KEY || '',
-      });
-      return deepseekClient('deepseek-chat');
-      
-    case 'dashscope':
-    default:
-      // 通义千问 - 使用 OpenAI 兼容接口
-      const dashscopeClient = createOpenAI({
-        baseURL: process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
-        apiKey: process.env.DASHSCOPE_API_KEY || '',
-      });
-      return dashscopeClient('qwen-turbo');
-  }
+  return deepseek('deepseek-chat');
 }
 
 // ==========================================
@@ -137,20 +123,18 @@ export type IntentType = 'create' | 'explore' | 'unknown';
 // ==========================================
 
 /**
- * Chat 请求参数 (v3.4 增强版 - 支持 draftContext 和 sandboxMode, v3.5 支持 trace)
+ * Chat 请求参数 (v3.5 支持 trace + UIMessage 格式)
  */
 export interface StreamChatRequest {
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>;
+  messages: Array<Omit<UIMessage, 'id'>>;
   userId: string | null;
   location?: [number, number];
   source: 'miniprogram' | 'admin';
-  /** v3.4 新增：草稿上下文，用于多轮对话 */
+  /** 草稿上下文，用于多轮对话 */
   draftContext?: {
     activityId: string;
     currentDraft: ActivityDraftForPrompt;
   };
-  /** v3.4 新增：沙盒模式，不写入数据库 */
-  sandboxMode?: boolean;
   /** v3.5 新增：执行追踪，返回详细的执行步骤数据 */
   trace?: boolean;
 }
@@ -168,10 +152,9 @@ export interface StreamChatRequest {
  * - 支持 draftContext 多轮对话
  * - 4 个 Tools：createActivityDraft, refineDraft, exploreNearby, publishActivity
  * - Token 使用量记录
- * - sandboxMode：沙盒模式不写入数据库
  */
 export async function streamChat(request: StreamChatRequest) {
-  const { messages, userId, location, source, draftContext, sandboxMode, trace } = request;
+  const { messages, userId, location, source, draftContext, trace } = request;
   
   // 构建 Prompt 上下文
   const locationName = location ? await reverseGeocode(location[1], location[0]) : undefined;
@@ -186,23 +169,21 @@ export async function streamChat(request: StreamChatRequest) {
     draftContext,
   };
 
-  // 转换消息格式
-  const aiMessages: AIMessage[] = messages.map(m => ({
-    role: m.role,
-    content: m.content,
-  }));
+  // 使用 AI SDK 内置的 convertToModelMessages 转换消息格式
+  // 自动处理 UIMessage 中的 parts（包含 Tool 调用历史）
+  const aiMessages = await convertToModelMessages(messages);
 
-  // 沙盒模式或测试模式（无用户）：不使用 Tools，避免写数据库
-  const isTestMode = !userId || sandboxMode === true;
+  // 测试模式判断：
+  // - 小程序无用户：测试模式（不使用 Tools）
+  // - Admin 无用户：仍使用 Tools（Tools 内部会处理 userId=null 的情况，不写数据库）
+  const isTestMode = !userId && source !== 'admin';
   
   // 构建 System Prompt
-  const systemPrompt = isTestMode
-    ? (sandboxMode 
-        ? buildSystemPrompt(promptContext) + '\n\n[沙盒模式] 这是测试环境，Tool 调用不会写入数据库。'
-        : SYSTEM_PROMPT_TEST)
-    : buildSystemPrompt(promptContext);
+  const systemPrompt = isTestMode ? SYSTEM_PROMPT_TEST : buildSystemPrompt(promptContext);
   
-  // 获取 Tools（测试模式不使用）
+  // 获取 Tools
+  // - 测试模式：不使用 Tools
+  // - Admin 模式：即使无用户也使用 Tools（Tools 内部处理测试模式）
   const tools = isTestMode ? undefined : getAIToolsV34(userId);
   
   // Trace 模式的元数据
@@ -210,80 +191,129 @@ export async function streamChat(request: StreamChatRequest) {
   const startedAt = trace ? new Date().toISOString() : undefined;
   let stepIndex = 0;
   
+  // trace 模式的数据收集（通过 onStepFinish 实时收集）
+  const traceSteps: Array<{ toolName: string; toolCallId: string; args: unknown; result?: unknown }> = [];
+  let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  
   // 执行 AI 推理
   const result = streamText({
     model: getAIModel(),
     system: systemPrompt,
     messages: aiMessages,
     tools: tools as any,
+    temperature: 0, // 更一致的 Tool 调用结果
+    // 自定义停止条件：
+    // 1. 最多 5 步
+    // 2. 如果调用了 askPreference，立即停止（等待用户回复）
+    stopWhen: (event) => {
+      // 检查是否达到最大步骤数
+      if (event.steps.length >= 5) return true;
+      
+      // 检查最后一步是否调用了 askPreference
+      const lastStep = event.steps[event.steps.length - 1];
+      if (lastStep?.toolCalls) {
+        const hasAskPreference = lastStep.toolCalls.some(
+          (tc: { toolName: string }) => tc.toolName === 'askPreference'
+        );
+        if (hasAskPreference) {
+          console.log('[AI Chat] askPreference called, stopping to wait for user response');
+          return true;
+        }
+      }
+      
+      return false;
+    },
+    // 使用 onStepFinish 实时获取每个步骤的数据
+    onStepFinish: (step) => {
+      // 收集 tool calls
+      for (const tc of step.toolCalls || []) {
+        const existingStep = traceSteps.find(s => s.toolCallId === tc.toolCallId);
+        if (!existingStep) {
+          traceSteps.push({
+            toolName: tc.toolName,
+            toolCallId: tc.toolCallId,
+            args: (tc as unknown as { args: unknown }).args,
+          });
+        }
+      }
+      // 收集 tool results
+      for (const tr of step.toolResults || []) {
+        const existingStep = traceSteps.find(s => s.toolCallId === tr.toolCallId);
+        if (existingStep) {
+          existingStep.result = (tr as unknown as { result: unknown }).result;
+        }
+      }
+    },
     onFinish: async (event) => {
-      const totalUsage = (event as any).totalUsage || event.usage;
-      const toolCalls = event.steps?.flatMap(s => s.toolCalls || []) || [];
-      console.log(`[AI Chat] Source: ${source}, User: ${userId}, Tokens: ${totalUsage?.totalTokens ?? 0}, Tools: ${toolCalls.length}`);
+      // 获取最终 usage
+      const eventUsage = (event as any).totalUsage || event.usage;
+      totalUsage = {
+        promptTokens: eventUsage?.promptTokens ?? eventUsage?.inputTokens ?? 0,
+        completionTokens: eventUsage?.completionTokens ?? eventUsage?.outputTokens ?? 0,
+        totalTokens: eventUsage?.totalTokens ?? 0,
+      };
+      
+      console.log(`[AI Chat] Source: ${source}, User: ${userId}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}`);
       
       // 记录 Token 使用量
       if (userId && !isTestMode) {
         await recordTokenUsage(
           userId,
           {
-            inputTokens: totalUsage?.inputTokens ?? 0,
-            outputTokens: totalUsage?.outputTokens ?? 0,
-            totalTokens: totalUsage?.totalTokens ?? 0,
+            inputTokens: totalUsage.promptTokens,
+            outputTokens: totalUsage.completionTokens,
+            totalTokens: totalUsage.totalTokens,
           },
-          toolCalls.map(tc => ({ toolName: tc.toolName }))
+          traceSteps.map(s => ({ toolName: s.toolName }))
         );
       }
     },
   });
   
-  // 如果不需要 trace，直接返回标准 Text Stream Response
+  // 如果不需要 trace，直接返回 UIMessageStreamResponse（包含 Tool Parts）
   if (!trace) {
-    return (result as unknown as { toTextStreamResponse: () => Response }).toTextStreamResponse();
+    return result.toUIMessageStreamResponse();
   }
   
-  // 带 trace 的模式：包装流，在数据中注入 trace 事件
-  // 使用 Data Stream Protocol 的 "2:" 类型发送 trace 数据
-  // 这样小程序可以忽略，Admin 可以解析
-  const encoder = new TextEncoder();
+  // trace 模式：使用 createUIMessageStream 发送 transient trace 数据
   const llmStartedAt = new Date().toISOString();
+  const llmStepId = `step-${stepIndex++}`;
   
-  // 创建 trace 数据的辅助函数
-  const createTraceData = (data: unknown) => `2:${JSON.stringify([data])}\n`;
-  
-  // 获取原始流
-  const originalStream = (result as unknown as { textStream: ReadableStream<string> }).textStream;
-  
-  // 创建包装流
-  const wrappedStream = new ReadableStream({
-    async start(controller) {
-      // 发送 trace-start
-      controller.enqueue(encoder.encode(createTraceData({
-        type: 'trace-start',
-        requestId,
-        startedAt,
-      })));
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      // 1. 发送 trace-start（transient - 不会添加到 message.parts）
+      writer.write({
+        type: 'data-trace-start',
+        data: { requestId, startedAt },
+        transient: true,
+      });
       
-      // 发送 input 步骤
+      // 2. 发送 input 步骤
       const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-      controller.enqueue(encoder.encode(createTraceData({
-        type: 'trace-step',
-        step: {
-          id: `step-${stepIndex++}`,
+      // 从 UIMessage 中提取文本内容
+      const lastUserText = lastUserMessage?.parts?.find(p => p.type === 'text')?.text 
+        || (lastUserMessage as { content?: string })?.content 
+        || '';
+      writer.write({
+        type: 'data-trace-step',
+        data: {
+          id: `${requestId}-input`,
           type: 'input',
           name: '用户输入',
           startedAt,
           completedAt: startedAt,
           status: 'success',
           duration: 0,
-          data: { text: lastUserMessage?.content || '' },
+          data: { text: lastUserText },
         },
-      })));
+        transient: true,
+      });
       
-      // 发送 prompt 步骤
-      controller.enqueue(encoder.encode(createTraceData({
-        type: 'trace-step',
-        step: {
-          id: `step-${stepIndex++}`,
+      // 3. 发送 prompt 步骤
+      writer.write({
+        type: 'data-trace-step',
+        data: {
+          id: `${requestId}-prompt`,
           type: 'prompt',
           name: 'System Prompt',
           startedAt,
@@ -300,13 +330,13 @@ export async function streamChat(request: StreamChatRequest) {
             fullPrompt: systemPrompt,
           },
         },
-      })));
+        transient: true,
+      });
       
-      // 发送 llm 步骤开始
-      const llmStepId = `step-${stepIndex++}`;
-      controller.enqueue(encoder.encode(createTraceData({
-        type: 'trace-step',
-        step: {
+      // 4. 发送 llm 步骤开始
+      writer.write({
+        type: 'data-trace-step',
+        data: {
           id: llmStepId,
           type: 'llm',
           name: 'LLM 推理',
@@ -319,133 +349,78 @@ export async function streamChat(request: StreamChatRequest) {
             totalTokens: 0,
           },
         },
-      })));
+        transient: true,
+      });
       
-      // 读取原始流并转发
-      const reader = originalStream.getReader();
-      let accumulatedText = '';
-      
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      // 5. 合并 AI 响应流（自动包含 Tool Parts）
+      writer.merge(result.toUIMessageStream({
+        onFinish: () => {
+          const llmCompletedAt = new Date().toISOString();
+          const llmDuration = new Date(llmCompletedAt).getTime() - new Date(llmStartedAt).getTime();
           
-          // 转发文本（使用 Data Stream Protocol 的 "0:" 格式）
-          accumulatedText += value;
-          controller.enqueue(encoder.encode(`0:${JSON.stringify(value)}\n`));
-        }
-        
-        // 等待 result 完成以获取 usage 和 toolCalls
-        const finalResult = await result;
-        const usage = (finalResult as any).usage || {};
-        const toolCalls = (finalResult as any).steps?.flatMap((s: any) => s.toolCalls || []) || [];
-        const toolResults = (finalResult as any).steps?.flatMap((s: any) => s.toolResults || []) || [];
-        
-        // 更新 llm 步骤完成
-        const llmCompletedAt = new Date().toISOString();
-        const llmDuration = new Date(llmCompletedAt).getTime() - new Date(llmStartedAt).getTime();
-        controller.enqueue(encoder.encode(createTraceData({
-          type: 'trace-step-update',
-          stepId: llmStepId,
-          update: {
-            completedAt: llmCompletedAt,
-            status: 'success',
-            duration: llmDuration,
+          // 更新 llm 步骤完成
+          writer.write({
+            type: 'data-trace-step-update',
             data: {
-              model: process.env.AI_PROVIDER || 'deepseek',
-              inputTokens: usage.promptTokens ?? 0,
-              outputTokens: usage.completionTokens ?? 0,
-              totalTokens: usage.totalTokens ?? 0,
-            },
-          },
-        })));
-        
-        // 发送 tool 步骤（如果有）
-        for (const tc of toolCalls) {
-          const toolResult = toolResults.find((tr: any) => tr.toolCallId === tc.toolCallId);
-          controller.enqueue(encoder.encode(createTraceData({
-            type: 'trace-step',
-            step: {
-              id: `step-${stepIndex++}`,
-              type: 'tool',
-              name: getToolDisplayName(tc.toolName),
-              startedAt: llmCompletedAt,
+              stepId: llmStepId,
               completedAt: llmCompletedAt,
               status: 'success',
-              duration: 0,
+              duration: llmDuration,
               data: {
-                toolName: tc.toolName,
-                toolDisplayName: getToolDisplayName(tc.toolName),
-                input: tc.input,
-                output: toolResult?.result,
-                widgetType: getWidgetType(tc.toolName),
+                model: process.env.AI_PROVIDER || 'deepseek',
+                inputTokens: totalUsage.promptTokens,
+                outputTokens: totalUsage.completionTokens,
+                totalTokens: totalUsage.totalTokens,
               },
             },
-          })));
+            transient: true,
+          });
           
-          // 发送 Tool Call (9:) 和 Tool Result (a:) 以保持兼容
-          controller.enqueue(encoder.encode(`9:${JSON.stringify({
-            toolCallId: tc.toolCallId,
-            toolName: tc.toolName,
-            args: tc.input,
-          })}\n`));
-          
-          if (toolResult) {
-            controller.enqueue(encoder.encode(`a:${JSON.stringify({
-              toolCallId: tc.toolCallId,
-              result: toolResult.result,
-            })}\n`));
+          // 发送 tool 步骤（从 onStepFinish 收集的数据）
+          for (const step of traceSteps) {
+            writer.write({
+              type: 'data-trace-step',
+              data: {
+                id: `${requestId}-tool-${step.toolCallId}`,
+                type: 'tool',
+                name: getToolDisplayName(step.toolName),
+                startedAt: llmCompletedAt,
+                completedAt: llmCompletedAt,
+                status: 'success',
+                duration: 0,
+                data: {
+                  toolName: step.toolName,
+                  toolDisplayName: getToolDisplayName(step.toolName),
+                  input: step.args,
+                  output: step.result,
+                  widgetType: getWidgetType(step.toolName),
+                },
+              },
+              transient: true,
+            });
           }
-        }
-        
-        // 发送 output 步骤
-        const outputCompletedAt = new Date().toISOString();
-        controller.enqueue(encoder.encode(createTraceData({
-          type: 'trace-step',
-          step: {
-            id: `step-${stepIndex++}`,
-            type: 'output',
-            name: '最终响应',
-            startedAt: llmCompletedAt,
-            completedAt: outputCompletedAt,
-            status: 'success',
-            duration: 0,
-            data: { text: accumulatedText },
-          },
-        })));
-        
-        // 发送 trace-end 事件
-        const completedAt = new Date().toISOString();
-        const totalDuration = new Date(completedAt).getTime() - new Date(startedAt!).getTime();
-        controller.enqueue(encoder.encode(createTraceData({
-          type: 'trace-end',
-          requestId,
-          completedAt,
-          totalDuration,
-          status: 'completed',
-        })));
-        
-        // 发送 done 信号 (d:)
-        controller.enqueue(encoder.encode(`d:${JSON.stringify({
-          finishReason: 'stop',
-          usage: {
-            promptTokens: usage.promptTokens ?? 0,
-            completionTokens: usage.completionTokens ?? 0,
-            totalTokens: usage.totalTokens ?? 0,
-          },
-        })}\n`));
-        
-        console.log(`[AI Chat + Trace] Source: ${source}, User: ${userId}, Tokens: ${usage.totalTokens ?? 0}, Tools: ${toolCalls.length}, Duration: ${totalDuration}ms`);
-        
-      } catch (error) {
-        console.error('[AI Chat + Trace] Stream error:', error);
-        controller.enqueue(encoder.encode(`e:${JSON.stringify({ message: String(error) })}\n`));
-      } finally {
-        controller.close();
-      }
+          
+          // 发送 trace-end
+          const completedAt = new Date().toISOString();
+          const totalDuration = new Date(completedAt).getTime() - new Date(startedAt!).getTime();
+          writer.write({
+            type: 'data-trace-end',
+            data: {
+              requestId,
+              completedAt,
+              totalDuration,
+              status: 'completed',
+            },
+            transient: true,
+          });
+          
+          console.log(`[AI Chat + Trace] Source: ${source}, User: ${userId}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}, Duration: ${totalDuration}ms`);
+        },
+      }));
     },
   });
   
+  return createUIMessageStreamResponse({ stream });
 }
 
 /**
@@ -457,6 +432,7 @@ function getToolDisplayName(toolName: string): string {
     refineDraft: '修改草稿',
     exploreNearby: '探索附近',
     publishActivity: '发布活动',
+    askPreference: '询问偏好',
   };
   return displayNames[toolName] || toolName;
 }
@@ -470,6 +446,7 @@ function getWidgetType(toolName: string): string | undefined {
     refineDraft: 'widget_draft',
     exploreNearby: 'widget_explore',
     publishActivity: 'widget_share',
+    askPreference: 'widget_ask_preference',
   };
   return widgetTypes[toolName];
 }

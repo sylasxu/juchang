@@ -1,0 +1,1 @@
+ALTER TYPE "public"."conversation_message_type" ADD VALUE 'widget_ask_preference';

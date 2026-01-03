@@ -15,13 +15,11 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { 
   Send, Trash2, Settings2, Bot, User, Loader2, Copy, Check,
   Wrench, ChevronDown, ChevronRight, MapPin, FileEdit,
-  RotateCcw, StopCircle, FlaskConical, Search, MessageSquare,
+  RotateCcw, StopCircle, Search, MessageSquare,
   Calendar, Users, Clock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -56,21 +54,21 @@ export function PlaygroundChat({
   onMessageSelect,
 }: PlaygroundChatProps) {
   const [showSettings, setShowSettings] = useState(false)
-  const [sandboxMode, setSandboxMode] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
 
   // 创建 transport
+  // 默认使用观音桥位置进行测试
   const transport = useMemo(() => new DefaultChatTransport({
     api: `${API_BASE_URL}/ai/chat`,
     body: { 
       source: 'admin',
-      sandboxMode,
       trace: true, // v3.5: 启用执行追踪
+      location: [106.5516, 29.5630], // 观音桥坐标 [lng, lat]
     },
-  }), [sandboxMode])
+  }), [])
 
   // 使用 useChat hook
   const { 
@@ -83,31 +81,23 @@ export function PlaygroundChat({
     regenerate,
   } = useChat({
     transport,
-    onData: (data) => {
-      // 处理 trace 数据 (通过 2: 类型发送)
-      if (Array.isArray(data)) {
-        for (const item of data) {
-          if (item && typeof item === 'object' && 'type' in item) {
-            const traceItem = item as { type: string; [key: string]: unknown }
-            
-            if (traceItem.type === 'trace-start') {
-              onTraceStart?.(
-                traceItem.requestId as string, 
-                traceItem.startedAt as string
-              )
-            } else if (traceItem.type === 'trace-step') {
-              onTraceStep?.(traceItem.step as TraceStep)
-            } else if (traceItem.type === 'trace-step-update') {
-              const update = traceItem.update as Partial<TraceStep>
-              onUpdateTraceStep?.(traceItem.stepId as string, update)
-            } else if (traceItem.type === 'trace-end') {
-              onTraceEnd?.(
-                traceItem.completedAt as string,
-                traceItem.status as TraceStatus,
-                traceItem.totalCost as number | undefined
-              )
-            }
-          }
+    onData: (dataPart) => {
+      // AI SDK v6 的 onData 接收单个 data part 对象
+      // dataPart 结构: { type: 'data-xxx', data: {...} }
+      if (dataPart && typeof dataPart === 'object' && 'type' in dataPart) {
+        const part = dataPart as { type: string; data?: unknown }
+        
+        if (part.type === 'data-trace-start') {
+          const data = part.data as { requestId: string; startedAt: string }
+          onTraceStart?.(data.requestId, data.startedAt)
+        } else if (part.type === 'data-trace-step') {
+          onTraceStep?.(part.data as TraceStep)
+        } else if (part.type === 'data-trace-step-update') {
+          const data = part.data as { stepId: string; [key: string]: unknown }
+          onUpdateTraceStep?.(data.stepId, data as Partial<TraceStep>)
+        } else if (part.type === 'data-trace-end') {
+          const data = part.data as { completedAt: string; status: TraceStatus; totalCost?: number }
+          onTraceEnd?.(data.completedAt, data.status, data.totalCost)
         }
       }
     },
@@ -143,13 +133,6 @@ export function PlaygroundChat({
     onClearTrace?.()
   }, [setMessages, onClearTrace])
 
-  // 切换沙盒模式
-  const handleSandboxToggle = useCallback((checked: boolean) => {
-    setSandboxMode(checked)
-    setMessages([])
-    onClearTrace?.()
-  }, [setMessages, onClearTrace])
-
   // 发送消息
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -172,6 +155,8 @@ export function PlaygroundChat({
       data: { text: inputValue.trim() },
     })
     
+    // 使用 sendMessage 发送消息
+    // API 已更新支持 text 和 content 两种格式
     sendMessage({ text: inputValue.trim() })
     setInputValue('')
     setAutoScroll(true)
@@ -195,10 +180,6 @@ export function PlaygroundChat({
         <div className='mb-4 flex items-center justify-between'>
           <div className='flex items-center gap-3'>
             <h2 className='text-lg font-medium'>对话测试</h2>
-            <Badge variant={sandboxMode ? 'secondary' : 'destructive'} className='text-xs'>
-              <FlaskConical className='mr-1 h-3 w-3' />
-              {sandboxMode ? '沙盒模式' : '生产模式'}
-            </Badge>
           </div>
           <div className='flex items-center gap-1'>
             <Button variant='ghost' size='sm' onClick={() => setShowSettings(!showSettings)}>
@@ -278,32 +259,11 @@ export function PlaygroundChat({
       {/* 设置面板 */}
       {showSettings && (
         <div className='w-80 shrink-0 border-l pl-6'>
-          <h3 className='mb-4 text-sm font-medium'>运行模式</h3>
+          <h3 className='mb-4 text-sm font-medium'>设置</h3>
           
-          <div className='flex items-center justify-between rounded-lg border p-3'>
-            <div className='space-y-0.5'>
-              <Label htmlFor='sandbox-mode' className='text-sm font-medium'>
-                沙盒模式
-              </Label>
-              <p className='text-xs text-muted-foreground'>
-                {sandboxMode 
-                  ? 'Tool 调用不写入数据库' 
-                  : '⚠️ Tool 调用会写入生产数据库'}
-              </p>
-            </div>
-            <Switch
-              id='sandbox-mode'
-              checked={sandboxMode}
-              onCheckedChange={handleSandboxToggle}
-            />
-          </div>
-          
-          <div className='mt-4 rounded-lg bg-muted/50 p-3'>
+          <div className='rounded-lg bg-muted/50 p-3'>
             <p className='text-xs text-muted-foreground'>
-              <strong>沙盒模式</strong>：使用完整的 System Prompt 和 Tools，但 Tool 执行结果不会写入数据库。
-            </p>
-            <p className='mt-2 text-xs text-muted-foreground'>
-              <strong>生产模式</strong>：与小程序完全一致，Tool 调用会真实写入数据库。
+              <strong>注意</strong>：Tool 调用会写入数据库。测试产生的活动可以在活动管理页面删除。
             </p>
           </div>
           
@@ -635,6 +595,57 @@ function ToolPreview({ toolPart }: { toolPart: ToolPartData }) {
   // 辅助函数：安全转换为字符串
   const str = (val: unknown): string => String(val ?? '')
   const truncateId = (val: unknown): string => str(val).slice(0, 8)
+
+  // askPreference 预览 - 显示问题和选项按钮
+  if (toolName === 'askPreference') {
+    const question = str(input?.question || '请选择你的偏好')
+    const questionType = input?.questionType as string | undefined
+    const options = (input?.options || []) as Array<{ label: string; value: string }>
+    const allowSkip = input?.allowSkip !== false
+
+    return (
+      <div className='space-y-3 text-sm'>
+        <div className='flex items-center gap-2'>
+          <MessageSquare className='h-4 w-4 text-purple-500' />
+          <span className='font-medium'>
+            {questionType === 'location' ? '询问位置偏好' : '询问类型偏好'}
+          </span>
+        </div>
+        
+        {/* 问题文本 */}
+        <div className='rounded-lg bg-purple-50 p-3 text-purple-900 dark:bg-purple-950 dark:text-purple-100'>
+          {question}
+        </div>
+        
+        {/* 选项按钮 */}
+        {options.length > 0 && (
+          <div className='flex flex-wrap gap-2'>
+            {options.map((option, i) => (
+              <div
+                key={i}
+                className='rounded-full border bg-background px-3 py-1 text-xs'
+              >
+                {option.label}
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* 跳过按钮 */}
+        {allowSkip && (
+          <div className='text-xs text-muted-foreground'>
+            + "都可以，你随便推荐" 按钮
+          </div>
+        )}
+        
+        {toolPart.state === 'output-available' && (
+          <div className='mt-2 rounded bg-green-50 p-2 text-xs text-green-700 dark:bg-green-950 dark:text-green-300'>
+            ✓ 已发送询问
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // createActivityDraft 预览
   if (toolName === 'createActivityDraft') {

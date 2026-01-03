@@ -255,6 +255,7 @@ export function getWidgetTypeFromToolCall(toolCall: ToolCall): string | null {
   const toolNameToWidget: Record<string, string> = {
     createActivityDraft: 'widget_draft',
     exploreNearby: 'widget_explore',
+    askPreference: 'widget_ask_preference',
   }
   return toolNameToWidget[toolCall.toolName] || null
 }
@@ -263,7 +264,7 @@ export function getWidgetTypeFromToolCall(toolCall: ToolCall): string | null {
  * 辅助函数 - 判断是否是 Widget 相关的 Tool
  */
 export function isWidgetTool(toolName: string): boolean {
-  const widgetTools = ['createActivityDraft', 'exploreNearby']
+  const widgetTools = ['createActivityDraft', 'exploreNearby', 'askPreference']
   return widgetTools.includes(toolName)
 }
 

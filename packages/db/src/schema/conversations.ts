@@ -28,14 +28,15 @@ export const conversationRoleEnum = pgEnum("conversation_role", [
 
 // 对话消息类型枚举 (v3.3 含 Generative UI + Composite Widget + Simple Widget)
 export const conversationMessageTypeEnum = pgEnum("conversation_message_type", [
-  "text",              // 普通文本
-  "widget_dashboard",  // 进场欢迎卡片 (简化版)
-  "widget_launcher",   // 组局发射台 (复合型卡片 - v3.3 新增)
-  "widget_action",     // 快捷操作按钮 (简单跳转 - v3.3 新增)
-  "widget_draft",      // 意图解析卡片 (带地图选点)
-  "widget_share",      // 创建成功卡片
-  "widget_explore",    // 探索卡片 (Generative UI)
-  "widget_error"       // 错误提示卡片
+  "text",                    // 普通文本
+  "widget_dashboard",        // 进场欢迎卡片 (简化版)
+  "widget_launcher",         // 组局发射台 (复合型卡片 - v3.3 新增)
+  "widget_action",           // 快捷操作按钮 (简单跳转 - v3.3 新增)
+  "widget_draft",            // 意图解析卡片 (带地图选点)
+  "widget_share",            // 创建成功卡片
+  "widget_explore",          // 探索卡片 (Generative UI)
+  "widget_error",            // 错误提示卡片
+  "widget_ask_preference"    // 多轮对话偏好询问卡片 (v3.5 新增)
 ]);
 
 export const conversations = pgTable("conversations", {
@@ -58,6 +59,7 @@ export const conversations = pgTable("conversations", {
   // widget_share: { activityId, title, shareTitle, ... }
   // widget_explore: { center, results, title }
   // widget_error: { message: string }
+  // widget_ask_preference: { questionType, question, options, allowSkip, collectedInfo }
   content: jsonb("content").notNull(),
   
   // 关联：如果卡片对应真实活动

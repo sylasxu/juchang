@@ -2,7 +2,7 @@
 // 现在 /ai-ops 直接渲染 PlaygroundLayout
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { Bot, Sparkles, Gauge, Play, RefreshCw, AlertTriangle, TrendingUp, FileCode } from 'lucide-react'
+import { Bot, Gauge, RefreshCw, AlertTriangle, TrendingUp, FileCode } from 'lucide-react'
 import { api } from '@/lib/eden'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'

@@ -15,7 +15,7 @@ let scrollTimer: number | null = null;
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
-  messageType: 'text' | 'widget_dashboard' | 'widget_draft' | 'widget_share' | 'widget_explore' | 'widget_error';
+  messageType: 'text' | 'widget_dashboard' | 'widget_draft' | 'widget_share' | 'widget_explore' | 'widget_error' | 'widget_ask_preference';
   content: string | object;
   createdAt: string;
   isNew?: boolean; // 标记是否为新消息，用于动画
