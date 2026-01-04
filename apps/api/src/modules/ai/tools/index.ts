@@ -4,11 +4,11 @@
  * 导出所有 AI 工具函数
  */
 
-export { createActivityDraftTool, type CreateActivityDraftParams } from './create-draft';
-export { refineDraftTool, type RefineDraftParams } from './refine-draft';
-export { exploreNearbyTool, type ExploreNearbyParams } from './explore-nearby';
-export { publishActivityTool, type PublishActivityParams } from './publish-activity';
-export { askPreferenceTool, type AskPreferenceParams } from './ask-preference';
+export { createActivityDraftTool } from './create-draft';
+export { refineDraftTool } from './refine-draft';
+export { exploreNearbyTool } from './explore-nearby';
+export { publishActivityTool } from './publish-activity';
+export { askPreferenceTool } from './ask-preference';
 
 import { createActivityDraftTool } from './create-draft';
 import { refineDraftTool } from './refine-draft';

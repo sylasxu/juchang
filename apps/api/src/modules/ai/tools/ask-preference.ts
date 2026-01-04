@@ -57,22 +57,7 @@ const askPreferenceSchema = t.Object({
 });
 
 /** 类型自动推导 */
-export type AskPreferenceParams = typeof askPreferenceSchema.static;
-
-/** Tool 返回类型 */
-export interface AskPreferenceResult {
-  success: boolean;
-  widgetType: 'widget_ask_preference';
-  questionType: 'location' | 'type';
-  question: string;
-  options: Array<{ label: string; value: string }>;
-  allowSkip: boolean;
-  collectedInfo?: {
-    location?: string;
-    type?: string;
-  };
-  error?: string;
-}
+type AskPreferenceParams = typeof askPreferenceSchema.static;
 
 /**
  * 创建 askPreference Tool
@@ -80,7 +65,7 @@ export interface AskPreferenceResult {
  * @param userId - 用户 ID，null 时为测试模式（不写数据库）
  */
 export function askPreferenceTool(userId: string | null) {
-  return tool<AskPreferenceParams, AskPreferenceResult>({
+  return tool({
     description: `多轮对话信息收集工具。当用户表达探索意图但信息不完整时使用。
 
 使用场景：
@@ -96,12 +81,12 @@ export function askPreferenceTool(userId: string | null) {
     
     inputSchema: jsonSchema<AskPreferenceParams>(toJsonSchema(askPreferenceSchema)),
     
-    execute: async (params): Promise<AskPreferenceResult> => {
+    execute: async (params: AskPreferenceParams) => {
       const { questionType, question, options, allowSkip = true, collectedInfo } = params;
       
-      const result: AskPreferenceResult = {
-        success: true,
-        widgetType: 'widget_ask_preference',
+      const result = {
+        success: true as const,
+        widgetType: 'widget_ask_preference' as const,
         questionType,
         question,
         options,
@@ -129,8 +114,8 @@ export function askPreferenceTool(userId: string | null) {
       } catch (error) {
         console.error('[askPreference] Error:', error);
         return {
-          success: false,
-          widgetType: 'widget_ask_preference',
+          success: false as const,
+          widgetType: 'widget_ask_preference' as const,
           questionType,
           question,
           options,

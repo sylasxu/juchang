@@ -32,16 +32,7 @@ const createActivityDraftSchema = t.Object({
 });
 
 /** 类型自动推导 */
-export type CreateActivityDraftParams = typeof createActivityDraftSchema.static;
-
-/** Tool 返回类型 */
-export interface CreateActivityDraftResult {
-  success: boolean;
-  activityId?: string;
-  draft?: CreateActivityDraftParams;
-  message?: string;
-  error?: string;
-}
+type CreateActivityDraftParams = typeof createActivityDraftSchema.static;
 
 /**
  * 创建 createActivityDraft Tool
@@ -49,7 +40,7 @@ export interface CreateActivityDraftResult {
  * @param userId - 用户 ID，null 时为测试模式（不写数据库）
  */
 export function createActivityDraftTool(userId: string | null) {
-  return tool<CreateActivityDraftParams, CreateActivityDraftResult>({
+  return tool({
     description: `创建活动草稿。当用户首次表达创建活动的意图时使用。
 
 必须推断所有缺失信息，绝不反问：
@@ -62,11 +53,11 @@ export function createActivityDraftTool(userId: string | null) {
     
     inputSchema: jsonSchema<CreateActivityDraftParams>(toJsonSchema(createActivityDraftSchema)),
     
-    execute: async (params): Promise<CreateActivityDraftResult> => {
+    execute: async (params: CreateActivityDraftParams) => {
       // 测试模式（无用户）：不写数据库
       if (!userId) {
         return {
-          success: true,
+          success: true as const,
           activityId: 'test-' + Date.now(),
           draft: params,
           message: '草稿已创建（测试模式）',
@@ -113,7 +104,7 @@ export function createActivityDraftTool(userId: string | null) {
           });
         
         return {
-          success: true,
+          success: true as const,
           activityId: newActivity.id,
           draft: params,
           message: '草稿已创建，可以在卡片上修改或直接发布',
@@ -121,7 +112,7 @@ export function createActivityDraftTool(userId: string | null) {
       } catch (error) {
         console.error('[createActivityDraft] Error:', error);
         return {
-          success: false,
+          success: false as const,
           error: '创建草稿失败，请再试一次',
         };
       }

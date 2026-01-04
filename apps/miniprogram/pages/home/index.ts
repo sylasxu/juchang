@@ -1,85 +1,64 @@
 /**
  * 首页 (Chat-First 架构)
  * Requirements: 1.1, 1.2, 1.3, 1.4, 3.2
- * v3.4 新增: 5.1-5.4, 6.1-6.2, 7.1-7.5 - 智能欢迎卡片
+ * v3.7 重构: 使用 useChatStore 统一 AI 对话管理
  * 
  * 三层结构：Custom_Navbar + Chat_Stream + AI_Dock
  * - 首次进入显示 Widget_Dashboard（调用 /ai/welcome API）
- * - 集成 homeStore（subscribe 模式）
+ * - 集成 useChatStore（类似 @ai-sdk/react 的 useChat）
  * - 实现空气感渐变背景
  */
-import { useHomeStore, type ChatMessage } from '../../src/stores/home'
+import { useChatStore, type UIMessage, type WidgetPart, getTextContent, getWidgetPart } from '../../src/stores/chat'
+import { useHomeStore } from '../../src/stores/home'
 import { useAppStore } from '../../src/stores/app'
 import { useUserStore } from '../../src/stores/user'
-import { sendAIChat, type ToolCall } from '../../src/utils/sse-request'
-import { getWidgetTypeFromToolCall } from '../../src/utils/data-stream-parser'
 import { postActivitiesByIdPublish } from '../../src/api/endpoints/activities/activities'
 import { getWelcomeCard, getUserLocation, type WelcomeResponse, type QuickAction } from '../../src/services/welcome'
-import type { DraftData, ExploreData, ShareActivityData, SendEventDetail, SendMessageEventDetail, DraftContext } from '../../src/types/global'
-
-// 生成唯一 ID
-const generateId = () => `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
+import type { ShareActivityData, SendEventDetail, SendMessageEventDetail, DraftContext } from '../../src/types/global'
 
 // 页面数据类型
 interface PageData {
-  messages: ChatMessage[]
-  isLoading: boolean
-  isLoadingMore: boolean
-  aiThinkingState: 'idle' | 'thinking' | 'rendering_widget'
-  thinkingText: string
-  skeletonType: 'draft' | 'explore' | 'share' | null
+  // 从 useChatStore 同步
+  messages: UIMessage[]
+  status: 'idle' | 'submitted' | 'streaming'
+  streamingMessageId: string | null
+  
+  // 页面 UI 状态
   userNickname: string
-  upcomingActivities: any[]
   isAuthSheetVisible: boolean
   isShareGuideVisible: boolean
   shareGuideData: { activityId?: string; title?: string; mapUrl?: string } | null
-  currentDraft: any | null
-  currentExplore: any | null
-  currentShare: any | null
   scrollToView: string
-  // v3.4 新增：欢迎卡片数据
+  
+  // 欢迎卡片
   welcomeData: WelcomeResponse | null
   isWelcomeLoading: boolean
-  // v3.4 新增：当前草稿上下文（用于多轮对话）
-  currentDraftContext: DraftContext | null
 }
 
 Page<PageData, WechatMiniprogram.Page.CustomOption>({
   data: {
     messages: [],
-    isLoading: false,
-    isLoadingMore: false,
-    aiThinkingState: 'idle',
-    thinkingText: '',
-    skeletonType: null,
+    status: 'idle',
+    streamingMessageId: null,
     userNickname: '搭子',
-    upcomingActivities: [],
     isAuthSheetVisible: false,
     isShareGuideVisible: false,
     shareGuideData: null,
-    currentDraft: null,
-    currentExplore: null,
-    currentShare: null,
     scrollToView: '',
-    // v3.4 新增：欢迎卡片数据
     welcomeData: null,
     isWelcomeLoading: false,
-    // v3.4 新增：当前草稿上下文
-    currentDraftContext: null,
   },
 
-  unsubscribeHome: null as (() => void) | null,
+  unsubscribeChat: null as (() => void) | null,
   unsubscribeApp: null as (() => void) | null,
   unsubscribeUser: null as (() => void) | null,
-  sseController: null as { abort: () => void } | null,
-  // v3.4 新增：用户位置缓存
   userLocation: null as { lat: number; lng: number } | null,
 
   onLoad() {
-    this.subscribeHomeStore()
+    this.subscribeChatStore()
     this.subscribeAppStore()
     this.subscribeUserStore()
-    this.loadMessages()
+    this.initChat()
     this.loadUserInfo()
   },
 
@@ -88,29 +67,37 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   },
 
   onUnload() {
-    this.unsubscribeHome?.()
+    this.unsubscribeChat?.()
     this.unsubscribeApp?.()
     this.unsubscribeUser?.()
-    this.sseController?.abort()
+    // 停止正在进行的流式输出
+    useChatStore.getState().stop()
   },
 
   onHide() {
-    this.sseController?.abort()
+    // 页面隐藏时停止流式输出
+    useChatStore.getState().stop()
   },
 
-  subscribeHomeStore() {
-    const homeStore = useHomeStore.getState()
+  /**
+   * 订阅 useChatStore 状态变化
+   */
+  subscribeChatStore() {
+    const chatStore = useChatStore.getState()
     this.setData({
-      messages: homeStore.messages,
-      isLoading: homeStore.isLoading,
-      isLoadingMore: homeStore.isLoadingMore,
+      messages: chatStore.messages,
+      status: chatStore.status,
+      streamingMessageId: chatStore.streamingMessageId,
     })
-    this.unsubscribeHome = useHomeStore.subscribe((state) => {
+    
+    this.unsubscribeChat = useChatStore.subscribe((state) => {
       this.setData({
         messages: state.messages,
-        isLoading: state.isLoading,
-        isLoadingMore: state.isLoadingMore,
+        status: state.status,
+        streamingMessageId: state.streamingMessageId,
       })
+      
+      // 自动滚动到最新消息
       if (state.messages.length > 0) {
         const lastMsg = state.messages[state.messages.length - 1]
         this.setData({ scrollToView: `msg-${lastMsg.id}` })
@@ -121,14 +108,12 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   subscribeAppStore() {
     const appStore = useAppStore.getState()
     this.setData({
-      aiThinkingState: appStore.aiThinkingState,
       isAuthSheetVisible: appStore.isAuthSheetVisible,
       isShareGuideVisible: appStore.isShareGuideVisible,
       shareGuideData: appStore.shareGuideData,
     })
     this.unsubscribeApp = useAppStore.subscribe((state) => {
       this.setData({
-        aiThinkingState: state.aiThinkingState,
         isAuthSheetVisible: state.isAuthSheetVisible,
         isShareGuideVisible: state.isShareGuideVisible,
         shareGuideData: state.shareGuideData,
@@ -148,12 +133,23 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     })
   },
 
-  async loadMessages() {
-    const homeStore = useHomeStore.getState()
-    await homeStore.loadMessages()
-    const messages = useHomeStore.getState().messages
-    if (messages.length === 0) {
-      this.showDashboard()
+  /**
+   * 初始化对话
+   */
+  async initChat() {
+    const chatStore = useChatStore.getState()
+    
+    // 如果没有消息，显示欢迎卡片
+    if (chatStore.messages.length === 0) {
+      await this.showDashboard()
+    }
+    
+    // 获取用户位置并设置到 store
+    if (!this.userLocation) {
+      this.userLocation = await getUserLocation()
+      if (this.userLocation) {
+        chatStore.setLocation(this.userLocation)
+      }
     }
   },
 
@@ -166,22 +162,17 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   /**
    * 显示欢迎卡片
-   * Requirements: 5.1-5.4, 6.1-6.2
-   * v3.4 新增：调用 /ai/welcome API 获取个性化内容
    */
   async showDashboard() {
-    const homeStore = useHomeStore.getState()
+    const chatStore = useChatStore.getState()
     
-    // 设置加载状态
     this.setData({ isWelcomeLoading: true })
     
     try {
-      // 尝试获取用户位置
       if (!this.userLocation) {
         this.userLocation = await getUserLocation()
       }
       
-      // 调用 welcome API
       const welcomeData = await getWelcomeCard(
         this.userLocation ? { lat: this.userLocation.lat, lng: this.userLocation.lng } : undefined
       )
@@ -191,76 +182,61 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         isWelcomeLoading: false,
       })
       
-      // 添加 AI 消息到对话流
-      homeStore.addAIMessage({
-        role: 'assistant',
-        type: 'widget_dashboard',
-        content: {
-          nickname: this.data.userNickname,
-          activities: this.data.upcomingActivities,
-          // v3.4 新增：传递 API 返回的数据
-          greeting: welcomeData.greeting,
-          quickActions: welcomeData.quickActions,
-          fallbackPrompt: welcomeData.fallbackPrompt,
-        },
-        activityId: null,
+      // 使用 useChatStore 添加 Dashboard Widget
+      chatStore.addWidgetMessage('dashboard', {
+        nickname: this.data.userNickname,
+        greeting: welcomeData.greeting,
+        quickActions: welcomeData.quickActions,
+        fallbackPrompt: welcomeData.fallbackPrompt,
       })
     } catch (error) {
       console.error('[Home] Failed to load welcome card:', error)
       this.setData({ isWelcomeLoading: false })
       
-      // 降级：使用本地生成的欢迎卡片
-      homeStore.addAIMessage({
-        role: 'assistant',
-        type: 'widget_dashboard',
-        content: {
-          nickname: this.data.userNickname,
-          activities: this.data.upcomingActivities,
-        },
-        activityId: null,
+      // 降级：使用本地欢迎卡片
+      chatStore.addWidgetMessage('dashboard', {
+        nickname: this.data.userNickname,
       })
     }
   },
 
-  async onLoadMore() {
-    const homeStore = useHomeStore.getState()
-    await homeStore.loadMoreMessages()
-  },
-
+  /**
+   * 新对话
+   */
   async onNewChat() {
-    const homeStore = useHomeStore.getState()
-    await homeStore.clearMessages()
-    this.showDashboard()
-  },
-
-  async onSend(e: WechatMiniprogram.CustomEvent<{ text: string }>) {
-    const { text } = e.detail
-    if (!text?.trim()) return
-    const homeStore = useHomeStore.getState()
-    await homeStore.addUserMessage(text)
-    // v3.4: 普通发送不带 draftContext
-    this.startAIParse(text)
+    const chatStore = useChatStore.getState()
+    chatStore.clearMessages()
+    
+    // 同时清空服务端历史
+    try {
+      await useHomeStore.getState().clearMessages()
+    } catch (e) {
+      console.error('[Home] Failed to clear server messages:', e)
+    }
+    
+    await this.showDashboard()
   },
 
   /**
-   * 处理 Widget_Draft 的 sendMessage 事件
-   * v3.4 新增：多轮对话支持
-   * Requirements: 多轮对话支持
+   * 发送消息
    */
-  async onDraftSendMessage(e: WechatMiniprogram.CustomEvent<SendMessageEventDetail>) {
+  onSend(e: WechatMiniprogram.CustomEvent<{ text: string }>) {
+    const { text } = e.detail
+    if (!text?.trim()) return
+    
+    const chatStore = useChatStore.getState()
+    chatStore.sendMessage(text)
+  },
+
+  /**
+   * 处理 Widget_Draft 的 sendMessage 事件（多轮对话）
+   */
+  onDraftSendMessage(e: WechatMiniprogram.CustomEvent<SendMessageEventDetail>) {
     const { text, draftContext } = e.detail
     if (!text?.trim()) return
     
-    const homeStore = useHomeStore.getState()
-    await homeStore.addUserMessage(text)
-    
-    // 保存当前草稿上下文
-    if (draftContext) {
-      this.setData({ currentDraftContext: draftContext })
-    }
-    
-    // 带 draftContext 发起 AI 请求
-    this.startAIParse(text, draftContext)
+    const chatStore = useChatStore.getState()
+    chatStore.sendMessage(text, { draftContext })
   },
 
   onParse(_e: WechatMiniprogram.CustomEvent<{ text: string }>) {
@@ -269,181 +245,6 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   onPaste(_e: WechatMiniprogram.CustomEvent<{ text: string }>) {
     // 粘贴后自动触发解析
-  },
-
-  /**
-   * 发起 AI 解析请求
-   * v3.4 新增：支持 draftContext 用于多轮对话修改草稿
-   * Requirements: 多轮对话支持
-   */
-  startAIParse(text: string, draftContext?: DraftContext) {
-    const appStore = useAppStore.getState()
-    const homeStore = useHomeStore.getState()
-
-    // v3.4 优化：使用新的文案
-    appStore.setAIThinkingState('thinking')
-    this.setData({ thinkingText: '收到，小聚正在整理你的安排...' })
-
-    this.sseController?.abort()
-
-    let accumulatedText = ''
-    let currentToolCall: ToolCall | null = null
-    const aiMessageId = generateId()
-
-    // v3.4: 构建请求选项，支持 draftContext 多轮对话
-    const requestOptions: {
-      location?: { lat: number; lng: number }
-      draftContext?: DraftContext
-    } = {}
-    
-    // 添加用户位置（如果有）
-    if (this.userLocation) {
-      requestOptions.location = this.userLocation
-    }
-    
-    // 添加草稿上下文（如果有）
-    if (draftContext) {
-      requestOptions.draftContext = draftContext
-    }
-
-    this.sseController = sendAIChat(text, {
-      onStart: () => {
-        console.log('[Home] AI parse started')
-      },
-
-      onText: (chunk) => {
-        accumulatedText += chunk
-        if (!currentToolCall) {
-          homeStore.addAIMessage({
-            id: aiMessageId,
-            role: 'assistant',
-            type: 'text',
-            content: { text: accumulatedText },
-            activityId: null,
-          })
-        }
-      },
-
-      onToolCall: (toolCall) => {
-        console.log('[Home] Tool call:', toolCall)
-        currentToolCall = toolCall
-        const widgetType = getWidgetTypeFromToolCall(toolCall)
-        if (widgetType) {
-          appStore.setAIThinkingState('rendering_widget')
-          if (widgetType === 'widget_draft') {
-            this.setData({ 
-              skeletonType: 'draft',
-              thinkingText: '正在生成活动草稿...',
-            })
-          } else if (widgetType === 'widget_explore') {
-            this.setData({ 
-              skeletonType: 'explore',
-              thinkingText: '正在搜索附近活动...',
-            })
-          }
-        }
-      },
-
-      onToolResult: (result) => {
-        console.log('[Home] Tool result:', result)
-        if (!currentToolCall) return
-        const widgetType = getWidgetTypeFromToolCall(currentToolCall)
-        
-        if (widgetType === 'widget_draft') {
-          const draftData = result.result as DraftData
-          this.setData({ currentDraft: draftData, skeletonType: null })
-          homeStore.addAIMessage({
-            id: aiMessageId,
-            role: 'assistant',
-            type: 'widget_draft',
-            content: draftData,
-            activityId: draftData?.activityId || null,
-          })
-        } else if (widgetType === 'widget_explore') {
-          const exploreData = result.result as ExploreData
-          const exploreContent = {
-            results: exploreData?.results || exploreData?.activities || [],
-            center: exploreData?.center || {
-              lat: exploreData?.lat || 29.5647,
-              lng: exploreData?.lng || 106.5507,
-              name: exploreData?.locationName || '附近',
-            },
-            title: exploreData?.title || '',
-          }
-          this.setData({ currentExplore: exploreContent, skeletonType: null })
-          homeStore.addAIMessage({
-            id: aiMessageId,
-            role: 'assistant',
-            type: 'widget_explore',
-            content: exploreContent,
-            activityId: null,
-          })
-        } else if (widgetType === 'widget_ask_preference') {
-          // askPreference Tool 结果
-          const askData = result.result as {
-            questionType: 'location' | 'type';
-            question: string;
-            options: Array<{ label: string; value: string }>;
-            allowSkip: boolean;
-            collectedInfo?: { location?: string; type?: string };
-          }
-          this.setData({ skeletonType: null })
-          homeStore.addAIMessage({
-            id: aiMessageId,
-            role: 'assistant',
-            type: 'widget_ask_preference',
-            content: {
-              questionType: askData.questionType,
-              question: askData.question,
-              options: askData.options,
-              allowSkip: askData.allowSkip !== false,
-              collectedInfo: askData.collectedInfo,
-              disabled: false,
-            },
-            activityId: null,
-          })
-        }
-      },
-
-      onDone: (usage) => {
-        console.log('[Home] AI parse done, usage:', usage)
-        appStore.setAIThinkingState('idle')
-        this.setData({ thinkingText: '', skeletonType: null })
-        this.sseController = null
-        if (!currentToolCall && accumulatedText) {
-          homeStore.addAIMessage({
-            id: aiMessageId,
-            role: 'assistant',
-            type: 'text',
-            content: { text: accumulatedText },
-            activityId: null,
-          })
-        }
-      },
-
-      onError: (error) => {
-        console.error('[Home] AI parse error:', error)
-        appStore.setAIThinkingState('idle')
-        this.setData({ thinkingText: '', skeletonType: null })
-        this.sseController = null
-        homeStore.addAIMessage({
-          id: aiMessageId,
-          role: 'assistant',
-          type: 'widget_error',
-          content: { 
-            message: '抱歉，我没理解你的意思，试试换个说法？',
-            showRetry: true,
-            originalText: text,
-          },
-          activityId: null,
-        })
-        wx.showToast({ title: '网络有点慢，再试一次？', icon: 'none' })
-      },
-
-      onFinish: () => {
-        this.sseController = null
-      },
-    }, requestOptions)
   },
 
   onDashboardActivityTap(e: WechatMiniprogram.CustomEvent<{ id: string }>) {
@@ -460,31 +261,17 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     this.onSend({ detail: { text: prompt } } as WechatMiniprogram.CustomEvent<SendEventDetail>)
   },
 
-  /**
-   * 处理快捷操作按钮点击
-   * Requirements: 7.4
-   */
   onDashboardQuickActionTap(e: WechatMiniprogram.CustomEvent<{ action: QuickAction }>) {
     const { action } = e.detail
     console.log('[Home] Quick action tap:', action)
-    // 具体操作已在 widget-dashboard 组件内处理
   },
 
-  /**
-   * 处理探索附近按钮点击
-   * Requirements: 7.4 - explore_nearby → 触发 AI 搜索或跳转探索页
-   */
   onDashboardExploreNearby(e: WechatMiniprogram.CustomEvent<{ locationName: string; lat: number; lng: number; activityCount: number }>) {
-    const { locationName, lat, lng } = e.detail
-    // 触发 AI 搜索
+    const { locationName } = e.detail
     const searchText = `看看${locationName}附近有什么活动`
     this.onSend({ detail: { text: searchText } } as WechatMiniprogram.CustomEvent<SendEventDetail>)
   },
 
-  /**
-   * 处理找搭子按钮点击
-   * Requirements: 7.4 - find_partner → 预填输入框并聚焦
-   */
   onDashboardFindPartner(e: WechatMiniprogram.CustomEvent<{ activityType: string; activityTypeLabel: string; suggestedPrompt: string }>) {
     const { suggestedPrompt } = e.detail
     const aiDock = this.selectComponent('#aiDock')
@@ -518,7 +305,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
       if (response.status === 200) {
         wx.hideLoading()
-        const homeStore = useHomeStore.getState()
+        const chatStore = useChatStore.getState()
         const appStore = useAppStore.getState()
         
         const activityData = {
@@ -534,12 +321,8 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
           shareTitle: `🔥 ${draft.title}，快来！`,
         }
 
-        homeStore.addAIMessage({
-          role: 'assistant',
-          type: 'widget_share',
-          content: activityData,
-          activityId: draft.activityId,
-        })
+        // 使用 useChatStore 添加 Share Widget
+        chatStore.addWidgetMessage('share', activityData)
 
         appStore.showShareGuide({
           activityId: draft.activityId,
@@ -547,7 +330,6 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
           locationName: draft.locationName || draft.locationHint || '活动地点',
         })
 
-        // v3.4 优化：使用新的成功文案
         wx.showToast({ title: '搞定！快分享给朋友吧', icon: 'success' })
       } else {
         wx.hideLoading()
@@ -559,12 +341,6 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       console.error('[Home] Publish draft failed:', error)
       wx.showToast({ title: error?.message || '网络有点慢，再试一次？', icon: 'none' })
     }
-  },
-
-  navigateToConfirm(draft: any) {
-    const params = new URLSearchParams()
-    if (draft.activityId) params.append('activityId', draft.activityId)
-    wx.navigateTo({ url: `/subpackages/activity/confirm/index?${params.toString()}` })
   },
 
   onDraftAdjustLocation(_e: WechatMiniprogram.CustomEvent<{ draft: any }>) {
@@ -605,7 +381,6 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
       this.shareActivityData = null
       return result
     }
-    // v3.4 优化：使用新的品牌定位
     return {
       title: '聚场 - 想怎么玩？跟小聚说说',
       path: '/pages/home/index',
@@ -613,62 +388,47 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
   },
 
   onShareTimeline() {
-    // v3.4 优化：使用新的品牌定位
     return {
       title: '聚场 - 你的 AI 活动助理',
     }
   },
 
+  /**
+   * 错误重试
+   */
   onWidgetErrorRetry(e: WechatMiniprogram.CustomEvent) {
     const originalText = e.currentTarget.dataset.originalText
     if (originalText) {
-      this.startAIParse(originalText)
+      const chatStore = useChatStore.getState()
+      chatStore.sendMessage(originalText)
     }
   },
 
   /**
    * 处理 Widget_Ask_Preference 选项选择
-   * Requirements: 13.4, 13.5
    */
   onAskPreferenceSelect(e: WechatMiniprogram.CustomEvent<{
     questionType: 'location' | 'type';
     selectedOption: { label: string; value: string };
     collectedInfo?: { location?: string; type?: string };
   }>) {
-    const { questionType, selectedOption, collectedInfo } = e.detail
-    console.log('[Home] Ask preference select:', questionType, selectedOption)
-    
-    // 将用户选择作为新消息发送
-    const userMessage = selectedOption.label
-    const homeStore = useHomeStore.getState()
-    homeStore.addUserMessage(userMessage)
-    
-    // 发起新的 AI 请求，携带已收集的信息
-    // AI 会根据上下文继续对话或调用 exploreNearby
-    this.startAIParse(userMessage)
+    const { selectedOption } = e.detail
+    const chatStore = useChatStore.getState()
+    chatStore.sendMessage(selectedOption.label)
   },
 
   /**
    * 处理 Widget_Ask_Preference 跳过按钮
-   * Requirements: 13.4, 13.5
    */
-  onAskPreferenceSkip(e: WechatMiniprogram.CustomEvent<{
+  onAskPreferenceSkip(_e: WechatMiniprogram.CustomEvent<{
     questionType: 'location' | 'type';
     collectedInfo?: { location?: string; type?: string };
   }>) {
-    const { questionType } = e.detail
-    console.log('[Home] Ask preference skip:', questionType)
-    
-    // 发送"随便"作为用户消息
-    const userMessage = '随便，你推荐吧'
-    const homeStore = useHomeStore.getState()
-    homeStore.addUserMessage(userMessage)
-    
-    // AI 会识别快捷路径关键词，直接调用 exploreNearby
-    this.startAIParse(userMessage)
+    const chatStore = useChatStore.getState()
+    chatStore.sendMessage('随便，你推荐吧')
   },
 
   onNetworkRetry() {
-    this.loadMessages()
+    this.initChat()
   },
 })

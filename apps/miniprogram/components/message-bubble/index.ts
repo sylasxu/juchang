@@ -45,6 +45,11 @@ Component({
       type: Boolean,
       value: false,
     },
+    // 是否正在流式输出（显示打字光标）
+    isStreaming: {
+      type: Boolean,
+      value: false,
+    },
   },
 
   data: {

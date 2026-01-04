@@ -26,6 +26,28 @@ export type ConversationMessage = AiConversationsResponseItemsItem
 export type MessageRole = AiConversationsResponseItemsItemRole
 export type MessageType = AiConversationsResponseItemsItemType
 
+/**
+ * AI SDK v6 UIMessagePart 接口
+ * 用于存储 tool call 历史，支持多轮对话上下文
+ * @see https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol
+ */
+export interface UIMessagePart {
+  /** Part 类型：'text' 或 'tool-{toolName}' */
+  type: string
+  /** 文本内容（text part） */
+  text?: string
+  /** Tool Call ID（tool part） */
+  toolCallId?: string
+  /** Tool 名称（tool part） */
+  toolName?: string
+  /** Tool 输入参数（tool part） */
+  input?: unknown
+  /** Tool 输出结果（tool part） */
+  output?: unknown
+  /** Tool 状态：'call' | 'output-available'（tool part） */
+  state?: 'call' | 'output-available'
+}
+
 // 本地临时消息（用于乐观更新）
 export interface LocalMessage {
   id: string
@@ -34,10 +56,24 @@ export interface LocalMessage {
   content: unknown
   createdAt: string
   isLocal: true // 标记为本地消息
+  /** AI SDK v6 格式的 parts（用于 tool call history） */
+  parts?: UIMessagePart[]
 }
 
-// 统一消息类型
-export type ChatMessage = ConversationMessage | LocalMessage
+// 扩展 ConversationMessage 以支持 parts
+export interface ChatMessage {
+  id: string
+  userId?: string
+  userNickname?: string | null
+  role: MessageRole
+  type: MessageType
+  content: unknown
+  activityId?: string | null
+  createdAt: string
+  isLocal?: true
+  /** AI SDK v6 格式的 parts（用于 tool call history） */
+  parts?: UIMessagePart[]
+}
 
 interface HomeState {
   // 消息列表
@@ -59,7 +95,7 @@ interface HomeState {
   loadMessages: () => Promise<void>
   loadMoreMessages: () => Promise<void>
   addUserMessage: (content: string) => Promise<ChatMessage>
-  addAIMessage: (message: Omit<ConversationMessage, 'id' | 'userId' | 'userNickname' | 'createdAt'> & { id?: string }) => void
+  addAIMessage: (message: Omit<ChatMessage, 'id' | 'userId' | 'userNickname' | 'createdAt'> & { id?: string; parts?: UIMessagePart[] }) => void
   clearMessages: () => Promise<void>
   setError: (error: string | null) => void
   
@@ -262,6 +298,7 @@ export const useHomeStore = create<HomeState>()(
           content: message.content,
           activityId: message.activityId || null,
           createdAt: new Date().toISOString(),
+          parts: message.parts, // 保存 tool parts
         }
 
         set((draft) => {

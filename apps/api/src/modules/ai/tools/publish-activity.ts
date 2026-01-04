@@ -19,18 +19,7 @@ const publishActivitySchema = t.Object({
 });
 
 /** 类型自动推导 */
-export type PublishActivityParams = typeof publishActivitySchema.static;
-
-/** Tool 返回类型 */
-export interface PublishActivityResult {
-  success: boolean;
-  activityId?: string;
-  title?: string;
-  shareUrl?: string;
-  message?: string;
-  quotaRemaining?: number;
-  error?: string;
-}
+type PublishActivityParams = typeof publishActivitySchema.static;
 
 /**
  * 检查用户 AI 额度
@@ -94,18 +83,18 @@ function generateShareUrl(activityId: string): string {
  * @param userId - 用户 ID，null 时为沙盒模式
  */
 export function publishActivityTool(userId: string | null) {
-  return tool<PublishActivityParams, PublishActivityResult>({
+  return tool({
     description: `发布活动。将草稿状态的活动改为 active 状态。
 
 需要用户确认后才能调用。发布后会消耗用户的 AI 创建额度（每日 3 次）。`,
     
     inputSchema: jsonSchema<PublishActivityParams>(toJsonSchema(publishActivitySchema)),
     
-    execute: async ({ activityId }): Promise<PublishActivityResult> => {
+    execute: async ({ activityId }: PublishActivityParams) => {
       // 沙盒模式
       if (!userId) {
         return {
-          success: true,
+          success: true as const,
           activityId,
           shareUrl: generateShareUrl(activityId),
           message: '活动发布成功！（沙盒模式）',
@@ -128,21 +117,21 @@ export function publishActivityTool(userId: string | null) {
         
         if (!existingActivity) {
           return {
-            success: false,
+            success: false as const,
             error: '找不到这个活动，可能已经被删除了',
           };
         }
         
         if (existingActivity.creatorId !== userId) {
           return {
-            success: false,
+            success: false as const,
             error: '你没有权限发布这个活动',
           };
         }
         
         if (existingActivity.status !== 'draft') {
           return {
-            success: false,
+            success: false as const,
             error: '这个活动已经发布过了',
           };
         }
@@ -150,7 +139,7 @@ export function publishActivityTool(userId: string | null) {
         // 检查活动时间是否已过期
         if (existingActivity.startAt < new Date()) {
           return {
-            success: false,
+            success: false as const,
             error: '活动时间已过期，请修改时间后再发布',
           };
         }
@@ -159,7 +148,7 @@ export function publishActivityTool(userId: string | null) {
         const quota = await checkAIQuota(userId);
         if (!quota.hasQuota) {
           return {
-            success: false,
+            success: false as const,
             error: '今天的 AI 额度用完了，明天再来吧～',
             quotaRemaining: 0,
           };
@@ -192,7 +181,7 @@ export function publishActivityTool(userId: string | null) {
           });
         
         return {
-          success: true,
+          success: true as const,
           activityId,
           title: existingActivity.title,
           shareUrl: generateShareUrl(activityId),
@@ -202,7 +191,7 @@ export function publishActivityTool(userId: string | null) {
       } catch (error) {
         console.error('[publishActivity] Error:', error);
         return {
-          success: false,
+          success: false as const,
           error: '发布失败，请再试一次',
         };
       }

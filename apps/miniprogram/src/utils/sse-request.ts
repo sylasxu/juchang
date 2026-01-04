@@ -11,10 +11,21 @@ import {
   type ToolCall,
   type ToolResult,
   type UsageStats,
+  type UIMessagePart,
 } from './data-stream-parser'
 
 // 基础 URL
 const BASE_URL = 'http://localhost:3000'
+
+/**
+ * AI SDK UIMessage 格式
+ * 用于发送完整的消息历史（包含 tool call history）
+ */
+export interface UIMessage {
+  role: 'user' | 'assistant'
+  content: string
+  parts?: UIMessagePart[]
+}
 
 /** SSE 请求配置 */
 export interface SSERequestOptions {
@@ -146,13 +157,12 @@ function arrayBufferToString(buffer: ArrayBuffer): string {
  * 发送 AI Chat 消息
  * 封装 /ai/chat 端点的调用
  * v3.4 新增：支持 draftContext 用于多轮对话修改草稿
+ * v3.5 更新：接收完整的 UIMessage[] 数组（包含 tool call history）
  */
 export function sendAIChat(
-  message: string,
+  messages: UIMessage[],
   callbacks: SSECallbacks = {},
   options: {
-    /** 历史消息（可选） */
-    messages?: Array<{ role: 'user' | 'assistant'; content: string }>
     /** 用户位置（可选） */
     location?: { lat: number; lng: number }
     /** v3.4 新增：草稿上下文（用于多轮对话修改草稿） */
@@ -169,19 +179,13 @@ export function sendAIChat(
     }
   } = {}
 ): SSEController {
-  const { messages = [], location, draftContext } = options
-
-  // 构建消息列表
-  const allMessages = [
-    ...messages,
-    { role: 'user' as const, content: message },
-  ]
+  const { location, draftContext } = options
 
   return sseRequest(
     '/ai/chat',
     {
       body: {
-        messages: allMessages,
+        messages,
         source: 'miniprogram',
         ...(location ? { location } : {}),
         ...(draftContext ? { draftContext } : {}),
@@ -191,4 +195,4 @@ export function sendAIChat(
   )
 }
 
-export type { ToolCall, ToolResult, UsageStats }
+export type { ToolCall, ToolResult, UsageStats, UIMessagePart }

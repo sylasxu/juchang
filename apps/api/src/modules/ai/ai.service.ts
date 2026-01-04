@@ -1,4 +1,4 @@
-// AI Service - v3.5 统一 AI Chat (Data Stream Protocol + Execution Trace)
+// AI Service - v3.6 统一 AI Chat (Data Stream Protocol + Execution Trace + Message Enrichment)
 import { db, users, conversations, activities, participants, eq, desc, sql } from '@juchang/db';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { 
@@ -6,12 +6,12 @@ import {
   createUIMessageStream, 
   createUIMessageStreamResponse,
   convertToModelMessages,
+  stepCountIs,
+  hasToolCall,
   type UIMessage,
 } from 'ai';
 import { randomUUID } from 'crypto';
 import type { 
-  AIParseRequest, 
-  AIParseResponse, 
   ConversationsQuery,
   ConversationMessageType,
   WelcomeResponse,
@@ -20,22 +20,10 @@ import type {
   ContinueDraftContext,
   FindPartnerContext,
 } from './ai.model';
-import { buildSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v35';
+import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v36';
 import { getAIToolsV34 } from './tools';
 import { recordTokenUsage } from './services/metrics';
-
-// ==========================================
-// System Prompt (v3.4 - 从 prompts 模块导入)
-// ==========================================
-
-// 测试模式 Prompt（不使用 Tools）
-const SYSTEM_PROMPT_TEST = `你是聚场 AI 助手，专门帮助用户组织线下活动。
-
-这是测试模式，请直接用文字回复，模拟你会如何理解用户的意图。
-如果用户想创建活动，描述你会提取哪些信息（时间、地点、活动类型等）。
-如果用户想探索附近，描述你会搜索什么。
-
-语气要接地气，不要太正式。`;
+import { enrichMessages, injectContextToSystemPrompt, type EnrichmentContext } from './enrichment';
 
 /**
  * DeepSeek Provider 配置
@@ -140,11 +128,15 @@ export interface StreamChatRequest {
 }
 
 /**
- * 统一 AI Chat - 返回 Data Stream Response (v3.5)
+ * 统一 AI Chat - 返回 Data Stream Response (v3.6)
  * 
  * 小程序和 Admin 都使用此函数，返回 Vercel AI SDK 标准格式。
  * 
- * v3.5 新特性：
+ * v3.6 新特性：
+ * - 消息增强 (Message Enrichment)：自动注入时间、位置、草稿上下文
+ * - XML 结构化 Prompt：基于 Claude 4.x Best Practices
+ * 
+ * v3.5 特性：
  * - trace 参数：返回执行追踪数据（Admin Playground 调试用）
  * 
  * v3.4 特性：
@@ -169,17 +161,39 @@ export async function streamChat(request: StreamChatRequest) {
     draftContext,
   };
 
+  // 构建消息增强上下文
+  const enrichmentContext: EnrichmentContext = {
+    userId,
+    location: location ? {
+      lat: location[1],
+      lng: location[0],
+      name: locationName,
+    } : undefined,
+    draftContext,
+    conversationHistory: messages.map(m => ({
+      role: m.role,
+      content: m.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text || '',
+    })),
+    currentTime: new Date(),
+  };
+
+  // 执行消息增强
+  const { enrichedMessages, contextXml, enrichmentTrace } = await enrichMessages(
+    messages as UIMessage[],
+    enrichmentContext
+  );
+
   // 使用 AI SDK 内置的 convertToModelMessages 转换消息格式
   // 自动处理 UIMessage 中的 parts（包含 Tool 调用历史）
-  const aiMessages = await convertToModelMessages(messages);
+  const aiMessages = await convertToModelMessages(enrichedMessages);
 
   // 测试模式判断：
   // - 小程序无用户：测试模式（不使用 Tools）
   // - Admin 无用户：仍使用 Tools（Tools 内部会处理 userId=null 的情况，不写数据库）
   const isTestMode = !userId && source !== 'admin';
   
-  // 构建 System Prompt
-  const systemPrompt = isTestMode ? SYSTEM_PROMPT_TEST : buildSystemPrompt(promptContext);
+  // 构建 XML 结构化 System Prompt（v3.6），注入增强上下文
+  const systemPrompt = buildXmlSystemPrompt(promptContext, contextXml);
   
   // 获取 Tools
   // - 测试模式：不使用 Tools
@@ -202,27 +216,10 @@ export async function streamChat(request: StreamChatRequest) {
     messages: aiMessages,
     tools: tools as any,
     temperature: 0, // 更一致的 Tool 调用结果
-    // 自定义停止条件：
-    // 1. 最多 5 步
-    // 2. 如果调用了 askPreference，立即停止（等待用户回复）
-    stopWhen: (event) => {
-      // 检查是否达到最大步骤数
-      if (event.steps.length >= 5) return true;
-      
-      // 检查最后一步是否调用了 askPreference
-      const lastStep = event.steps[event.steps.length - 1];
-      if (lastStep?.toolCalls) {
-        const hasAskPreference = lastStep.toolCalls.some(
-          (tc: { toolName: string }) => tc.toolName === 'askPreference'
-        );
-        if (hasAskPreference) {
-          console.log('[AI Chat] askPreference called, stopping to wait for user response');
-          return true;
-        }
-      }
-      
-      return false;
-    },
+    // 使用 AI SDK 内置的停止条件：
+    // 1. 最多 5 步（使用 stepCountIs）
+    // 2. 如果调用了 askPreference，立即停止（使用 hasToolCall）
+    stopWhen: [stepCountIs(5), hasToolCall('askPreference')],
     // 使用 onStepFinish 实时获取每个步骤的数据
     onStepFinish: (step) => {
       // 收集 tool calls
@@ -244,13 +241,12 @@ export async function streamChat(request: StreamChatRequest) {
         }
       }
     },
-    onFinish: async (event) => {
-      // 获取最终 usage
-      const eventUsage = (event as any).totalUsage || event.usage;
+    onFinish: async ({ usage }) => {
+      // 直接使用 DeepSeek provider 标准化的 usage 格式
       totalUsage = {
-        promptTokens: eventUsage?.promptTokens ?? eventUsage?.inputTokens ?? 0,
-        completionTokens: eventUsage?.completionTokens ?? eventUsage?.outputTokens ?? 0,
-        totalTokens: eventUsage?.totalTokens ?? 0,
+        promptTokens: usage.inputTokens ?? 0,
+        completionTokens: usage.outputTokens ?? 0,
+        totalTokens: usage.totalTokens ?? 0,
       };
       
       console.log(`[AI Chat] Source: ${source}, User: ${userId}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}`);
@@ -327,6 +323,7 @@ export async function streamChat(request: StreamChatRequest) {
               activityId: promptContext.draftContext.activityId,
               title: promptContext.draftContext.currentDraft.title,
             } : undefined,
+            enrichmentTrace: enrichmentTrace.length > 0 ? enrichmentTrace : undefined,
             fullPrompt: systemPrompt,
           },
         },
@@ -463,75 +460,6 @@ async function getUserNickname(userId: string): Promise<string | undefined> {
     .limit(1);
   return user?.nickname || undefined;
 }
-
-// 保留旧函数用于向后兼容（小程序过渡期）
-export async function parseTextStream(request: AIParseRequest): Promise<ReturnType<typeof streamText>> {
-  const { text, location } = request;
-  
-  // 构建位置上下文
-  let locationContext = '';
-  if (location) {
-    locationContext = `用户当前位置：经度${location[0]}，纬度${location[1]}（重庆地区）。`;
-  }
-
-  // 使用测试模式 Prompt
-  const result = streamText({
-    model: getAIModel(),
-    system: SYSTEM_PROMPT_TEST + '\n' + locationContext,
-    prompt: text,
-  });
-
-  return result;
-}
-
-/**
- * 解析 AI 返回的 JSON 文本
- */
-export function parseAIResponse(text: string): AIParseResponse {
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      
-      // 处理重庆地理位置
-      if (parsed.parsed?.locationName && !parsed.parsed?.location) {
-        const locationKeywords: Record<string, [number, number]> = {
-          '观音桥': [106.5516, 29.5630],
-          '解放碑': [106.5770, 29.5647],
-          '南坪': [106.5516, 29.5230],
-          '沙坪坝': [106.4550, 29.5410],
-          '江北': [106.5740, 29.6060],
-          '杨家坪': [106.5100, 29.5030],
-          '大坪': [106.5230, 29.5380],
-          '北碚': [106.4370, 29.8260],
-        };
-        
-        for (const [keyword, coords] of Object.entries(locationKeywords)) {
-          if (parsed.parsed.locationName.includes(keyword)) {
-            parsed.parsed.location = coords;
-            break;
-          }
-        }
-      }
-      
-      return {
-        parsed: parsed.parsed || {},
-        confidence: parsed.confidence || 0.5,
-        suggestions: parsed.suggestions || [],
-      };
-    }
-  } catch (error) {
-    console.error('AI 响应解析失败:', error);
-  }
-  
-  // 回退响应
-  return {
-    parsed: {},
-    confidence: 0.3,
-    suggestions: ['请提供更详细的活动信息'],
-  };
-}
-
 
 // ==========================================
 // 创建 Draft 活动 (v3.2 新增)

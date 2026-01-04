@@ -33,7 +33,7 @@ const exploreNearbySchema = t.Object({
 });
 
 /** 类型自动推导 */
-export type ExploreNearbyParams = typeof exploreNearbySchema.static;
+type ExploreNearbyParams = typeof exploreNearbySchema.static;
 
 /**
  * 探索结果项
@@ -51,24 +51,13 @@ interface ExploreResult {
   maxParticipants: number;
 }
 
-/** Tool 返回类型 */
-export interface ExploreNearbyResult {
-  success: boolean;
-  explore?: {
-    center: { lat: number; lng: number; name: string };
-    results: ExploreResult[];
-    title: string;
-  };
-  error?: string;
-}
-
 /**
  * 创建 exploreNearby Tool
  * 
  * @param userId - 用户 ID，null 时为沙盒模式
  */
 export function exploreNearbyTool(userId: string | null) {
-  return tool<ExploreNearbyParams, ExploreNearbyResult>({
+  return tool({
     description: `探索附近活动。当用户表达探索性意图时使用，例如：
 - "附近有什么好玩的"
 - "推荐一下观音桥的活动"
@@ -79,7 +68,7 @@ export function exploreNearbyTool(userId: string | null) {
     
     inputSchema: jsonSchema<ExploreNearbyParams>(toJsonSchema(exploreNearbySchema)),
     
-    execute: async ({ center, type, radius = 5000 }): Promise<ExploreNearbyResult> => {
+    execute: async ({ center, type, radius = 5000 }: ExploreNearbyParams) => {
       try {
         // 构建查询
         let query = sql`
@@ -141,13 +130,13 @@ export function exploreNearbyTool(userId: string | null) {
         }
         
         return {
-          success: true,
+          success: true as const,
           explore: exploreData,
         };
       } catch (error) {
         console.error('[exploreNearby] Error:', error);
         return {
-          success: false,
+          success: false as const,
           error: '搜索失败，请再试一次',
         };
       }

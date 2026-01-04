@@ -35,25 +35,7 @@ const refineDraftSchema = t.Object({
 });
 
 /** 类型自动推导 */
-export type RefineDraftParams = typeof refineDraftSchema.static;
-
-/** Tool 返回类型 */
-export interface RefineDraftResult {
-  success: boolean;
-  activityId?: string;
-  updates?: RefineDraftParams['updates'];
-  draft?: {
-    id: string;
-    title: string;
-    type: string;
-    locationName: string;
-    locationHint: string;
-    startAt: string;
-    maxParticipants: number;
-  };
-  message?: string;
-  error?: string;
-}
+type RefineDraftParams = typeof refineDraftSchema.static;
 
 /**
  * 创建 refineDraft Tool
@@ -61,7 +43,7 @@ export interface RefineDraftResult {
  * @param userId - 用户 ID，null 时为沙盒模式
  */
 export function refineDraftTool(userId: string | null) {
-  return tool<RefineDraftParams, RefineDraftResult>({
+  return tool({
     description: `修改现有活动草稿。当用户说"换个地方"、"改时间"、"加人"等时使用。
 
 只修改用户明确要求的字段，其他字段保持不变。
@@ -69,11 +51,11 @@ export function refineDraftTool(userId: string | null) {
     
     inputSchema: jsonSchema<RefineDraftParams>(toJsonSchema(refineDraftSchema)),
     
-    execute: async ({ activityId, updates, reason }): Promise<RefineDraftResult> => {
+    execute: async ({ activityId, updates, reason }: RefineDraftParams) => {
       // 沙盒模式
       if (!userId) {
         return {
-          success: true,
+          success: true as const,
           activityId,
           updates,
           message: `已更新：${reason}（沙盒模式）`,
@@ -94,21 +76,21 @@ export function refineDraftTool(userId: string | null) {
         
         if (!existingActivity) {
           return {
-            success: false,
+            success: false as const,
             error: '找不到这个草稿，可能已经被删除了',
           };
         }
         
         if (existingActivity.creatorId !== userId) {
           return {
-            success: false,
+            success: false as const,
             error: '你没有权限修改这个活动',
           };
         }
         
         if (existingActivity.status !== 'draft') {
           return {
-            success: false,
+            success: false as const,
             error: '只能修改草稿状态的活动',
           };
         }
@@ -172,7 +154,7 @@ export function refineDraftTool(userId: string | null) {
           });
         
         return {
-          success: true,
+          success: true as const,
           activityId,
           draft: {
             ...updatedActivity,
@@ -183,7 +165,7 @@ export function refineDraftTool(userId: string | null) {
       } catch (error) {
         console.error('[refineDraft] Error:', error);
         return {
-          success: false,
+          success: false as const,
           error: '修改失败，请再试一次',
         };
       }

@@ -1,15 +1,13 @@
 /**
  * Data Stream Parser for WeChat MiniProgram
- * 解析 Vercel AI SDK Data Stream Protocol 格式
+ * 解析 Vercel AI SDK v6 Data Stream Protocol (SSE 格式)
  * 
- * Data Stream 格式说明：
- * - 0:"text"     → 文本增量
- * - 9:{...}      → Tool Call (工具调用)
- * - a:{...}      → Tool Result (工具结果)
- * - d:{...}      → Done + Usage (完成信号)
- * - e:{...}      → Error (错误)
- * - 2:[...]      → Data (附加数据)
- * - 8:[...]      → Message Annotations
+ * AI SDK v6 使用 Server-Sent Events (SSE) 格式：
+ * - event: text-delta        → 文本增量
+ * - event: tool-input-available  → Tool 输入完成
+ * - event: tool-output-available → Tool 输出完成
+ * - event: finish-message    → 消息完成
+ * - event: error             → 错误
  * 
  * @see https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol
  */
@@ -34,13 +32,34 @@ export interface UsageStats {
   totalTokens?: number
 }
 
+/**
+ * AI SDK v6 UIMessagePart 接口
+ * 用于构建 tool call history
+ */
+export interface UIMessagePart {
+  /** Part 类型：'text' 或 'tool-{toolName}' */
+  type: string
+  /** 文本内容（text part） */
+  text?: string
+  /** Tool Call ID（tool part） */
+  toolCallId?: string
+  /** Tool 名称（tool part） */
+  toolName?: string
+  /** Tool 输入参数（tool part） */
+  input?: unknown
+  /** Tool 输出结果（tool part） */
+  output?: unknown
+  /** Tool 状态：'call' | 'output-available'（tool part） */
+  state?: 'call' | 'output-available'
+}
+
 /** 解析器回调配置 */
 export interface DataStreamParserCallbacks {
   /** 收到文本增量时触发 */
   onText?: (text: string) => void
-  /** 收到 Tool Call 时触发 */
+  /** 收到 Tool Call 时触发（tool-input-available） */
   onToolCall?: (toolCall: ToolCall) => void
-  /** 收到 Tool Result 时触发 */
+  /** 收到 Tool Result 时触发（tool-output-available） */
   onToolResult?: (result: ToolResult) => void
   /** 流完成时触发 */
   onDone?: (usage?: UsageStats) => void
@@ -55,11 +74,17 @@ interface ParserState {
   buffer: string
   accumulatedText: string
   toolCalls: Map<string, ToolCall>
+  /** AI SDK v6 格式的 tool parts */
+  toolParts: UIMessagePart[]
+  /** 当前正在解析的 SSE 事件 */
+  currentEvent: string | null
+  /** 当前事件的数据行 */
+  currentData: string[]
 }
 
 /**
  * Data Stream Parser Class
- * 处理流式数据的解析，支持粘包和不完整数据
+ * 处理 AI SDK v6 SSE 格式的流式数据解析
  */
 export class DataStreamParser {
   private state: ParserState
@@ -71,6 +96,9 @@ export class DataStreamParser {
       buffer: '',
       accumulatedText: '',
       toolCalls: new Map(),
+      toolParts: [],
+      currentEvent: null,
+      currentData: [],
     }
   }
 
@@ -90,116 +118,203 @@ export class DataStreamParser {
 
     // 处理完整的行
     for (const line of lines) {
-      this.parseLine(line.trim())
+      this.parseLine(line)
     }
   }
 
   /**
-   * 解析单行数据
+   * 解析单行 SSE 数据
+   * SSE 格式：
+   * - "event: xxx" 设置事件类型
+   * - "data: xxx" 设置事件数据
+   * - 空行触发事件处理
    */
   private parseLine(line: string): void {
-    if (!line) return
-
-    // 匹配格式: TYPE:CONTENT
-    // TYPE 是单个字符或数字
-    const match = line.match(/^([0-9a-f]):(.*)$/i)
-    if (!match) {
-      console.warn('[DataStreamParser] Invalid line format:', line)
+    // 空行表示一个 SSE 事件结束
+    if (line.trim() === '') {
+      this.processEvent()
       return
     }
 
-    const [, type, content] = match
+    // 解析 "event: xxx"
+    if (line.startsWith('event:')) {
+      this.state.currentEvent = line.slice(6).trim()
+      return
+    }
+
+    // 解析 "data: xxx"
+    if (line.startsWith('data:')) {
+      const data = line.slice(5).trim()
+      this.state.currentData.push(data)
+      return
+    }
+
+    // 忽略注释和其他行
+    if (line.startsWith(':') || line.startsWith('id:') || line.startsWith('retry:')) {
+      return
+    }
+  }
+
+  /**
+   * 处理完整的 SSE 事件
+   */
+  private processEvent(): void {
+    const event = this.state.currentEvent
+    const dataStr = this.state.currentData.join('\n')
+
+    // 重置当前事件状态
+    this.state.currentEvent = null
+    this.state.currentData = []
+
+    if (!event || !dataStr) return
+
+    // 处理 [DONE] 标记
+    if (dataStr === '[DONE]') {
+      this.callbacks.onDone?.()
+      return
+    }
 
     try {
-      switch (type) {
-        case '0': // Text
-          this.handleText(content)
+      const data = JSON.parse(dataStr)
+      
+      switch (event) {
+        case 'text-delta':
+          this.handleTextDelta(data)
           break
-        case '9': // Tool Call
-          this.handleToolCall(content)
+        case 'tool-input-available':
+          this.handleToolInputAvailable(data)
           break
-        case 'a': // Tool Result
-          this.handleToolResult(content)
+        case 'tool-output-available':
+          this.handleToolOutputAvailable(data)
           break
-        case 'd': // Done
-          this.handleDone(content)
+        case 'finish-message':
+          this.handleFinishMessage(data)
           break
-        case 'e': // Error
-          this.handleError(content)
+        case 'error':
+          this.handleError(data)
           break
-        case '2': // Data
-          this.handleData(content)
-          break
-        case '8': // Message Annotations
-          // 暂时忽略 annotations
+        // 其他事件类型（可选处理）
+        case 'message-start':
+        case 'text-start':
+        case 'text-end':
+        case 'start-step':
+        case 'finish-step':
+          // 这些事件用于更精细的控制，小程序端暂时忽略
           break
         default:
-          console.warn('[DataStreamParser] Unknown type:', type)
+          // 处理自定义 data-* 事件
+          if (event.startsWith('data-')) {
+            this.handleCustomData(event, data)
+          }
       }
     } catch (err) {
-      console.error('[DataStreamParser] Parse error:', err, 'Line:', line)
+      console.warn('[DataStreamParser] Failed to parse event data:', event, dataStr, err)
     }
   }
 
   /**
    * 处理文本增量
-   * 格式: 0:"text content"
+   * event: text-delta
+   * data: {"textDelta":"Hello"}
    */
-  private handleText(content: string): void {
-    // content 是 JSON 字符串格式，需要解析
-    const text = JSON.parse(content) as string
-    this.state.accumulatedText += text
-    this.callbacks.onText?.(text)
-  }
-
-  /**
-   * 处理 Tool Call
-   * 格式: 9:{"toolCallId":"xxx","toolName":"xxx","args":{...}}
-   */
-  private handleToolCall(content: string): void {
-    const data = JSON.parse(content) as ToolCall
-    this.state.toolCalls.set(data.toolCallId, data)
-    this.callbacks.onToolCall?.(data)
-  }
-
-  /**
-   * 处理 Tool Result
-   * 格式: a:{"toolCallId":"xxx","result":{...}}
-   */
-  private handleToolResult(content: string): void {
-    const data = JSON.parse(content) as ToolResult
-    this.callbacks.onToolResult?.(data)
-  }
-
-  /**
-   * 处理完成信号
-   * 格式: d:{"finishReason":"stop","usage":{"promptTokens":10,"completionTokens":20}}
-   */
-  private handleDone(content: string): void {
-    const data = JSON.parse(content) as {
-      finishReason?: string
-      usage?: UsageStats
+  private handleTextDelta(data: { textDelta: string }): void {
+    const text = data.textDelta
+    if (text) {
+      this.state.accumulatedText += text
+      this.callbacks.onText?.(text)
     }
+  }
+
+  /**
+   * 处理 Tool 输入完成
+   * event: tool-input-available
+   * data: {"toolCallId":"xxx","toolName":"xxx","input":{...}}
+   */
+  private handleToolInputAvailable(data: {
+    toolCallId: string
+    toolName: string
+    input: Record<string, unknown>
+  }): void {
+    const toolCall: ToolCall = {
+      toolCallId: data.toolCallId,
+      toolName: data.toolName,
+      args: data.input,
+    }
+    
+    this.state.toolCalls.set(data.toolCallId, toolCall)
+    
+    // 构建 AI SDK v6 格式的 tool part
+    const toolPart: UIMessagePart = {
+      type: `tool-${data.toolName}`,
+      toolCallId: data.toolCallId,
+      toolName: data.toolName,
+      input: data.input,
+      state: 'call',
+    }
+    this.state.toolParts.push(toolPart)
+    
+    this.callbacks.onToolCall?.(toolCall)
+  }
+
+  /**
+   * 处理 Tool 输出完成
+   * event: tool-output-available
+   * data: {"toolCallId":"xxx","output":{...}}
+   */
+  private handleToolOutputAvailable(data: {
+    toolCallId: string
+    output: unknown
+  }): void {
+    const result: ToolResult = {
+      toolCallId: data.toolCallId,
+      result: data.output,
+    }
+    
+    // 更新对应的 tool part
+    const toolPart = this.state.toolParts.find(p => p.toolCallId === data.toolCallId)
+    if (toolPart) {
+      toolPart.output = data.output
+      toolPart.state = 'output-available'
+    }
+    
+    this.callbacks.onToolResult?.(result)
+  }
+
+  /**
+   * 处理消息完成
+   * event: finish-message
+   * data: {"finishReason":"stop","usage":{...}}
+   */
+  private handleFinishMessage(data: {
+    finishReason?: string
+    usage?: {
+      promptTokens?: number
+      completionTokens?: number
+      totalTokens?: number
+    }
+  }): void {
     this.callbacks.onDone?.(data.usage)
   }
 
   /**
    * 处理错误
-   * 格式: e:"error message" 或 e:{"message":"..."}
+   * event: error
+   * data: {"message":"..."}
    */
-  private handleError(content: string): void {
-    const data = JSON.parse(content)
-    const errorMessage = typeof data === 'string' ? data : data.message || 'Unknown error'
+  private handleError(data: { message?: string } | string): void {
+    const errorMessage = typeof data === 'string' 
+      ? data 
+      : data.message || 'Unknown error'
     this.callbacks.onError?.(errorMessage)
   }
 
   /**
-   * 处理附加数据
-   * 格式: 2:[{...}, {...}]
+   * 处理自定义数据事件
+   * event: data-*
    */
-  private handleData(content: string): void {
-    const data = JSON.parse(content) as unknown[]
-    this.callbacks.onData?.(data)
+  private handleCustomData(event: string, data: unknown): void {
+    // 将自定义数据作为数组传递
+    this.callbacks.onData?.([{ type: event, data }])
   }
 
   /**
@@ -217,6 +332,14 @@ export class DataStreamParser {
   }
 
   /**
+   * 获取 AI SDK v6 格式的 tool parts
+   * 用于构建完整的消息历史
+   */
+  getToolParts(): UIMessagePart[] {
+    return [...this.state.toolParts]
+  }
+
+  /**
    * 重置解析器状态
    */
   reset(): void {
@@ -224,6 +347,9 @@ export class DataStreamParser {
       buffer: '',
       accumulatedText: '',
       toolCalls: new Map(),
+      toolParts: [],
+      currentEvent: null,
+      currentData: [],
     }
   }
 
@@ -232,8 +358,12 @@ export class DataStreamParser {
    */
   flush(): void {
     if (this.state.buffer.trim()) {
-      this.parseLine(this.state.buffer.trim())
+      this.parseLine(this.state.buffer)
       this.state.buffer = ''
+    }
+    // 处理最后一个可能未完成的事件
+    if (this.state.currentEvent || this.state.currentData.length > 0) {
+      this.processEvent()
     }
   }
 }
@@ -254,8 +384,10 @@ export function createDataStreamParser(
 export function getWidgetTypeFromToolCall(toolCall: ToolCall): string | null {
   const toolNameToWidget: Record<string, string> = {
     createActivityDraft: 'widget_draft',
+    refineDraft: 'widget_draft',
     exploreNearby: 'widget_explore',
     askPreference: 'widget_ask_preference',
+    publishActivity: 'widget_share',
   }
   return toolNameToWidget[toolCall.toolName] || null
 }
@@ -264,7 +396,7 @@ export function getWidgetTypeFromToolCall(toolCall: ToolCall): string | null {
  * 辅助函数 - 判断是否是 Widget 相关的 Tool
  */
 export function isWidgetTool(toolName: string): boolean {
-  const widgetTools = ['createActivityDraft', 'exploreNearby', 'askPreference']
+  const widgetTools = ['createActivityDraft', 'refineDraft', 'exploreNearby', 'askPreference', 'publishActivity']
   return widgetTools.includes(toolName)
 }
 

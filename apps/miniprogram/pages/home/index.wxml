@@ -1,6 +1,7 @@
 <!--
   首页 (Chat-First 架构)
   Requirements: 1.1, 1.2, 1.3, 1.4, 3.2
+  v3.7 重构: 使用 useChatStore，支持 UIMessage.parts 渲染
   
   三层结构：Custom_Navbar + Chat_Stream + AI_Dock
   - 首次进入显示 Widget_Dashboard
@@ -27,20 +28,9 @@
     scroll-y
     scroll-with-animation
     scroll-into-view="{{scrollToView}}"
-    upper-threshold="100"
-    bindscrolltoupper="onLoadMore"
     enhanced
     show-scrollbar="{{false}}"
   >
-    <!-- 加载更多指示器 -->
-    <view wx:if="{{isLoadingMore}}" class="loading-more">
-      <view class="loading-dots">
-        <view class="loading-dot"></view>
-        <view class="loading-dot"></view>
-        <view class="loading-dot"></view>
-      </view>
-    </view>
-    
     <!-- 消息列表 -->
     <view class="message-list">
       <block wx:for="{{messages}}" wx:key="id">
@@ -51,102 +41,107 @@
         >
           <!-- 用户消息 -->
           <block wx:if="{{item.role === 'user'}}">
-            <message-bubble 
-              role="user" 
-              content="{{item.content.text || item.content}}"
-            />
+            <block wx:for="{{item.parts}}" wx:for-item="part" wx:key="index">
+              <block wx:if="{{part.type === 'text'}}">
+                <message-bubble 
+                  role="user" 
+                  content="{{part.text}}"
+                />
+              </block>
+            </block>
           </block>
           
-          <!-- AI 消息 -->
+          <!-- AI 消息 - 遍历 parts 渲染 -->
           <block wx:else>
-            <!-- 文本消息 -->
-            <block wx:if="{{item.type === 'text'}}">
-              <message-bubble 
-                role="assistant" 
-                content="{{item.content.text || item.content}}"
-              />
-            </block>
-            
-            <!-- Widget_Dashboard -->
-            <block wx:elif="{{item.type === 'widget_dashboard'}}">
-              <widget-dashboard 
-                nickname="{{item.content.nickname || userNickname}}"
-                activities="{{item.content.activities || upcomingActivities}}"
-                greeting="{{item.content.greeting}}"
-                quickActions="{{item.content.quickActions}}"
-                fallbackPrompt="{{item.content.fallbackPrompt}}"
-                bind:activitytap="onDashboardActivityTap"
-                bind:prompttap="onDashboardPromptTap"
-                bind:quickactiontap="onDashboardQuickActionTap"
-                bind:explorenearby="onDashboardExploreNearby"
-                bind:findpartner="onDashboardFindPartner"
-              />
-            </block>
-            
-            <!-- Widget_Draft -->
-            <block wx:elif="{{item.type === 'widget_draft'}}">
-              <widget-draft 
-                draft="{{item.content}}"
-                bind:confirm="onDraftConfirm"
-                bind:adjustlocation="onDraftAdjustLocation"
-                bind:sendMessage="onDraftSendMessage"
-              />
-            </block>
-            
-            <!-- Widget_Share -->
-            <block wx:elif="{{item.type === 'widget_share'}}">
-              <widget-share 
-                activity="{{item.content}}"
-                bind:share="onWidgetShareTap"
-              />
-            </block>
-            
-            <!-- Widget_Explore -->
-            <block wx:elif="{{item.type === 'widget_explore'}}">
-              <widget-explore 
-                results="{{item.content.results}}"
-                center="{{item.content.center}}"
-                title="{{item.content.title}}"
-                bind:expandmap="onExploreExpandMap"
-              />
-            </block>
-            
-            <!-- Widget_Ask_Preference -->
-            <block wx:elif="{{item.type === 'widget_ask_preference'}}">
-              <widget-ask-preference 
-                questionType="{{item.content.questionType}}"
-                question="{{item.content.question}}"
-                options="{{item.content.options}}"
-                allowSkip="{{item.content.allowSkip}}"
-                collectedInfo="{{item.content.collectedInfo}}"
-                disabled="{{item.content.disabled}}"
-                bind:select="onAskPreferenceSelect"
-                bind:skip="onAskPreferenceSkip"
-              />
-            </block>
-            
-            <!-- Widget_Error -->
-            <block wx:elif="{{item.type === 'widget_error'}}">
-              <widget-error 
-                message="{{item.content.message || '出了点问题'}}"
-                showRetry="{{item.content.showRetry !== false}}"
-                data-original-text="{{item.content.originalText}}"
-                bind:retry="onWidgetErrorRetry"
-              />
+            <block wx:for="{{item.parts}}" wx:for-item="part" wx:for-index="partIndex" wx:key="partIndex">
+              <!-- 文本消息 -->
+              <block wx:if="{{part.type === 'text'}}">
+                <message-bubble 
+                  role="assistant" 
+                  content="{{part.text}}"
+                  isStreaming="{{streamingMessageId === item.id}}"
+                />
+              </block>
+              
+              <!-- Widget 消息 -->
+              <block wx:elif="{{part.type === 'widget'}}">
+                <!-- Widget_Dashboard -->
+                <block wx:if="{{part.widgetType === 'dashboard'}}">
+                  <widget-dashboard 
+                    nickname="{{part.data.nickname || userNickname}}"
+                    activities="{{part.data.activities}}"
+                    greeting="{{part.data.greeting}}"
+                    quickActions="{{part.data.quickActions}}"
+                    fallbackPrompt="{{part.data.fallbackPrompt}}"
+                    bind:activitytap="onDashboardActivityTap"
+                    bind:prompttap="onDashboardPromptTap"
+                    bind:quickactiontap="onDashboardQuickActionTap"
+                    bind:explorenearby="onDashboardExploreNearby"
+                    bind:findpartner="onDashboardFindPartner"
+                  />
+                </block>
+                
+                <!-- Widget_Draft -->
+                <block wx:elif="{{part.widgetType === 'draft'}}">
+                  <widget-draft 
+                    draft="{{part.data}}"
+                    bind:confirm="onDraftConfirm"
+                    bind:adjustlocation="onDraftAdjustLocation"
+                    bind:sendMessage="onDraftSendMessage"
+                  />
+                </block>
+                
+                <!-- Widget_Share -->
+                <block wx:elif="{{part.widgetType === 'share'}}">
+                  <widget-share 
+                    activity="{{part.data}}"
+                    bind:share="onWidgetShareTap"
+                  />
+                </block>
+                
+                <!-- Widget_Explore -->
+                <block wx:elif="{{part.widgetType === 'explore'}}">
+                  <widget-explore 
+                    results="{{part.data.results}}"
+                    center="{{part.data.center}}"
+                    title="{{part.data.title}}"
+                    bind:expandmap="onExploreExpandMap"
+                  />
+                </block>
+                
+                <!-- Widget_Ask_Preference -->
+                <block wx:elif="{{part.widgetType === 'ask_preference'}}">
+                  <widget-ask-preference 
+                    questionType="{{part.data.questionType}}"
+                    question="{{part.data.question}}"
+                    options="{{part.data.options}}"
+                    allowSkip="{{part.data.allowSkip}}"
+                    collectedInfo="{{part.data.collectedInfo}}"
+                    disabled="{{part.data.disabled}}"
+                    bind:select="onAskPreferenceSelect"
+                    bind:skip="onAskPreferenceSkip"
+                  />
+                </block>
+                
+                <!-- Widget_Error -->
+                <block wx:elif="{{part.widgetType === 'error'}}">
+                  <widget-error 
+                    message="{{part.data.message || '出了点问题'}}"
+                    showRetry="{{part.data.showRetry !== false}}"
+                    data-original-text="{{part.data.originalText}}"
+                    bind:retry="onWidgetErrorRetry"
+                  />
+                </block>
+              </block>
             </block>
           </block>
         </view>
       </block>
     </view>
     
-    <!-- AI 思考态 -->
-    <view wx:if="{{aiThinkingState === 'thinking'}}" class="message-item message-item--assistant slide-up-fade-in">
-      <thinking-bubble text="{{thinkingText}}" />
-    </view>
-    
-    <!-- Widget 骨架屏 -->
-    <view wx:if="{{skeletonType}}" class="message-item message-item--assistant slide-up-fade-in">
-      <widget-skeleton type="{{skeletonType}}" />
+    <!-- AI 思考态 - 当 status 为 submitted 时显示 -->
+    <view wx:if="{{status === 'submitted'}}" class="message-item message-item--assistant slide-up-fade-in">
+      <thinking-bubble text="收到，小聚正在整理你的安排..." />
     </view>
     
     <!-- 底部占位（为 AI Dock 留空间） -->
