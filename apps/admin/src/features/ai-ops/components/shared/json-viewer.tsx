@@ -37,6 +37,9 @@ export function JsonViewer({
   const [copied, setCopied] = useState(false)
 
   const jsonString = useMemo(() => {
+    if (data === undefined || data === null) {
+      return 'null'
+    }
     try {
       return JSON.stringify(data, null, 2)
     } catch {
@@ -50,7 +53,7 @@ export function JsonViewer({
     setTimeout(() => setCopied(false), 2000)
   }, [jsonString])
 
-  const lines = useMemo(() => jsonString.split('\n'), [jsonString])
+  const lines = useMemo(() => jsonString?.split('\n') ?? [], [jsonString])
 
   return (
     <div className={cn('relative rounded-md border bg-muted/30', className)}>

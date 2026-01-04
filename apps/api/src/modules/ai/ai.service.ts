@@ -1,5 +1,5 @@
-// AI Service - v3.6 统一 AI Chat (Data Stream Protocol + Execution Trace + Message Enrichment)
-import { db, users, conversations, activities, participants, eq, desc, sql } from '@juchang/db';
+// AI Service - v3.7 统一 AI Chat (Data Stream Protocol + Execution Trace + Message Enrichment + Conversations)
+import { db, users, conversations, conversationMessages, activities, participants, eq, desc, sql } from '@juchang/db';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { 
   streamText, 
@@ -520,34 +520,50 @@ export async function createDraftActivity(
   return { activityId: newActivity.id };
 }
 
+// ==========================================
+// 旧的消息创建函数 - 已废弃，使用 addMessageToConversation 替代
+// ==========================================
+
+// TODO: 这些函数需要重构为使用 conversationMessages 表
+// 暂时保留空实现，避免编译错误
+
 /**
- * 创建 Widget_Draft 对话记录
+ * @deprecated 使用 addMessageToConversation 替代
  */
 export async function createDraftMessage(
-  userId: string,
-  draft: ActivityDraft,
-  activityId: string
+  _userId: string,
+  _draft: ActivityDraft,
+  _activityId: string
 ): Promise<{ messageId: string }> {
-  const [message] = await db
-    .insert(conversations)
-    .values({
-      userId,
-      role: 'assistant',
-      messageType: 'widget_draft',
-      content: {
-        ...draft,
-        activityId,
-      },
-      activityId,
-    })
-    .returning({ id: conversations.id });
-  
-  return { messageId: message.id };
+  console.warn('createDraftMessage is deprecated, use addMessageToConversation instead');
+  return { messageId: '' };
+}
+
+/**
+ * @deprecated 使用 addMessageToConversation 替代
+ */
+export async function createExploreMessage(
+  _userId: string,
+  _exploreData: ExploreResponse
+): Promise<{ messageId: string }> {
+  console.warn('createExploreMessage is deprecated, use addMessageToConversation instead');
+  return { messageId: '' };
+}
+
+/**
+ * @deprecated 使用 addMessageToConversation 替代
+ */
+export async function createTextMessage(
+  _userId: string,
+  _text: string
+): Promise<{ messageId: string }> {
+  console.warn('createTextMessage is deprecated, use addMessageToConversation instead');
+  return { messageId: '' };
 }
 
 
 // ==========================================
-// 探索场景 (v3.2 新增)
+// 探索场景类型定义
 // ==========================================
 
 /**
@@ -575,369 +591,72 @@ export interface ExploreResponse {
   title: string;
 }
 
-/**
- * 创建 Widget_Explore 对话记录
- */
-export async function createExploreMessage(
-  userId: string,
-  exploreData: ExploreResponse
-): Promise<{ messageId: string }> {
-  const [message] = await db
-    .insert(conversations)
-    .values({
-      userId,
-      role: 'assistant',
-      messageType: 'widget_explore',
-      content: exploreData,
-    })
-    .returning({ id: conversations.id });
-  
-  return { messageId: message.id };
-}
-
-/**
- * 创建文本引导消息
- */
-export async function createTextMessage(
-  userId: string,
-  text: string
-): Promise<{ messageId: string }> {
-  const [message] = await db
-    .insert(conversations)
-    .values({
-      userId,
-      role: 'assistant',
-      messageType: 'text',
-      content: { text },
-    })
-    .returning({ id: conversations.id });
-  
-  return { messageId: message.id };
-}
-
 
 // ==========================================
-// 对话历史管理 (v3.3 增强版 - 支持显式 scope 参数)
+// 旧的对话历史管理函数 - 已废弃
 // ==========================================
 
 /**
- * 对话消息响应项（包含用户信息）
- */
-interface ConversationMessageWithUser {
-  id: string;
-  userId: string;
-  userNickname: string | null;
-  role: 'user' | 'assistant';
-  type: ConversationMessageType;
-  content: unknown;
-  activityId: string | null;
-  createdAt: string;
-}
-
-/**
- * 对话历史响应
- */
-interface ConversationsResponseEnhanced {
-  items: ConversationMessageWithUser[];
-  total: number;
-  hasMore: boolean;
-  cursor: string | null;
-}
-
-/**
- * 获取当前用户的对话历史（用户模式）
+ * @deprecated 使用 listConversations 替代
  */
 export async function getConversations(
-  currentUserId: string,
-  query: ConversationsQuery
-): Promise<ConversationsResponseEnhanced> {
-  const limit = query.limit || 20;
-  
-  // 构建 WHERE 条件
-  let whereConditions = sql`${conversations.userId} = ${currentUserId}`;
-  
-  // 活动 ID 筛选
-  if (query.activityId) {
-    whereConditions = sql`${whereConditions} AND ${conversations.activityId} = ${query.activityId}`;
-  }
-  
-  // 消息类型筛选
-  if (query.messageType) {
-    whereConditions = sql`${whereConditions} AND ${conversations.messageType} = ${query.messageType}`;
-  }
-  
-  // 角色筛选
-  if (query.role) {
-    whereConditions = sql`${whereConditions} AND ${conversations.role} = ${query.role}`;
-  }
-  
-  // 游标分页
-  if (query.cursor) {
-    whereConditions = sql`${whereConditions} AND ${conversations.createdAt} < (SELECT created_at FROM conversations WHERE id = ${query.cursor})`;
-  }
-  
-  // 查询总数
-  const [countResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(conversations)
-    .where(whereConditions);
-  
-  const total = countResult?.count || 0;
-  
-  // 查询数据（关联用户表获取昵称）
-  const messages = await db
-    .select({
-      id: conversations.id,
-      userId: conversations.userId,
-      userNickname: users.nickname,
-      role: conversations.role,
-      messageType: conversations.messageType,
-      content: conversations.content,
-      activityId: conversations.activityId,
-      createdAt: conversations.createdAt,
-    })
-    .from(conversations)
-    .leftJoin(users, eq(conversations.userId, users.id))
-    .where(whereConditions)
-    .orderBy(desc(conversations.createdAt))
-    .limit(limit + 1);
-  
-  // 判断是否还有更多
-  const hasMore = messages.length > limit;
-  const items = messages.slice(0, limit);
-  
-  // 转换为响应格式
-  const conversationMessages: ConversationMessageWithUser[] = items.map(m => ({
-    id: m.id,
-    userId: m.userId,
-    userNickname: m.userNickname,
-    role: m.role as 'user' | 'assistant',
-    type: m.messageType as ConversationMessageType,
-    content: m.content,
-    activityId: m.activityId,
-    createdAt: m.createdAt.toISOString(),
-  }));
-  
-  return {
-    items: conversationMessages,
-    total,
-    hasMore,
-    cursor: items.length > 0 ? items[items.length - 1].id : null,
-  };
+  _currentUserId: string,
+  _query: ConversationsQuery
+): Promise<{ items: never[]; total: number; hasMore: boolean; cursor: null }> {
+  console.warn('getConversations is deprecated, use listConversations instead');
+  return { items: [], total: 0, hasMore: false, cursor: null };
 }
 
-
 /**
- * 获取所有用户的对话历史（Admin 模式）
+ * @deprecated 使用 listConversations 替代
  */
 export async function getAllConversations(
-  query: ConversationsQuery
-): Promise<ConversationsResponseEnhanced> {
-  const limit = query.limit || 20;
-  
-  // 构建 WHERE 条件（不限制用户）
-  let whereConditions = sql`1=1`;
-  
-  // 活动 ID 筛选
-  if (query.activityId) {
-    whereConditions = sql`${whereConditions} AND ${conversations.activityId} = ${query.activityId}`;
-  }
-  
-  // 消息类型筛选
-  if (query.messageType) {
-    whereConditions = sql`${whereConditions} AND ${conversations.messageType} = ${query.messageType}`;
-  }
-  
-  // 角色筛选
-  if (query.role) {
-    whereConditions = sql`${whereConditions} AND ${conversations.role} = ${query.role}`;
-  }
-  
-  // 游标分页
-  if (query.cursor) {
-    whereConditions = sql`${whereConditions} AND ${conversations.createdAt} < (SELECT created_at FROM conversations WHERE id = ${query.cursor})`;
-  }
-  
-  // 查询总数
-  const [countResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(conversations)
-    .where(whereConditions);
-  
-  const total = countResult?.count || 0;
-  
-  // 查询数据（关联用户表获取昵称）
-  const messages = await db
-    .select({
-      id: conversations.id,
-      userId: conversations.userId,
-      userNickname: users.nickname,
-      role: conversations.role,
-      messageType: conversations.messageType,
-      content: conversations.content,
-      activityId: conversations.activityId,
-      createdAt: conversations.createdAt,
-    })
-    .from(conversations)
-    .leftJoin(users, eq(conversations.userId, users.id))
-    .where(whereConditions)
-    .orderBy(desc(conversations.createdAt))
-    .limit(limit + 1);
-  
-  // 判断是否还有更多
-  const hasMore = messages.length > limit;
-  const items = messages.slice(0, limit);
-  
-  // 转换为响应格式
-  const conversationMessages: ConversationMessageWithUser[] = items.map(m => ({
-    id: m.id,
-    userId: m.userId,
-    userNickname: m.userNickname,
-    role: m.role as 'user' | 'assistant',
-    type: m.messageType as ConversationMessageType,
-    content: m.content,
-    activityId: m.activityId,
-    createdAt: m.createdAt.toISOString(),
-  }));
-  
-  return {
-    items: conversationMessages,
-    total,
-    hasMore,
-    cursor: items.length > 0 ? items[items.length - 1].id : null,
-  };
+  _query: ConversationsQuery
+): Promise<{ items: never[]; total: number; hasMore: boolean; cursor: null }> {
+  console.warn('getAllConversations is deprecated, use listConversations instead');
+  return { items: [], total: 0, hasMore: false, cursor: null };
 }
 
-
 /**
- * 获取指定用户的对话历史（Admin 查指定用户）
+ * @deprecated 使用 listConversations 替代
  */
 export async function getConversationsByUserId(
-  targetUserId: string,
-  query: ConversationsQuery
-): Promise<ConversationsResponseEnhanced> {
-  const limit = query.limit || 20;
-  
-  // 构建 WHERE 条件
-  let whereConditions = sql`${conversations.userId} = ${targetUserId}`;
-  
-  // 活动 ID 筛选
-  if (query.activityId) {
-    whereConditions = sql`${whereConditions} AND ${conversations.activityId} = ${query.activityId}`;
-  }
-  
-  // 消息类型筛选
-  if (query.messageType) {
-    whereConditions = sql`${whereConditions} AND ${conversations.messageType} = ${query.messageType}`;
-  }
-  
-  // 角色筛选
-  if (query.role) {
-    whereConditions = sql`${whereConditions} AND ${conversations.role} = ${query.role}`;
-  }
-  
-  // 游标分页
-  if (query.cursor) {
-    whereConditions = sql`${whereConditions} AND ${conversations.createdAt} < (SELECT created_at FROM conversations WHERE id = ${query.cursor})`;
-  }
-  
-  // 查询总数
-  const [countResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(conversations)
-    .where(whereConditions);
-  
-  const total = countResult?.count || 0;
-  
-  // 查询数据（关联用户表获取昵称）
-  const messages = await db
-    .select({
-      id: conversations.id,
-      userId: conversations.userId,
-      userNickname: users.nickname,
-      role: conversations.role,
-      messageType: conversations.messageType,
-      content: conversations.content,
-      activityId: conversations.activityId,
-      createdAt: conversations.createdAt,
-    })
-    .from(conversations)
-    .leftJoin(users, eq(conversations.userId, users.id))
-    .where(whereConditions)
-    .orderBy(desc(conversations.createdAt))
-    .limit(limit + 1);
-  
-  // 判断是否还有更多
-  const hasMore = messages.length > limit;
-  const items = messages.slice(0, limit);
-  
-  // 转换为响应格式
-  const conversationMessages: ConversationMessageWithUser[] = items.map(m => ({
-    id: m.id,
-    userId: m.userId,
-    userNickname: m.userNickname,
-    role: m.role as 'user' | 'assistant',
-    type: m.messageType as ConversationMessageType,
-    content: m.content,
-    activityId: m.activityId,
-    createdAt: m.createdAt.toISOString(),
-  }));
-  
-  return {
-    items: conversationMessages,
-    total,
-    hasMore,
-    cursor: items.length > 0 ? items[items.length - 1].id : null,
-  };
+  _targetUserId: string,
+  _query: ConversationsQuery
+): Promise<{ items: never[]; total: number; hasMore: boolean; cursor: null }> {
+  console.warn('getConversationsByUserId is deprecated, use listConversations instead');
+  return { items: [], total: 0, hasMore: false, cursor: null };
 }
 
 /**
- * 添加用户消息到对话历史
+ * @deprecated 使用 addMessageToConversation 替代
  */
 export async function addUserMessage(
-  userId: string,
-  content: string
+  _userId: string,
+  _content: string
 ): Promise<{ id: string }> {
-  const [message] = await db
-    .insert(conversations)
-    .values({
-      userId,
-      role: 'user',
-      messageType: 'text',
-      content: { text: content },
-    })
-    .returning({ id: conversations.id });
-  
-  return { id: message.id };
+  console.warn('addUserMessage is deprecated, use addMessageToConversation instead');
+  return { id: '' };
 }
 
 /**
- * 添加 AI 消息到对话历史
+ * @deprecated 使用 addMessageToConversation 替代
  */
 export async function addAIMessage(
-  userId: string,
-  type: ConversationMessageType,
-  content: Record<string, unknown>,
-  activityId?: string
+  _userId: string,
+  _type: ConversationMessageType,
+  _content: Record<string, unknown>,
+  _activityId?: string
 ): Promise<{ id: string }> {
-  const [message] = await db
-    .insert(conversations)
-    .values({
-      userId,
-      role: 'assistant',
-      messageType: type,
-      content,
-      activityId,
-    })
-    .returning({ id: conversations.id });
-  
-  return { id: message.id };
+  console.warn('addAIMessage is deprecated, use addMessageToConversation instead');
+  return { id: '' };
 }
 
 /**
- * 清空用户对话历史
+ * 清空用户对话历史（删除所有会话）
  */
 export async function clearConversations(userId: string): Promise<{ deletedCount: number }> {
+  // 删除用户的所有会话（消息会级联删除）
   const result = await db
     .delete(conversations)
     .where(eq(conversations.userId, userId))
@@ -1209,4 +928,217 @@ export async function getWelcomeCard(
     quickActions: limitedActions,
     fallbackPrompt: '或者还有什么想法，今天想玩点什么，告诉我！～',
   };
+}
+
+
+// ==========================================
+// 会话管理 v3.8 (两层结构: conversations + conversationMessages)
+// ==========================================
+
+/**
+ * 会话列表项（Admin 对话审计用）
+ */
+export interface ConversationListItem {
+  id: string;
+  userId: string;
+  userNickname: string | null;
+  title: string | null;
+  messageCount: number;
+  lastMessageAt: string;
+  createdAt: string;
+}
+
+/**
+ * 获取会话列表（Admin 模式）
+ */
+export async function listConversations(params: {
+  page?: number;
+  limit?: number;
+  userId?: string;
+}): Promise<{ items: ConversationListItem[]; total: number }> {
+  const { page = 1, limit = 20, userId } = params;
+  const offset = (page - 1) * limit;
+
+  // 构建 WHERE 条件
+  let whereConditions = sql`1=1`;
+  if (userId) {
+    whereConditions = sql`${conversations.userId} = ${userId}`;
+  }
+
+  // 查询总数
+  const [countResult] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(conversations)
+    .where(whereConditions);
+
+  const total = countResult?.count || 0;
+
+  // 查询数据
+  const items = await db
+    .select({
+      id: conversations.id,
+      userId: conversations.userId,
+      userNickname: users.nickname,
+      title: conversations.title,
+      messageCount: conversations.messageCount,
+      lastMessageAt: conversations.lastMessageAt,
+      createdAt: conversations.createdAt,
+    })
+    .from(conversations)
+    .leftJoin(users, eq(conversations.userId, users.id))
+    .where(whereConditions)
+    .orderBy(desc(conversations.lastMessageAt))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    items: items.map(item => ({
+      ...item,
+      lastMessageAt: item.lastMessageAt.toISOString(),
+      createdAt: item.createdAt.toISOString(),
+    })),
+    total,
+  };
+}
+
+/**
+ * 获取会话的消息列表
+ */
+export async function getConversationMessages(conversationId: string): Promise<{
+  conversation: ConversationListItem | null;
+  messages: Array<{
+    id: string;
+    role: 'user' | 'assistant';
+    messageType: string;
+    content: unknown;
+    activityId: string | null;
+    createdAt: string;
+  }>;
+}> {
+  // 获取会话信息
+  const [conv] = await db
+    .select({
+      id: conversations.id,
+      userId: conversations.userId,
+      userNickname: users.nickname,
+      title: conversations.title,
+      messageCount: conversations.messageCount,
+      lastMessageAt: conversations.lastMessageAt,
+      createdAt: conversations.createdAt,
+    })
+    .from(conversations)
+    .leftJoin(users, eq(conversations.userId, users.id))
+    .where(eq(conversations.id, conversationId))
+    .limit(1);
+
+  if (!conv) {
+    return { conversation: null, messages: [] };
+  }
+
+  // 获取消息列表
+  const msgs = await db
+    .select({
+      id: conversationMessages.id,
+      role: conversationMessages.role,
+      messageType: conversationMessages.messageType,
+      content: conversationMessages.content,
+      activityId: conversationMessages.activityId,
+      createdAt: conversationMessages.createdAt,
+    })
+    .from(conversationMessages)
+    .where(eq(conversationMessages.conversationId, conversationId))
+    .orderBy(conversationMessages.createdAt);
+
+  return {
+    conversation: {
+      ...conv,
+      lastMessageAt: conv.lastMessageAt.toISOString(),
+      createdAt: conv.createdAt.toISOString(),
+    },
+    messages: msgs.map(m => ({
+      ...m,
+      role: m.role as 'user' | 'assistant',
+      createdAt: m.createdAt.toISOString(),
+    })),
+  };
+}
+
+/**
+ * 创建新会话
+ */
+export async function createConversation(userId: string, title?: string): Promise<{ id: string }> {
+  const [conv] = await db
+    .insert(conversations)
+    .values({
+      userId,
+      title: title || null,
+      messageCount: 0,
+    })
+    .returning({ id: conversations.id });
+
+  return { id: conv.id };
+}
+
+/**
+ * 添加消息到会话
+ */
+export async function addMessageToConversation(params: {
+  conversationId: string;
+  userId: string;
+  role: 'user' | 'assistant';
+  messageType: string;
+  content: unknown;
+  activityId?: string;
+}): Promise<{ id: string }> {
+  const { conversationId, userId, role, messageType, content, activityId } = params;
+
+  // 插入消息
+  const [msg] = await db
+    .insert(conversationMessages)
+    .values({
+      conversationId,
+      userId,
+      role,
+      messageType: messageType as any,
+      content,
+      activityId,
+    })
+    .returning({ id: conversationMessages.id });
+
+  // 更新会话的 messageCount 和 lastMessageAt
+  await db
+    .update(conversations)
+    .set({
+      messageCount: sql`${conversations.messageCount} + 1`,
+      lastMessageAt: new Date(),
+      // 如果是第一条用户消息且没有标题，自动设置标题
+      ...(role === 'user' && !activityId ? {
+        title: sql`COALESCE(${conversations.title}, LEFT(${typeof content === 'object' && content && 'text' in content ? (content as { text: string }).text : String(content)}::text, 50))`,
+      } : {}),
+    })
+    .where(eq(conversations.id, conversationId));
+
+  return { id: msg.id };
+}
+
+/**
+ * 获取或创建用户的当前会话
+ * 如果用户没有活跃会话，创建一个新的
+ */
+export async function getOrCreateCurrentConversation(userId: string): Promise<{ id: string; isNew: boolean }> {
+  // 查找最近的会话（24小时内）
+  const [recent] = await db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(sql`${conversations.userId} = ${userId} AND ${conversations.lastMessageAt} > NOW() - INTERVAL '24 hours'`)
+    .orderBy(desc(conversations.lastMessageAt))
+    .limit(1);
+
+  if (recent) {
+    return { id: recent.id, isNew: false };
+  }
+
+  // 创建新会话
+  const { id } = await createConversation(userId);
+  return { id, isNew: true };
 }

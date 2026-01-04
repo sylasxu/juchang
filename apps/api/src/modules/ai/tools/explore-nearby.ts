@@ -10,7 +10,7 @@
 import { t } from 'elysia';
 import { tool, jsonSchema } from 'ai';
 import { toJsonSchema } from '@juchang/utils';
-import { db, conversations, sql } from '@juchang/db';
+import { db, sql } from '@juchang/db';
 
 /**
  * Tool Schema - 使用 TypeBox 语法
@@ -54,9 +54,9 @@ interface ExploreResult {
 /**
  * 创建 exploreNearby Tool
  * 
- * @param userId - 用户 ID，null 时为沙盒模式
+ * @param _userId - 用户 ID（保留参数，与其他 Tool 签名一致）
  */
-export function exploreNearbyTool(userId: string | null) {
+export function exploreNearbyTool(_userId: string | null) {
   return tool({
     description: `探索附近活动。当用户表达探索性意图时使用，例如：
 - "附近有什么好玩的"
@@ -117,18 +117,7 @@ export function exploreNearbyTool(userId: string | null) {
             : `${center.name}附近暂时没有活动，要不自己组一个？`,
         };
         
-        // 记录对话（非沙盒模式）
-        if (userId) {
-          await db
-            .insert(conversations)
-            .values({
-              userId,
-              role: 'assistant',
-              messageType: 'widget_explore',
-              content: exploreData,
-            });
-        }
-        
+        // v3.8: 对话记录由小程序端统一处理，Tool 只返回结果
         return {
           success: true as const,
           explore: exploreData,

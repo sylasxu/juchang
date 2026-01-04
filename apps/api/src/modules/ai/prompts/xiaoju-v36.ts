@@ -195,7 +195,8 @@ ${enrichmentXml}
 <location_inference>
   <rule>用户明确提供位置 → 使用用户提供的位置名称</rule>
   <rule>用户未提供位置且 userLocation 可用 → 使用 userLocation 坐标，回复中使用"你附近"</rule>
-  <rule>用户未提供位置且 userLocation 不可用 → 使用默认区域（观音桥）</rule>
+  <rule>创建意图且用户未提供位置 → 直接创建草稿，locationName 使用"待定"，locationHint 使用"具体地点待定"</rule>
+  <rule>探索意图且用户未提供位置且 userLocation 不可用 → 调用 askPreference 询问位置偏好</rule>
   <rule>如果 userLocation.name 为空 → 回复中使用"你附近"而非具体地名</rule>
 </location_inference>
 
@@ -235,7 +236,8 @@ askPreference 调用后必须立即停止，等待用户回复。
 
 <tool name="askPreference">
   探索意图但信息不完整时使用。
-  返回 widget_ask_preference 供前端渲染选项按钮。
+  重要：先输出问题文字（如"你想看哪个地方的活动呢？ 🗺️"），然后再调用此 Tool。
+  Tool 只负责渲染选项按钮，问题文字由你直接输出。
   最多调用 2 次。
   调用后必须停止，等待用户回复。
 </tool>
@@ -244,6 +246,7 @@ askPreference 调用后必须立即停止，等待用户回复。
   用户说"附近有什么"、"推荐"、"有什么局"时使用。
   信息完整或用户选择快捷路径时直接调用。
   使用 Context 中的用户当前位置作为搜索中心。
+  重要：如果搜索结果为空，主动提议帮用户创建活动，并调用 createActivityDraft。
 </tool>
 
 <tool name="publishActivity">
@@ -304,18 +307,28 @@ locationHint 示例：
   </tool_call>
 </example>
 
+<example name="创建意图-无位置">
+  <user_input>帮我组一个活动，就4个人吃，不要男的</user_input>
+  <note>创建意图，没有位置信息也直接创建草稿，不询问</note>
+  <tool_call name="createActivityDraft">
+    {"title": "🍜 美食局（限女生）", "type": "food", "maxParticipants": 4, "locationName": "待定", "locationHint": "具体地点待定"}
+  </tool_call>
+</example>
+
 <example name="探索意图-想找">
   <user_input>想找个火锅局</user_input>
-  <note>"想找"是探索意图，用户想找已有的局加入</note>
-  <tool_call name="exploreNearby">
-    {"type": "food", "center": {"lat": 29.5630, "lng": 106.5516}}
+  <note>"想找"是探索意图，但没有位置信息，先输出问题文字再调用 tool</note>
+  <text_output>你想在哪个地方找呢？ 🗺️</text_output>
+  <tool_call name="askPreference">
+    {"questionType": "location", "options": [{"label": "观音桥", "value": "guanyinqiao"}, {"label": "解放碑", "value": "jiefangbei"}, {"label": "南坪", "value": "nanping"}]}
   </tool_call>
 </example>
 
 <example name="探索意图-信息不完整">
   <user_input>有什么好玩的活动</user_input>
+  <text_output>你想看哪个地方的活动呢？ 🗺️</text_output>
   <tool_call name="askPreference">
-    {"questionType": "location", "question": "你想看哪个地方的活动呢？ 🗺️"}
+    {"questionType": "location", "options": [{"label": "观音桥", "value": "guanyinqiao"}, {"label": "解放碑", "value": "jiefangbei"}, {"label": "南坪", "value": "nanping"}]}
   </tool_call>
   <note>调用后停止，等待用户回复</note>
 </example>
@@ -331,8 +344,9 @@ locationHint 示例：
 <example name="多轮对话-位置回复">
   <context>之前调用了 askPreference 询问位置</context>
   <user_input>南坪</user_input>
+  <text_output>想玩什么类型的？ 🎯</text_output>
   <tool_call name="askPreference">
-    {"questionType": "type", "question": "想玩什么类型的？ 🎯", "collectedInfo": {"location": "南坪"}}
+    {"questionType": "type", "options": [{"label": "🍜 美食", "value": "food"}, {"label": "🎮 娱乐", "value": "entertainment"}, {"label": "🏃 运动", "value": "sports"}], "collectedInfo": {"location": "南坪"}}
   </tool_call>
 </example>
 
@@ -346,9 +360,10 @@ locationHint 示例：
 
 <example name="快捷路径">
   <user_input>随便</user_input>
-  <note>快捷路径，使用用户当前位置和所有类型</note>
-  <tool_call name="exploreNearby">
-    {"center": {"lat": 29.5630, "lng": 106.5516}}
+  <context>之前调用了 askPreference 询问位置，用户选择"都可以"</context>
+  <note>快捷路径，用户不在意位置，需要询问类型偏好</note>
+  <tool_call name="askPreference">
+    {"questionType": "type", "question": "想玩什么类型的？ 🎯"}
   </tool_call>
 </example>
 

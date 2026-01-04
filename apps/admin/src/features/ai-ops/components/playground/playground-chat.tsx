@@ -13,16 +13,12 @@ import { api, unwrap } from '@/lib/eden'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { 
   Send, Trash2, Settings2, Bot, User, Loader2, Copy, Check,
-  Wrench, ChevronDown, ChevronRight, MapPin, FileEdit,
-  RotateCcw, StopCircle, Search, MessageSquare,
-  Calendar, Users, Clock,
+  FileEdit, RotateCcw, StopCircle, Search, MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StreamingText } from '../shared/streaming-text'
@@ -175,6 +171,31 @@ export function PlaygroundChat({
     inputRef.current?.focus()
   }, [inputValue, isLoading, sendMessage, onTraceStart, onTraceStep])
 
+  // 发送消息（供按钮点击使用）
+  const handleSendMessage = useCallback((text: string) => {
+    if (!text.trim() || isLoading) return
+    
+    const requestId = crypto.randomUUID()
+    const startedAt = new Date().toISOString()
+    
+    // 开始追踪
+    onTraceStart?.(requestId, startedAt)
+    
+    // 添加用户输入步骤
+    onTraceStep?.({
+      id: `${requestId}-input`,
+      type: 'input',
+      name: '用户输入',
+      startedAt,
+      status: 'success',
+      duration: 0,
+      data: { text: text.trim() },
+    })
+    
+    sendMessage({ text: text.trim() })
+    setAutoScroll(true)
+  }, [isLoading, sendMessage, onTraceStart, onTraceStep])
+
   // 键盘快捷键
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -185,11 +206,11 @@ export function PlaygroundChat({
 
 
   return (
-    <div className='flex h-full gap-6 p-4'>
+    <div className='flex h-full gap-6 p-4 overflow-hidden'>
       {/* 主聊天区 */}
-      <div className='flex flex-1 flex-col'>
+      <div className='flex flex-1 flex-col min-h-0'>
         {/* 顶部工具栏 */}
-        <div className='mb-4 flex items-center justify-between'>
+        <div className='mb-4 flex items-center justify-between flex-shrink-0'>
           <div className='flex items-center gap-3'>
             <h2 className='text-lg font-medium'>对话测试</h2>
           </div>
@@ -206,7 +227,7 @@ export function PlaygroundChat({
         </div>
 
         {/* 消息列表 */}
-        <ScrollArea className='flex-1' ref={scrollRef} onScrollCapture={handleScroll}>
+        <ScrollArea className='flex-1 min-h-0' ref={scrollRef} onScrollCapture={handleScroll}>
           <div className='space-y-6 pb-4 pr-4'>
             {messages.length === 0 && (
               <EmptyState onQuickAction={(prompt) => {
@@ -214,14 +235,20 @@ export function PlaygroundChat({
                 inputRef.current?.focus()
               }} />
             )}
-            {messages.map((message) => (
-              <MessageItem 
-                key={message.id} 
-                message={message}
-                isStreaming={isLoading && message.role === 'assistant'}
-                onClick={() => onMessageSelect?.(message.id)}
-              />
-            ))}
+            {messages.map((message, index) => {
+              // 只有最后一条 assistant 消息才显示流式光标
+              const isLastAssistant = message.role === 'assistant' && 
+                index === messages.length - 1
+              return (
+                <MessageItem 
+                  key={message.id} 
+                  message={message}
+                  isStreaming={isLoading && isLastAssistant}
+                  onClick={() => onMessageSelect?.(message.id)}
+                  onSendMessage={handleSendMessage}
+                />
+              )
+            })}
           </div>
         </ScrollArea>
 
@@ -338,7 +365,7 @@ export function PlaygroundChat({
 function EmptyState({ onQuickAction }: { onQuickAction: (prompt: string) => void }) {
   const { data: welcomeData, isLoading } = useQuery({
     queryKey: ['ai', 'welcome', 'playground'],
-    queryFn: () => unwrap(api.ai.welcome.get({ query: { lat: 29.5630, lng: 106.5516 } })),
+    queryFn: () => unwrap(api.ai.welcome.get({})), // 不传位置，让 AI 主动询问
   })
 
   if (isLoading) {
@@ -435,10 +462,12 @@ function MessageItem({
   message, 
   isStreaming,
   onClick,
+  onSendMessage,
 }: { 
   message: UIMessage
   isStreaming?: boolean
   onClick?: () => void
+  onSendMessage?: (text: string) => void
 }) {
   const [copied, setCopied] = useState(false)
   const isUser = message.role === 'user'
@@ -489,7 +518,7 @@ function MessageItem({
         {toolParts.length > 0 && (
           <div className='w-full space-y-2'>
             {toolParts.map((part) => (
-              <ToolCallCard key={part.toolCallId} toolPart={part} />
+              <ToolCallCard key={part.toolCallId} toolPart={part} onSendMessage={onSendMessage} />
             ))}
           </div>
         )}
@@ -514,129 +543,38 @@ function MessageItem({
 }
 
 
-// Tool Call 卡片
-function ToolCallCard({ toolPart }: { toolPart: ToolPartData }) {
-  const [expanded, setExpanded] = useState(true)
-  const [copiedTab, setCopiedTab] = useState<string | null>(null)
-  
+// Tool Call 卡片 - 简化版，只显示 widget 预览（调试信息在执行追踪面板）
+function ToolCallCard({ toolPart, onSendMessage }: { toolPart: ToolPartData; onSendMessage?: (text: string) => void }) {
   const toolName = toolPart.type === 'dynamic-tool' 
     ? (toolPart.toolName || 'unknown')
     : getToolName(toolPart as Parameters<typeof getToolName>[0])
 
-  const handleCopyJson = async (data: unknown, tab: string) => {
-    await navigator.clipboard.writeText(JSON.stringify(data, null, 2))
-    setCopiedTab(tab)
-    setTimeout(() => setCopiedTab(null), 2000)
+  // 加载中状态
+  if (toolPart.state === 'input-streaming' || toolPart.state === 'input-available') {
+    return (
+      <div className='flex items-center gap-2 text-sm text-muted-foreground'>
+        <Loader2 className='h-3.5 w-3.5 animate-spin' />
+        <span>{getToolDisplayName(toolName)}...</span>
+      </div>
+    )
   }
 
-  const getToolIcon = () => {
-    switch (toolName) {
-      case 'createActivityDraft':
-        return <FileEdit className='h-4 w-4 text-blue-500' />
-      case 'exploreNearby':
-        return <MapPin className='h-4 w-4 text-green-500' />
-      default:
-        return <Wrench className='h-4 w-4 text-muted-foreground' />
-    }
+  // 错误状态
+  if (toolPart.state === 'output-error') {
+    return (
+      <div className='rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+        {toolPart.errorText || '操作失败，请重试'}
+      </div>
+    )
   }
 
-  const getStateLabel = () => {
-    switch (toolPart.state) {
-      case 'input-streaming':
-        return <Badge variant='outline' className='text-xs text-yellow-600'>解析中...</Badge>
-      case 'input-available':
-        return <Badge variant='outline' className='text-xs text-blue-600'>调用中...</Badge>
-      case 'output-available':
-        return <Badge variant='outline' className='text-xs text-green-600'>✓ 完成</Badge>
-      case 'output-error':
-        return <Badge variant='outline' className='text-xs text-red-600'>✗ 错误</Badge>
-      default:
-        return null
-    }
-  }
-
-  const hasOutput = toolPart.state === 'output-available' || toolPart.state === 'output-error'
-
-  return (
-    <div className='rounded-lg border bg-background'>
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className='flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50'
-      >
-        {expanded ? (
-          <ChevronDown className='h-3 w-3 text-muted-foreground' />
-        ) : (
-          <ChevronRight className='h-3 w-3 text-muted-foreground' />
-        )}
-        {getToolIcon()}
-        <span className='font-medium'>{getToolDisplayName(toolName)}</span>
-        <span className='ml-auto'>{getStateLabel()}</span>
-      </button>
-
-      {expanded && (
-        <div className='border-t px-3 py-2'>
-          <Tabs defaultValue='preview' className='w-full'>
-            <TabsList className='h-7 w-full justify-start bg-transparent p-0'>
-              <TabsTrigger value='preview' className='h-6 text-xs'>预览</TabsTrigger>
-              <TabsTrigger value='input' className='h-6 text-xs'>参数</TabsTrigger>
-              {hasOutput && <TabsTrigger value='output' className='h-6 text-xs'>结果</TabsTrigger>}
-            </TabsList>
-
-            <TabsContent value='preview' className='mt-2'>
-              <ToolPreview toolPart={toolPart} />
-            </TabsContent>
-
-            <TabsContent value='input' className='mt-2'>
-              <div className='relative'>
-                <pre className='overflow-auto rounded bg-muted p-2 text-xs'>
-                  {JSON.stringify(toolPart.input, null, 2)}
-                </pre>
-                <Button
-                  variant='ghost'
-                  size='sm'
-                  className='absolute right-1 top-1 h-6 w-6 p-0'
-                  onClick={() => handleCopyJson(toolPart.input, 'input')}
-                >
-                  {copiedTab === 'input' ? <Check className='h-3 w-3 text-green-500' /> : <Copy className='h-3 w-3' />}
-                </Button>
-              </div>
-            </TabsContent>
-
-            {hasOutput && (
-              <TabsContent value='output' className='mt-2'>
-                <div className='relative'>
-                  {toolPart.state === 'output-error' ? (
-                    <div className='rounded bg-red-50 p-2 text-xs text-red-600'>
-                      {toolPart.errorText || '未知错误'}
-                    </div>
-                  ) : (
-                    <pre className='overflow-auto rounded bg-muted p-2 text-xs'>
-                      {JSON.stringify(toolPart.output, null, 2)}
-                    </pre>
-                  )}
-                  {toolPart.state === 'output-available' && (
-                    <Button
-                      variant='ghost'
-                      size='sm'
-                      className='absolute right-1 top-1 h-6 w-6 p-0'
-                      onClick={() => handleCopyJson(toolPart.output, 'output')}
-                    >
-                      {copiedTab === 'output' ? <Check className='h-3 w-3 text-green-500' /> : <Copy className='h-3 w-3' />}
-                    </Button>
-                  )}
-                </div>
-              </TabsContent>
-            )}
-          </Tabs>
-        </div>
-      )}
-    </div>
-  )
+  // 成功状态 - 只渲染 widget 预览
+  return <ToolPreview toolPart={toolPart} onSendMessage={onSendMessage} />
 }
 
 
 // Tool 预览组件 - 友好展示 Tool 调用结果
-function ToolPreview({ toolPart }: { toolPart: ToolPartData }) {
+function ToolPreview({ toolPart, onSendMessage }: { toolPart: ToolPartData; onSendMessage?: (text: string) => void }) {
   const toolName = toolPart.type === 'dynamic-tool' 
     ? (toolPart.toolName || 'unknown')
     : getToolName(toolPart as Parameters<typeof getToolName>[0])
@@ -646,36 +584,22 @@ function ToolPreview({ toolPart }: { toolPart: ToolPartData }) {
 
   // 辅助函数：安全转换为字符串
   const str = (val: unknown): string => String(val ?? '')
-  const truncateId = (val: unknown): string => str(val).slice(0, 8)
 
-  // askPreference 预览 - 显示问题和选项按钮
+  // askPreference 预览 - 只显示选项按钮（问题文字由 AI 文本输出）
   if (toolName === 'askPreference') {
-    const question = str(input?.question || '请选择你的偏好')
-    const questionType = input?.questionType as string | undefined
     const options = (input?.options || []) as Array<{ label: string; value: string }>
     const allowSkip = input?.allowSkip !== false
 
     return (
       <div className='space-y-3 text-sm'>
-        <div className='flex items-center gap-2'>
-          <MessageSquare className='h-4 w-4 text-purple-500' />
-          <span className='font-medium'>
-            {questionType === 'location' ? '询问位置偏好' : '询问类型偏好'}
-          </span>
-        </div>
-        
-        {/* 问题文本 */}
-        <div className='rounded-lg bg-purple-50 p-3 text-purple-900 dark:bg-purple-950 dark:text-purple-100'>
-          {question}
-        </div>
-        
         {/* 选项按钮 */}
         {options.length > 0 && (
           <div className='flex flex-wrap gap-2'>
             {options.map((option, i) => (
               <div
                 key={i}
-                className='rounded-full border bg-background px-3 py-1 text-xs'
+                className='rounded-full border bg-background px-3 py-1.5 text-xs hover:bg-muted cursor-pointer transition-colors'
+                onClick={() => onSendMessage?.(option.label)}
               >
                 {option.label}
               </div>
@@ -685,61 +609,61 @@ function ToolPreview({ toolPart }: { toolPart: ToolPartData }) {
         
         {/* 跳过按钮 */}
         {allowSkip && (
-          <div className='text-xs text-muted-foreground'>
-            + "都可以，你随便推荐" 按钮
-          </div>
-        )}
-        
-        {toolPart.state === 'output-available' && (
-          <div className='mt-2 rounded bg-green-50 p-2 text-xs text-green-700 dark:bg-green-950 dark:text-green-300'>
-            ✓ 已发送询问
+          <div 
+            className='rounded-full border border-dashed bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground cursor-pointer hover:bg-muted transition-colors inline-block'
+            onClick={() => onSendMessage?.('都可以，你随便推荐')}
+          >
+            都可以，你随便推荐
           </div>
         )}
       </div>
     )
   }
 
-  // createActivityDraft 预览
+  // createActivityDraft 预览 - 简化为确认按钮（详情在执行追踪面板）
   if (toolName === 'createActivityDraft') {
-    const title = str(input?.title || '未命名活动')
-    const type = input?.type ? str(input.type) : null
-    const startAt = input?.startAt ? new Date(str(input.startAt)).toLocaleString('zh-CN') : null
-    const location = input?.location ? str(input.location) : null
-    const maxParticipants = input?.maxParticipants ? str(input.maxParticipants) : null
-    const activityId = output?.activityId ? truncateId(output.activityId) : null
-
     return (
-      <div className='space-y-2 text-sm'>
-        <div className='flex items-center gap-2'>
-          <FileEdit className='h-4 w-4 text-blue-500' />
-          <span className='font-medium'>{title}</span>
-        </div>
-        {type && (
-          <div className='flex items-center gap-2 text-muted-foreground'>
-            <Badge variant='secondary' className='text-xs'>{type}</Badge>
+      <div className='space-y-3 text-sm'>
+        {/* 确认按钮 */}
+        {toolPart.state === 'output-available' && (
+          <div className='flex flex-wrap gap-2'>
+            <div 
+              className='rounded-full border bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/20 cursor-pointer transition-colors'
+              onClick={() => onSendMessage?.('没问题，就这样发布吧')}
+            >
+              没问题，就这样！
+            </div>
+            <div 
+              className='rounded-full border border-dashed bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted cursor-pointer transition-colors'
+              onClick={() => onSendMessage?.('不对，帮我修改')}
+            >
+              不对，帮我修改
+            </div>
           </div>
         )}
-        {startAt && (
-          <div className='flex items-center gap-2 text-muted-foreground'>
-            <Calendar className='h-3.5 w-3.5' />
-            <span className='text-xs'>{startAt}</span>
-          </div>
-        )}
-        {location && (
-          <div className='flex items-center gap-2 text-muted-foreground'>
-            <MapPin className='h-3.5 w-3.5' />
-            <span className='text-xs'>{location}</span>
-          </div>
-        )}
-        {maxParticipants && (
-          <div className='flex items-center gap-2 text-muted-foreground'>
-            <Users className='h-3.5 w-3.5' />
-            <span className='text-xs'>最多 {maxParticipants} 人</span>
-          </div>
-        )}
-        {toolPart.state === 'output-available' && activityId && (
-          <div className='mt-2 rounded bg-green-50 p-2 text-xs text-green-700'>
-            ✓ 草稿已创建 (ID: {activityId}...)
+      </div>
+    )
+  }
+
+  // refineDraft 预览 - 简化为确认按钮
+  if (toolName === 'refineDraft') {
+    return (
+      <div className='space-y-3 text-sm'>
+        {/* 确认按钮 */}
+        {toolPart.state === 'output-available' && (
+          <div className='flex flex-wrap gap-2'>
+            <div 
+              className='rounded-full border bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/20 cursor-pointer transition-colors'
+              onClick={() => onSendMessage?.('没问题，就这样发布吧')}
+            >
+              没问题，就这样！
+            </div>
+            <div 
+              className='rounded-full border border-dashed bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted cursor-pointer transition-colors'
+              onClick={() => onSendMessage?.('还要改')}
+            >
+              还要改
+            </div>
           </div>
         )}
       </div>
@@ -749,75 +673,60 @@ function ToolPreview({ toolPart }: { toolPart: ToolPartData }) {
   // exploreNearby 预览
   if (toolName === 'exploreNearby') {
     const activities = (output?.activities || []) as Array<Record<string, unknown>>
-    const radius = input?.radius ? str(input.radius) : null
+    const searchType = input?.type ? str(input.type) : null
+    const locationName = input?.center && typeof input.center === 'object' 
+      ? str((input.center as Record<string, unknown>).name || '') 
+      : ''
+
+    // 根据类型生成创建提示
+    const getCreatePrompt = () => {
+      const typeMap: Record<string, string> = {
+        food: '美食局',
+        entertainment: '娱乐局', 
+        sports: '运动局',
+        boardgame: '桌游局',
+      }
+      const typeName = searchType ? typeMap[searchType] || '活动' : '活动'
+      const location = locationName ? `在${locationName}` : ''
+      return `帮我${location}组一个${typeName}`
+    }
 
     return (
-      <div className='space-y-2 text-sm'>
-        <div className='flex items-center gap-2'>
-          <MapPin className='h-4 w-4 text-green-500' />
-          <span className='font-medium'>探索附近活动</span>
-        </div>
-        {radius && (
-          <div className='text-xs text-muted-foreground'>
-            搜索范围: {radius}km
-          </div>
-        )}
+      <div className='space-y-3 text-sm'>
         {toolPart.state === 'output-available' && (
-          <div className='mt-2 space-y-1'>
+          <>
             {activities.length > 0 ? (
-              activities.slice(0, 3).map((activity, i) => {
-                const actTitle = str(activity.title || '未命名')
-                const distance = activity.distance ? Number(activity.distance).toFixed(1) : null
-                return (
-                  <div key={i} className='flex items-center gap-2 rounded bg-muted p-1.5 text-xs'>
-                    <span className='truncate'>{actTitle}</span>
-                    {distance && (
-                      <span className='ml-auto shrink-0 text-muted-foreground'>
-                        {distance}km
-                      </span>
-                    )}
+              <div className='space-y-1'>
+                {activities.slice(0, 3).map((activity, i) => {
+                  const actTitle = str(activity.title || '未命名')
+                  const distance = activity.distance ? Number(activity.distance).toFixed(1) : null
+                  return (
+                    <div key={i} className='flex items-center gap-2 rounded bg-muted p-1.5 text-xs'>
+                      <span className='truncate'>{actTitle}</span>
+                      {distance && (
+                        <span className='ml-auto shrink-0 text-muted-foreground'>
+                          {distance}km
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+                {activities.length > 3 && (
+                  <div className='text-xs text-muted-foreground'>
+                    还有 {activities.length - 3} 个活动...
                   </div>
-                )
-              })
+                )}
+              </div>
             ) : (
-              <div className='text-xs text-muted-foreground'>附近暂无活动</div>
-            )}
-            {activities.length > 3 && (
-              <div className='text-xs text-muted-foreground'>
-                还有 {activities.length - 3} 个活动...
+              /* 无结果时显示创建按钮 */
+              <div 
+                className='rounded-full border bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/20 cursor-pointer transition-colors inline-block'
+                onClick={() => onSendMessage?.(getCreatePrompt())}
+              >
+                帮我组一个 ✨
               </div>
             )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // refineDraft 预览
-  if (toolName === 'refineDraft') {
-    const activityId = input?.activityId ? truncateId(input.activityId) : null
-    const updateFields = input?.updates ? Object.keys(input.updates as object).join(', ') : null
-
-    return (
-      <div className='space-y-2 text-sm'>
-        <div className='flex items-center gap-2'>
-          <FileEdit className='h-4 w-4 text-orange-500' />
-          <span className='font-medium'>修改草稿</span>
-        </div>
-        {activityId && (
-          <div className='text-xs text-muted-foreground'>
-            活动 ID: {activityId}...
-          </div>
-        )}
-        {updateFields && (
-          <div className='text-xs text-muted-foreground'>
-            更新字段: {updateFields}
-          </div>
-        )}
-        {toolPart.state === 'output-available' && (
-          <div className='mt-2 rounded bg-green-50 p-2 text-xs text-green-700'>
-            ✓ 草稿已更新
-          </div>
+          </>
         )}
       </div>
     )
@@ -825,53 +734,17 @@ function ToolPreview({ toolPart }: { toolPart: ToolPartData }) {
 
   // publishActivity 预览
   if (toolName === 'publishActivity') {
-    const activityId = input?.activityId ? truncateId(input.activityId) : null
-    const errorText = toolPart.errorText || '未知错误'
-
     return (
-      <div className='space-y-2 text-sm'>
-        <div className='flex items-center gap-2'>
-          <Clock className='h-4 w-4 text-purple-500' />
-          <span className='font-medium'>发布活动</span>
-        </div>
-        {activityId && (
-          <div className='text-xs text-muted-foreground'>
-            活动 ID: {activityId}...
-          </div>
-        )}
-        {toolPart.state === 'output-available' && (
-          <div className='mt-2 rounded bg-green-50 p-2 text-xs text-green-700'>
-            ✓ 活动已发布
-          </div>
-        )}
-        {toolPart.state === 'output-error' && (
-          <div className='mt-2 rounded bg-red-50 p-2 text-xs text-red-600'>
-            发布失败: {errorText}
-          </div>
-        )}
+      <div className='rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300'>
+        ✓ 活动已发布，快去分享给朋友吧！
       </div>
     )
   }
 
-  // 默认预览 - 显示简化的 JSON
-  const paramKeys = input && Object.keys(input).length > 0 ? Object.keys(input).join(', ') : null
-
+  // 默认预览 - 简洁显示
   return (
-    <div className='space-y-2 text-sm'>
-      <div className='flex items-center gap-2'>
-        <Wrench className='h-4 w-4 text-muted-foreground' />
-        <span className='font-medium'>{getToolDisplayName(toolName)}</span>
-      </div>
-      {paramKeys && (
-        <div className='text-xs text-muted-foreground'>
-          参数: {paramKeys}
-        </div>
-      )}
-      {toolPart.state === 'output-available' && (
-        <div className='mt-2 rounded bg-green-50 p-2 text-xs text-green-700'>
-          ✓ 执行完成
-        </div>
-      )}
+    <div className='text-xs text-muted-foreground'>
+      {toolPart.state === 'output-available' ? '✓ 完成' : '处理中...'}
     </div>
   )
 }

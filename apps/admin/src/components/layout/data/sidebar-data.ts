@@ -66,7 +66,7 @@ export const sidebarData: SidebarData = {
         },
         {
           title: '对话审计',
-          url: '/conversations',
+          url: '/ai-ops/conversations',
           icon: MessageSquare,
         },
       ],

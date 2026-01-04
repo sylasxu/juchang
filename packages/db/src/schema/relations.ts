@@ -4,7 +4,7 @@ import { activities } from "./activities";
 import { participants } from "./participants";
 import { notifications } from "./notifications";
 import { activityMessages } from "./activity_messages";
-import { conversations } from "./conversations";
+import { conversations, conversationMessages } from "./conversations";
 import { reports } from "./reports";
 
 // ==========================================
@@ -16,6 +16,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   notifications: many(notifications),
   activityMessages: many(activityMessages),
   conversations: many(conversations),
+  conversationMessages: many(conversationMessages),
   reportsSubmitted: many(reports, { relationName: "reporter" }),
   reportsResolved: many(reports, { relationName: "resolver" }),
 }));
@@ -31,7 +32,7 @@ export const activitiesRelations = relations(activities, ({ one, many }) => ({
   participants: many(participants),
   activityMessages: many(activityMessages),
   notifications: many(notifications),
-  conversations: many(conversations),
+  conversationMessages: many(conversationMessages),
 }));
 
 // ==========================================
@@ -77,15 +78,30 @@ export const activityMessagesRelations = relations(activityMessages, ({ one }) =
 }));
 
 // ==========================================
-// Conversation Relations (v3.3 行业标准命名)
+// Conversation Relations (会话)
 // ==========================================
-export const conversationsRelations = relations(conversations, ({ one }) => ({
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
   user: one(users, {
     fields: [conversations.userId],
     references: [users.id],
   }),
+  messages: many(conversationMessages),
+}));
+
+// ==========================================
+// ConversationMessage Relations (消息)
+// ==========================================
+export const conversationMessagesRelations = relations(conversationMessages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [conversationMessages.conversationId],
+    references: [conversations.id],
+  }),
+  user: one(users, {
+    fields: [conversationMessages.userId],
+    references: [users.id],
+  }),
   activity: one(activities, {
-    fields: [conversations.activityId],
+    fields: [conversationMessages.activityId],
     references: [activities.id],
   }),
 }));

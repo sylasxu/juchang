@@ -11,7 +11,6 @@
 import { t } from 'elysia';
 import { tool, jsonSchema } from 'ai';
 import { toJsonSchema } from '@juchang/utils';
-import { db, conversations } from '@juchang/db';
 
 /**
  * 选项结构
@@ -62,9 +61,9 @@ type AskPreferenceParams = typeof askPreferenceSchema.static;
 /**
  * 创建 askPreference Tool
  * 
- * @param userId - 用户 ID，null 时为测试模式（不写数据库）
+ * @param _userId - 用户 ID（保留参数，与其他 Tool 签名一致）
  */
-export function askPreferenceTool(userId: string | null) {
+export function askPreferenceTool(_userId: string | null) {
   return tool({
     description: `多轮对话信息收集工具。当用户表达探索意图但信息不完整时使用。
 
@@ -84,7 +83,8 @@ export function askPreferenceTool(userId: string | null) {
     execute: async (params: AskPreferenceParams) => {
       const { questionType, question, options, allowSkip = true, collectedInfo } = params;
       
-      const result = {
+      // v3.8: 对话记录由小程序端统一处理，Tool 只返回结果
+      return {
         success: true as const,
         widgetType: 'widget_ask_preference' as const,
         questionType,
@@ -93,37 +93,6 @@ export function askPreferenceTool(userId: string | null) {
         allowSkip,
         collectedInfo,
       };
-      
-      // 测试模式（无用户）：不写数据库
-      if (!userId) {
-        return result;
-      }
-      
-      try {
-        // 记录对话
-        await db
-          .insert(conversations)
-          .values({
-            userId,
-            role: 'assistant',
-            messageType: 'widget_ask_preference',
-            content: result,
-          });
-        
-        return result;
-      } catch (error) {
-        console.error('[askPreference] Error:', error);
-        return {
-          success: false as const,
-          widgetType: 'widget_ask_preference' as const,
-          questionType,
-          question,
-          options,
-          allowSkip,
-          collectedInfo,
-          error: '保存对话失败，请再试一次',
-        };
-      }
     },
   });
 }

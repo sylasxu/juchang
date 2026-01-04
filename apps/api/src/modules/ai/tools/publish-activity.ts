@@ -8,7 +8,7 @@
 import { t } from 'elysia';
 import { tool, jsonSchema } from 'ai';
 import { toJsonSchema } from '@juchang/utils';
-import { db, activities, users, conversations, eq } from '@juchang/db';
+import { db, activities, users, eq } from '@juchang/db';
 
 /**
  * Tool Schema - 使用 TypeBox 语法
@@ -164,21 +164,6 @@ export function publishActivityTool(userId: string | null) {
         
         // 消耗额度
         await consumeAIQuota(userId);
-        
-        // 记录对话
-        await db
-          .insert(conversations)
-          .values({
-            userId,
-            role: 'assistant',
-            messageType: 'widget_share',
-            content: {
-              activityId,
-              title: existingActivity.title,
-              shareUrl: generateShareUrl(activityId),
-            },
-            activityId,
-          });
         
         return {
           success: true as const,

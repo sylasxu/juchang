@@ -7,6 +7,20 @@ fileMatchPattern: "apps/admin/**/*"
 
 ## 🌐 API 调用
 
+### 🚨 必须使用 unwrap() 包装所有 API 调用
+
+Eden Treaty 返回 `{ data, error, status }` 格式，**禁止直接访问 response.data**：
+
+```typescript
+// ❌ 错误：直接访问 response.data
+const response = await api.users.get({ query: filters })
+const users = response.data  // 错误！response 是 { data, error, status }
+
+// ✅ 正确：使用 unwrap() 处理响应和错误
+import { api, unwrap } from '@/lib/eden'
+const users = await unwrap(api.users.get({ query: filters }))
+```
+
 ### Eden Treaty + unwrap 模式
 
 ```typescript

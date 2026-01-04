@@ -12,6 +12,9 @@ import {
   addUserMessage,
   clearConversations,
   getWelcomeCard,
+  // v3.8 新增：两层会话结构
+  listConversations,
+  getConversationMessages,
 } from './ai.service';
 import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v36';
 import { getTokenUsageStats, getTokenUsageSummary, getToolCallStats } from './services/metrics';
@@ -486,6 +489,121 @@ Prompt 通过 Git 版本控制，此接口为只读查看。
       },
       response: {
         200: 'ai.promptInfoResponse',
+      },
+    }
+  )
+  
+  // ==========================================
+  // 会话列表 v3.8 (Admin 对话审计用)
+  // ==========================================
+  .get(
+    '/sessions',
+    async ({ query, set, jwt, headers }) => {
+      const user = await verifyAuth(jwt, headers);
+      if (!user) {
+        set.status = 401;
+        return { code: 401, msg: '未授权' } satisfies ErrorResponse;
+      }
+
+      try {
+        const result = await listConversations({
+          page: query.page,
+          limit: query.limit,
+          userId: query.userId,
+        });
+        return result;
+      } catch (error: any) {
+        set.status = 500;
+        return { code: 500, msg: error.message || '获取会话列表失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: '获取会话列表',
+        description: '获取所有会话列表（Admin 对话审计用）。每个会话代表一次完整的用户与 AI 的交互。',
+      },
+      query: t.Object({
+        page: t.Optional(t.Number({ minimum: 1, default: 1 })),
+        limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20 })),
+        userId: t.Optional(t.String({ description: '按用户 ID 筛选' })),
+      }),
+      response: {
+        200: t.Object({
+          items: t.Array(t.Object({
+            id: t.String(),
+            userId: t.String(),
+            userNickname: t.Union([t.String(), t.Null()]),
+            title: t.Union([t.String(), t.Null()]),
+            messageCount: t.Number(),
+            lastMessageAt: t.String(),
+            createdAt: t.String(),
+          })),
+          total: t.Number(),
+        }),
+        401: 'ai.error',
+        500: 'ai.error',
+      },
+    }
+  )
+  
+  // 获取会话详情（消息列表）
+  .get(
+    '/sessions/:id',
+    async ({ params, set, jwt, headers }) => {
+      const user = await verifyAuth(jwt, headers);
+      if (!user) {
+        set.status = 401;
+        return { code: 401, msg: '未授权' } satisfies ErrorResponse;
+      }
+
+      try {
+        const result = await getConversationMessages(params.id);
+        if (!result.conversation) {
+          set.status = 404;
+          return { code: 404, msg: '会话不存在' } satisfies ErrorResponse;
+        }
+        return {
+          conversation: result.conversation,
+          messages: result.messages,
+        };
+      } catch (error: any) {
+        set.status = 500;
+        return { code: 500, msg: error.message || '获取会话详情失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: '获取会话详情',
+        description: '获取指定会话的所有消息（Admin 对话审计用）。',
+      },
+      params: t.Object({
+        id: t.String({ description: '会话 ID' }),
+      }),
+      response: {
+        200: t.Object({
+          conversation: t.Object({
+            id: t.String(),
+            userId: t.String(),
+            userNickname: t.Union([t.String(), t.Null()]),
+            title: t.Union([t.String(), t.Null()]),
+            messageCount: t.Number(),
+            lastMessageAt: t.String(),
+            createdAt: t.String(),
+          }),
+          messages: t.Array(t.Object({
+            id: t.String(),
+            role: t.Union([t.Literal('user'), t.Literal('assistant')]),
+            messageType: t.String(),
+            content: t.Any(),
+            activityId: t.Union([t.String(), t.Null()]),
+            createdAt: t.String(),
+          })),
+        }),
+        401: 'ai.error',
+        404: 'ai.error',
+        500: 'ai.error',
       },
     }
   );

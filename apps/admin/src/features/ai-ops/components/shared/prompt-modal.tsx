@@ -14,8 +14,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
 
 interface PromptModalProps {
   /** 是否打开 */
@@ -44,7 +42,7 @@ export function PromptModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='max-w-3xl max-h-[80vh] flex flex-col'>
+      <DialogContent className='max-w-3xl h-[80vh] flex flex-col'>
         <DialogHeader className='flex-shrink-0'>
           <div className='flex items-center justify-between pr-8'>
             <DialogTitle>{title}</DialogTitle>
@@ -69,11 +67,9 @@ export function PromptModal({
           </div>
         </DialogHeader>
 
-        <ScrollArea className='flex-1 -mx-6 px-6'>
-          <div className='rounded-md border bg-muted/30 p-4'>
-            <MarkdownContent content={content} />
-          </div>
-        </ScrollArea>
+        <div className='flex-1 overflow-y-auto rounded-md border bg-muted/30 p-4'>
+          <MarkdownContent content={content} />
+        </div>
       </DialogContent>
     </Dialog>
   )

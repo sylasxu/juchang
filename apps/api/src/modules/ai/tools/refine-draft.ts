@@ -8,7 +8,7 @@
 import { t } from 'elysia';
 import { tool, jsonSchema } from 'ai';
 import { toJsonSchema } from '@juchang/utils';
-import { db, activities, conversations, eq, sql } from '@juchang/db';
+import { db, activities, eq, sql } from '@juchang/db';
 
 /**
  * Tool Schema - 使用 TypeBox 语法
@@ -137,21 +137,6 @@ export function refineDraftTool(userId: string | null) {
           .from(activities)
           .where(eq(activities.id, activityId))
           .limit(1);
-        
-        // 记录对话
-        await db
-          .insert(conversations)
-          .values({
-            userId,
-            role: 'assistant',
-            messageType: 'widget_draft',
-            content: {
-              ...updatedActivity,
-              activityId,
-              startAt: updatedActivity.startAt.toISOString(),
-            },
-            activityId,
-          });
         
         return {
           success: true as const,

@@ -8,7 +8,7 @@
 import { t } from 'elysia';
 import { tool, jsonSchema } from 'ai';
 import { toJsonSchema } from '@juchang/utils';
-import { db, activities, participants, conversations, sql } from '@juchang/db';
+import { db, activities, participants, sql } from '@juchang/db';
 
 /**
  * Tool Schema - 使用 TypeBox 语法
@@ -89,20 +89,7 @@ export function createActivityDraftTool(userId: string | null) {
             status: 'joined',
           });
         
-        // 记录对话
-        await db
-          .insert(conversations)
-          .values({
-            userId,
-            role: 'assistant',
-            messageType: 'widget_draft',
-            content: {
-              ...params,
-              activityId: newActivity.id,
-            },
-            activityId: newActivity.id,
-          });
-        
+        // v3.8: 对话记录由小程序端统一处理，Tool 只返回结果
         return {
           success: true as const,
           activityId: newActivity.id,
