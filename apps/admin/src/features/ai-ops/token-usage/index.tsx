@@ -1,16 +1,16 @@
-// Token 使用统计页面
+// Token 使用统计页面 - 扁平化设计
 import { useState } from 'react'
-import { Bot, TrendingUp, Zap, Hash } from 'lucide-react'
+import { Bot } from 'lucide-react'
 import { useTokenUsageStats } from '@/hooks/use-ai-metrics'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import {
   Table,
   TableBody,
@@ -42,8 +42,7 @@ export function TokenUsage() {
     <>
       <Header fixed>
         <div className='flex items-center gap-2'>
-          <TrendingUp className='h-5 w-5' />
-          <h1 className='text-lg font-semibold'>Token 使用统计</h1>
+          <h1 className='text-lg font-semibold'>Token 统计</h1>
         </div>
         <div className='ms-auto flex items-center space-x-4'>
           <ThemeSwitch />
@@ -52,38 +51,62 @@ export function TokenUsage() {
         </div>
       </Header>
 
-      <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
-        {/* 日期筛选 */}
-        <div className='flex flex-wrap items-end gap-4'>
-          <div className='space-y-1'>
-            <Label htmlFor='startDate'>开始日期</Label>
-            <Input
-              id='startDate'
-              type='date'
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className='w-40'
-            />
+      <Main className='flex flex-1 flex-col gap-6'>
+        {/* 日期筛选 + 汇总数据 */}
+        <div className='flex flex-wrap items-center justify-between gap-4'>
+          <div className='flex items-center gap-4'>
+            <div className='flex items-center gap-2'>
+              <Label htmlFor='startDate' className='text-sm text-muted-foreground'>从</Label>
+              <Input
+                id='startDate'
+                type='date'
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className='w-36 h-8'
+              />
+            </div>
+            <div className='flex items-center gap-2'>
+              <Label htmlFor='endDate' className='text-sm text-muted-foreground'>至</Label>
+              <Input
+                id='endDate'
+                type='date'
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className='w-36 h-8'
+              />
+            </div>
           </div>
-          <div className='space-y-1'>
-            <Label htmlFor='endDate'>结束日期</Label>
-            <Input
-              id='endDate'
-              type='date'
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className='w-40'
-            />
-          </div>
+
+          {/* 汇总数据 - 扁平展示 */}
+          {!isLoading && data?.summary && (
+            <div className='flex items-center gap-6 text-sm'>
+              <div>
+                <span className='text-muted-foreground'>请求</span>
+                <span className='ml-2 font-medium'>{data.summary.totalRequests.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className='text-muted-foreground'>输入</span>
+                <span className='ml-2 font-medium'>{data.summary.totalInputTokens.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className='text-muted-foreground'>输出</span>
+                <span className='ml-2 font-medium'>{data.summary.totalOutputTokens.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className='text-muted-foreground'>总计</span>
+                <span className='ml-2 font-semibold text-primary'>{data.summary.totalTokens.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className='text-muted-foreground'>均值</span>
+                <span className='ml-2 font-medium'>{data.summary.avgTokensPerRequest.toLocaleString()}/次</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {isLoading ? (
           <div className='space-y-4'>
-            <div className='grid gap-4 md:grid-cols-4'>
-              {[...Array(4)].map((_, i) => (
-                <Skeleton key={i} className='h-24' />
-              ))}
-            </div>
+            <Skeleton className='h-8 w-full' />
             <Skeleton className='h-64' />
           </div>
         ) : error ? (
@@ -92,125 +115,64 @@ export function TokenUsage() {
           </div>
         ) : (
           <>
-            {/* 汇总卡片 */}
-            <div className='grid gap-4 md:grid-cols-4'>
-              <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>总请求数</CardTitle>
-                  <Hash className='h-4 w-4 text-muted-foreground' />
-                </CardHeader>
-                <CardContent>
-                  <div className='text-2xl font-bold'>
-                    {data?.summary.totalRequests.toLocaleString() || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>输入 Token</CardTitle>
-                  <Zap className='h-4 w-4 text-muted-foreground' />
-                </CardHeader>
-                <CardContent>
-                  <div className='text-2xl font-bold'>
-                    {data?.summary.totalInputTokens.toLocaleString() || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>输出 Token</CardTitle>
-                  <Zap className='h-4 w-4 text-muted-foreground' />
-                </CardHeader>
-                <CardContent>
-                  <div className='text-2xl font-bold'>
-                    {data?.summary.totalOutputTokens.toLocaleString() || 0}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-                  <CardTitle className='text-sm font-medium'>平均 Token/请求</CardTitle>
-                  <TrendingUp className='h-4 w-4 text-muted-foreground' />
-                </CardHeader>
-                <CardContent>
-                  <div className='text-2xl font-bold'>
-                    {data?.summary.avgTokensPerRequest.toLocaleString() || 0}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Tool 调用统计 */}
+            {/* Tool 调用统计 - 扁平展示 */}
             {data?.toolCalls && data.toolCalls.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className='text-base'>Tool 调用统计</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className='flex flex-wrap gap-2'>
-                    {data.toolCalls.map((tool) => (
-                      <div
-                        key={tool.toolName}
-                        className='flex items-center gap-2 rounded-md bg-muted px-3 py-1.5'
-                      >
-                        <Bot className='h-4 w-4' />
-                        <span className='text-sm font-medium'>{tool.toolName}</span>
-                        <span className='text-sm text-muted-foreground'>
-                          {tool.count}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className='flex items-center gap-2 flex-wrap'>
+                <span className='text-sm text-muted-foreground'>Tools:</span>
+                {data.toolCalls.map((tool) => (
+                  <Badge key={tool.toolName} variant='secondary' className='gap-1'>
+                    <Bot className='h-3 w-3' />
+                    {tool.toolName}
+                    <span className='text-muted-foreground'>×{tool.count}</span>
+                  </Badge>
+                ))}
+              </div>
             )}
 
             {/* 每日统计表格 */}
-            <div>
-              <h3 className='text-base font-semibold mb-4'>每日统计</h3>
-              <div className='overflow-hidden rounded-md border'>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>日期</TableHead>
-                      <TableHead className='text-right'>请求数</TableHead>
-                      <TableHead className='text-right'>输入 Token</TableHead>
-                      <TableHead className='text-right'>输出 Token</TableHead>
-                      <TableHead className='text-right'>总 Token</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data?.daily && data.daily.length > 0 ? (
-                      data.daily.map((row) => (
-                        <TableRow key={row.date}>
-                          <TableCell>{row.date}</TableCell>
-                          <TableCell className='text-right'>
-                            {row.totalRequests.toLocaleString()}
-                          </TableCell>
-                          <TableCell className='text-right'>
-                            {row.inputTokens.toLocaleString()}
-                          </TableCell>
-                          <TableCell className='text-right'>
-                            {row.outputTokens.toLocaleString()}
-                          </TableCell>
-                          <TableCell className='text-right'>
-                            {row.totalTokens.toLocaleString()}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={5} className='text-center py-8 text-muted-foreground'>
-                          暂无数据
+            <div className='overflow-hidden rounded-md border'>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>日期</TableHead>
+                    <TableHead className='text-right'>请求数</TableHead>
+                    <TableHead className='text-right'>输入</TableHead>
+                    <TableHead className='text-right'>输出</TableHead>
+                    <TableHead className='text-right'>总计</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data?.daily && data.daily.length > 0 ? (
+                    data.daily.map((row) => (
+                      <TableRow key={String(row.date)}>
+                        <TableCell>
+                          {row.date instanceof Date 
+                            ? row.date.toISOString().split('T')[0] 
+                            : String(row.date)}
+                        </TableCell>
+                        <TableCell className='text-right'>
+                          {row.totalRequests.toLocaleString()}
+                        </TableCell>
+                        <TableCell className='text-right'>
+                          {row.inputTokens.toLocaleString()}
+                        </TableCell>
+                        <TableCell className='text-right'>
+                          {row.outputTokens.toLocaleString()}
+                        </TableCell>
+                        <TableCell className='text-right font-medium'>
+                          {row.totalTokens.toLocaleString()}
                         </TableCell>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className='text-center py-8 text-muted-foreground'>
+                        暂无数据
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </>
         )}

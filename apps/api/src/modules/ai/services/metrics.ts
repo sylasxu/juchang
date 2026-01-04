@@ -20,20 +20,18 @@ export interface TokenUsage {
  * 记录 Token 使用量
  * 
  * 存储在 conversations.content.usage 中
+ * userId 为 null 时使用 'anonymous' 标识
  */
 export async function recordTokenUsage(
   userId: string | null,
   usage: TokenUsage,
   toolCalls?: Array<{ toolName: string }>
 ): Promise<void> {
-  // 测试模式（无用户）不记录
-  if (!userId) {
-    console.log(`[AI Metrics] Test mode, Tokens: ${usage.totalTokens}, Tools: ${toolCalls?.length || 0}`);
-    return;
-  }
+  // 使用 'anonymous' 作为匿名用户的标识
+  const effectiveUserId = userId || 'anonymous';
   
   await db.insert(conversations).values({
-    userId,
+    userId: effectiveUserId,
     role: 'assistant',
     messageType: 'text',
     content: {
@@ -44,7 +42,7 @@ export async function recordTokenUsage(
     },
   });
   
-  console.log(`[AI Metrics] User: ${userId}, Tokens: ${usage.totalTokens}, Tools: ${toolCalls?.length || 0}`);
+  console.log(`[AI Metrics] User: ${effectiveUserId}, Tokens: ${usage.totalTokens}, Tools: ${toolCalls?.length || 0}`);
 }
 
 /**
@@ -69,7 +67,7 @@ export async function getTokenUsageStats(
 ): Promise<DailyTokenUsage[]> {
   const result = await db.execute(sql`
     SELECT 
-      DATE(created_at) as date,
+      TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
       COUNT(*)::int as "totalRequests",
       COALESCE(SUM((content->'usage'->>'inputTokens')::int), 0)::int as "inputTokens",
       COALESCE(SUM((content->'usage'->>'outputTokens')::int), 0)::int as "outputTokens",

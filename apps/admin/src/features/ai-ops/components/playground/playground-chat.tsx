@@ -16,6 +16,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Slider } from '@/components/ui/slider'
+import { Label } from '@/components/ui/label'
 import { 
   Send, Trash2, Settings2, Bot, User, Loader2, Copy, Check,
   Wrench, ChevronDown, ChevronRight, MapPin, FileEdit,
@@ -58,17 +60,27 @@ export function PlaygroundChat({
   const inputRef = useRef<HTMLInputElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
+  
+  // 模型参数状态
+  const [temperature, setTemperature] = useState(0)
+  const [maxTokens, setMaxTokens] = useState(2048)
 
-  // 创建 transport
-  // 默认使用观音桥位置进行测试
-  const transport = useMemo(() => new DefaultChatTransport({
-    api: `${API_BASE_URL}/ai/chat`,
-    body: { 
-      source: 'admin',
-      trace: true, // v3.5: 启用执行追踪
-      location: [106.5516, 29.5630], // 观音桥坐标 [lng, lat]
-    },
-  }), [])
+  // 创建 transport（依赖模型参数）
+  const transport = useMemo(() => {
+    const token = localStorage.getItem('admin_token')
+    return new DefaultChatTransport({
+      api: `${API_BASE_URL}/ai/chat`,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: { 
+        source: 'admin',
+        trace: true,
+        modelParams: {
+          temperature,
+          maxTokens,
+        },
+      },
+    })
+  }, [temperature, maxTokens])
 
   // 使用 useChat hook
   const { 
@@ -259,9 +271,49 @@ export function PlaygroundChat({
       {/* 设置面板 */}
       {showSettings && (
         <div className='w-80 shrink-0 border-l pl-6'>
-          <h3 className='mb-4 text-sm font-medium'>设置</h3>
+          <h3 className='mb-4 text-sm font-medium'>模型参数</h3>
           
-          <div className='rounded-lg bg-muted/50 p-3'>
+          {/* Temperature */}
+          <div className='space-y-3'>
+            <div className='space-y-2'>
+              <div className='flex items-center justify-between'>
+                <Label className='text-xs'>Temperature</Label>
+                <span className='text-xs text-muted-foreground'>{temperature}</span>
+              </div>
+              <Slider
+                value={[temperature]}
+                onValueChange={([v]) => setTemperature(v)}
+                min={0}
+                max={2}
+                step={0.1}
+                className='w-full'
+              />
+              <p className='text-xs text-muted-foreground'>
+                越低越确定，越高越随机。Tool 调用建议 0。
+              </p>
+            </div>
+            
+            {/* Max Tokens */}
+            <div className='space-y-2'>
+              <div className='flex items-center justify-between'>
+                <Label className='text-xs'>Max Tokens</Label>
+                <span className='text-xs text-muted-foreground'>{maxTokens}</span>
+              </div>
+              <Slider
+                value={[maxTokens]}
+                onValueChange={([v]) => setMaxTokens(v)}
+                min={256}
+                max={8192}
+                step={256}
+                className='w-full'
+              />
+              <p className='text-xs text-muted-foreground'>
+                最大输出 Token 数。
+              </p>
+            </div>
+          </div>
+          
+          <div className='mt-6 rounded-lg bg-muted/50 p-3'>
             <p className='text-xs text-muted-foreground'>
               <strong>注意</strong>：Tool 调用会写入数据库。测试产生的活动可以在活动管理页面删除。
             </p>

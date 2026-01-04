@@ -6,7 +6,7 @@
  */
 
 import type { EnrichmentResult } from '../types';
-import type { ActivityDraftForPrompt } from '../../prompts/xiaoju-v35';
+import type { ActivityDraftForPrompt } from '../../prompts/xiaoju-v36';
 
 /**
  * 修改意图关键词

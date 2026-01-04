@@ -28,17 +28,26 @@ import { enrichMessages, injectContextToSystemPrompt, type EnrichmentContext } f
 /**
  * DeepSeek Provider 配置
  * 使用官方 @ai-sdk/deepseek provider
+ * 
+ * 注意：延迟初始化，确保 .env 已加载
  */
-const deepseek = createDeepSeek({
-  apiKey: process.env.DEEPSEEK_API_KEY || '',
-});
+let _deepseek: ReturnType<typeof createDeepSeek> | null = null;
+
+function getDeepSeekProvider() {
+  if (!_deepseek) {
+    _deepseek = createDeepSeek({
+      apiKey: process.env.DEEPSEEK_API_KEY || '',
+    });
+  }
+  return _deepseek;
+}
 
 /**
  * 获取 AI 模型配置
  * 简化为单一 DeepSeek provider
  */
 function getAIModel() {
-  return deepseek('deepseek-chat');
+  return getDeepSeekProvider()('deepseek-chat');
 }
 
 // ==========================================
@@ -111,7 +120,7 @@ export type IntentType = 'create' | 'explore' | 'unknown';
 // ==========================================
 
 /**
- * Chat 请求参数 (v3.5 支持 trace + UIMessage 格式)
+ * Chat 请求参数 (v3.7 支持模型参数配置)
  */
 export interface StreamChatRequest {
   messages: Array<Omit<UIMessage, 'id'>>;
@@ -123,8 +132,13 @@ export interface StreamChatRequest {
     activityId: string;
     currentDraft: ActivityDraftForPrompt;
   };
-  /** v3.5 新增：执行追踪，返回详细的执行步骤数据 */
+  /** 执行追踪，返回详细的执行步骤数据 */
   trace?: boolean;
+  /** 模型参数（Admin Playground 用） */
+  modelParams?: {
+    temperature?: number;
+    maxTokens?: number;
+  };
 }
 
 /**
@@ -146,7 +160,7 @@ export interface StreamChatRequest {
  * - Token 使用量记录
  */
 export async function streamChat(request: StreamChatRequest) {
-  const { messages, userId, location, source, draftContext, trace } = request;
+  const { messages, userId, location, source, draftContext, trace, modelParams } = request;
   
   // 构建 Prompt 上下文
   const locationName = location ? await reverseGeocode(location[1], location[0]) : undefined;
@@ -186,19 +200,12 @@ export async function streamChat(request: StreamChatRequest) {
   // 使用 AI SDK 内置的 convertToModelMessages 转换消息格式
   // 自动处理 UIMessage 中的 parts（包含 Tool 调用历史）
   const aiMessages = await convertToModelMessages(enrichedMessages);
-
-  // 测试模式判断：
-  // - 小程序无用户：测试模式（不使用 Tools）
-  // - Admin 无用户：仍使用 Tools（Tools 内部会处理 userId=null 的情况，不写数据库）
-  const isTestMode = !userId && source !== 'admin';
   
   // 构建 XML 结构化 System Prompt（v3.6），注入增强上下文
   const systemPrompt = buildXmlSystemPrompt(promptContext, contextXml);
   
-  // 获取 Tools
-  // - 测试模式：不使用 Tools
-  // - Admin 模式：即使无用户也使用 Tools（Tools 内部处理测试模式）
-  const tools = isTestMode ? undefined : getAIToolsV34(userId);
+  // 获取 Tools（始终启用，Tools 内部处理 userId=null 的情况）
+  const tools = getAIToolsV34(userId);
   
   // Trace 模式的元数据
   const requestId = trace ? randomUUID() : undefined;
@@ -215,7 +222,8 @@ export async function streamChat(request: StreamChatRequest) {
     system: systemPrompt,
     messages: aiMessages,
     tools: tools as any,
-    temperature: 0, // 更一致的 Tool 调用结果
+    temperature: modelParams?.temperature ?? 0, // 默认 0，更一致的 Tool 调用结果
+    maxOutputTokens: modelParams?.maxTokens,
     // 使用 AI SDK 内置的停止条件：
     // 1. 最多 5 步（使用 stepCountIs）
     // 2. 如果调用了 askPreference，立即停止（使用 hasToolCall）
@@ -249,20 +257,18 @@ export async function streamChat(request: StreamChatRequest) {
         totalTokens: usage.totalTokens ?? 0,
       };
       
-      console.log(`[AI Chat] Source: ${source}, User: ${userId}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}`);
+      console.log(`[AI Chat] Source: ${source}, User: ${userId || 'anonymous'}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}`);
       
-      // 记录 Token 使用量
-      if (userId && !isTestMode) {
-        await recordTokenUsage(
-          userId,
-          {
-            inputTokens: totalUsage.promptTokens,
-            outputTokens: totalUsage.completionTokens,
-            totalTokens: totalUsage.totalTokens,
-          },
-          traceSteps.map(s => ({ toolName: s.toolName }))
-        );
-      }
+      // 始终记录 Token 使用量（userId 为 null 时记录为匿名）
+      await recordTokenUsage(
+        userId,
+        {
+          inputTokens: totalUsage.promptTokens,
+          outputTokens: totalUsage.completionTokens,
+          totalTokens: totalUsage.totalTokens,
+        },
+        traceSteps.map(s => ({ toolName: s.toolName }))
+      );
     },
   });
   

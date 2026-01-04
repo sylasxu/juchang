@@ -13,7 +13,7 @@ import {
   clearConversations,
   getWelcomeCard,
 } from './ai.service';
-import { getPromptInfo, buildSystemPrompt } from './prompts/xiaoju-v35';
+import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v36';
 import { getTokenUsageStats, getTokenUsageSummary, getToolCallStats } from './services/metrics';
 import { db, users, eq } from '@juchang/db';
 
@@ -190,7 +190,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
       }
 
       try {
-        // 获取 Data Stream Response (v3.5 支持 trace)
+        // 获取 Data Stream Response (v3.7 支持模型参数)
         const response = await streamChat({
           messages: messages as any, // AI SDK UIMessage 格式
           userId: effectiveUserId,
@@ -198,6 +198,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
           source,
           draftContext: body.draftContext,
           trace: trace ?? false,
+          modelParams: body.modelParams,
         });
         
         return response;
@@ -255,6 +256,11 @@ Data Stream 格式：
         trace: t.Optional(t.Boolean({
           default: false,
           description: '是否返回执行追踪数据（Admin Playground 调试用）'
+        })),
+        // v3.7 新增：模型参数
+        modelParams: t.Optional(t.Object({
+          temperature: t.Optional(t.Number({ minimum: 0, maximum: 2, description: '温度参数，0-2' })),
+          maxTokens: t.Optional(t.Number({ minimum: 1, maximum: 8192, description: '最大输出 Token 数' })),
         })),
       }, { additionalProperties: true }), // AI SDK useChat 会添加 id, trigger 等字段
     }
@@ -452,13 +458,13 @@ Data Stream 格式：
   )
   
   // ==========================================
-  // Prompt 查看 (v3.4 新增 - 代码即配置)
+  // Prompt 查看 (v3.6 - 代码即配置)
   // ==========================================
   .get(
     '/prompts/current',
     async () => {
       const info = getPromptInfo();
-      const content = buildSystemPrompt({
+      const content = buildXmlSystemPrompt({
         currentTime: new Date(),
         userLocation: { lat: 29.5630, lng: 106.5516, name: '观音桥' },
         userNickname: '示例用户',

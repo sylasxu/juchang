@@ -21,4 +21,7 @@ export default defineConfig({
   },
   // 从根目录读取 .env 文件
   envDir: path.resolve(__dirname, '../..'),
+  server: {
+    port: 1113,
+  },
 })

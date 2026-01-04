@@ -36,7 +36,7 @@ export function PromptViewer() {
           <AlertDescription>
             System Prompt 通过 Git 版本控制管理。修改 Prompt 需要提交代码到仓库。
             <br />
-            文件位置：<code className='text-xs bg-muted px-1 py-0.5 rounded'>apps/api/src/modules/ai/prompts/xiaoju-v34.ts</code>
+            文件位置：<code className='text-xs bg-muted px-1 py-0.5 rounded'>apps/api/src/modules/ai/prompts/xiaoju-v36.ts</code>
           </AlertDescription>
         </Alert>
 
