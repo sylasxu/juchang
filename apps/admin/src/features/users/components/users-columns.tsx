@@ -1,6 +1,6 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
-import { Trash2, Edit, Eye } from 'lucide-react'
+import { Trash2, Edit, Eye, Gauge } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,11 +13,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
+import { TruncatedCell } from '@/components/truncated-cell'
 import { useListContext } from '@/components/list-page'
 import { type User } from '../data/schema'
 
 // 用户弹窗类型
-export type UserDialogType = 'create' | 'update' | 'delete' | 'import'
+export type UserDialogType = 'update' | 'delete' | 'quota'
 
 // 行操作组件
 function UserRowActions({ user }: { user: User }) {
@@ -57,6 +58,18 @@ function UserRowActions({ user }: { user: User }) {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(user)
+            setOpen('quota')
+          }}
+        >
+          AI 额度
+          <DropdownMenuShortcut>
+            <Gauge size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
           className='text-destructive focus:text-destructive'
           onClick={() => {
             setCurrentRow(user)
@@ -81,9 +94,7 @@ export const usersColumns: ColumnDef<User>[] = [
       <DataTableColumnHeader column={column} title='ID' />
     ),
     cell: ({ row }) => (
-      <div className='w-[80px] font-mono text-xs'>
-        {(row.getValue('id') as string).slice(0, 8)}...
-      </div>
+      <TruncatedCell value={row.getValue('id')} maxLength={8} mono showCopy />
     ),
     enableSorting: false,
     enableHiding: false,

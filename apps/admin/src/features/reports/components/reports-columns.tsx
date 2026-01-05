@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
+import { TruncatedCell } from '@/components/truncated-cell'
 import { useListContext } from '@/components/list-page'
 import { type Report } from '@/hooks/use-reports'
 
@@ -126,9 +127,7 @@ export const reportsColumns: ColumnDef<Report>[] = [
       <DataTableColumnHeader column={column} title='被举报内容' />
     ),
     cell: ({ row }) => (
-      <div className='max-w-xs truncate text-sm'>
-        {row.getValue('targetContent') as string}
-      </div>
+      <TruncatedCell value={row.getValue('targetContent') as string} maxLength={30} />
     ),
     enableSorting: false,
   },

@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
+import { TruncatedCell } from '@/components/truncated-cell'
 import { useListContext } from '@/components/list-page'
 import type { ConversationSession } from '@/hooks/use-conversations'
 
@@ -98,9 +99,7 @@ export const conversationsColumns: ColumnDef<ConversationSession>[] = [
     accessorKey: 'title',
     header: ({ column }) => <DataTableColumnHeader column={column} title='会话标题' />,
     cell: ({ row }) => (
-      <div className='max-w-[200px] truncate text-sm'>
-        {row.getValue('title') || '无标题'}
-      </div>
+      <TruncatedCell value={row.getValue('title') || '无标题'} maxLength={25} />
     ),
     enableSorting: false,
   },

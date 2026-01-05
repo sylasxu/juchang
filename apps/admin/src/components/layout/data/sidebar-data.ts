@@ -8,12 +8,11 @@ import {
   Palette,
   Command,
   MessageSquare,
-  Gauge,
   Play,
   Bell,
   Shield,
-  TrendingUp,
   FileCode,
+  TrendingUp,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
@@ -50,11 +49,6 @@ export const sidebarData: SidebarData = {
           icon: Play,
         },
         {
-          title: '额度管理',
-          url: '/ai-ops/quota',
-          icon: Gauge,
-        },
-        {
           title: 'Token 统计',
           url: '/ai-ops/token-usage',
           icon: TrendingUp,
@@ -75,14 +69,14 @@ export const sidebarData: SidebarData = {
       title: '运营管理',
       items: [
         {
-          title: '通知管理',
-          url: '/notifications',
-          icon: Bell,
-        },
-        {
           title: '内容审核',
           url: '/reports',
           icon: Shield,
+        },
+        {
+          title: '通知管理',
+          url: '/notifications',
+          icon: Bell,
         },
       ],
     },

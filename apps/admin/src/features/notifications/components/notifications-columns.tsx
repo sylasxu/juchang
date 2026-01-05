@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
+import { TruncatedCell } from '@/components/truncated-cell'
 import { useListContext } from '@/components/list-page'
 import { type Notification } from '@/hooks/use-notifications'
 
@@ -82,9 +83,11 @@ export const notificationsColumns: ColumnDef<Notification>[] = [
       <DataTableColumnHeader column={column} title='标题' />
     ),
     cell: ({ row }) => (
-      <div className='max-w-xs truncate font-medium'>
-        {row.getValue('title') as string}
-      </div>
+      <TruncatedCell
+        value={row.getValue('title') as string}
+        maxLength={25}
+        className='font-medium'
+      />
     ),
     enableSorting: false,
   },

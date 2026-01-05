@@ -2,6 +2,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { DataTableColumnHeader } from '@/components/data-table'
+import { TruncatedCell } from '@/components/truncated-cell'
 import { statuses, activityTypes } from '../data/data'
 import { type Activity } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
@@ -36,7 +37,9 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title='ID' />
     ),
-    cell: ({ row }) => <div className='w-[80px] font-mono text-xs'>{row.getValue('id')}</div>,
+    cell: ({ row }) => (
+      <TruncatedCell value={row.getValue('id')} maxLength={8} mono showCopy />
+    ),
     enableSorting: false,
     enableHiding: false,
   },
