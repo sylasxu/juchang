@@ -3,6 +3,7 @@
 import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
 import { typeboxResolver } from '@hookform/resolvers/typebox'
+import { insertUserSchema } from '@juchang/db'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,10 +25,8 @@ import { Input } from '@/components/ui/input'
 import { useUpdateUser } from '../hooks/use-users'
 import { type User } from '../data/schema'
 
-// MVP 简化版表单 - 只允许编辑昵称
-const formSchema = Type.Object({
-  nickname: Type.Optional(Type.String({ maxLength: 50 })),
-})
+// 表单 Schema - 从 DB 派生，仅 Pick 可编辑字段
+const formSchema = Type.Pick(insertUserSchema, ['nickname'])
 
 type UserForm = Static<typeof formSchema>
 

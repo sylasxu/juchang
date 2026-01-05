@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
 import { typeboxResolver } from '@hookform/resolvers/typebox'
+import { insertUserSchema } from '@juchang/db'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -26,11 +27,8 @@ import { useUpdateUser } from '@/hooks/use-users'
 import { type User } from '../data/schema'
 import { type UserDialogType } from './users-columns'
 
-// 表单 Schema - 仅包含可编辑的真实字段
-const formSchema = Type.Object({
-  nickname: Type.String({ minLength: 1, maxLength: 50 }),
-  avatarUrl: Type.Optional(Type.String({ maxLength: 500 })),
-})
+// 表单 Schema - 从 DB 派生，仅 Pick 可编辑字段
+const formSchema = Type.Pick(insertUserSchema, ['nickname', 'avatarUrl'])
 
 type UserForm = Static<typeof formSchema>
 

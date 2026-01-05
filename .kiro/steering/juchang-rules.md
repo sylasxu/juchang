@@ -54,6 +54,7 @@ inclusion: always
 
 ## 🚫 Schema 派生规则
 
+**数据展示 Schema（selectSchema）：**
 ```typescript
 // ❌ 禁止手动定义
 const userSchema = t.Object({ id: t.String(), nickname: t.String() });
@@ -62,6 +63,23 @@ const userSchema = t.Object({ id: t.String(), nickname: t.String() });
 import { selectUserSchema } from '@juchang/db';
 const userSchema = t.Pick(selectUserSchema, ['id', 'nickname']);
 ```
+
+**表单验证 Schema（insertSchema）：**
+```typescript
+// ❌ 禁止手动定义表单字段
+const formSchema = t.Object({
+  nickname: t.String({ minLength: 1, maxLength: 50 }),
+});
+
+// ✅ 从 DB 派生，Pick 需要的字段
+import { insertUserSchema } from '@juchang/db';
+const formSchema = t.Pick(insertUserSchema, ['nickname', 'avatarUrl']);
+```
+
+**允许手动定义的 Schema：**
+- 分页参数、错误响应等通用辅助类型
+- 登录表单（phone + code，非 DB 字段）
+- Admin 特有类型（无对应 DB 表）
 
 ---
 

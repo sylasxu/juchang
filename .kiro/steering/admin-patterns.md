@@ -193,10 +193,24 @@ export const adminActivitySchema = Type.Intersect([
 ])
 ```
 
+**表单验证 Schema 也必须从 DB 派生：**
+
+```typescript
+// ❌ 禁止手动定义表单字段
+const formSchema = Type.Object({
+  nickname: Type.String({ minLength: 1, maxLength: 50 }),
+})
+
+// ✅ 从 DB 派生，Pick 需要的字段
+import { insertUserSchema } from '@juchang/db'
+const formSchema = Type.Pick(insertUserSchema, ['nickname', 'avatarUrl'])
+```
+
 **允许手动定义的 Schema：**
 - 分页参数 (`PaginationQuerySchema`)
 - 错误响应 (`ErrorResponseSchema`)
 - Admin 特有的辅助类型（无对应 DB 表）
+- 登录表单（phone + code，非 DB 字段）
 
 ---
 
