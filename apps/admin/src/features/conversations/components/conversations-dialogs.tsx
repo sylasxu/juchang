@@ -1,7 +1,8 @@
-import { User, Bot } from 'lucide-react'
+import { User, Bot, AlertTriangle } from 'lucide-react'
 import { format } from 'date-fns'
 import { zhCN } from 'date-fns/locale'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Dialog,
@@ -9,10 +10,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useListContext } from '@/components/list-page'
 import { cn } from '@/lib/utils'
 import {
   useConversationDetail,
+  useDeleteSession,
+  useDeleteSessionsBatch,
   type ConversationSession,
   type ConversationMessage,
 } from '@/hooks/use-conversations'
@@ -45,14 +58,92 @@ const messageTypeColors: Record<string, string> = {
 }
 
 export function ConversationsDialogs() {
-  const { open, setOpen, currentRow } = useListContext<ConversationSession, ConversationDialogType>()
+  const { open, setOpen, currentRow, selectedRows, setSelectedRows } = useListContext<ConversationSession, ConversationDialogType>()
+  const deleteSession = useDeleteSession()
+  const deleteSessionsBatch = useDeleteSessionsBatch()
+
+  const handleDelete = () => {
+    if (currentRow) {
+      deleteSession.mutate(currentRow.id, {
+        onSuccess: () => setOpen(null),
+      })
+    }
+  }
+
+  const handleBatchDelete = () => {
+    if (selectedRows && selectedRows.length > 0) {
+      const ids = selectedRows.map(row => row.id)
+      deleteSessionsBatch.mutate(ids, {
+        onSuccess: () => {
+          setOpen(null)
+          setSelectedRows?.([])
+        },
+      })
+    }
+  }
 
   return (
-    <SessionDetailDialog
-      session={currentRow}
-      open={open === 'view'}
-      onClose={() => setOpen(null)}
-    />
+    <>
+      <SessionDetailDialog
+        session={currentRow}
+        open={open === 'view'}
+        onClose={() => setOpen(null)}
+      />
+
+      {/* 单个删除确认 */}
+      <AlertDialog open={open === 'delete'} onOpenChange={() => setOpen(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className='flex items-center gap-2'>
+              <AlertTriangle className='h-5 w-5 text-destructive' />
+              确认删除会话
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除「{currentRow?.title || '无标题'}」会话吗？
+              <br />
+              此操作将同时删除该会话的所有消息，且无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              disabled={deleteSession.isPending}
+            >
+              {deleteSession.isPending ? '删除中...' : '确认删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 批量删除确认 */}
+      <AlertDialog open={open === 'batch-delete'} onOpenChange={() => setOpen(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className='flex items-center gap-2'>
+              <AlertTriangle className='h-5 w-5 text-destructive' />
+              确认批量删除
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除选中的 {selectedRows?.length || 0} 个会话吗？
+              <br />
+              此操作将同时删除这些会话的所有消息，且无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBatchDelete}
+              className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+              disabled={deleteSessionsBatch.isPending}
+            >
+              {deleteSessionsBatch.isPending ? '删除中...' : '确认删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
 

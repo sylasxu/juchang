@@ -6,6 +6,8 @@ interface ListContextValue<TData, TDialogType extends string> {
   setOpen: (type: TDialogType | null) => void
   currentRow: TData | null
   setCurrentRow: React.Dispatch<React.SetStateAction<TData | null>>
+  selectedRows: TData[]
+  setSelectedRows: React.Dispatch<React.SetStateAction<TData[]>>
 }
 
 const ListContext = createContext<ListContextValue<unknown, string> | null>(null)
@@ -19,6 +21,7 @@ export function ListProvider<TData, TDialogType extends string>({
 }: ListProviderProps) {
   const [open, setOpen] = useDialogState<TDialogType>(null)
   const [currentRow, setCurrentRow] = useState<TData | null>(null)
+  const [selectedRows, setSelectedRows] = useState<TData[]>([])
 
   return (
     <ListContext.Provider
@@ -27,6 +30,8 @@ export function ListProvider<TData, TDialogType extends string>({
         setOpen,
         currentRow,
         setCurrentRow,
+        selectedRows,
+        setSelectedRows,
       } as ListContextValue<unknown, string>}
     >
       {children}

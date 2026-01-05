@@ -1,5 +1,5 @@
 // User Service - 纯业务逻辑 (纯 RESTful)
-import { db, users, eq, or, ilike, count, desc } from '@juchang/db';
+import { db, users, eq, or, ilike, count, desc, sql } from '@juchang/db';
 import type { 
   UserResponse,
   QuotaResponse, 
@@ -170,4 +170,46 @@ export async function deductAiCreateQuota(id: string): Promise<boolean> {
     .where(eq(users.id, id));
 
   return true;
+}
+
+/**
+ * 设置用户 AI 额度（Admin 用）
+ * @param id 用户 ID
+ * @param quota 新的额度值（999 表示无限）
+ */
+export async function setUserQuota(id: string, quota: number): Promise<UserResponse | null> {
+  const existingUser = await getUserById(id);
+  if (!existingUser) return null;
+
+  await db
+    .update(users)
+    .set({
+      aiCreateQuotaToday: quota,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, id));
+
+  return getUserById(id);
+}
+
+/**
+ * 批量设置用户 AI 额度（Admin 用）
+ * @param userIds 用户 ID 列表
+ * @param quota 新的额度值
+ */
+export async function setUserQuotaBatch(userIds: string[], quota: number): Promise<{ updatedCount: number }> {
+  if (userIds.length === 0) {
+    return { updatedCount: 0 };
+  }
+
+  const result = await db
+    .update(users)
+    .set({
+      aiCreateQuotaToday: quota,
+      updatedAt: new Date(),
+    })
+    .where(sql`${users.id} IN (${sql.join(userIds.map(id => sql`${id}`), sql`, `)})`)
+    .returning({ id: users.id });
+
+  return { updatedCount: result.length };
 }

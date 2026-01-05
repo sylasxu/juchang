@@ -1,15 +1,37 @@
-import { Gauge } from 'lucide-react'
+import { Gauge, Edit } from 'lucide-react'
 import { getRouteApi } from '@tanstack/react-router'
-import { ListPage, DataTable } from '@/components/list-page'
-import { useQuotaList } from '@/hooks/use-quota'
-import { quotaColumns, quotaFilters } from './components/quota-columns'
+import { ListPage, DataTable, ListProvider, useListContext } from '@/components/list-page'
+import { Button } from '@/components/ui/button'
+import { useQuotaList, type UserQuota } from '@/hooks/use-quota'
+import { quotaColumns, quotaFilters, type QuotaDialogType } from './components/quota-columns'
+import { QuotaDialogs } from './components/quota-dialogs'
 
 const route = getRouteApi('/_authenticated/ai-ops/quota')
 
-export function QuotaManagement() {
+// 批量操作按钮
+function BatchActions() {
+  const { selectedRows, setOpen } = useListContext<UserQuota, QuotaDialogType>()
+  
+  if (!selectedRows || selectedRows.length === 0) return null
+
+  return (
+    <Button
+      variant='outline'
+      size='sm'
+      onClick={() => setOpen('batch-edit')}
+    >
+      <Edit className='mr-2 h-4 w-4' />
+      批量调整 ({selectedRows.length})
+    </Button>
+  )
+}
+
+// 内部组件
+function QuotaContent() {
   const search = route.useSearch()
   const navigate = route.useNavigate()
   const pageSize = search.pageSize ?? 10
+  const { setSelectedRows } = useListContext<UserQuota, QuotaDialogType>()
 
   // 从 URL 获取筛选参数
   const statusFilter = search.status?.[0] as 'used' | 'unused' | undefined
@@ -27,10 +49,12 @@ export function QuotaManagement() {
   return (
     <ListPage
       title='AI 额度管理'
-      description='查看用户 AI 创建额度使用情况'
+      description='查看和调整用户 AI 创建额度'
       icon={Gauge}
       isLoading={isLoading}
       error={error ?? undefined}
+      dialogs={<QuotaDialogs />}
+      headerActions={<BatchActions />}
     >
       <DataTable
         data={users}
@@ -41,7 +65,16 @@ export function QuotaManagement() {
         searchPlaceholder='搜索用户昵称或手机号...'
         facetedFilters={quotaFilters}
         emptyMessage='暂无数据'
+        onSelectedRowsChange={setSelectedRows}
       />
     </ListPage>
+  )
+}
+
+export function QuotaManagement() {
+  return (
+    <ListProvider<UserQuota, QuotaDialogType>>
+      <QuotaContent />
+    </ListProvider>
   )
 }

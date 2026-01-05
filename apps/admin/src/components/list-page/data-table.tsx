@@ -4,6 +4,7 @@ import {
   type SortingState,
   type VisibilityState,
   type Table as TanStackTable,
+  type RowSelectionState,
   flexRender,
   getCoreRowModel,
   getFacetedRowModel,
@@ -49,6 +50,7 @@ interface DataTableProps<TData> {
   facetedFilters?: FacetedFilterConfig[]
   toolbarActions?: React.ReactNode
   bulkActions?: (table: TanStackTable<TData>) => React.ReactNode
+  onSelectedRowsChange?: (rows: TData[]) => void
 }
 
 
@@ -67,6 +69,7 @@ export function DataTable<TData>({
   facetedFilters = [],
   toolbarActions,
   bulkActions,
+  onSelectedRowsChange,
 }: DataTableProps<TData>) {
   // Auto-add select column when row selection is enabled
   const columnsWithSelect = useMemo(() => {
@@ -77,9 +80,18 @@ export function DataTable<TData>({
     return [createSelectColumn<TData>(), ...columns]
   }, [columns, enableRowSelection])
   // Local UI-only states
-  const [rowSelection, setRowSelection] = useState({})
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+
+  // Sync selected rows to parent
+  useEffect(() => {
+    if (onSelectedRowsChange) {
+      const selectedIndices = Object.keys(rowSelection).filter(key => rowSelection[key])
+      const selectedData = selectedIndices.map(index => data[parseInt(index)]).filter(Boolean)
+      onSelectedRowsChange(selectedData)
+    }
+  }, [rowSelection, data, onSelectedRowsChange])
 
   // Build columnFilters config from facetedFilters
   const columnFiltersConfig = facetedFilters.map((f) => ({

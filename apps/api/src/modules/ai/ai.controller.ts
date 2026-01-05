@@ -15,8 +15,10 @@ import {
   // v3.8 新增：两层会话结构
   listConversations,
   getConversationMessages,
+  deleteConversation,
+  deleteConversationsBatch,
 } from './ai.service';
-import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v36';
+import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v37';
 import { getTokenUsageStats, getTokenUsageSummary, getToolCallStats } from './services/metrics';
 import { db, users, eq } from '@juchang/db';
 
@@ -603,6 +605,87 @@ Prompt 通过 Git 版本控制，此接口为只读查看。
         }),
         401: 'ai.error',
         404: 'ai.error',
+        500: 'ai.error',
+      },
+    }
+  )
+  
+  // 删除单个会话（Admin 用）
+  .delete(
+    '/sessions/:id',
+    async ({ params, set, jwt, headers }) => {
+      const user = await verifyAuth(jwt, headers);
+      if (!user) {
+        set.status = 401;
+        return { code: 401, msg: '未授权' } satisfies ErrorResponse;
+      }
+
+      try {
+        const deleted = await deleteConversation(params.id);
+        if (!deleted) {
+          set.status = 404;
+          return { code: 404, msg: '会话不存在' } satisfies ErrorResponse;
+        }
+        return { success: true, msg: '会话已删除' };
+      } catch (error: any) {
+        set.status = 500;
+        return { code: 500, msg: error.message || '删除会话失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: '删除会话',
+        description: '删除指定会话及其所有消息（Admin 用）。',
+      },
+      params: t.Object({
+        id: t.String({ description: '会话 ID' }),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Boolean(),
+          msg: t.String(),
+        }),
+        401: 'ai.error',
+        404: 'ai.error',
+        500: 'ai.error',
+      },
+    }
+  )
+  
+  // 批量删除会话（Admin 用）
+  .post(
+    '/sessions/batch-delete',
+    async ({ body, set, jwt, headers }) => {
+      const user = await verifyAuth(jwt, headers);
+      if (!user) {
+        set.status = 401;
+        return { code: 401, msg: '未授权' } satisfies ErrorResponse;
+      }
+
+      try {
+        const result = await deleteConversationsBatch(body.ids);
+        return { success: true, deletedCount: result.deletedCount };
+      } catch (error: any) {
+        set.status = 500;
+        return { code: 500, msg: error.message || '批量删除失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['AI'],
+        summary: '批量删除会话',
+        description: '批量删除多个会话及其所有消息（Admin 用）。',
+      },
+      body: t.Object({
+        ids: t.Array(t.String(), { description: '要删除的会话 ID 列表' }),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Boolean(),
+          deletedCount: t.Number(),
+        }),
+        401: 'ai.error',
         500: 'ai.error',
       },
     }

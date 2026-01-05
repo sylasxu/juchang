@@ -1,12 +1,14 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
-import { Eye } from 'lucide-react'
+import { Eye, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -15,7 +17,7 @@ import { useListContext } from '@/components/list-page'
 import type { ConversationSession } from '@/hooks/use-conversations'
 
 // 弹窗类型
-export type ConversationDialogType = 'view'
+export type ConversationDialogType = 'view' | 'delete' | 'batch-delete'
 
 // 行操作组件
 function SessionRowActions({ session }: { session: ConversationSession }) {
@@ -24,6 +26,11 @@ function SessionRowActions({ session }: { session: ConversationSession }) {
   const handleView = () => {
     setCurrentRow(session)
     setOpen('view')
+  }
+
+  const handleDelete = () => {
+    setCurrentRow(session)
+    setOpen('delete')
   }
 
   return (
@@ -41,6 +48,13 @@ function SessionRowActions({ session }: { session: ConversationSession }) {
             <Eye size={16} />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleDelete} className='text-destructive focus:text-destructive'>
+          删除
+          <DropdownMenuShortcut>
+            <Trash2 size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -48,6 +62,30 @@ function SessionRowActions({ session }: { session: ConversationSession }) {
 
 // 列定义
 export const conversationsColumns: ColumnDef<ConversationSession>[] = [
+  {
+    id: 'select',
+    header: ({ table }) => (
+      <Checkbox
+        checked={
+          table.getIsAllPageRowsSelected() ||
+          (table.getIsSomePageRowsSelected() && 'indeterminate')
+        }
+        onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+        aria-label='全选'
+        className='translate-y-[2px]'
+      />
+    ),
+    cell: ({ row }) => (
+      <Checkbox
+        checked={row.getIsSelected()}
+        onCheckedChange={(value) => row.toggleSelected(!!value)}
+        aria-label='选择行'
+        className='translate-y-[2px]'
+      />
+    ),
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     accessorKey: 'userNickname',
     header: ({ column }) => <DataTableColumnHeader column={column} title='用户' />,

@@ -5,7 +5,7 @@
  */
 
 import type { UIMessage } from 'ai';
-import type { ActivityDraftForPrompt } from '../prompts/xiaoju-v36';
+import type { ActivityDraftForPrompt } from '../prompts/xiaoju-v37';
 
 /**
  * 增强上下文

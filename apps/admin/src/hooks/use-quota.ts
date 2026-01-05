@@ -1,6 +1,7 @@
 // AI 额度管理相关 Hooks
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/eden'
+import { toast } from 'sonner'
 
 const DAILY_QUOTA_LIMIT = 3
 
@@ -75,6 +76,46 @@ export function useQuotaList(filters: QuotaFilters = {}) {
       } as QuotaListResponse
     },
     staleTime: 2 * 60 * 1000,
+  })
+}
+
+// 设置单个用户额度
+export function useSetUserQuota() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userId, quota }: { userId: string; quota: number }) => {
+      return await unwrap(
+        api.users({ id: userId }).quota.put({ quota })
+      )
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: quotaKeys.all })
+      toast.success('额度已更新')
+    },
+    onError: (error: Error) => {
+      toast.error(`更新失败: ${error.message}`)
+    },
+  })
+}
+
+// 批量设置用户额度
+export function useSetUserQuotaBatch() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ userIds, quota }: { userIds: string[]; quota: number }) => {
+      return await unwrap(
+        api.users.quota.batch.post({ userIds, quota })
+      )
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: quotaKeys.all })
+      toast.success(`已更新 ${data?.updatedCount || 0} 个用户的额度`)
+    },
+    onError: (error: Error) => {
+      toast.error(`批量更新失败: ${error.message}`)
+    },
   })
 }
 

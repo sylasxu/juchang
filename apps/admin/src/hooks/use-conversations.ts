@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/eden'
+import { toast } from 'sonner'
 
 // 会话列表项类型
 export interface ConversationSession {
@@ -73,6 +74,44 @@ export function useConversationDetail(
       }
     },
     enabled: !!conversationId && enabled,
+  })
+}
+
+// 删除单个会话
+export function useDeleteSession() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      return await unwrap(api.ai.sessions({ id }).delete())
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations', 'sessions'] })
+      toast.success('会话已删除')
+    },
+    onError: (error: Error) => {
+      toast.error(`删除失败: ${error.message}`)
+    },
+  })
+}
+
+// 批量删除会话
+export function useDeleteSessionsBatch() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      return await unwrap(
+        api.ai.sessions['batch-delete'].post({ ids })
+      )
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['conversations', 'sessions'] })
+      toast.success(`已删除 ${data?.deletedCount || 0} 个会话`)
+    },
+    onError: (error: Error) => {
+      toast.error(`批量删除失败: ${error.message}`)
+    },
   })
 }
 

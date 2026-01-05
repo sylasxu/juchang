@@ -20,7 +20,7 @@ import type {
   ContinueDraftContext,
   FindPartnerContext,
 } from './ai.model';
-import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v36';
+import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v37';
 import { getAIToolsV34 } from './tools';
 import { recordTokenUsage } from './services/metrics';
 import { enrichMessages, injectContextToSystemPrompt, type EnrichmentContext } from './enrichment';
@@ -660,6 +660,34 @@ export async function clearConversations(userId: string): Promise<{ deletedCount
   const result = await db
     .delete(conversations)
     .where(eq(conversations.userId, userId))
+    .returning({ id: conversations.id });
+  
+  return { deletedCount: result.length };
+}
+
+/**
+ * 删除单个会话（Admin 用）
+ */
+export async function deleteConversation(conversationId: string): Promise<boolean> {
+  const result = await db
+    .delete(conversations)
+    .where(eq(conversations.id, conversationId))
+    .returning({ id: conversations.id });
+  
+  return result.length > 0;
+}
+
+/**
+ * 批量删除会话（Admin 用）
+ */
+export async function deleteConversationsBatch(conversationIds: string[]): Promise<{ deletedCount: number }> {
+  if (conversationIds.length === 0) {
+    return { deletedCount: 0 };
+  }
+  
+  const result = await db
+    .delete(conversations)
+    .where(sql`${conversations.id} IN (${sql.join(conversationIds.map(id => sql`${id}`), sql`, `)})`)
     .returning({ id: conversations.id });
   
   return { deletedCount: result.length };

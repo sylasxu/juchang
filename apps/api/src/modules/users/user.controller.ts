@@ -1,5 +1,5 @@
 // User Controller - 用户管理接口 (纯 RESTful)
-import { Elysia } from 'elysia';
+import { Elysia, t } from 'elysia';
 import { basePlugins } from '../../setup';
 import { 
   userModel, 
@@ -12,7 +12,9 @@ import {
   getUserList, 
   updateUser,
   deleteUser,
-  getQuota
+  getQuota,
+  setUserQuota,
+  setUserQuotaBatch,
 } from './user.service';
 
 export const userController = new Elysia({ prefix: '/users' })
@@ -131,6 +133,63 @@ export const userController = new Elysia({ prefix: '/users' })
       response: {
         200: 'user.quotaResponse',
         404: 'user.error',
+      },
+    }
+  )
+  
+  // 设置用户额度（Admin 用）
+  .put(
+    '/:id/quota',
+    async ({ params, body, set }) => {
+      const updated = await setUserQuota(params.id, body.quota);
+      if (!updated) {
+        set.status = 404;
+        return { code: 404, msg: '用户不存在' } satisfies ErrorResponse;
+      }
+      return { success: true, msg: '额度已更新', quota: body.quota };
+    },
+    {
+      detail: {
+        tags: ['Users'],
+        summary: '设置用户额度',
+        description: '设置指定用户的 AI 创建额度（Admin 用）。设置为 999 表示无限额度。',
+      },
+      body: t.Object({
+        quota: t.Number({ minimum: 0, maximum: 999, description: '新的额度值，999 表示无限' }),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Boolean(),
+          msg: t.String(),
+          quota: t.Number(),
+        }),
+        404: 'user.error',
+      },
+    }
+  )
+  
+  // 批量设置用户额度（Admin 用）
+  .post(
+    '/quota/batch',
+    async ({ body, set }) => {
+      const result = await setUserQuotaBatch(body.userIds, body.quota);
+      return { success: true, updatedCount: result.updatedCount };
+    },
+    {
+      detail: {
+        tags: ['Users'],
+        summary: '批量设置用户额度',
+        description: '批量设置多个用户的 AI 创建额度（Admin 用）。',
+      },
+      body: t.Object({
+        userIds: t.Array(t.String(), { description: '用户 ID 列表' }),
+        quota: t.Number({ minimum: 0, maximum: 999, description: '新的额度值' }),
+      }),
+      response: {
+        200: t.Object({
+          success: t.Boolean(),
+          updatedCount: t.Number(),
+        }),
       },
     }
   );

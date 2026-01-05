@@ -8,9 +8,9 @@ import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
+import { DatePicker } from '@/components/date-picker'
 import {
   Table,
   TableBody,
@@ -25,18 +25,18 @@ function getDefaultDateRange() {
   const end = new Date()
   const start = new Date()
   start.setDate(start.getDate() - 7)
-  return {
-    startDate: start.toISOString().split('T')[0],
-    endDate: end.toISOString().split('T')[0],
-  }
+  return { start, end }
 }
 
 export function TokenUsage() {
   const defaultRange = getDefaultDateRange()
-  const [startDate, setStartDate] = useState(defaultRange.startDate)
-  const [endDate, setEndDate] = useState(defaultRange.endDate)
+  const [startDate, setStartDate] = useState<Date | undefined>(defaultRange.start)
+  const [endDate, setEndDate] = useState<Date | undefined>(defaultRange.end)
 
-  const { data, isLoading, error } = useTokenUsageStats({ startDate, endDate })
+  const { data, isLoading, error } = useTokenUsageStats({
+    startDate: startDate?.toISOString().split('T')[0],
+    endDate: endDate?.toISOString().split('T')[0],
+  })
 
   return (
     <>
@@ -56,23 +56,19 @@ export function TokenUsage() {
         <div className='flex flex-wrap items-center justify-between gap-4'>
           <div className='flex items-center gap-4'>
             <div className='flex items-center gap-2'>
-              <Label htmlFor='startDate' className='text-sm text-muted-foreground'>从</Label>
-              <Input
-                id='startDate'
-                type='date'
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className='w-36 h-8'
+              <Label className='text-sm text-muted-foreground'>从</Label>
+              <DatePicker
+                selected={startDate}
+                onSelect={setStartDate}
+                placeholder='开始日期'
               />
             </div>
             <div className='flex items-center gap-2'>
-              <Label htmlFor='endDate' className='text-sm text-muted-foreground'>至</Label>
-              <Input
-                id='endDate'
-                type='date'
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className='w-36 h-8'
+              <Label className='text-sm text-muted-foreground'>至</Label>
+              <DatePicker
+                selected={endDate}
+                onSelect={setEndDate}
+                placeholder='结束日期'
               />
             </div>
           </div>
@@ -146,8 +142,8 @@ export function TokenUsage() {
                     data.daily.map((row) => (
                       <TableRow key={String(row.date)}>
                         <TableCell>
-                          {row.date instanceof Date 
-                            ? row.date.toISOString().split('T')[0] 
+                          {typeof row.date === 'object' && row.date !== null
+                            ? (row.date as Date).toISOString().split('T')[0] 
                             : String(row.date)}
                         </TableCell>
                         <TableCell className='text-right'>
