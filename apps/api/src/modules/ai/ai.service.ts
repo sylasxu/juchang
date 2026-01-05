@@ -249,7 +249,7 @@ export async function streamChat(request: StreamChatRequest) {
         }
       }
     },
-    onFinish: async ({ usage }) => {
+    onFinish: async ({ usage, text, response }) => {
       // 直接使用 DeepSeek provider 标准化的 usage 格式
       totalUsage = {
         promptTokens: usage.inputTokens ?? 0,
@@ -269,6 +269,74 @@ export async function streamChat(request: StreamChatRequest) {
         },
         traceSteps.map(s => ({ toolName: s.toolName }))
       );
+      
+      // v3.9: 保存对话历史到数据库
+      // 有登录用户就保存，没有就不保存
+      if (userId) {
+        try {
+          // 获取或创建会话
+          const { id: conversationId } = await getOrCreateCurrentConversation(userId);
+          
+          // 提取最后一条用户消息
+          const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+          const lastUserText = lastUserMessage?.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text 
+            || (lastUserMessage as { content?: string })?.content 
+            || '';
+          
+          // 保存用户消息
+          if (lastUserText) {
+            await addMessageToConversation({
+              conversationId,
+              userId,
+              role: 'user',
+              messageType: 'text',
+              content: { text: lastUserText },
+            });
+          }
+          
+          // 从 Tool 结果中提取 activityId（如果有）
+          let activityId: string | undefined;
+          for (const step of traceSteps) {
+            const result = step.result as { activityId?: string } | undefined;
+            if (result?.activityId) {
+              activityId = result.activityId;
+              break;
+            }
+          }
+          
+          // 确定 AI 响应的消息类型
+          let messageType: string = 'text';
+          if (traceSteps.length > 0) {
+            const lastTool = traceSteps[traceSteps.length - 1];
+            const widgetType = getWidgetType(lastTool.toolName);
+            if (widgetType) {
+              messageType = widgetType;
+            }
+          }
+          
+          // 保存 AI 响应
+          await addMessageToConversation({
+            conversationId,
+            userId,
+            role: 'assistant',
+            messageType: messageType as any,
+            content: {
+              text: text || '',
+              toolCalls: traceSteps.map(s => ({
+                toolName: s.toolName,
+                args: s.args,
+                result: s.result,
+              })),
+            },
+            activityId,
+          });
+          
+          console.log(`[AI Chat] Saved conversation: ${conversationId}, activityId: ${activityId || 'none'}`);
+        } catch (error) {
+          // 保存失败不影响响应
+          console.error('[AI Chat] Failed to save conversation:', error);
+        }
+      }
     },
   });
   
@@ -284,9 +352,40 @@ export async function streamChat(request: StreamChatRequest) {
   const stream = createUIMessageStream({
     execute: ({ writer }) => {
       // 1. 发送 trace-start（transient - 不会添加到 message.parts）
+      // 提取 tool 的 schema 信息
+      const toolsInfo = Object.keys(tools).map(name => {
+        const t = (tools as any)[name];
+        // AI SDK tool 结构可能是:
+        // - { inputSchema: { jsonSchema: {...} } } (jsonSchema wrapper)
+        // - { inputSchema: {...} } (直接是 schema)
+        // - { parameters: {...} } (旧版 API)
+        let inputSchema = {};
+        if (t.inputSchema) {
+          // 检查是否有 jsonSchema 属性
+          if (t.inputSchema.jsonSchema) {
+            inputSchema = t.inputSchema.jsonSchema;
+          } else if (typeof t.inputSchema === 'object') {
+            // 直接使用 inputSchema
+            inputSchema = t.inputSchema;
+          }
+        } else if (t.parameters) {
+          inputSchema = t.parameters;
+        }
+        return {
+          name,
+          description: t.description || '',
+          schema: inputSchema,
+        };
+      });
+      
       writer.write({
         type: 'data-trace-start',
-        data: { requestId, startedAt },
+        data: { 
+          requestId, 
+          startedAt,
+          systemPrompt,
+          tools: toolsInfo,
+        },
         transient: true,
       });
       
@@ -432,9 +531,14 @@ export async function streamChat(request: StreamChatRequest) {
 function getToolDisplayName(toolName: string): string {
   const displayNames: Record<string, string> = {
     createActivityDraft: '创建活动草稿',
+    getDraft: '获取草稿',
     refineDraft: '修改草稿',
-    exploreNearby: '探索附近',
     publishActivity: '发布活动',
+    exploreNearby: '探索附近',
+    getActivityDetail: '查看活动详情',
+    joinActivity: '报名活动',
+    cancelActivity: '取消活动',
+    getMyActivities: '查看我的活动',
     askPreference: '询问偏好',
   };
   return displayNames[toolName] || toolName;
@@ -446,8 +550,10 @@ function getToolDisplayName(toolName: string): string {
 function getWidgetType(toolName: string): string | undefined {
   const widgetTypes: Record<string, string> = {
     createActivityDraft: 'widget_draft',
+    getDraft: 'widget_draft',
     refineDraft: 'widget_draft',
     exploreNearby: 'widget_explore',
+    getActivityDetail: 'widget_detail',
     publishActivity: 'widget_share',
     askPreference: 'widget_ask_preference',
   };
@@ -593,63 +699,76 @@ export interface ExploreResponse {
 
 
 // ==========================================
-// 旧的对话历史管理函数 - 已废弃
+// 按活动 ID 查询关联消息
 // ==========================================
 
 /**
- * @deprecated 使用 listConversations 替代
+ * 按活动 ID 查询关联的对话消息
+ * 用于 Admin 查看某个活动是通过哪些 AI 对话创建的
  */
-export async function getConversations(
-  _currentUserId: string,
-  _query: ConversationsQuery
-): Promise<{ items: never[]; total: number; hasMore: boolean; cursor: null }> {
-  console.warn('getConversations is deprecated, use listConversations instead');
-  return { items: [], total: 0, hasMore: false, cursor: null };
-}
+export async function getMessagesByActivityId(activityId: string): Promise<{
+  items: Array<{
+    id: string;
+    conversationId: string;
+    userId: string;
+    userNickname: string | null;
+    role: 'user' | 'assistant';
+    messageType: string;
+    content: unknown;
+    createdAt: string;
+  }>;
+  total: number;
+}> {
+  // 查询关联此活动的所有消息
+  const msgs = await db
+    .select({
+      id: conversationMessages.id,
+      conversationId: conversationMessages.conversationId,
+      userId: conversationMessages.userId,
+      userNickname: users.nickname,
+      role: conversationMessages.role,
+      messageType: conversationMessages.messageType,
+      content: conversationMessages.content,
+      createdAt: conversationMessages.createdAt,
+    })
+    .from(conversationMessages)
+    .leftJoin(users, eq(conversationMessages.userId, users.id))
+    .where(eq(conversationMessages.activityId, activityId))
+    .orderBy(conversationMessages.createdAt);
 
-/**
- * @deprecated 使用 listConversations 替代
- */
-export async function getAllConversations(
-  _query: ConversationsQuery
-): Promise<{ items: never[]; total: number; hasMore: boolean; cursor: null }> {
-  console.warn('getAllConversations is deprecated, use listConversations instead');
-  return { items: [], total: 0, hasMore: false, cursor: null };
-}
+  // 如果找到消息，获取完整的会话上下文
+  if (msgs.length > 0) {
+    // 获取所有相关的 conversationId
+    const conversationIds = [...new Set(msgs.map(m => m.conversationId))];
+    
+    // 查询这些会话的所有消息（提供完整上下文）
+    const allMsgs = await db
+      .select({
+        id: conversationMessages.id,
+        conversationId: conversationMessages.conversationId,
+        userId: conversationMessages.userId,
+        userNickname: users.nickname,
+        role: conversationMessages.role,
+        messageType: conversationMessages.messageType,
+        content: conversationMessages.content,
+        createdAt: conversationMessages.createdAt,
+      })
+      .from(conversationMessages)
+      .leftJoin(users, eq(conversationMessages.userId, users.id))
+      .where(sql`${conversationMessages.conversationId} IN (${sql.join(conversationIds.map(id => sql`${id}`), sql`, `)})`)
+      .orderBy(conversationMessages.createdAt);
 
-/**
- * @deprecated 使用 listConversations 替代
- */
-export async function getConversationsByUserId(
-  _targetUserId: string,
-  _query: ConversationsQuery
-): Promise<{ items: never[]; total: number; hasMore: boolean; cursor: null }> {
-  console.warn('getConversationsByUserId is deprecated, use listConversations instead');
-  return { items: [], total: 0, hasMore: false, cursor: null };
-}
+    return {
+      items: allMsgs.map(m => ({
+        ...m,
+        role: m.role as 'user' | 'assistant',
+        createdAt: m.createdAt.toISOString(),
+      })),
+      total: allMsgs.length,
+    };
+  }
 
-/**
- * @deprecated 使用 addMessageToConversation 替代
- */
-export async function addUserMessage(
-  _userId: string,
-  _content: string
-): Promise<{ id: string }> {
-  console.warn('addUserMessage is deprecated, use addMessageToConversation instead');
-  return { id: '' };
-}
-
-/**
- * @deprecated 使用 addMessageToConversation 替代
- */
-export async function addAIMessage(
-  _userId: string,
-  _type: ConversationMessageType,
-  _content: Record<string, unknown>,
-  _activityId?: string
-): Promise<{ id: string }> {
-  console.warn('addAIMessage is deprecated, use addMessageToConversation instead');
-  return { id: '' };
+  return { items: [], total: 0 };
 }
 
 /**

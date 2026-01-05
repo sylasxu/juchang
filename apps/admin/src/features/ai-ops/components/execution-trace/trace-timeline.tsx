@@ -82,15 +82,7 @@ export function TraceTimeline({
   }
 
   return (
-    <div className='relative space-y-2'>
-      {/* 连接线 */}
-      <div 
-        className={cn(
-          'absolute left-[1.875rem] top-4 bottom-4 w-0.5 bg-border',
-          isStreaming && 'bg-gradient-to-b from-primary/50 to-border animate-pulse'
-        )}
-      />
-
+    <div className='space-y-2'>
       {/* 步骤列表 */}
       {steps.map((step) => {
         const isExpanded = expandedSteps.has(step.id)
@@ -98,18 +90,7 @@ export function TraceTimeline({
         const timeOffset = getTimeOffset(step.startedAt)
 
         return (
-          <div key={step.id} className='relative pl-10'>
-            {/* 时间线节点 */}
-            <div 
-              className={cn(
-                'absolute left-5 top-3 h-3 w-3 rounded-full border-2 bg-background',
-                step.status === 'running' && 'border-primary',
-                step.status === 'success' && 'border-green-500',
-                step.status === 'error' && 'border-destructive',
-                step.status === 'pending' && 'border-muted-foreground/30',
-              )}
-            />
-
+          <div key={step.id}>
             <TraceStep
               step={step}
               isExpanded={isExpanded}

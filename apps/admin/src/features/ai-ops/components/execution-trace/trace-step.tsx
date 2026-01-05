@@ -56,9 +56,8 @@ export function TraceStep({
         {/* 状态指示器 */}
         <StatusIndicator status={step.status} />
 
-        {/* 图标 + 名称 */}
+        {/* 名称 */}
         <div className='flex items-center gap-2 flex-1 min-w-0'>
-          <span className='text-base'>{STEP_ICONS[step.type]}</span>
           <span className='font-medium text-sm truncate'>
             {step.name || STEP_LABELS[step.type]}
           </span>

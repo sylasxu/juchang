@@ -67,7 +67,7 @@ export function PlaygroundLayout() {
   }, [toggleTracePanel])
 
   return (
-    <div ref={containerRef} className='flex h-full flex-col'>
+    <div ref={containerRef} data-layout='fixed' className='flex h-svh flex-col overflow-hidden'>
       <PlaygroundHeader
         tracePanelVisible={tracePanelVisible}
         onToggleTracePanel={toggleTracePanel}
@@ -88,7 +88,7 @@ export function PlaygroundLayout() {
         {/* Trace Panel */}
         {tracePanelVisible && (
           <div
-            className='relative flex-shrink-0 border-l bg-background'
+            className='relative flex-shrink-0 border-l bg-background h-full'
             style={{ width: tracePanelWidth }}
           >
             {/* 拖拽手柄 */}

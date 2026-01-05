@@ -28,6 +28,20 @@ export interface ExecutionTrace {
   steps: TraceStep[]
   /** 总成本 (USD) */
   totalCost?: number
+  /** System Prompt */
+  systemPrompt?: string
+  /** 可用工具列表 */
+  tools?: ToolDefinition[]
+}
+
+/** 工具定义 */
+export interface ToolDefinition {
+  /** 工具名称 */
+  name: string
+  /** 工具描述 */
+  description: string
+  /** 参数 Schema */
+  schema: Record<string, unknown>
 }
 
 /** 执行步骤 */
@@ -173,9 +187,14 @@ export const STEP_LABELS: Record<StepType, string> = {
 /** Tool 名称映射 */
 export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   createActivityDraft: '创建活动草稿',
+  getDraft: '获取草稿',
   refineDraft: '修改草稿',
   publishActivity: '发布活动',
   exploreNearby: '探索附近',
+  getActivityDetail: '查看活动详情',
+  joinActivity: '报名活动',
+  cancelActivity: '取消活动',
+  getMyActivities: '查看我的活动',
   askPreference: '询问偏好',
 }
 
@@ -192,6 +211,8 @@ export interface TraceStartEvent {
   data: {
     requestId: string
     startedAt: string
+    systemPrompt?: string
+    tools?: ToolDefinition[]
   }
 }
 

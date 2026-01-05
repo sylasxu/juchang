@@ -1,38 +1,12 @@
 /**
  * Draft Context Enricher
  * 
- * 检测用户消息中的修改意图关键词（如"改"、"换"），
- * 注入当前草稿上下文到 System Prompt。
+ * 当前端传递 draftContext 时，注入当前草稿上下文到 System Prompt。
+ * 这样 AI 就能知道当前正在编辑哪个活动。
  */
 
 import type { EnrichmentResult } from '../types';
 import type { ActivityDraftForPrompt } from '../../prompts/xiaoju-v37';
-
-/**
- * 修改意图关键词
- */
-export const MODIFICATION_KEYWORDS = [
-  '改',
-  '换',
-  '加',
-  '减',
-  '调',
-  '变',
-  '修改',
-  '更改',
-  '改成',
-  '换成',
-  '加上',
-  '去掉',
-  '删掉',
-  '增加',
-  '减少',
-  '调整',
-  '变成',
-  '改为',
-  '换个',
-  '改个',
-];
 
 /**
  * 草稿上下文类型
@@ -55,7 +29,10 @@ function escapeXml(str: string): string {
 }
 
 /**
- * 检测修改意图，注入草稿上下文
+ * 注入草稿上下文
+ * 
+ * 只要前端传递了 draftContext，就始终注入到 System Prompt。
+ * 这样 AI 就能知道当前正在编辑哪个活动，即使用户只是说"继续编辑"。
  * 
  * @param message 用户消息
  * @param draftContext 草稿上下文（可选）
@@ -67,19 +44,6 @@ export function enrichWithDraftContext(
 ): EnrichmentResult {
   // 如果没有草稿上下文，直接返回
   if (!draftContext) {
-    return {
-      originalMessage: message,
-      enrichedMessage: message,
-      appliedEnrichments: [],
-    };
-  }
-  
-  // 检测是否包含修改意图关键词
-  const hasModificationIntent = MODIFICATION_KEYWORDS.some(keyword => 
-    message.includes(keyword)
-  );
-  
-  if (!hasModificationIntent) {
     return {
       originalMessage: message,
       enrichedMessage: message,

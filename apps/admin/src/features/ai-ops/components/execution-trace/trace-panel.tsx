@@ -5,10 +5,11 @@
  * 参考 Requirements R8
  */
 
-import { Clock, Hash, DollarSign, Loader2 } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { TraceTimeline } from './trace-timeline'
 import type { ExecutionTrace } from '../../types/trace'
 
@@ -29,11 +30,15 @@ export function ExecutionTracePanel({
   selectedStepId,
   onStepClick,
 }: ExecutionTracePanelProps) {
+  const [requestInfoOpen, setRequestInfoOpen] = useState(false)
+
   // 空状态
   if (!trace) {
     return (
-      <div className='flex h-full flex-col'>
-        <PanelHeader />
+      <div className='h-full flex flex-col'>
+        <div className='flex-shrink-0 border-b px-4 py-3'>
+          <h3 className='text-sm font-medium'>执行追踪</h3>
+        </div>
         <div className='flex flex-1 items-center justify-center'>
           <p className='text-sm text-muted-foreground'>
             发送消息后查看执行追踪
@@ -49,19 +54,102 @@ export function ExecutionTracePanel({
     : undefined
 
   return (
-    <div className='flex h-full flex-col'>
-      {/* Header */}
-      <PanelHeader
-        requestId={trace.requestId}
-        status={trace.status}
-        duration={totalDuration}
-        cost={trace.totalCost}
-        isStreaming={isStreaming}
-      />
+    <div className='h-full flex flex-col'>
+      {/* Header - 固定 */}
+      <div className='flex-shrink-0 border-b px-4 py-3'>
+        <div className='flex items-center justify-between'>
+          <h3 className='text-sm font-medium'>执行追踪</h3>
+          {isStreaming && (
+            <Badge variant='secondary' className='text-xs'>
+              执行中
+            </Badge>
+          )}
+        </div>
+      </div>
 
-      {/* Timeline */}
-      <ScrollArea className='flex-1'>
-        <div className='p-4'>
+      {/* 可滚动内容区 */}
+      <div className='flex-1 overflow-y-auto p-4 space-y-4'>
+        {/* 统计信息 */}
+        <div className='grid grid-cols-2 gap-2 text-xs'>
+          <div>
+            <div className='text-muted-foreground'>Request ID</div>
+            <code className='font-mono'>{trace.requestId.slice(0, 8)}</code>
+          </div>
+          <div>
+            <div className='text-muted-foreground'>状态</div>
+            <div>
+              {trace.status === 'completed' ? '完成' :
+               trace.status === 'error' ? '错误' :
+               '执行中'}
+            </div>
+          </div>
+          {totalDuration !== undefined && (
+            <div>
+              <div className='text-muted-foreground'>总耗时</div>
+              <div>{formatDuration(totalDuration)}</div>
+            </div>
+          )}
+          {trace.totalCost !== undefined && (
+            <div>
+              <div className='text-muted-foreground'>成本</div>
+              <div>${trace.totalCost.toFixed(4)}</div>
+            </div>
+          )}
+        </div>
+
+        {/* 请求信息（可折叠） */}
+        {(trace.systemPrompt || trace.tools) && (
+          <Collapsible open={requestInfoOpen} onOpenChange={setRequestInfoOpen}>
+            <CollapsibleTrigger className='flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground'>
+              {requestInfoOpen ? (
+                <ChevronDown className='h-3 w-3' />
+              ) : (
+                <ChevronRight className='h-3 w-3' />
+              )}
+              请求信息
+            </CollapsibleTrigger>
+            <CollapsibleContent className='mt-2 space-y-3'>
+              {/* System Prompt */}
+              {trace.systemPrompt && (
+                <div className='space-y-1'>
+                  <div className='text-xs text-muted-foreground'>System Prompt</div>
+                  <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-40 whitespace-pre-wrap'>
+                    {trace.systemPrompt}
+                  </pre>
+                </div>
+              )}
+
+              {/* Available Tools */}
+              {trace.tools && trace.tools.length > 0 && (
+                <div className='space-y-1'>
+                  <div className='text-xs text-muted-foreground'>
+                    可用工具 ({trace.tools.length})
+                  </div>
+                  <div className='space-y-1'>
+                    {trace.tools.map((tool) => (
+                      <details key={tool.name} className='text-xs'>
+                        <summary className='cursor-pointer hover:bg-muted p-1.5 rounded'>
+                          <code className='font-mono'>{tool.name}</code>
+                          {tool.description && (
+                            <span className='ml-2 text-muted-foreground'>
+                              {tool.description}
+                            </span>
+                          )}
+                        </summary>
+                        <pre className='bg-muted p-2 rounded mt-1 overflow-auto max-h-32 text-xs'>
+                          {JSON.stringify(tool.schema, null, 2)}
+                        </pre>
+                      </details>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+
+        {/* Timeline */}
+        <div className='border-t pt-4'>
           <TraceTimeline
             steps={trace.steps}
             selectedStepId={selectedStepId}
@@ -70,78 +158,7 @@ export function ExecutionTracePanel({
             isStreaming={isStreaming}
           />
         </div>
-      </ScrollArea>
-    </div>
-  )
-}
-
-/** 面板头部 */
-function PanelHeader({
-  requestId,
-  status,
-  duration,
-  cost,
-  isStreaming,
-}: {
-  requestId?: string
-  status?: 'running' | 'completed' | 'error'
-  duration?: number
-  cost?: number
-  isStreaming?: boolean
-}) {
-  return (
-    <div className='flex-shrink-0 border-b px-4 py-3'>
-      <div className='flex items-center justify-between'>
-        <h3 className='font-semibold'>执行追踪</h3>
-        {isStreaming && (
-          <div className='flex items-center gap-1.5 text-xs text-primary'>
-            <Loader2 className='h-3 w-3 animate-spin' />
-            执行中...
-          </div>
-        )}
       </div>
-
-      {requestId && (
-        <div className='mt-2 flex flex-wrap items-center gap-2 text-xs'>
-          {/* Request ID */}
-          <div className='flex items-center gap-1 text-muted-foreground'>
-            <Hash className='h-3 w-3' />
-            <code className='font-mono'>{requestId.slice(0, 8)}</code>
-          </div>
-
-          {/* 状态 */}
-          {status && (
-            <Badge
-              variant={
-                status === 'completed' ? 'default' :
-                status === 'error' ? 'destructive' :
-                'secondary'
-              }
-              className='text-xs'
-            >
-              {status === 'completed' ? '完成' :
-               status === 'error' ? '错误' :
-               '执行中'}
-            </Badge>
-          )}
-
-          {/* 总耗时 */}
-          {duration !== undefined && (
-            <div className='flex items-center gap-1 text-muted-foreground'>
-              <Clock className='h-3 w-3' />
-              {formatDuration(duration)}
-            </div>
-          )}
-
-          {/* 成本 */}
-          {cost !== undefined && (
-            <div className='flex items-center gap-1 text-muted-foreground'>
-              <DollarSign className='h-3 w-3' />
-              ${cost.toFixed(4)}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -160,19 +177,15 @@ function formatDuration(ms: number): string {
 /** 加载骨架 */
 export function TracePanelSkeleton() {
   return (
-    <div className='flex h-full flex-col'>
-      <div className='flex-shrink-0 border-b px-4 py-3'>
-        <Skeleton className='h-5 w-24' />
-        <div className='mt-2 flex gap-2'>
-          <Skeleton className='h-4 w-16' />
-          <Skeleton className='h-4 w-12' />
-        </div>
+    <div className='h-full p-4 space-y-3'>
+      <Skeleton className='h-5 w-24' />
+      <div className='flex gap-2'>
+        <Skeleton className='h-4 w-16' />
+        <Skeleton className='h-4 w-12' />
       </div>
-      <div className='flex-1 p-4 space-y-3'>
-        <Skeleton className='h-12 w-full' />
-        <Skeleton className='h-12 w-full' />
-        <Skeleton className='h-12 w-full' />
-      </div>
+      <Skeleton className='h-12 w-full' />
+      <Skeleton className='h-12 w-full' />
+      <Skeleton className='h-12 w-full' />
     </div>
   )
 }

@@ -138,17 +138,23 @@ bunx <package>       # 执行包命令
 **枚举**:
 - `activityStatusEnum`: draft, active, completed, cancelled
 - `conversationRoleEnum`: user, assistant
-- `conversationMessageTypeEnum`: text, widget_dashboard, widget_launcher, widget_action, widget_draft, widget_share, widget_explore, widget_error
+- `conversationMessageTypeEnum`: text, widget_dashboard, widget_launcher, widget_action, widget_draft, widget_share, widget_explore, widget_error, widget_ask_preference
 
-**核心表**:
+**核心表** (v3.9 两层会话结构):
 | 表 | 核心字段 |
 |---|---------|
 | users | id, wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday |
 | activities | id, creatorId, title, location, locationHint, startAt, type, status |
 | participants | id, activityId, userId, status |
-| conversations | id, userId, role, messageType, content, activityId |
+| conversations | id, userId, title, messageCount, lastMessageAt (会话) |
+| conversation_messages | id, conversationId, userId, role, messageType, content, activityId (消息) |
 | activity_messages | id, activityId, senderId, messageType, content |
 | notifications | id, userId, type, title, isRead, activityId |
+
+**AI 对话持久化 (v3.9)**:
+- 有登录用户的 AI 对话自动保存到 `conversation_messages` 表
+- Tool 返回的 `activityId` 自动关联到消息
+- 支持按 `activityId` 查询关联的对话历史
 
 ---
 
@@ -159,6 +165,8 @@ bunx <package>       # 执行包命令
 - **CP-8**: `locationHint` 不能为空
 - **CP-9**: 未绑定手机号的用户不能发布/报名活动
 - **CP-11**: 未登录用户可以浏览对话、查看详情、探索附近
+- **CP-20**: AI 对话自动持久化 - 有 userId 时保存到 conversation_messages
+- **CP-21**: Tool 返回的 activityId 自动关联到 AI 响应消息
 
 ---
 

@@ -34,12 +34,14 @@ export function useExecutionTrace(): UseExecutionTraceReturn {
   const [trace, setTrace] = useState<ExecutionTrace | null>(null)
 
   /** 处理追踪开始 */
-  const handleTraceStart = useCallback((requestId: string, startedAt: string) => {
+  const handleTraceStart = useCallback((requestId: string, startedAt: string, systemPrompt?: string, tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }>) => {
     setTrace({
       requestId,
       startedAt,
       status: 'running',
       steps: [],
+      systemPrompt,
+      tools,
     })
   }, [])
 
@@ -100,7 +102,7 @@ export function useExecutionTrace(): UseExecutionTraceReturn {
   const handleTraceEvent = useCallback((event: TraceEvent) => {
     switch (event.type) {
       case 'trace-start':
-        handleTraceStart(event.data.requestId, event.data.startedAt)
+        handleTraceStart(event.data.requestId, event.data.startedAt, event.data.systemPrompt, event.data.tools)
         break
       case 'trace-step':
         handleTraceStep(event.data)

@@ -6,17 +6,16 @@ import {
   checkAIQuota, 
   consumeAIQuota, 
   streamChat,
-  getConversations,
-  getAllConversations,
-  getConversationsByUserId,
-  addUserMessage,
   clearConversations,
   getWelcomeCard,
-  // v3.8 新增：两层会话结构
+  // v3.8：两层会话结构
   listConversations,
   getConversationMessages,
   deleteConversation,
   deleteConversationsBatch,
+  getMessagesByActivityId,
+  addMessageToConversation,
+  getOrCreateCurrentConversation,
 } from './ai.service';
 import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v37';
 import { getTokenUsageStats, getTokenUsageSummary, getToolCallStats } from './services/metrics';
@@ -280,6 +279,7 @@ Data Stream 格式：
   // - scope=mine（默认）：查当前用户的对话
   // - scope=all：查所有用户的对话（需 Admin 权限）
   // - userId 参数：查指定用户的对话（需 Admin 权限）
+  // - activityId 参数：查关联某活动的对话消息
   .get(
     '/conversations',
     async ({ query, set, jwt, headers }) => {
@@ -292,26 +292,64 @@ Data Stream 格式：
         } satisfies ErrorResponse;
       }
 
-      const { scope = 'mine', userId } = query;
+      const { scope = 'mine', userId, activityId } = query;
 
       try {
+        // 如果指定了 activityId，查询关联此活动的消息
+        if (activityId) {
+          const result = await getMessagesByActivityId(activityId);
+          return {
+            items: result.items.map(m => ({
+              id: m.id,
+              userId: m.userId,
+              userNickname: m.userNickname,
+              role: m.role,
+              type: m.messageType,
+              content: m.content,
+              activityId: activityId,
+              createdAt: m.createdAt,
+            })),
+            total: result.total,
+            hasMore: false,
+            cursor: null,
+          };
+        }
+
         // 如果指定了 userId，Admin 查指定用户的对话
         if (userId) {
           // TODO: 添加 Admin 角色验证
-          const result = await getConversationsByUserId(userId, query);
-          return result;
+          const result = await listConversations({ userId, limit: query.limit });
+          return {
+            items: [],
+            total: result.total,
+            hasMore: false,
+            cursor: null,
+            sessions: result.items,
+          };
         }
 
         // scope=all：Admin 查所有用户的对话
         if (scope === 'all') {
           // TODO: 添加 Admin 角色验证
-          const result = await getAllConversations(query);
-          return result;
+          const result = await listConversations({ limit: query.limit });
+          return {
+            items: [],
+            total: result.total,
+            hasMore: false,
+            cursor: null,
+            sessions: result.items,
+          };
         }
 
         // scope=mine（默认）：查当前用户的对话
-        const result = await getConversations(user.id, query);
-        return result;
+        const result = await listConversations({ userId: user.id, limit: query.limit });
+        return {
+          items: [],
+          total: result.total,
+          hasMore: false,
+          cursor: null,
+          sessions: result.items,
+        };
       } catch (error: any) {
         set.status = 500;
         return {
@@ -327,7 +365,8 @@ Data Stream 格式：
         description: `获取对话历史，支持显式的 scope 参数区分模式：
 - scope=mine（默认）：获取当前用户的对话
 - scope=all：获取所有用户的对话（需 Admin 权限）
-- userId 参数：获取指定用户的对话（需 Admin 权限）`,
+- userId 参数：获取指定用户的对话（需 Admin 权限）
+- activityId 参数：获取关联某活动的对话消息`,
       },
       query: 'ai.conversationsQuery',
       response: {
@@ -352,7 +391,18 @@ Data Stream 格式：
       }
 
       try {
-        const result = await addUserMessage(user.id, body.content);
+        // 获取或创建当前会话
+        const { id: conversationId } = await getOrCreateCurrentConversation(user.id);
+        
+        // 添加消息到会话
+        const result = await addMessageToConversation({
+          conversationId,
+          userId: user.id,
+          role: 'user',
+          messageType: 'text',
+          content: { text: body.content },
+        });
+        
         return {
           id: result.id,
           msg: '消息已添加',

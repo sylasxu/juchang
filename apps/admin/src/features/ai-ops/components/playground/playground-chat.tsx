@@ -30,7 +30,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000
 
 interface PlaygroundChatProps {
   /** 追踪开始回调 */
-  onTraceStart?: (requestId: string, startedAt: string) => void
+  onTraceStart?: (requestId: string, startedAt: string, systemPrompt?: string, tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }>) => void
   /** 追踪步骤回调 */
   onTraceStep?: (step: TraceStep) => void
   /** 更新追踪步骤回调 */
@@ -96,8 +96,8 @@ export function PlaygroundChat({
         const part = dataPart as { type: string; data?: unknown }
         
         if (part.type === 'data-trace-start') {
-          const data = part.data as { requestId: string; startedAt: string }
-          onTraceStart?.(data.requestId, data.startedAt)
+          const data = part.data as { requestId: string; startedAt: string; systemPrompt?: string; tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }> }
+          onTraceStart?.(data.requestId, data.startedAt, data.systemPrompt, data.tools)
         } else if (part.type === 'data-trace-step') {
           onTraceStep?.(part.data as TraceStep)
         } else if (part.type === 'data-trace-step-update') {
@@ -236,7 +236,6 @@ export function PlaygroundChat({
               }} />
             )}
             {messages.map((message, index) => {
-              // 只有最后一条 assistant 消息才显示流式光标
               const isLastAssistant = message.role === 'assistant' && 
                 index === messages.length - 1
               return (
@@ -253,7 +252,7 @@ export function PlaygroundChat({
         </ScrollArea>
 
         {/* 输入区 */}
-        <div className='mt-4 space-y-2'>
+        <div className='mt-4 space-y-2 flex-shrink-0'>
           {error && (
             <div className='rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive'>
               {error.message}
@@ -472,6 +471,13 @@ function MessageItem({
   const [copied, setCopied] = useState(false)
   const isUser = message.role === 'user'
 
+  // Debug: 打印消息结构
+  console.log('MessageItem:', { 
+    role: message.role, 
+    parts: message.parts,
+    content: (message as any).content,
+  })
+
   const textContent = message.parts
     ?.filter((part): part is { type: 'text'; text: string } => part.type === 'text')
     .map(part => part.text)
@@ -515,7 +521,8 @@ function MessageItem({
           </div>
         )}
 
-        {toolParts.length > 0 && (
+        {/* 流式结束后才展示 widget */}
+        {!isStreaming && toolParts.length > 0 && (
           <div className='w-full space-y-2'>
             {toolParts.map((part) => (
               <ToolCallCard key={part.toolCallId} toolPart={part} onSendMessage={onSendMessage} />

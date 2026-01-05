@@ -1,6 +1,6 @@
 # 聚场 (JuChang) 技术架构文档
 
-> **版本**：v3.3 (Chat-First + Generative UI + 行业标准命名)
+> **版本**：v3.9 (Chat-First + Generative UI + AI 对话持久化)
 > **更新日期**：2025-01
 > **架构**：原生小程序 + Zustand Vanilla + Elysia API + Drizzle ORM
 
@@ -111,18 +111,46 @@
 | `users` | 用户表 | wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday |
 | `activities` | 活动表 | title, location, locationHint, startAt, type, status (默认 draft) |
 | `participants` | 参与者表 | activityId, userId, status (joined/quit) |
-| `conversations` | **AI 对话历史表** (原 home_messages) | userId, role, messageType, content |
-| `activity_messages` | **活动群聊消息表** (原 group_messages) | activityId, senderId, messageType, content |
+| `conversations` | **AI 会话表** (v3.9 两层结构) | userId, title, messageCount, lastMessageAt |
+| `conversation_messages` | **AI 对话消息表** | conversationId, userId, role, messageType, content, activityId |
+| `activity_messages` | **活动群聊消息表** | activityId, senderId, messageType, content |
 | `notifications` | 通知表 | userId, type, title, isRead |
 
-### 4.2 conversations 表 (Chat-First 核心 - v3.3 行业标准命名)
+### 4.2 conversations 表 (v3.9 两层会话结构)
 
 ```typescript
 // packages/db/src/schema/conversations.ts
+
+// ==========================================
+// conversations 表（会话）
+// ==========================================
+export const conversations = pgTable("conversations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  title: text("title"),  // 会话标题（从第一条用户消息自动提取）
+  messageCount: integer("message_count").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+});
+
+// ==========================================
+// conversation_messages 表（消息）
+// ==========================================
+export const conversationMessages = pgTable("conversation_messages", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  conversationId: uuid("conversation_id").notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  role: conversationRoleEnum("role").notNull(),  // user | assistant
+  messageType: conversationMessageTypeEnum("message_type").notNull(),
+  content: jsonb("content").notNull(),
+  activityId: uuid("activity_id").references(() => activities.id),  // Tool 返回的活动关联
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // 对话角色枚举 (使用 assistant 符合 OpenAI 标准)
 export const conversationRoleEnum = pgEnum('conversation_role', ['user', 'assistant']);
 
-// 对话消息类型枚举 (v3.3 含 Generative UI + Composite Widget + Simple Widget)
+// 对话消息类型枚举 (v3.9 含 widget_ask_preference)
 export const conversationMessageTypeEnum = pgEnum('conversation_message_type', [
   'text',              // 普通文本
   'widget_dashboard',  // 进场欢迎卡片
@@ -131,19 +159,16 @@ export const conversationMessageTypeEnum = pgEnum('conversation_message_type', [
   'widget_draft',      // 意图解析卡片
   'widget_share',      // 创建成功卡片
   'widget_explore',    // 探索卡片 (Generative UI)
-  'widget_error'       // 错误提示卡片
+  'widget_error',      // 错误提示卡片
+  'widget_ask_preference'  // 多轮对话偏好询问卡片
 ]);
-
-export const conversations = pgTable('conversations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id),
-  role: conversationRoleEnum('role').notNull(),
-  messageType: conversationMessageTypeEnum('message_type').notNull(),
-  content: jsonb('content').notNull(),
-  activityId: uuid('activity_id').references(() => activities.id),
-  createdAt: timestamp('created_at').defaultNow().notNull()
-});
 ```
+
+**v3.9 AI 对话持久化**：
+- `streamChat` 的 `onFinish` 回调自动保存对话到 `conversation_messages`
+- 有 `userId` 时保存，无 `userId`（未登录）时不保存
+- Tool 返回的 `activityId` 自动关联到 AI 响应消息
+- 支持按 `activityId` 查询关联的对话历史（Admin 活动管理用）
 
 ### 4.3 activity_messages 表 (v3.3 语义化命名)
 
@@ -257,11 +282,14 @@ POST /activities/:id/quit // 退出活动
 GET  /chat/:activityId/messages  // 获取消息列表
 POST /chat/:activityId/messages  // 发送消息
 
-// AI (v3.2 扩展：AI 解析 + 对话历史)
-POST /ai/parse            // AI 解析 (SSE 流式响应)
-GET  /ai/conversations    // 获取 AI 对话历史 (分页)
+// AI (v3.9 扩展：AI 解析 + 对话历史 + 会话管理)
+POST /ai/chat             // AI 对话 (Data Stream，自动保存对话历史)
+GET  /ai/conversations    // 获取 AI 对话历史 (支持 activityId 查询)
 POST /ai/conversations    // 添加用户消息到对话
 DELETE /ai/conversations  // 清空对话历史 (新对话)
+GET  /ai/sessions         // 获取会话列表 (Admin 对话审计)
+GET  /ai/sessions/:id     // 获取会话详情
+DELETE /ai/sessions/:id   // 删除会话
 ```
 
 ### 5.3 AI 解析 - 意图分类 (v3.2)
@@ -692,6 +720,12 @@ bun run gen:api         # 生成 Orval SDK
 - **CP-17**: 沉浸式地图页拖拽后必须自动加载新区域活动
 - **CP-18**: 沉浸式地图页关闭时使用收缩动画
 
+### 11.6 AI 对话持久化 (v3.9 新增)
+
+- **CP-20**: AI 对话自动持久化 - 有 userId 时保存到 conversation_messages
+- **CP-21**: Tool 返回的 activityId 自动关联到 AI 响应消息
+- **CP-22**: 按 activityId 查询时返回完整会话上下文（不只是关联消息）
+
 ---
 
 ## 12. 视觉设计系统：Soft Tech
@@ -810,12 +844,12 @@ page {
 
 ---
 
-## 附录：v3.3 vs v3.2 对比
+## 附录：v3.9 vs v3.3 对比
 
-| 维度 | v3.2 | v3.3 |
+| 维度 | v3.3 | v3.9 |
 |------|------|------|
-| 数据库表命名 | home_messages, group_messages | conversations, activity_messages (行业标准) |
-| 角色枚举值 | user, ai | user, assistant (符合 OpenAI 标准) |
-| 字段命名 | type | messageType (更明确) |
-| 活动默认状态 | active | draft (符合 AI 解析 → 用户确认工作流) |
-| Widget 类型 | 5 种 | 8 种 (+widget_launcher, widget_action) |
+| 会话结构 | 单表 conversations | 两层结构 conversations + conversation_messages |
+| 对话持久化 | 无自动保存 | streamChat onFinish 自动保存 |
+| activityId 关联 | 手动关联 | Tool 返回时自动关联 |
+| Widget 类型 | 8 种 | 9 种 (+widget_ask_preference) |
+| 会话管理 API | 无 | /ai/sessions (Admin 对话审计) |
