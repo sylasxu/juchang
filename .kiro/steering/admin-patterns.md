@@ -166,6 +166,40 @@ const { auth } = useAuthStore()
 
 ---
 
+## 🚫 Schema 派生规则 (Single Source of Truth)
+
+**DB 表对应的 Schema 必须从 `@juchang/db` 派生，禁止手动重复定义：**
+
+```typescript
+// ❌ 禁止手动定义 DB 表 Schema
+export const userSchema = Type.Object({
+  id: Type.String(),
+  nickname: Type.String(),
+  // ...
+})
+
+// ✅ 必须从 DB 派生
+import { selectUserSchema, type User } from '@juchang/db'
+export const userSchema = selectUserSchema
+export type { User }
+
+// ✅ 需要扩展时用 Intersect
+import { selectActivitySchema } from '@juchang/db'
+export const adminActivitySchema = Type.Intersect([
+  selectActivitySchema,
+  Type.Object({
+    creatorInfo: Type.Optional(Type.Object({ ... })),  // API join 返回的额外字段
+  }),
+])
+```
+
+**允许手动定义的 Schema：**
+- 分页参数 (`PaginationQuerySchema`)
+- 错误响应 (`ErrorResponseSchema`)
+- Admin 特有的辅助类型（无对应 DB 表）
+
+---
+
 ## 📝 表单验证
 
 ```typescript

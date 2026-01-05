@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import useDialogState from '@/hooks/use-dialog-state'
 import { type Activity } from '../data/schema'
 
-type ActivitiesDialogType = 'create' | 'update' | 'delete' | 'import' | 'prompt'
+type ActivitiesDialogType = 'create' | 'update' | 'delete' | 'prompt'
 
 type ActivitiesContextType = {
   open: ActivitiesDialogType | null

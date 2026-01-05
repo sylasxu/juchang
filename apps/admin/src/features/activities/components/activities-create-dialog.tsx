@@ -1,0 +1,279 @@
+'use client'
+
+import { Type, type Static } from '@sinclair/typebox'
+import { useForm } from 'react-hook-form'
+import { typeboxResolver } from '@hookform/resolvers/typebox'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useActivities } from './activities-provider'
+import { activityTypes } from '../data/data'
+import { toast } from 'sonner'
+
+const formSchema = Type.Object({
+  title: Type.String({ minLength: 1, maxLength: 100 }),
+  description: Type.Optional(Type.String({ maxLength: 500 })),
+  locationName: Type.String({ minLength: 1, maxLength: 100 }),
+  address: Type.Optional(Type.String({ maxLength: 200 })),
+  locationHint: Type.String({ minLength: 1, maxLength: 200 }),
+  startAt: Type.String({ format: 'date-time' }),
+  type: Type.Union([
+    Type.Literal('food'),
+    Type.Literal('sports'),
+    Type.Literal('entertainment'),
+    Type.Literal('boardgame'),
+    Type.Literal('other'),
+  ]),
+  maxParticipants: Type.Number({ minimum: 1, maximum: 100 }),
+})
+
+type CreateActivityForm = Static<typeof formSchema>
+
+export function ActivitiesCreateDialog() {
+  const { open, setOpen } = useActivities()
+  const isOpen = open === 'create'
+
+  const form = useForm<CreateActivityForm>({
+    resolver: typeboxResolver(formSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      locationName: '',
+      address: '',
+      locationHint: '',
+      startAt: '',
+      type: 'other',
+      maxParticipants: 4,
+    },
+  })
+
+  const onSubmit = async (values: CreateActivityForm) => {
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      toast.success('活动创建成功')
+      form.reset()
+      setOpen(null)
+    } catch (error) {
+      toast.error('活动创建失败')
+    }
+  }
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(state) => {
+        if (!state) {
+          form.reset()
+          setOpen(null)
+        }
+      }}
+    >
+      <DialogContent className='sm:max-w-lg'>
+        <DialogHeader className='text-start'>
+          <DialogTitle>创建活动</DialogTitle>
+          <DialogDescription>
+            填写活动信息，点击保存完成创建。
+          </DialogDescription>
+        </DialogHeader>
+        <div className='max-h-[60vh] overflow-y-auto py-1 pe-3'>
+          <Form {...form}>
+            <form
+              id='activity-create-form'
+              onSubmit={form.handleSubmit(onSubmit)}
+              className='space-y-4 px-0.5'
+            >
+              <FormField
+                control={form.control}
+                name='title'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                    <FormLabel className='col-span-2 text-end'>活动标题</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='请输入活动标题'
+                        className='col-span-4'
+                        autoComplete='off'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='description'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-start space-y-0 gap-x-4 gap-y-1'>
+                    <FormLabel className='col-span-2 text-end pt-2'>活动描述</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder='请输入活动描述（可选）'
+                        className='col-span-4 min-h-[80px]'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='type'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                    <FormLabel className='col-span-2 text-end'>活动类型</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className='col-span-4'>
+                          <SelectValue placeholder='请选择活动类型' />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {activityTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='locationName'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                    <FormLabel className='col-span-2 text-end'>地点名称</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='请输入地点名称'
+                        className='col-span-4'
+                        autoComplete='off'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='address'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                    <FormLabel className='col-span-2 text-end'>详细地址</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='请输入详细地址（可选）'
+                        className='col-span-4'
+                        autoComplete='off'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='locationHint'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                    <FormLabel className='col-span-2 text-end'>位置提示</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='请输入位置提示（如：XX商场3楼）'
+                        className='col-span-4'
+                        autoComplete='off'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='startAt'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                    <FormLabel className='col-span-2 text-end'>开始时间</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='datetime-local'
+                        className='col-span-4'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='maxParticipants'
+                render={({ field }) => (
+                  <FormItem className='grid grid-cols-6 items-center space-y-0 gap-x-4 gap-y-1'>
+                    <FormLabel className='col-span-2 text-end'>最大人数</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        max={100}
+                        placeholder='请输入最大参与人数'
+                        className='col-span-4'
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage className='col-span-4 col-start-3' />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+        </div>
+        <DialogFooter>
+          <Button variant='outline' onClick={() => setOpen(null)}>
+            取消
+          </Button>
+          <Button type='submit' form='activity-create-form'>
+            创建
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

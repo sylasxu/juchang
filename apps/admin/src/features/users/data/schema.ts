@@ -1,23 +1,13 @@
-import { Type, type Static } from '@sinclair/typebox'
+/**
+ * 用户 Schema - 从 @juchang/db 派生
+ * 
+ * 遵循项目规范：Single Source of Truth
+ * 禁止手动重复定义 TypeBox Schema
+ */
+import { selectUserSchema, type User } from '@juchang/db'
 
-// 用户 Schema - 匹配 API 返回 (排除 wxOpenId)
-export const userSchema = Type.Object({
-  id: Type.String(),
-  phoneNumber: Type.Union([Type.String(), Type.Null()]),
-  nickname: Type.Union([Type.String(), Type.Null()]),
-  avatarUrl: Type.Union([Type.String(), Type.Null()]),
-  
-  // AI 额度
-  aiCreateQuotaToday: Type.Number({ minimum: 0, default: 3 }),
-  aiQuotaResetAt: Type.Union([Type.String(), Type.Null()]),
-  
-  // 统计
-  activitiesCreatedCount: Type.Number({ minimum: 0, default: 0 }),
-  participationCount: Type.Number({ minimum: 0, default: 0 }),
-  
-  // 系统
-  createdAt: Type.String(),
-  updatedAt: Type.String(),
-})
+// 直接复用 DB Schema
+export const userSchema = selectUserSchema
 
-export type User = Static<typeof userSchema>
+// 类型导出
+export type { User }

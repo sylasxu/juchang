@@ -1,65 +1,34 @@
+/**
+ * 活动 Schema - 从 @juchang/db 派生
+ * 
+ * 遵循项目规范：Single Source of Truth
+ * 禁止手动重复定义 TypeBox Schema
+ */
 import { Type, type Static } from '@sinclair/typebox'
+import { 
+  selectActivitySchema, 
+  type Activity,
+  activityTypeEnum,
+  activityStatusEnum,
+} from '@juchang/db'
 
-// MVP 活动类型枚举
-export const activityTypeSchema = Type.Union([
-  Type.Literal('food'),
-  Type.Literal('sports'),
-  Type.Literal('entertainment'),
-  Type.Literal('boardgame'),
-  Type.Literal('other'),
-])
+// 直接复用 DB Schema
+export const activitySchema = selectActivitySchema
 
-// MVP 活动状态枚举 (v3.3 含 draft)
-export const activityStatusSchema = Type.Union([
-  Type.Literal('draft'),
-  Type.Literal('active'),
-  Type.Literal('completed'),
-  Type.Literal('cancelled'),
-])
+// 枚举 Schema (从 DB 枚举值派生)
+export const activityTypeSchema = Type.Union(
+  activityTypeEnum.enumValues.map(v => Type.Literal(v))
+)
 
-// MVP 活动 Schema (简化版)
-export const activitySchema = Type.Object({
-  id: Type.String(),
-  creatorId: Type.String(),
-  
-  // 基础信息
-  title: Type.String(),
-  description: Type.Optional(Type.String()),
-  
-  // 位置 (保留 PostGIS)
-  location: Type.Object({
-    x: Type.Number(),
-    y: Type.Number(),
-  }),
-  locationName: Type.String(),
-  address: Type.Optional(Type.String()),
-  locationHint: Type.String(), // 重庆地形必填
-  
-  // 时间
-  startAt: Type.String({ format: 'date-time' }),
-  
-  // 活动属性
-  type: activityTypeSchema,
-  maxParticipants: Type.Number({ minimum: 1, default: 4 }),
-  currentParticipants: Type.Number({ minimum: 0, default: 1 }),
-  
-  // 状态 (MVP 简化)
-  status: activityStatusSchema,
-  
-  // 系统
-  createdAt: Type.String({ format: 'date-time' }),
-  updatedAt: Type.String({ format: 'date-time' }),
-})
+export const activityStatusSchema = Type.Union(
+  activityStatusEnum.enumValues.map(v => Type.Literal(v))
+)
 
-export type Activity = Static<typeof activitySchema>
-export type ActivityType = Static<typeof activityTypeSchema>
-export type ActivityStatus = Static<typeof activityStatusSchema>
-
-// Admin 活动视图 (包含关联信息)
+// Admin 活动视图 (扩展计算字段)
 export const adminActivitySchema = Type.Intersect([
-  activitySchema,
+  selectActivitySchema,
   Type.Object({
-    // 关联信息
+    // 关联信息 (API 层 join 返回)
     creatorInfo: Type.Optional(Type.Object({
       id: Type.String(),
       nickname: Type.Optional(Type.String()),
@@ -71,4 +40,8 @@ export const adminActivitySchema = Type.Intersect([
   }),
 ])
 
+// 类型导出
+export type { Activity }
+export type ActivityType = Static<typeof activityTypeSchema>
+export type ActivityStatus = Static<typeof activityStatusSchema>
 export type AdminActivity = Static<typeof adminActivitySchema>

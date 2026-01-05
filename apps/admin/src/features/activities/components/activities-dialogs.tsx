@@ -1,7 +1,7 @@
-import { ActivitiesImportDialog } from './activities-import-dialog'
 import { ActivitiesMutateDrawer } from './activities-mutate-drawer'
 import { ActivitiesDeleteDialog } from './activities-delete-dialog'
 import { ActivityPromptDialog } from './activity-prompt-dialog'
+import { ActivitiesCreateDialog } from './activities-create-dialog'
 import { useActivities } from './activities-provider'
 
 export function ActivitiesDialogs() {
@@ -10,7 +10,7 @@ export function ActivitiesDialogs() {
   return (
     <>
       <ActivitiesMutateDrawer />
-      {open === 'import' && <ActivitiesImportDialog />}
+      {open === 'create' && <ActivitiesCreateDialog />}
       {open === 'prompt' && <ActivityPromptDialog />}
       {open === 'delete' && currentRow && (
         <ActivitiesDeleteDialog

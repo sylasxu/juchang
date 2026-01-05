@@ -437,10 +437,11 @@ export function ActivityListPage() {
                     onCheckedChange={handleSelectAll}
                   />
                 </TableHead>
-                <TableHead>活动信息</TableHead>
+                <TableHead>活动标题</TableHead>
+                <TableHead>类型</TableHead>
+                <TableHead>地点</TableHead>
                 <TableHead>创建者</TableHead>
                 <TableHead>状态</TableHead>
-                <TableHead>类型</TableHead>
                 <TableHead>风险等级</TableHead>
                 <TableHead>参与情况</TableHead>
                 <TableHead>创建时间</TableHead>
@@ -450,13 +451,13 @@ export function ActivityListPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     加载中...
                   </TableCell>
                 </TableRow>
               ) : activitiesData?.data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8">
+                  <TableCell colSpan={10} className="text-center py-8">
                     暂无数据
                   </TableCell>
                 </TableRow>
@@ -470,41 +471,27 @@ export function ActivityListPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <div className="space-y-1">
-                        <button
-                          onClick={() => window.location.href = `/activities/${activity.id}`}
-                          className="font-medium hover:underline text-left"
-                        >
-                          {activity.title}
-                        </button>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <MapPin className="h-3 w-3" />
-                          {activity.locationName}
-                          {activity.isGhost && (
-                            <Badge variant="secondary" className="text-xs">锚点</Badge>
-                          )}
-                          {activity.isBoosted && (
-                            <Badge variant="default" className="text-xs">强力召唤</Badge>
-                          )}
-                          {activity.isPinPlus && (
-                            <Badge variant="default" className="text-xs">黄金置顶</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="font-medium">{activity.creatorInfo.nickname}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {activity.creatorInfo.phoneNumber}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {getStatusBadge(activity.status)}
+                      <button
+                        onClick={() => window.location.href = `/activities/${activity.id}`}
+                        className="font-medium hover:underline text-left"
+                      >
+                        {activity.title}
+                      </button>
                     </TableCell>
                     <TableCell>
                       {getTypeBadge(activity.type)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2 text-sm">
+                        <MapPin className="h-3 w-3" />
+                        {activity.locationName}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{activity.creatorInfo.nickname}</div>
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(activity.status)}
                     </TableCell>
                     <TableCell>
                       {getRiskBadge(activity.riskLevel, activity.riskScore)}
@@ -512,11 +499,6 @@ export function ActivityListPage() {
                     <TableCell>
                       <div className="text-sm">
                         {activity.currentParticipants}/{activity.maxParticipants}
-                        {activity.reportCount > 0 && (
-                          <div className="text-red-600">
-                            {activity.reportCount} 举报
-                          </div>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>

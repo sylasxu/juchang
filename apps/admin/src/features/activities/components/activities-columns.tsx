@@ -46,42 +46,46 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
   {
     accessorKey: 'title',
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title='活动信息' />
+      <DataTableColumnHeader column={column} title='活动标题' />
     ),
     meta: { className: 'ps-1', tdClassName: 'ps-4' },
     cell: ({ row }) => {
       const activity = row.original
-      const category = activityTypes.find(
-        (cat) => cat.value === activity.type
-      )
-
       return (
-        <div className='flex flex-col space-y-1'>
-          <div className='flex items-center space-x-2'>
-            <span className='font-medium max-w-48 truncate'>{activity.title}</span>
-            {category && (
-              <Badge variant='outline'>{category.label}</Badge>
-            )}
-          </div>
-          <div className='text-xs text-muted-foreground'>
-            {activity.locationName}
-          </div>
-          {activity.description && (
-            <div className='text-xs text-muted-foreground max-w-64 truncate'>
-              {activity.description}
-            </div>
-          )}
-        </div>
+        <span className='font-medium max-w-48 truncate'>{activity.title}</span>
       )
     },
   },
   {
     accessorKey: 'type',
-    header: () => null,
-    cell: () => null,
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='类型' />
+    ),
+    cell: ({ row }) => {
+      const category = activityTypes.find(
+        (cat) => cat.value === row.getValue('type')
+      )
+      return category ? (
+        <Badge variant='outline'>{category.label}</Badge>
+      ) : null
+    },
     enableHiding: true,
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id))
+    },
+  },
+  {
+    accessorKey: 'locationName',
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title='地点' />
+    ),
+    cell: ({ row }) => {
+      const activity = row.original
+      return (
+        <div className='flex items-center gap-2 text-sm'>
+          {activity.locationName}
+        </div>
+      )
     },
   },
   {
@@ -119,19 +123,9 @@ export const activitiesColumns: ColumnDef<Activity>[] = [
     ),
     cell: ({ row }) => {
       const activity = row.original
-      const percentage = (activity.currentParticipants / activity.maxParticipants) * 100
-      
       return (
-        <div className='flex flex-col space-y-1'>
-          <div className='text-sm'>
-            {activity.currentParticipants}/{activity.maxParticipants}
-          </div>
-          <div className='w-16 bg-muted rounded-full h-1.5'>
-            <div 
-              className='bg-primary h-1.5 rounded-full transition-all'
-              style={{ width: `${Math.min(percentage, 100)}%` }}
-            />
-          </div>
+        <div className='text-sm'>
+          {activity.currentParticipants}/{activity.maxParticipants}
         </div>
       )
     },
