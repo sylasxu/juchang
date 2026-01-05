@@ -199,3 +199,31 @@ export function useRealTimeUpdates() {
 
   return { refreshAll }
 }
+
+// ==========================================
+// 核心业务指标 (PRD 17.2-17.4)
+// ==========================================
+
+// 从 Eden Treaty 推导类型 (Single Source of Truth)
+type ApiResponse<T> = T extends { get: () => Promise<{ data: infer R }> } ? R : never
+type BusinessMetricsResponse = ApiResponse<typeof api.dashboard.metrics>
+
+// 导出类型供组件使用
+export type BenchmarkStatus = 'green' | 'yellow' | 'red'
+export type BusinessMetrics = NonNullable<BusinessMetricsResponse>
+export type J2CMetric = BusinessMetrics['j2cRate']
+export type WeeklyCompletedMetric = BusinessMetrics['weeklyCompletedCount']
+export type MetricItem = BusinessMetrics['draftPublishRate']
+
+// 获取核心业务指标 - 使用真实 API
+export function useBusinessMetrics() {
+  return useQuery({
+    queryKey: queryKeys.dashboard.businessMetrics(),
+    queryFn: async () => {
+      const response = await unwrap(api.dashboard.metrics.get())
+      return response
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+  })
+}

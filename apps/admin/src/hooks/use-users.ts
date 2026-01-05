@@ -7,22 +7,22 @@ import { toast } from 'sonner'
 // 每日默认额度
 export const DAILY_QUOTA_LIMIT = 3
 
-// 用户列表响应类型
-interface UserListResponse {
-  data: any[]
-  total: number
-  page: number
-  limit: number
-}
+// 从 Eden Treaty 推导类型
+type ApiResponse<T> = T extends { get: (args?: infer _A) => Promise<{ data: infer R }> } ? R : never
+type UsersResponse = ApiResponse<typeof api.users>
 
-// 用户筛选参数类型
+// 导出推导的类型
+export type UserListResponse = NonNullable<UsersResponse>
+export type User = UserListResponse['data'] extends (infer T)[] ? T : never
+
+// 用户筛选参数类型 (前端特有，允许手动定义)
 export interface UserFilters {
   page?: number
   limit?: number
   search?: string
 }
 
-// 更新用户请求类型
+// 更新用户请求类型 (前端特有，允许手动定义)
 export interface UpdateUserRequest {
   nickname?: string
   avatarUrl?: string
@@ -36,7 +36,7 @@ export function useUsersList(filters: UserFilters = {}) {
     queryKey: [...queryKeys.users.lists(), { page, limit, search }],
     queryFn: async () => {
       const result = await unwrap(api.users.get({ query: { page, limit, search } }))
-      return result as UserListResponse
+      return result
     },
     staleTime: 2 * 60 * 1000,
   })

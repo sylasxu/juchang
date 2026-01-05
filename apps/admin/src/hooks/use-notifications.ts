@@ -2,27 +2,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/eden'
 
-// 通知类型
-export interface Notification {
-  id: string
-  userId: string
-  type: string
-  title: string
-  content: string | null
-  isRead: boolean
-  activityId: string | null
-  createdAt: string | Date
-}
+// 从 Eden Treaty 推导类型
+type ApiResponse<T> = T extends { get: (args?: infer _A) => Promise<{ data: infer R }> } ? R : never
+type NotificationsResponse = ApiResponse<typeof api.notifications>
 
-// 通知列表响应类型
-interface NotificationListResponse {
-  data: Notification[]
-  total: number
-  page: number
-  totalPages: number
-}
+// 导出推导的类型
+export type NotificationListResponse = NonNullable<NotificationsResponse>
+export type Notification = NotificationListResponse['data'] extends (infer T)[] ? T : never
 
-// 通知筛选参数类型
+// 通知筛选参数类型 (前端特有，允许手动定义)
 export interface NotificationFilters {
   page?: number
   limit?: number
@@ -47,7 +35,7 @@ export function useNotificationsList(filters: NotificationFilters = {}) {
       const query: Record<string, unknown> = { scope: 'all', page, limit }
       if (type && type !== 'all') query.type = type
       const result = await unwrap(api.notifications.get({ query }))
-      return result as NotificationListResponse
+      return result
     },
     staleTime: 2 * 60 * 1000,
   })

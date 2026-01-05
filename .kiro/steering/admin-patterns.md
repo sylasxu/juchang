@@ -209,8 +209,60 @@ const formSchema = Type.Pick(insertUserSchema, ['nickname', 'avatarUrl'])
 **允许手动定义的 Schema：**
 - 分页参数 (`PaginationQuerySchema`)
 - 错误响应 (`ErrorResponseSchema`)
-- Admin 特有的辅助类型（无对应 DB 表）
 - 登录表单（phone + code，非 DB 字段）
+
+---
+
+## 🔄 Eden Treaty 类型推导规则 (Zero Redundancy)
+
+**API 响应类型必须从 Eden Treaty 推导，禁止手动重复定义：**
+
+```typescript
+// ❌ 禁止手动定义 API 响应类型
+export interface BusinessMetrics {
+  j2cRate: { value: number; benchmark: string }
+  // ...
+}
+
+// ✅ 必须从 Eden Treaty 推导
+import { api } from '@/lib/eden'
+
+// 定义类型推导工具
+type ApiResponse<T> = T extends { get: () => Promise<{ data: infer R }> } ? R : never
+
+// 从 API 端点推导类型
+type BusinessMetricsResponse = ApiResponse<typeof api.dashboard.metrics>
+export type BusinessMetrics = NonNullable<BusinessMetricsResponse>
+
+// 推导嵌套类型
+export type J2CMetric = BusinessMetrics['j2cRate']
+export type MetricItem = BusinessMetrics['draftPublishRate']
+```
+
+**类型来源优先级：**
+1. **DB 表类型** → 从 `@juchang/db` 导入 (`User`, `Activity`, `Participant`)
+2. **API 响应类型** → 从 Eden Treaty 推导 (`ApiResponse<typeof api.xxx>`)
+3. **前端特有类型** → 仅允许 UI 状态、表单临时状态等
+
+**Hook 返回类型：**
+```typescript
+// ❌ 禁止手动指定返回类型
+export function useBusinessMetrics() {
+  return useQuery({
+    queryFn: async (): Promise<BusinessMetrics> => { ... }  // 手动类型
+  })
+}
+
+// ✅ 让 TypeScript 自动推导
+export function useBusinessMetrics() {
+  return useQuery({
+    queryFn: async () => {
+      const response = await unwrap(api.dashboard.metrics.get())
+      return response  // 类型自动推导
+    },
+  })
+}
+```
 
 ---
 
@@ -242,3 +294,5 @@ const form = useForm<Static<typeof formSchema>>({
 - [ ] 表单使用 TypeBox（禁止 Zod）
 - [ ] Header 使用 `fixed` 属性
 - [ ] 弹窗抽取为独立组件
+- [ ] API 响应类型从 Eden Treaty 推导（禁止手动定义 interface）
+- [ ] DB 表类型从 `@juchang/db` 导入

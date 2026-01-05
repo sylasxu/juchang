@@ -3,47 +3,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/eden'
 import { toast } from 'sonner'
 
-// 举报类型
-export interface Report {
-  id: string
-  type: string
-  reason: string
-  description: string | null
-  targetId: string
-  targetContent: string
-  reporterId: string
-  status: string
-  adminNote: string | null
-  createdAt: string
-  resolvedAt: string | null
-  resolvedBy: string | null
-  reporter: {
-    id: string
-    nickname: string | null
-    avatarUrl: string | null
-  } | null
-}
+// 从 Eden Treaty 推导类型
+type ApiResponse<T> = T extends { get: (args?: infer _A) => Promise<{ data: infer R }> } ? R : never
+type ReportsResponse = ApiResponse<typeof api.reports>
 
-// 举报列表响应类型
-interface ReportListResponse {
-  data: Report[]
-  total: number
-  page: number
-  limit: number
-}
+// 导出推导的类型
+export type ReportListResponse = NonNullable<ReportsResponse>
+export type Report = ReportListResponse['data'] extends (infer T)[] ? T : never
 
-// 举报筛选参数类型
+// 举报筛选参数类型 (前端特有，允许手动定义)
 export interface ReportFilters {
   page?: number
   limit?: number
   status?: 'pending' | 'resolved' | 'ignored'
   type?: 'activity' | 'message' | 'user'
-}
-
-// 更新举报请求类型
-export interface UpdateReportRequest {
-  status: 'resolved' | 'ignored'
-  adminNote?: string
 }
 
 // Query keys
@@ -66,7 +39,7 @@ export function useReportsList(filters: ReportFilters = {}) {
       if (status) query.status = status
       if (type) query.type = type
       const result = await unwrap(api.reports.get({ query }))
-      return result as ReportListResponse
+      return result
     },
     staleTime: 2 * 60 * 1000,
   })

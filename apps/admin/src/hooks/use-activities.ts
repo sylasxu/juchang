@@ -3,18 +3,20 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/eden'
 import { toast } from 'sonner'
 
-// 活动筛选参数类型
+// 从 Eden Treaty 推导类型
+type ApiResponse<T> = T extends { get: (args?: infer _A) => Promise<{ data: infer R }> } ? R : never
+type ActivitiesResponse = ApiResponse<typeof api.activities>
+
+// 导出推导的类型
+export type Activity = NonNullable<ActivitiesResponse>['data'] extends (infer T)[] ? T : never
+
+// 活动筛选参数类型 (前端特有，允许手动定义)
 export interface ActivityFilters {
   page?: number
   limit?: number
   status?: string
   type?: string
   search?: string
-}
-
-// 更新活动状态请求类型
-export interface UpdateActivityStatusRequest {
-  status: 'completed' | 'cancelled'
 }
 
 // 获取活动列表

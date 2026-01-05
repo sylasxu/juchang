@@ -1,6 +1,17 @@
 // Dashboard Service - MVP 简化版：只保留 Admin 基础统计
-import { db, users, activities, eq, gte, desc, count, and, lte } from '@juchang/db';
-import type { DashboardStats, RecentActivity, UserGrowthItem, ActivityTypeDistribution, GeographicItem } from './dashboard.model';
+import { db, users, activities, participants, eq, gte, desc, count, and, lte, lt, sql, inArray, not } from '@juchang/db';
+import type { 
+  DashboardStats, 
+  RecentActivity, 
+  UserGrowthItem, 
+  ActivityTypeDistribution, 
+  GeographicItem,
+  BenchmarkStatus,
+  J2CMetric,
+  WeeklyCompletedMetric,
+  MetricItem,
+  BusinessMetrics,
+} from './dashboard.model';
 
 /**
  * 获取仪表板统计数据
@@ -193,4 +204,323 @@ export async function getGeographicDistribution(): Promise<GeographicItem[]> {
     console.error('获取地理分布失败:', error);
     return [];
   }
+}
+
+
+// ==========================================
+// 核心业务指标计算 (PRD 17.2-17.4)
+// ==========================================
+
+// 基准阈值配置
+const BENCHMARKS = {
+  j2cRate: { red: 1, yellow: 5 },           // <1% red, 1-5% yellow, >5% green
+  weeklyCompleted: { red: 3, yellow: 5 },   // <3 red, 3-5 yellow, >5 green
+  draftPublishRate: { red: 40, yellow: 60 }, // <40% red, 40-60% yellow, >60% green
+  activitySuccessRate: { red: 30, yellow: 50 }, // <30% red, 30-50% yellow, >50% green
+  weeklyRetention: { red: 10, yellow: 15 }, // <10% red, 10-15% yellow, >15% green
+  oneTimeCreatorRate: { red: 50, yellow: 70 }, // <50% red, 50-70% yellow, >70% green
+};
+
+/**
+ * 根据阈值返回基准状态
+ */
+export function getBenchmark(value: number, thresholds: { red: number; yellow: number }): BenchmarkStatus {
+  if (value < thresholds.red) return 'red';
+  if (value < thresholds.yellow) return 'yellow';
+  return 'green';
+}
+
+/**
+ * 获取本周一 00:00 的时间戳
+ */
+function getWeekStart(date: Date = new Date()): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // 周一为一周开始
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * J2C 转化率计算
+ * 先参与后创建的用户数 / 历史总参与者数 × 100%
+ */
+export async function calculateJ2CRate(): Promise<J2CMetric> {
+  try {
+    // 1. 获取所有参与者的首次参与时间
+    const joinersResult = await db
+      .select({
+        userId: participants.userId,
+        firstJoinDate: sql<Date>`MIN(${participants.joinedAt})`.as('first_join_date'),
+      })
+      .from(participants)
+      .where(eq(participants.status, 'joined'))
+      .groupBy(participants.userId);
+
+    // 2. 获取所有创建者的首次创建时间
+    const creatorsResult = await db
+      .select({
+        creatorId: activities.creatorId,
+        firstCreateDate: sql<Date>`MIN(${activities.createdAt})`.as('first_create_date'),
+      })
+      .from(activities)
+      .where(not(eq(activities.status, 'draft'))) // 排除草稿
+      .groupBy(activities.creatorId);
+
+    // 3. 构建 Map 便于查找
+    const creatorMap = new Map<string, Date>();
+    for (const c of creatorsResult) {
+      creatorMap.set(c.creatorId, c.firstCreateDate);
+    }
+
+    // 4. 计算先参与后创建的用户数
+    let convertedUsers = 0;
+    for (const j of joinersResult) {
+      const firstCreateDate = creatorMap.get(j.userId);
+      if (firstCreateDate && j.firstJoinDate && firstCreateDate > j.firstJoinDate) {
+        convertedUsers++;
+      }
+    }
+
+    const totalJoiners = joinersResult.length;
+    const value = totalJoiners > 0 ? (convertedUsers / totalJoiners) * 100 : 0;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, BENCHMARKS.j2cRate),
+      comparison: `${convertedUsers} 人转化`,
+      convertedUsers,
+      totalJoiners,
+    };
+  } catch (error) {
+    console.error('计算 J2C 转化率失败:', error);
+    return {
+      value: 0,
+      benchmark: 'red',
+      comparison: '计算失败',
+      convertedUsers: 0,
+      totalJoiners: 0,
+    };
+  }
+}
+
+/**
+ * 本周成局数计算
+ */
+export async function getWeeklyCompletedCount(): Promise<WeeklyCompletedMetric> {
+  try {
+    const thisWeekStart = getWeekStart();
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+    // 本周成局数
+    const [thisWeekResult] = await db
+      .select({ count: count() })
+      .from(activities)
+      .where(and(
+        eq(activities.status, 'completed'),
+        gte(activities.updatedAt, thisWeekStart)
+      ));
+
+    // 上周成局数
+    const [lastWeekResult] = await db
+      .select({ count: count() })
+      .from(activities)
+      .where(and(
+        eq(activities.status, 'completed'),
+        gte(activities.updatedAt, lastWeekStart),
+        lt(activities.updatedAt, thisWeekStart)
+      ));
+
+    const value = thisWeekResult?.count || 0;
+    const lastWeekValue = lastWeekResult?.count || 0;
+    const diff = value - lastWeekValue;
+    const comparison = diff >= 0 ? `较上周 +${diff}` : `较上周 ${diff}`;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, BENCHMARKS.weeklyCompleted),
+      comparison,
+      lastWeekValue,
+    };
+  } catch (error) {
+    console.error('计算本周成局数失败:', error);
+    return {
+      value: 0,
+      benchmark: 'red',
+      comparison: '计算失败',
+      lastWeekValue: 0,
+    };
+  }
+}
+
+/**
+ * 草稿发布转化率计算
+ * (active + completed + cancelled) / total × 100%
+ */
+export async function calculateDraftPublishRate(): Promise<MetricItem> {
+  try {
+    const [totalResult] = await db.select({ count: count() }).from(activities);
+    const [publishedResult] = await db
+      .select({ count: count() })
+      .from(activities)
+      .where(inArray(activities.status, ['active', 'completed', 'cancelled']));
+
+    const total = totalResult?.count || 0;
+    const published = publishedResult?.count || 0;
+    const value = total > 0 ? (published / total) * 100 : 0;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, BENCHMARKS.draftPublishRate),
+      comparison: `${published}/${total} 已发布`,
+    };
+  } catch (error) {
+    console.error('计算草稿发布率失败:', error);
+    return { value: 0, benchmark: 'red', comparison: '计算失败' };
+  }
+}
+
+/**
+ * 活动成局率计算
+ * completed / (active + completed + cancelled) × 100%
+ */
+export async function calculateActivitySuccessRate(): Promise<MetricItem> {
+  try {
+    const [completedResult] = await db
+      .select({ count: count() })
+      .from(activities)
+      .where(eq(activities.status, 'completed'));
+
+    const [publishedResult] = await db
+      .select({ count: count() })
+      .from(activities)
+      .where(inArray(activities.status, ['active', 'completed', 'cancelled']));
+
+    const completed = completedResult?.count || 0;
+    const published = publishedResult?.count || 0;
+    const value = published > 0 ? (completed / published) * 100 : 0;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, BENCHMARKS.activitySuccessRate),
+      comparison: `${completed}/${published} 成局`,
+    };
+  } catch (error) {
+    console.error('计算活动成局率失败:', error);
+    return { value: 0, benchmark: 'red', comparison: '计算失败' };
+  }
+}
+
+/**
+ * 周留存率计算
+ * 本周活跃且上周也活跃的用户 / 上周活跃用户 × 100%
+ * 使用 participants 表作为"活跃"的代理
+ */
+export async function calculateWeeklyRetention(): Promise<MetricItem> {
+  try {
+    const thisWeekStart = getWeekStart();
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+    // 本周活跃用户 (有参与记录)
+    const thisWeekUsers = await db
+      .selectDistinct({ userId: participants.userId })
+      .from(participants)
+      .where(gte(participants.joinedAt, thisWeekStart));
+
+    // 上周活跃用户
+    const lastWeekUsers = await db
+      .selectDistinct({ userId: participants.userId })
+      .from(participants)
+      .where(and(
+        gte(participants.joinedAt, lastWeekStart),
+        lt(participants.joinedAt, thisWeekStart)
+      ));
+
+    const thisWeekSet = new Set(thisWeekUsers.map(u => u.userId));
+    const lastWeekSet = new Set(lastWeekUsers.map(u => u.userId));
+
+    // 计算交集
+    let retained = 0;
+    for (const userId of lastWeekSet) {
+      if (thisWeekSet.has(userId)) {
+        retained++;
+      }
+    }
+
+    const lastWeekCount = lastWeekSet.size;
+    const value = lastWeekCount > 0 ? (retained / lastWeekCount) * 100 : 0;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, BENCHMARKS.weeklyRetention),
+      comparison: `${retained}/${lastWeekCount} 留存`,
+    };
+  } catch (error) {
+    console.error('计算周留存率失败:', error);
+    return { value: 0, benchmark: 'red', comparison: '计算失败' };
+  }
+}
+
+/**
+ * 一次性群主占比计算
+ * 创建 1-3 次活动的用户 / 总创建者 × 100%
+ */
+export async function calculateOneTimeCreatorRate(): Promise<MetricItem> {
+  try {
+    // 按用户分组统计创建活动数
+    const creatorStats = await db
+      .select({
+        creatorId: activities.creatorId,
+        activityCount: count().as('activity_count'),
+      })
+      .from(activities)
+      .where(not(eq(activities.status, 'draft'))) // 排除草稿
+      .groupBy(activities.creatorId);
+
+    const totalCreators = creatorStats.length;
+    const casualCreators = creatorStats.filter(c => c.activityCount >= 1 && c.activityCount <= 3).length;
+    const value = totalCreators > 0 ? (casualCreators / totalCreators) * 100 : 0;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, BENCHMARKS.oneTimeCreatorRate),
+      comparison: `${casualCreators}/${totalCreators} 一次性`,
+    };
+  } catch (error) {
+    console.error('计算一次性群主占比失败:', error);
+    return { value: 0, benchmark: 'red', comparison: '计算失败' };
+  }
+}
+
+/**
+ * 获取所有业务指标
+ */
+export async function getBusinessMetrics(): Promise<BusinessMetrics> {
+  const [
+    j2cRate,
+    weeklyCompletedCount,
+    draftPublishRate,
+    activitySuccessRate,
+    weeklyRetention,
+    oneTimeCreatorRate,
+  ] = await Promise.all([
+    calculateJ2CRate(),
+    getWeeklyCompletedCount(),
+    calculateDraftPublishRate(),
+    calculateActivitySuccessRate(),
+    calculateWeeklyRetention(),
+    calculateOneTimeCreatorRate(),
+  ]);
+
+  return {
+    j2cRate,
+    weeklyCompletedCount,
+    draftPublishRate,
+    activitySuccessRate,
+    weeklyRetention,
+    oneTimeCreatorRate,
+  };
 }

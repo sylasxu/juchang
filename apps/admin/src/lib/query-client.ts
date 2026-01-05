@@ -66,6 +66,7 @@ export const queryKeys = {
   dashboard: {
     all: ['dashboard'],
     metrics: () => [...queryKeys.dashboard.all, 'metrics'],
+    businessMetrics: () => [...queryKeys.dashboard.all, 'businessMetrics'],
     analytics: () => [...queryKeys.dashboard.all, 'analytics'],
     kpis: () => [...queryKeys.dashboard.all, 'kpis'],
     userGrowth: (days: number) => [...queryKeys.dashboard.all, 'userGrowth', days],

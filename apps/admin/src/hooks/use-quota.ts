@@ -5,24 +5,14 @@ import { toast } from 'sonner'
 
 const DAILY_QUOTA_LIMIT = 3
 
-// 用户额度类型
-export interface UserQuota {
-  id: string
-  nickname: string | null
-  phoneNumber: string | null
-  avatarUrl: string | null
-  aiCreateQuotaToday: number | null
-}
+// 从 Eden Treaty 推导类型
+type ApiResponse<T> = T extends { get: (args?: infer _A) => Promise<{ data: infer R }> } ? R : never
+type UsersResponse = ApiResponse<typeof api.users>
 
-// 额度列表响应类型
-interface QuotaListResponse {
-  data: UserQuota[]
-  total: number
-  page: number
-  limit: number
-}
+// 导出推导的类型
+export type UserQuota = NonNullable<UsersResponse>['data'] extends (infer T)[] ? T : never
 
-// 额度筛选参数类型
+// 额度筛选参数类型 (前端特有，允许手动定义)
 export interface QuotaFilters {
   page?: number
   limit?: number
@@ -54,7 +44,7 @@ export function useQuotaList(filters: QuotaFilters = {}) {
         })
       )
 
-      let users = (result?.data || []) as UserQuota[]
+      let users = (result?.data || [])
 
       // 客户端筛选额度使用状态
       if (usageStatus === 'used') {
@@ -73,7 +63,7 @@ export function useQuotaList(filters: QuotaFilters = {}) {
         total: result?.total || 0,
         page: result?.page || 1,
         limit: result?.limit || limit,
-      } as QuotaListResponse
+      }
     },
     staleTime: 2 * 60 * 1000,
   })

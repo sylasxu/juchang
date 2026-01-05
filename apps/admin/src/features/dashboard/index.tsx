@@ -17,6 +17,7 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { Analytics } from './components/analytics'
 import { Overview } from './components/overview'
 import { RecentActivities } from './components/recent-activities'
+import { BusinessMetrics } from './components/business-metrics'
 import { useDashboardKPIs, useRealTimeUpdates } from '@/hooks/use-dashboard'
 import { RefreshCw, Users, Activity, Calendar } from 'lucide-react'
 
@@ -166,6 +167,13 @@ export function Dashboard() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* 核心业务指标 (PRD 17.2-17.4) */}
+            <div className='mt-4'>
+              <h2 className='text-lg font-semibold mb-4'>核心业务指标</h2>
+              <BusinessMetrics />
+            </div>
+
             <div className='grid grid-cols-1 gap-4 lg:grid-cols-7'>
               <Card className='col-span-1 lg:col-span-4'>
                 <CardHeader>

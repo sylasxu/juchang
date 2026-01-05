@@ -1,6 +1,6 @@
 # 聚场 (JuChang) 技术架构文档
 
-> **版本**：v3.9 (Chat-First + Generative UI + AI 对话持久化)
+> **版本**：v3.9 (Agent-First + Generative UI + AI 对话持久化)
 > **更新日期**：2025-01
 > **架构**：原生小程序 + Zustand Vanilla + Elysia API + Drizzle ORM
 
@@ -8,11 +8,21 @@
 
 ## 1. 核心设计理念
 
+### 1.1 产品架构哲学
+
+| 原则 | 说明 |
+|------|------|
+| **Agent-First** | 聚场是 Personal Social Agent，不是工具。AI 主动服务用户，而非被动等待操作 |
+| **Chat-First** | 首页即对话，所有功能封装在 Widget 气泡中。这不是 UI 风格，是产品定位 |
+| **Generative UI** | AI 根据意图动态生成最合适的 Widget 类型（创建 vs 探索 vs 闲聊） |
+| **Memory Layer** | AI 记住用户偏好，下次推荐更准。对话历史持久化到 conversations 表 |
+
+### 1.2 技术架构原则
+
 1. **Database First**：`@juchang/db` (Drizzle ORM) 是绝对数据源，TypeBox Schema 从 Drizzle 自动派生
 2. **原生极致性能**：小程序端使用微信开发者工具直接构建原生 WXML/LESS/TS，零运行时开销
 3. **Spec-Coding 契约驱动**：Elysia TypeBox 定义路由契约，Orval 自动生成客户端 SDK
-4. **Chat-First**：首页即对话，所有功能封装在 Widget 气泡中
-5. **Generative UI**：AI 根据意图动态生成最合适的 Widget 类型（创建 vs 探索）
+4. **服务每个人**：不只服务群主（Creator），也服务参与者（Joiner）
 
 ---
 
@@ -40,19 +50,25 @@
 │   │   ├── pages/            # 主包页面 (去 Tabbar 化)
 │   │   │   ├── home/         # 首页 (Chat-First)
 │   │   │   ├── profile/      # 个人中心
-│   │   │   ├── message/      # 消息中心
-│   │   │   └── chat/         # 活动群聊 (Lite_Chat)
+│   │   │   └── message/      # 消息中心
 │   │   ├── subpackages/      # 分包
 │   │   │   ├── activity/     # 活动相关
 │   │   │   │   ├── detail/   # 活动详情
+│   │   │   │   ├── create/   # 活动创建
 │   │   │   │   ├── confirm/  # 活动确认页
+│   │   │   │   ├── draft-edit/ # 草稿编辑页
 │   │   │   │   ├── list/     # 活动列表页
 │   │   │   │   ├── map-picker/  # 地图选点页
 │   │   │   │   └── explore/  # 沉浸式地图页 (Generative UI)
-│   │   │   └── legal/        # 法律文档
-│   │   │       ├── user-agreement/
-│   │   │       └── privacy-policy/
-│   │   ├── components/       # 公共组件
+│   │   │   ├── legal/        # 法律文档
+│   │   │   │   ├── index     # 用户协议
+│   │   │   │   └── about/    # 关于聚场
+│   │   │   ├── safety/       # 安全中心
+│   │   │   ├── search/       # 活动搜索
+│   │   │   ├── chat/         # 活动群聊 (Lite_Chat)
+│   │   │   ├── login/        # 登录页
+│   │   │   └── setting/      # 设置页
+│   │   ├── components/       # 公共组件 (34 个)
 │   │   │   ├── custom-navbar/    # 自定义导航栏
 │   │   │   ├── ai-dock/          # 超级输入坞
 │   │   │   ├── chat-stream/      # 对话流容器
@@ -60,13 +76,16 @@
 │   │   │   ├── widget-draft/     # 意图解析卡片
 │   │   │   ├── widget-share/     # 创建成功卡片
 │   │   │   ├── widget-explore/   # 探索卡片 (Generative UI)
-│   │   │   ├── message-bubble/   # 消息气泡
-│   │   │   ├── activity-mini-card/  # 活动迷你卡片
-│   │   │   ├── activity-list-item/  # 活动列表项
-│   │   │   ├── dropmenu/         # 下拉菜单
-│   │   │   ├── phone-auth-modal/ # 手机号绑定弹窗
-│   │   │   ├── filter-bar/       # 筛选栏
-│   │   │   └── profile-modal/    # 资料编辑弹窗
+│   │   │   ├── widget-launcher/  # 组局发射台
+│   │   │   ├── widget-action/    # 快捷操作按钮
+│   │   │   ├── widget-ask-preference/ # 多轮对话偏好询问
+│   │   │   ├── widget-error/     # 错误提示卡片
+│   │   │   ├── widget-skeleton/  # 卡片骨架屏
+│   │   │   ├── thinking-bubble/  # AI 思考气泡
+│   │   │   ├── auth-sheet/       # 半屏授权弹窗
+│   │   │   ├── share-guide/      # 分享引导蒙层
+│   │   │   ├── activity-preview-sheet/ # 活动预览浮层
+│   │   │   └── ...               # 其他组件
 │   │   ├── src/
 │   │   │   ├── stores/       # Zustand Vanilla
 │   │   │   ├── api/          # Orval 生成的 SDK
@@ -83,17 +102,20 @@
 │       └── src/
 │           ├── index.ts      # 应用入口
 │           ├── setup.ts      # 全局插件
-│           └── modules/      # 功能模块 (6个)
-│               ├── auth/
-│               ├── users/
-│               ├── activities/
-│               ├── home/     # 新增：首页对话流
-│               ├── chat/
-│               └── ai/
+│           └── modules/      # 功能模块 (9 个)
+│               ├── auth/         # 微信登录、手机号绑定
+│               ├── users/        # 用户 CRUD、额度
+│               ├── activities/   # 活动 CRUD、报名、附近搜索
+│               ├── participants/ # 参与者管理
+│               ├── chat/         # 活动群聊消息
+│               ├── ai/           # AI 解析、对话历史
+│               ├── dashboard/    # 首页数据聚合
+│               ├── notifications/ # 通知管理
+│               └── reports/      # 举报管理
 │
 ├── packages/
 │   ├── db/                   # Drizzle ORM
-│   │   └── src/schema/       # 6 张核心表
+│   │   └── src/schema/       # 7 张核心表 + reports
 │   ├── utils/                # 通用工具
 │   └── ts-config/            # TypeScript 配置
 │

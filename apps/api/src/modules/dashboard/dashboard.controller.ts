@@ -2,7 +2,7 @@
 import { Elysia } from 'elysia';
 import { basePlugins } from '../../setup';
 import { dashboardModel, type ErrorResponse } from './dashboard.model';
-import { getDashboardStats, getRecentActivities, getUserGrowthTrend, getActivityTypeDistribution, getGeographicDistribution } from './dashboard.service';
+import { getDashboardStats, getRecentActivities, getUserGrowthTrend, getActivityTypeDistribution, getGeographicDistribution, getBusinessMetrics } from './dashboard.service';
 
 export const dashboardController = new Elysia({ prefix: '/dashboard' })
   .use(basePlugins)
@@ -134,6 +134,32 @@ export const dashboardController = new Elysia({ prefix: '/dashboard' })
       },
       response: {
         200: 'dashboard.geographic',
+        500: 'dashboard.error',
+      },
+    }
+  )
+
+  // 获取核心业务指标 (PRD 17.2-17.4)
+  .get(
+    '/metrics',
+    async ({ set }) => {
+      try {
+        const metrics = await getBusinessMetrics();
+        return metrics;
+      } catch (error) {
+        console.error('获取业务指标失败:', error);
+        set.status = 500;
+        return { code: 500, msg: '获取业务指标失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Dashboard'],
+        summary: '获取核心业务指标',
+        description: '获取 J2C 转化率、本周成局数、草稿发布率、活动成局率、周留存率、一次性群主占比等核心指标',
+      },
+      response: {
+        200: 'dashboard.businessMetrics',
         500: 'dashboard.error',
       },
     }

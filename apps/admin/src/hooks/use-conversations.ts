@@ -2,26 +2,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, unwrap } from '@/lib/eden'
 import { toast } from 'sonner'
 
-// 会话列表项类型
-export interface ConversationSession {
-  id: string
-  userId: string
-  userNickname: string | null
-  title: string | null
-  messageCount: number
-  lastMessageAt: string
-  createdAt: string
-}
+// 从 Eden Treaty 推导类型
+type ApiResponse<T> = T extends { get: (args?: infer _A) => Promise<{ data: infer R }> } ? R : never
+type SessionsResponse = ApiResponse<typeof api.ai.sessions>
+type SessionDetailResponse = ApiResponse<ReturnType<typeof api.ai.sessions>>
 
-// 消息类型
-export interface ConversationMessage {
-  id: string
-  role: 'user' | 'assistant'
-  messageType: string
-  content: unknown
-  activityId: string | null
-  createdAt: string
-}
+// 导出推导的类型
+export type SessionsListResponse = NonNullable<SessionsResponse>
+export type ConversationSession = SessionsListResponse['items'] extends (infer T)[] ? T : never
+export type SessionDetail = NonNullable<SessionDetailResponse>
+export type ConversationMessage = SessionDetail['messages'] extends (infer T)[] ? T : never
 
 interface SessionsListParams {
   page?: number
@@ -47,7 +37,7 @@ export function useSessionsList(params: SessionsListParams = {}) {
       )
 
       return {
-        data: (result?.items || []) as ConversationSession[],
+        data: (result?.items || []),
         total: result?.total || 0,
       }
     },
@@ -68,10 +58,7 @@ export function useConversationDetail(
         api.ai.sessions({ id: conversationId }).get()
       )
 
-      return result as {
-        conversation: ConversationSession
-        messages: ConversationMessage[]
-      }
+      return result
     },
     enabled: !!conversationId && enabled,
   })
