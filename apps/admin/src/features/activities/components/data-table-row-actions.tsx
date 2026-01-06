@@ -10,8 +10,9 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { useListContext } from '@/components/list-page'
 import { type Activity } from '../data/schema'
-import { useActivities } from './activities-provider'
+import { type ActivityDialogType } from './activities-columns'
 import { useUpdateActivityStatus } from '@/hooks/use-activities'
 
 type DataTableRowActionsProps<TData> = {
@@ -22,7 +23,7 @@ export function DataTableRowActions<TData>({
   row,
 }: DataTableRowActionsProps<TData>) {
   const activity = row.original as Activity
-  const { setOpen, setCurrentRow } = useActivities()
+  const { setOpen, setCurrentRow } = useListContext<Activity, ActivityDialogType>()
   const updateStatusMutation = useUpdateActivityStatus()
 
   const canChangeStatus = activity.status === 'active'

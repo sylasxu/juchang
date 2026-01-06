@@ -1,8 +1,6 @@
 'use client'
 
-import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -29,35 +27,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useActivities } from './activities-provider'
+import { useListContext } from '@/components/list-page'
+import { type Activity } from '../data/schema'
+import { type ActivityDialogType } from './activities-columns'
 import { activityTypes } from '../data/data'
 import { toast } from 'sonner'
+import { api } from '@/lib/eden'
 
-const formSchema = Type.Object({
-  title: Type.String({ minLength: 1, maxLength: 100 }),
-  description: Type.Optional(Type.String({ maxLength: 500 })),
-  locationName: Type.String({ minLength: 1, maxLength: 100 }),
-  address: Type.Optional(Type.String({ maxLength: 200 })),
-  locationHint: Type.String({ minLength: 1, maxLength: 200 }),
-  startAt: Type.String({ format: 'date-time' }),
-  type: Type.Union([
-    Type.Literal('food'),
-    Type.Literal('sports'),
-    Type.Literal('entertainment'),
-    Type.Literal('boardgame'),
-    Type.Literal('other'),
-  ]),
-  maxParticipants: Type.Number({ minimum: 1, maximum: 100 }),
-})
-
-type CreateActivityForm = Static<typeof formSchema>
+// 从 Eden Treaty 推导创建活动的 body 类型
+type CreateActivityBody = NonNullable<Parameters<typeof api.activities.post>[0]>
+type CreateActivityForm = Pick<CreateActivityBody, 'title' | 'description' | 'locationName' | 'address' | 'locationHint' | 'startAt' | 'type' | 'maxParticipants'>
 
 export function ActivitiesCreateDialog() {
-  const { open, setOpen } = useActivities()
+  const { open, setOpen } = useListContext<Activity, ActivityDialogType>()
   const isOpen = open === 'create'
 
+  // 无需 resolver，API 层已做验证
   const form = useForm<CreateActivityForm>({
-    resolver: typeboxResolver(formSchema),
     defaultValues: {
       title: '',
       description: '',

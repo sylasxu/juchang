@@ -11,8 +11,10 @@ import {
 } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { useListContext } from '@/components/list-page'
 import { activityStatusLabels } from '../data/data'
-import { useActivities } from './activities-provider'
+import { type Activity } from '../data/schema'
+import { type ActivityDialogType } from './activities-columns'
 
 // Conversation item type
 type ConversationItem = {
@@ -27,7 +29,7 @@ type ConversationItem = {
 }
 
 export function ActivityPromptDialog() {
-  const { open, setOpen, currentRow } = useActivities()
+  const { open, setOpen, currentRow } = useListContext<Activity, ActivityDialogType>()
 
   // 查询关联此活动的对话记录
   const { data, isLoading } = useQuery({

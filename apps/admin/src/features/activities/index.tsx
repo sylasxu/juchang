@@ -1,89 +1,93 @@
-import { ConfigDrawer } from '@/components/config-drawer'
-import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
-import { ProfileDropdown } from '@/components/profile-dropdown'
-import { Search } from '@/components/search'
-import { ThemeSwitch } from '@/components/theme-switch'
+import { Calendar } from 'lucide-react'
+import { getRouteApi } from '@tanstack/react-router'
+import { ListPage, DataTable, ListProvider } from '@/components/list-page'
 import { useActivities } from '@/hooks/use-activities'
+import { type Activity } from './data/schema'
+import { activitiesColumns, type ActivityDialogType } from './components/activities-columns'
 import { ActivitiesDialogs } from './components/activities-dialogs'
 import { ActivitiesPrimaryButtons } from './components/activities-primary-buttons'
-import { ActivitiesProvider } from './components/activities-provider'
-import { ActivitiesTable } from './components/activities-table'
-import { Skeleton } from '@/components/ui/skeleton'
-import { getRouteApi } from '@tanstack/react-router'
-import { type Activity } from './data/schema'
+import { DataTableBulkActions } from './components/data-table-bulk-actions'
 
 const route = getRouteApi('/_authenticated/activities/')
 
 export function Activities() {
   const search = route.useSearch()
+  const navigate = route.useNavigate()
   const pageSize = search.pageSize ?? 10
   
   const { data, isLoading, error } = useActivities({
     page: search.page ?? 1,
     limit: pageSize,
     status: search.status?.join(','),
-    type: search.category?.join(','),
+    type: search.type?.join(','),
     search: search.filter,
   })
   
   // 转换 API 返回数据为组件需要的格式
   const activities: Activity[] = (data?.data ?? []).map((item) => ({
     id: item.id,
-    creatorId: item.creator?.id ?? '',
     title: item.title,
-    description: item.description ?? undefined,
-    location: { x: item.location[0], y: item.location[1] },
+    description: item.description ?? null,
+    location: [item.location[0], item.location[1]] as [number, number],
     locationName: item.locationName,
-    address: undefined,
     locationHint: item.locationHint,
     startAt: item.startAt,
-    type: item.type as Activity['type'],
+    type: item.type,
     maxParticipants: item.maxParticipants,
     currentParticipants: item.currentParticipants,
-    status: item.status as Activity['status'],
-    createdAt: '',
-    updatedAt: '',
+    status: item.status,
+    creator: item.creator || null,
+    isArchived: item.isArchived || false,
   }))
   const total = data?.total ?? 0
 
   return (
-    <ActivitiesProvider>
-      <Header fixed>
-        <Search />
-        <div className='ms-auto flex items-center space-x-4'>
-          <ThemeSwitch />
-          <ConfigDrawer />
-          <ProfileDropdown />
-        </div>
-      </Header>
-
-      <Main className='flex flex-1 flex-col gap-4 sm:gap-6'>
-        <div className='flex flex-wrap items-end justify-between gap-2'>
-          <div>
-            <h2 className='text-2xl font-bold tracking-tight'>活动管理</h2>
-            <p className='text-muted-foreground'>
-              管理平台活动，查看活动信息和状态
-            </p>
-          </div>
-          <ActivitiesPrimaryButtons />
-        </div>
-        
-        {isLoading ? (
-          <div className='space-y-4'>
-            <Skeleton className='h-10 w-full' />
-            <Skeleton className='h-64 w-full' />
-          </div>
-        ) : error ? (
-          <div className='text-center py-8 text-muted-foreground'>
-            加载失败：{error.message}
-          </div>
-        ) : (
-          <ActivitiesTable data={activities} pageCount={Math.ceil(total / pageSize)} />
-        )}
-      </Main>
-
-      <ActivitiesDialogs />
-    </ActivitiesProvider>
+    <ListProvider<Activity, ActivityDialogType>>
+      <ListPage
+        title='活动管理'
+        description='管理平台活动，查看活动信息和状态'
+        icon={Calendar}
+        isLoading={isLoading}
+        error={error ?? undefined}
+        headerActions={<ActivitiesPrimaryButtons />}
+        dialogs={<ActivitiesDialogs />}
+      >
+        <DataTable
+          data={activities}
+          columns={activitiesColumns}
+          pageCount={Math.ceil(total / pageSize)}
+          search={search}
+          navigate={navigate}
+          getRowId={(row) => row.id}
+          searchPlaceholder='按标题、ID或地点搜索...'
+          emptyMessage='暂无活动'
+          enableRowSelection={true}
+          facetedFilters={[
+            {
+              columnId: 'status',
+              title: '状态',
+              options: [
+                { label: '草稿', value: 'draft' },
+                { label: '进行中', value: 'active' },
+                { label: '已完成', value: 'completed' },
+                { label: '已取消', value: 'cancelled' },
+              ],
+            },
+            {
+              columnId: 'type',
+              title: '类型',
+              options: [
+                { label: '美食', value: 'food' },
+                { label: '运动', value: 'sports' },
+                { label: '娱乐', value: 'entertainment' },
+                { label: '桌游', value: 'boardgame' },
+                { label: '其他', value: 'other' },
+              ],
+            },
+          ]}
+          bulkActions={(table) => <DataTableBulkActions table={table} />}
+        />
+      </ListPage>
+    </ListProvider>
   )
 }

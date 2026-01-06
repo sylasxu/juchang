@@ -1,6 +1,4 @@
-import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { typeboxResolver } from '@hookform/resolvers/typebox'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/button'
@@ -15,20 +13,17 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { api } from '@/lib/eden'
 
-// 个人资料表单 Schema - 匹配 user 表
-const profileFormSchema = Type.Object({
-  nickname: Type.String({ minLength: 1, maxLength: 50 }),
-  avatarUrl: Type.Optional(Type.String({ maxLength: 500 })),
-})
-
-type ProfileFormValues = Static<typeof profileFormSchema>
+// 从 Eden Treaty 推导用户更新的 body 类型
+type UpdateUserBody = NonNullable<Parameters<ReturnType<typeof api.users>['put']>[0]>
+type ProfileFormValues = Pick<UpdateUserBody, 'nickname' | 'avatarUrl'>
 
 export function ProfileForm() {
   const { user, setUser } = useAuthStore()
 
+  // 无需 resolver，API 层已做验证
   const form = useForm<ProfileFormValues>({
-    resolver: typeboxResolver(profileFormSchema),
     defaultValues: {
       nickname: user?.username || '',
       avatarUrl: user?.avatarUrl || '',
@@ -44,7 +39,7 @@ export function ProfileForm() {
     if (user) {
       setUser({
         ...user,
-        username: data.nickname,
+        username: data.nickname || '',
         avatarUrl: data.avatarUrl,
       })
     }
@@ -107,16 +102,16 @@ export function ProfileForm() {
         />
 
         {/* 只读信息 */}
-        <div className='space-y-4 rounded-lg border p-4'>
+        <div className='space-y-4'>
           <h4 className='text-sm font-medium'>账户信息</h4>
-          <div className='grid gap-2 text-sm'>
-            <div className='flex justify-between'>
-              <span className='text-muted-foreground'>用户 ID</span>
+          <div className='space-y-3'>
+            <div className='flex justify-between py-2'>
+              <span className='text-sm text-muted-foreground'>用户 ID</span>
               <span className='font-mono text-xs'>{user?.id || '-'}</span>
             </div>
-            <div className='flex justify-between'>
-              <span className='text-muted-foreground'>手机号</span>
-              <span>{user?.phoneNumber || '未绑定'}</span>
+            <div className='flex justify-between py-2'>
+              <span className='text-sm text-muted-foreground'>手机号</span>
+              <span className='text-sm'>{user?.phoneNumber || '未绑定'}</span>
             </div>
           </div>
         </div>

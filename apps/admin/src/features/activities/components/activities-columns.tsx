@@ -7,6 +7,9 @@ import { statuses, activityTypes } from '../data/data'
 import { type Activity } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
 
+// 活动弹窗类型
+export type ActivityDialogType = 'update' | 'delete' | 'moderate'
+
 export const activitiesColumns: ColumnDef<Activity>[] = [
   {
     id: 'select',

@@ -69,14 +69,14 @@ export async function getActivitiesList(
   const conditions = [];
   
   if (status) {
-    const statusList = filterActivityStatuses(status.split(',').filter(Boolean));
+    const statusList = filterActivityStatuses(status.split(',').map(s => s.trim()).filter(Boolean));
     if (statusList.length > 0) {
       conditions.push(inArray(activities.status, statusList));
     }
   }
   
   if (type) {
-    const typeList = filterActivityTypes(type.split(',').filter(Boolean));
+    const typeList = filterActivityTypes(type.split(',').map(s => s.trim()).filter(Boolean));
     if (typeList.length > 0) {
       conditions.push(inArray(activities.type, typeList));
     }

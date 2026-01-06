@@ -1,13 +1,15 @@
 /**
- * 用户 Schema - 从 @juchang/db 派生
+ * 用户 Schema - 从 Eden Treaty API 推导
  * 
- * 遵循项目规范：Single Source of Truth
- * 禁止手动重复定义 TypeBox Schema
+ * 遵循项目规范：Eden Treaty (Admin) / Orval SDK (小程序)
+ * 前端不应直接导入 @juchang/db
  */
-import { selectUserSchema, type User } from '@juchang/db'
 
-// 直接复用 DB Schema
-export const userSchema = selectUserSchema
+// 从 Eden Treaty 推导用户类型
+import { api } from '@/lib/eden'
 
-// 类型导出
-export type { User }
+type ApiResponse<T> = T extends { get: (args?: infer _A) => Promise<{ data: infer R }> } ? R : never
+type UsersResponse = ApiResponse<typeof api.users>
+
+// 导出推导的类型
+export type User = NonNullable<UsersResponse>['data'] extends (infer T)[] ? T : never

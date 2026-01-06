@@ -1,9 +1,7 @@
 'use client'
 
-import { Type, type Static } from '@sinclair/typebox'
 import { useForm } from 'react-hook-form'
-import { typeboxResolver } from '@hookform/resolvers/typebox'
-import { insertUserSchema } from '@juchang/db'
+import { api } from '@/lib/eden'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -25,10 +23,9 @@ import { Input } from '@/components/ui/input'
 import { useUpdateUser } from '../hooks/use-users'
 import { type User } from '../data/schema'
 
-// 表单 Schema - 从 DB 派生，仅 Pick 可编辑字段
-const formSchema = Type.Pick(insertUserSchema, ['nickname'])
-
-type UserForm = Static<typeof formSchema>
+// 从 Eden Treaty 推导用户更新的 body 类型
+type UpdateUserBody = NonNullable<Parameters<ReturnType<typeof api.users>['put']>[0]>
+type UserForm = Pick<UpdateUserBody, 'nickname'>
 
 type UserActionDialogProps = {
   currentRow: User
@@ -44,7 +41,6 @@ export function UsersActionDialog({
   const updateMutation = useUpdateUser()
 
   const form = useForm<UserForm>({
-    resolver: typeboxResolver(formSchema),
     defaultValues: {
       nickname: currentRow.nickname || '',
     },

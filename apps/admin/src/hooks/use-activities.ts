@@ -38,6 +38,10 @@ export function useActivities(filters: ActivityFilters = {}) {
         limit: result?.pageSize ?? limit,
       }
     },
+    // 优化加载体验的配置
+    staleTime: 30 * 1000, // 30秒内认为数据是新鲜的
+    gcTime: 5 * 60 * 1000, // 5分钟后清理缓存
+    placeholderData: (previousData) => previousData, // 保持之前的数据作为占位符
   })
 }
 

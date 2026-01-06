@@ -9,12 +9,14 @@ import {
 } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { useActivities } from './activities-provider'
+import { useListContext } from '@/components/list-page'
+import { type Activity } from '../data/schema'
+import { type ActivityDialogType } from './activities-columns'
 import { activityTypes, statuses } from '../data/data'
 
 // 活动详情/编辑 Drawer - 只读展示，Admin 不直接编辑活动
 export function ActivitiesMutateDrawer() {
-  const { open, setOpen, currentRow } = useActivities()
+  const { open, setOpen, currentRow } = useListContext<Activity, ActivityDialogType>()
   const isOpen = open === 'update'
 
   if (!isOpen || !currentRow) return null
@@ -78,12 +80,6 @@ export function ActivitiesMutateDrawer() {
               <label className='text-sm font-medium text-muted-foreground'>地点名称</label>
               <p className='mt-1'>{currentRow.locationName}</p>
             </div>
-            {currentRow.address && (
-              <div>
-                <label className='text-sm font-medium text-muted-foreground'>详细地址</label>
-                <p className='mt-1 text-sm'>{currentRow.address}</p>
-              </div>
-            )}
             <div>
               <label className='text-sm font-medium text-muted-foreground'>位置提示</label>
               <p className='mt-1 text-sm'>{currentRow.locationHint}</p>
@@ -112,12 +108,6 @@ export function ActivitiesMutateDrawer() {
               <label className='text-sm font-medium text-muted-foreground'>开始时间</label>
               <p className='mt-1'>
                 {new Date(currentRow.startAt).toLocaleString('zh-CN')}
-              </p>
-            </div>
-            <div>
-              <label className='text-sm font-medium text-muted-foreground'>创建时间</label>
-              <p className='mt-1 text-sm'>
-                {new Date(currentRow.createdAt).toLocaleString('zh-CN')}
               </p>
             </div>
           </div>

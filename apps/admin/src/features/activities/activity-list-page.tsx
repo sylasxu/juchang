@@ -45,81 +45,21 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { ModerationDialog } from './moderation-dialog'
 import { useDebouncedSearch } from '@/hooks/use-debounced-search'
-
-// 模拟 API 调用 - 实际应该使用 Eden Treaty
-const fetchActivities = async (_filters: any) => {
-  // TODO: 使用 Eden Treaty 调用 /admin/activities API
-  return {
-    data: [
-      {
-        id: '1',
-        title: '周末爬山活动',
-        type: 'sports',
-        status: 'published',
-        riskLevel: 'low',
-        startAt: new Date('2024-01-20T09:00:00'),
-        maxParticipants: 8,
-        currentParticipants: 5,
-        locationName: '南山公园',
-        creatorInfo: {
-          id: 'user1',
-          nickname: '户外达人',
-          avatarUrl: '/avatars/user1.jpg',
-          phoneNumber: '138****1234'
-        },
-        participantCount: 5,
-        reportCount: 0,
-        riskScore: 15,
-        isGhost: false,
-        isBoosted: true,
-        isPinPlus: false,
-        createdAt: new Date('2024-01-15T10:00:00')
-      },
-      {
-        id: '2',
-        title: '美食探店聚会',
-        type: 'food',
-        status: 'published',
-        riskLevel: 'medium',
-        startAt: new Date('2024-01-21T18:00:00'),
-        maxParticipants: 6,
-        currentParticipants: 4,
-        locationName: '解放碑商圈',
-        creatorInfo: {
-          id: 'user2',
-          nickname: '美食家',
-          avatarUrl: '/avatars/user2.jpg',
-          phoneNumber: '139****5678'
-        },
-        participantCount: 4,
-        reportCount: 1,
-        riskScore: 45,
-        isGhost: false,
-        isBoosted: false,
-        isPinPlus: true,
-        createdAt: new Date('2024-01-16T14:30:00')
-      }
-    ],
-    total: 2,
-    page: 1,
-    limit: 20,
-    hasMore: false
-  }
-}
+import { api, unwrap } from '@/lib/eden'
 
 const getStatusBadge = (status: string) => {
   const variants = {
-    published: 'default',
-    hidden: 'secondary',
-    removed: 'destructive',
-    finished: 'outline'
+    draft: 'secondary',
+    active: 'default',
+    completed: 'outline',
+    cancelled: 'destructive'
   } as const
 
   const labels = {
-    published: '已发布',
-    hidden: '已隐藏',
-    removed: '已删除',
-    finished: '已完成'
+    draft: '草稿',
+    active: '进行中',
+    completed: '已完成',
+    cancelled: '已取消'
   }
 
   return (
@@ -129,32 +69,12 @@ const getStatusBadge = (status: string) => {
   )
 }
 
-const getRiskBadge = (riskLevel: string, riskScore: number) => {
-  const variants = {
-    low: 'default',
-    medium: 'secondary',
-    high: 'destructive'
-  } as const
-
-  const labels = {
-    low: '低风险',
-    medium: '中风险',
-    high: '高风险'
-  }
-
-  return (
-    <Badge variant={variants[riskLevel as keyof typeof variants] || 'default'}>
-      {labels[riskLevel as keyof typeof labels] || riskLevel} ({riskScore})
-    </Badge>
-  )
-}
-
 const getTypeBadge = (type: string) => {
   const labels = {
     food: '美食',
     sports: '运动',
     entertainment: '娱乐',
-    study: '学习',
+    boardgame: '桌游',
     other: '其他'
   }
 
@@ -174,8 +94,6 @@ export function ActivityListPage() {
   const [filters, setFilters] = useState({
     status: '',
     type: '',
-    riskLevel: '',
-    isGhost: undefined as boolean | undefined,
     page: 1,
     limit: 20
   })
@@ -187,7 +105,15 @@ export function ActivityListPage() {
 
   const { data: activitiesData, isLoading, refetch } = useQuery({
     queryKey: ['admin-activities', { ...filters, search: searchValue }],
-    queryFn: () => fetchActivities({ ...filters, search: searchValue })
+    queryFn: () => unwrap(api.activities.get({
+      query: {
+        page: filters.page,
+        limit: filters.limit,
+        status: filters.status || undefined,
+        type: filters.type || undefined,
+        search: searchValue || undefined,
+      }
+    }))
   })
 
   const handleSelectAll = (checked: boolean) => {
@@ -328,10 +254,10 @@ export function ActivityListPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">全部状态</SelectItem>
-                <SelectItem value="published">已发布</SelectItem>
-                <SelectItem value="hidden">已隐藏</SelectItem>
-                <SelectItem value="removed">已删除</SelectItem>
-                <SelectItem value="finished">已完成</SelectItem>
+                <SelectItem value="draft">草稿</SelectItem>
+                <SelectItem value="active">进行中</SelectItem>
+                <SelectItem value="completed">已完成</SelectItem>
+                <SelectItem value="cancelled">已取消</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -346,22 +272,8 @@ export function ActivityListPage() {
                 <SelectItem value="food">美食</SelectItem>
                 <SelectItem value="sports">运动</SelectItem>
                 <SelectItem value="entertainment">娱乐</SelectItem>
-                <SelectItem value="study">学习</SelectItem>
+                <SelectItem value="boardgame">桌游</SelectItem>
                 <SelectItem value="other">其他</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={filters.riskLevel}
-              onValueChange={(value) => setFilters(prev => ({ ...prev, riskLevel: value }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="风险等级" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">全部风险</SelectItem>
-                <SelectItem value="low">低风险</SelectItem>
-                <SelectItem value="medium">中风险</SelectItem>
-                <SelectItem value="high">高风险</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -369,8 +281,6 @@ export function ActivityListPage() {
               onClick={() => setFilters({
                 status: '',
                 type: '',
-                riskLevel: '',
-                isGhost: undefined,
                 page: 1,
                 limit: 20
               })}
@@ -436,7 +346,6 @@ export function ActivityListPage() {
                 <TableHead>地点</TableHead>
                 <TableHead>创建者</TableHead>
                 <TableHead>状态</TableHead>
-                <TableHead>风险等级</TableHead>
                 <TableHead>参与情况</TableHead>
                 <TableHead>创建时间</TableHead>
                 <TableHead className="w-12">操作</TableHead>
@@ -445,13 +354,13 @@ export function ActivityListPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8">
+                  <TableCell colSpan={9} className="text-center py-8">
                     加载中...
                   </TableCell>
                 </TableRow>
               ) : activitiesData?.data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center py-8">
+                  <TableCell colSpan={9} className="text-center py-8">
                     暂无数据
                   </TableCell>
                 </TableRow>
@@ -482,13 +391,10 @@ export function ActivityListPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{activity.creatorInfo.nickname}</div>
+                      <div className="font-medium">{activity.creator?.nickname || '未知用户'}</div>
                     </TableCell>
                     <TableCell>
                       {getStatusBadge(activity.status)}
-                    </TableCell>
-                    <TableCell>
-                      {getRiskBadge(activity.riskLevel, activity.riskScore)}
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
@@ -497,7 +403,7 @@ export function ActivityListPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {activity.createdAt.toLocaleDateString()}
+                        {new Date(activity.createdAt).toLocaleDateString()}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -518,17 +424,17 @@ export function ActivityListPage() {
                             <Flag className="h-4 w-4 mr-2" />
                             审核操作
                           </DropdownMenuItem>
-                          {activity.status === 'published' ? (
-                            <DropdownMenuItem onClick={() => handleSingleAction(activity, 'hide')}>
+                          {activity.status === 'active' ? (
+                            <DropdownMenuItem onClick={() => handleSingleAction(activity, 'cancel')}>
                               <EyeOff className="h-4 w-4 mr-2" />
-                              快速隐藏
+                              取消活动
                             </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => handleSingleAction(activity, 'approve')}>
+                          ) : activity.status === 'draft' ? (
+                            <DropdownMenuItem onClick={() => handleSingleAction(activity, 'publish')}>
                               <Eye className="h-4 w-4 mr-2" />
-                              快速恢复
+                              发布活动
                             </DropdownMenuItem>
-                          )}
+                          ) : null}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem 
                             onClick={() => handleSingleAction(activity, 'remove')}

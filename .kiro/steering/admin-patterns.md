@@ -166,119 +166,76 @@ const { auth } = useAuthStore()
 
 ---
 
-## 🚫 Schema 派生规则 (Single Source of Truth)
+## 🚫 类型派生规则 (Zero Redundancy)
 
-**DB 表对应的 Schema 必须从 `@juchang/db` 派生，禁止手动重复定义：**
+### 🚨 禁止在 Admin 前端导入 `@juchang/db`
+
+`@juchang/db` 包含服务端数据库连接代码，会导致 `Buffer is not defined` 错误：
 
 ```typescript
-// ❌ 禁止手动定义 DB 表 Schema
-export const userSchema = Type.Object({
-  id: Type.String(),
-  nickname: Type.String(),
-  // ...
-})
+// ❌ 禁止：会导致运行时错误
+import { insertUserSchema, selectUserSchema } from '@juchang/db'
 
-// ✅ 必须从 DB 派生
-import { selectUserSchema, type User } from '@juchang/db'
-export const userSchema = selectUserSchema
-export type { User }
-
-// ✅ 需要扩展时用 Intersect
-import { selectActivitySchema } from '@juchang/db'
-export const adminActivitySchema = Type.Intersect([
-  selectActivitySchema,
-  Type.Object({
-    creatorInfo: Type.Optional(Type.Object({ ... })),  // API join 返回的额外字段
-  }),
-])
+// ✅ 正确：从 Eden Treaty 推导所有类型
+import { api } from '@/lib/eden'
 ```
 
-**表单验证 Schema 也必须从 DB 派生：**
+### API 响应类型推导
 
 ```typescript
-// ❌ 禁止手动定义表单字段
-const formSchema = Type.Object({
-  nickname: Type.String({ minLength: 1, maxLength: 50 }),
-})
-
-// ✅ 从 DB 派生，Pick 需要的字段
-import { insertUserSchema } from '@juchang/db'
-const formSchema = Type.Pick(insertUserSchema, ['nickname', 'avatarUrl'])
-```
-
-**允许手动定义的 Schema：**
-- 分页参数 (`PaginationQuerySchema`)
-- 错误响应 (`ErrorResponseSchema`)
-- 登录表单（phone + code，非 DB 字段）
-
----
-
-## 🔄 Eden Treaty 类型推导规则 (Zero Redundancy)
-
-**API 响应类型必须从 Eden Treaty 推导，禁止手动重复定义：**
-
-```typescript
-// ❌ 禁止手动定义 API 响应类型
-export interface BusinessMetrics {
-  j2cRate: { value: number; benchmark: string }
-  // ...
-}
-
-// ✅ 必须从 Eden Treaty 推导
 import { api } from '@/lib/eden'
 
-// 定义类型推导工具
-type ApiResponse<T> = T extends { get: () => Promise<{ data: infer R }> } ? R : never
-
-// 从 API 端点推导类型
-type BusinessMetricsResponse = ApiResponse<typeof api.dashboard.metrics>
-export type BusinessMetrics = NonNullable<BusinessMetricsResponse>
+// 推导列表响应类型
+type ApiResponse<T> = T extends { get: (args?: infer _A) => Promise<{ data: infer R }> } ? R : never
+type UsersResponse = ApiResponse<typeof api.users>
+export type User = NonNullable<UsersResponse>['data'] extends (infer T)[] ? T : never
 
 // 推导嵌套类型
-export type J2CMetric = BusinessMetrics['j2cRate']
-export type MetricItem = BusinessMetrics['draftPublishRate']
+export type UserStats = User['stats']
 ```
 
-**类型来源优先级：**
-1. **DB 表类型** → 从 `@juchang/db` 导入 (`User`, `Activity`, `Participant`)
-2. **API 响应类型** → 从 Eden Treaty 推导 (`ApiResponse<typeof api.xxx>`)
-3. **前端特有类型** → 仅允许 UI 状态、表单临时状态等
+### 表单 Input 类型推导
 
-**Hook 返回类型：**
 ```typescript
-// ❌ 禁止手动指定返回类型
-export function useBusinessMetrics() {
-  return useQuery({
-    queryFn: async (): Promise<BusinessMetrics> => { ... }  // 手动类型
-  })
-}
+import { api } from '@/lib/eden'
 
-// ✅ 让 TypeScript 自动推导
-export function useBusinessMetrics() {
-  return useQuery({
-    queryFn: async () => {
-      const response = await unwrap(api.dashboard.metrics.get())
-      return response  // 类型自动推导
-    },
-  })
-}
+// 从 API 的 put/post/patch 方法推导 body 类型
+type UpdateUserBody = NonNullable<Parameters<ReturnType<typeof api.users>['put']>[0]>
+type UserForm = Pick<UpdateUserBody, 'nickname' | 'avatarUrl'>
+
+// 使用推导的类型（无需 TypeBox resolver，API 已做验证）
+const form = useForm<UserForm>({
+  defaultValues: { nickname: '', avatarUrl: '' },
+})
 ```
+
+### 类型来源优先级
+
+| 优先级 | 类型来源 | 示例 |
+|--------|----------|------|
+| 1 | Eden Treaty 响应推导 | `ApiResponse<typeof api.users>` |
+| 2 | Eden Treaty Input 推导 | `Parameters<ReturnType<typeof api.users>['put']>[0]` |
+| 3 | 前端特有类型 | UI 状态、Dialog 类型等 |
+
+**禁止**：直接导入 `@juchang/db`
 
 ---
 
 ## 📝 表单验证
 
+表单类型从 Eden Treaty 推导，API 层已做验证，前端无需重复定义：
+
 ```typescript
-import { Type, type Static } from '@sinclair/typebox'
-import { typeboxResolver } from '@hookform/resolvers/typebox'
+import { useForm } from 'react-hook-form'
+import { api } from '@/lib/eden'
 
-const formSchema = Type.Object({
-  nickname: Type.String({ minLength: 1 }),
-})
+// 从 Eden 推导表单类型
+type UpdateUserBody = NonNullable<Parameters<ReturnType<typeof api.users>['put']>[0]>
+type UserForm = Pick<UpdateUserBody, 'nickname' | 'avatarUrl'>
 
-const form = useForm<Static<typeof formSchema>>({
-  resolver: typeboxResolver(formSchema),  // ✅ TypeBox
-  // resolver: zodResolver(schema),       // ❌ 禁止 Zod
+// 无需 resolver，API 会验证
+const form = useForm<UserForm>({
+  defaultValues: { nickname: currentRow.nickname || '' },
 })
 ```
 
@@ -291,8 +248,8 @@ const form = useForm<Static<typeof formSchema>>({
 - [ ] 表格使用 TanStack Table + `manualPagination: true`
 - [ ] 分页使用 `DataTablePagination`
 - [ ] 搜索使用 `DataTableToolbar`
-- [ ] 表单使用 TypeBox（禁止 Zod）
 - [ ] Header 使用 `fixed` 属性
 - [ ] 弹窗抽取为独立组件
-- [ ] API 响应类型从 Eden Treaty 推导（禁止手动定义 interface）
-- [ ] DB 表类型从 `@juchang/db` 导入
+- [ ] **禁止导入 `@juchang/db`**（会导致 Buffer 错误）
+- [ ] API 响应类型从 Eden Treaty 推导
+- [ ] 表单类型从 Eden Treaty 推导（无需 resolver）
