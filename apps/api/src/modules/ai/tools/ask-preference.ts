@@ -65,18 +65,7 @@ type AskPreferenceParams = typeof askPreferenceSchema.static;
  */
 export function askPreferenceTool(_userId: string | null) {
   return tool({
-    description: `多轮对话信息收集工具。当用户表达探索意图但信息不完整时使用。
-
-使用场景：
-- 用户说"有什么好玩的活动"但未提供位置 → 调用此工具询问位置偏好
-- 用户说"观音桥有什么活动"但未提供类型 → 调用此工具询问类型偏好
-
-规则：
-- 优先询问位置（因为 LBS 是核心）
-- 最多调用 2 次，避免过度打扰用户
-- 如果用户说"随便"、"都可以"等快捷路径关键词，不要调用此工具，直接调用 exploreNearby
-
-返回的数据会渲染为 widget_ask_preference 卡片，用户可以点击选项按钮或"随便"按钮。`,
+    description: '询问偏好。探索意图但信息不完整时用，最多2次，调用后停止等待回复。',
     
     inputSchema: jsonSchema<AskPreferenceParams>(toJsonSchema(askPreferenceSchema)),
     

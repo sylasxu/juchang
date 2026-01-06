@@ -18,14 +18,7 @@ type GetActivityDetailParams = typeof getActivityDetailSchema.static;
 
 export function getActivityDetailTool(userId: string | null) {
   return tool({
-    description: `查看活动详情。
-
-使用场景：
-- 用户说"这个活动的详情" → 用 activityId
-- 用户说"火锅局的详情" → 用 title 搜索
-- 从 exploreNearby 结果中查看详情 → 用 activityId
-
-至少提供 activityId 或 title 其中一个。`,
+    description: '查看活动详情。按 activityId 或 title 查询。',
     
     inputSchema: jsonSchema<GetActivityDetailParams>(toJsonSchema(getActivityDetailSchema)),
     

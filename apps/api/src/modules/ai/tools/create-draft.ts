@@ -41,15 +41,7 @@ type CreateActivityDraftParams = typeof createActivityDraftSchema.static;
  */
 export function createActivityDraftTool(userId: string | null) {
   return tool({
-    description: `创建活动草稿。当用户首次表达创建活动的意图时使用。
-
-必须推断所有缺失信息，绝不反问：
-- 时间：根据当前时间推断（今晚→19:00，明天→14:00，周末→周六14:00）
-- 地点：使用用户位置附近的热门地标，补充楼层/入口信息
-- 人数：默认 4 人
-- 类型：从关键词推断（火锅→food，KTV→entertainment）
-
-返回的草稿会渲染为 Widget_Draft 卡片，用户可以在卡片上修改。`,
+    description: '创建活动草稿。推断缺失信息（时间默认明天14:00，人数默认4人），不反问。',
     
     inputSchema: jsonSchema<CreateActivityDraftParams>(toJsonSchema(createActivityDraftSchema)),
     

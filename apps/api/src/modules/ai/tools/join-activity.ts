@@ -17,9 +17,7 @@ type JoinActivityParams = typeof joinActivitySchema.static;
 
 export function joinActivityTool(userId: string | null) {
   return tool({
-    description: `报名参与活动。当用户说"我要报名"、"帮我加入这个活动"等时使用。
-
-需要提供 activityId（从 exploreNearby 或 getActivityDetail 结果获取）。`,
+    description: '报名活动。需要 activityId。',
     
     inputSchema: jsonSchema<JoinActivityParams>(toJsonSchema(joinActivitySchema)),
     

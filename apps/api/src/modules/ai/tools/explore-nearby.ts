@@ -58,13 +58,7 @@ interface ExploreResult {
  */
 export function exploreNearbyTool(_userId: string | null) {
   return tool({
-    description: `探索附近活动。当用户表达探索性意图时使用，例如：
-- "附近有什么好玩的"
-- "推荐一下观音桥的活动"
-- "有什么局可以参加"
-- "想找点事情做"
-
-返回指定区域内的活动列表，渲染为 Widget_Explore 卡片。`,
+    description: '探索附近活动。返回指定区域内的活动列表。',
     
     inputSchema: jsonSchema<ExploreNearbyParams>(toJsonSchema(exploreNearbySchema)),
     

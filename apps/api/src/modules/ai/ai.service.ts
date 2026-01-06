@@ -20,8 +20,8 @@ import type {
   ContinueDraftContext,
   FindPartnerContext,
 } from './ai.model';
-import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v37';
-import { getAIToolsV34 } from './tools';
+import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v38';
+import { getAIToolsV34, getToolsByIntent, classifyIntent } from './tools';
 import { recordTokenUsage } from './services/metrics';
 import { enrichMessages, injectContextToSystemPrompt, type EnrichmentContext } from './enrichment';
 
@@ -197,15 +197,21 @@ export async function streamChat(request: StreamChatRequest) {
     enrichmentContext
   );
 
-  // 使用 AI SDK 内置的 convertToModelMessages 转换消息格式
-  // 自动处理 UIMessage 中的 parts（包含 Tool 调用历史）
+  // 转换消息格式，自动处理 UIMessage 中的 parts（包含 Tool 调用历史）
   const aiMessages = await convertToModelMessages(enrichedMessages);
   
   // 构建 XML 结构化 System Prompt（v3.6），注入增强上下文
   const systemPrompt = buildXmlSystemPrompt(promptContext, contextXml);
   
-  // 获取 Tools（始终启用，Tools 内部处理 userId=null 的情况）
-  const tools = getAIToolsV34(userId);
+  // v3.9: 动态加载 Tools，根据意图只加载需要的 Tool，减少 Token 消耗
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+  const lastUserText = lastUserMessage?.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text 
+    || (lastUserMessage as { content?: string })?.content 
+    || '';
+  const intent = classifyIntent(lastUserText, !!draftContext);
+  const tools = getToolsByIntent(userId, intent, !!draftContext);
+  
+  console.log(`[AI Chat] Intent: ${intent}, Tools: ${Object.keys(tools).join(', ')}`);
   
   // Trace 模式的元数据
   const requestId = trace ? randomUUID() : undefined;
@@ -221,10 +227,9 @@ export async function streamChat(request: StreamChatRequest) {
     model: getAIModel(),
     system: systemPrompt,
     messages: aiMessages,
-    tools: tools as any,
+    tools: tools,
     temperature: modelParams?.temperature ?? 0, // 默认 0，更一致的 Tool 调用结果
     maxOutputTokens: modelParams?.maxTokens,
-    // 使用 AI SDK 内置的停止条件：
     // 1. 最多 5 步（使用 stepCountIs）
     // 2. 如果调用了 askPreference，立即停止（使用 hasToolCall）
     stopWhen: [stepCountIs(5), hasToolCall('askPreference')],
@@ -251,11 +256,25 @@ export async function streamChat(request: StreamChatRequest) {
     },
     onFinish: async ({ usage, text, response }) => {
       // 直接使用 DeepSeek provider 标准化的 usage 格式
-      totalUsage = {
-        promptTokens: usage.inputTokens ?? 0,
-        completionTokens: usage.outputTokens ?? 0,
-        totalTokens: usage.totalTokens ?? 0,
+      // DeepSeek 返回的 usage 可能包含 prompt_cache_hit_tokens 和 prompt_cache_miss_tokens
+      const rawUsage = usage as unknown as {
+        inputTokens?: number;
+        outputTokens?: number;
+        totalTokens?: number;
+        // DeepSeek 特有的缓存字段（通过 experimental_providerMetadata 或直接在 usage 中）
+        promptCacheHitTokens?: number;
+        promptCacheMissTokens?: number;
       };
+      
+      totalUsage = {
+        promptTokens: rawUsage.inputTokens ?? 0,
+        completionTokens: rawUsage.outputTokens ?? 0,
+        totalTokens: rawUsage.totalTokens ?? 0,
+      };
+      
+      // 提取缓存信息（DeepSeek 可能通过不同方式返回）
+      const cacheHitTokens = rawUsage.promptCacheHitTokens;
+      const cacheMissTokens = rawUsage.promptCacheMissTokens;
       
       console.log(`[AI Chat] Source: ${source}, User: ${userId || 'anonymous'}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}`);
       
@@ -266,6 +285,8 @@ export async function streamChat(request: StreamChatRequest) {
           inputTokens: totalUsage.promptTokens,
           outputTokens: totalUsage.completionTokens,
           totalTokens: totalUsage.totalTokens,
+          cacheHitTokens,
+          cacheMissTokens,
         },
         traceSteps.map(s => ({ toolName: s.toolName }))
       );
@@ -626,46 +647,7 @@ export async function createDraftActivity(
   return { activityId: newActivity.id };
 }
 
-// ==========================================
-// 旧的消息创建函数 - 已废弃，使用 addMessageToConversation 替代
-// ==========================================
 
-// TODO: 这些函数需要重构为使用 conversationMessages 表
-// 暂时保留空实现，避免编译错误
-
-/**
- * @deprecated 使用 addMessageToConversation 替代
- */
-export async function createDraftMessage(
-  _userId: string,
-  _draft: ActivityDraft,
-  _activityId: string
-): Promise<{ messageId: string }> {
-  console.warn('createDraftMessage is deprecated, use addMessageToConversation instead');
-  return { messageId: '' };
-}
-
-/**
- * @deprecated 使用 addMessageToConversation 替代
- */
-export async function createExploreMessage(
-  _userId: string,
-  _exploreData: ExploreResponse
-): Promise<{ messageId: string }> {
-  console.warn('createExploreMessage is deprecated, use addMessageToConversation instead');
-  return { messageId: '' };
-}
-
-/**
- * @deprecated 使用 addMessageToConversation 替代
- */
-export async function createTextMessage(
-  _userId: string,
-  _text: string
-): Promise<{ messageId: string }> {
-  console.warn('createTextMessage is deprecated, use addMessageToConversation instead');
-  return { messageId: '' };
-}
 
 
 // ==========================================

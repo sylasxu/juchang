@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { type Table } from '@tanstack/react-table'
-import { Trash2, CircleArrowUp, Download } from 'lucide-react'
+import { Trash2, CircleArrowUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { sleep } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -42,18 +42,6 @@ export function DataTableBulkActions<TData>({
     })
   }
 
-  const handleBulkExport = () => {
-    const selectedActivities = selectedRows.map((row) => row.original as Activity)
-    toast.promise(sleep(2000), {
-      loading: '导出活动数据中...',
-      success: () => {
-        table.resetRowSelection()
-        return `已导出 ${selectedActivities.length} 个活动数据到 CSV`
-      },
-      error: '导出失败',
-    })
-  }
-
   return (
     <>
       <BulkActionsToolbar table={table} entityName='活动'>
@@ -91,25 +79,6 @@ export function DataTableBulkActions<TData>({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='outline'
-              size='icon'
-              onClick={handleBulkExport}
-              className='size-8'
-              aria-label='导出活动'
-              title='导出活动'
-            >
-              <Download />
-              <span className='sr-only'>导出活动</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>导出活动</p>
-          </TooltipContent>
-        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>

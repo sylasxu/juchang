@@ -44,10 +44,7 @@ type RefineDraftParams = typeof refineDraftSchema.static;
  */
 export function refineDraftTool(userId: string | null) {
   return tool({
-    description: `修改现有活动草稿。当用户说"换个地方"、"改时间"、"加人"等时使用。
-
-只修改用户明确要求的字段，其他字段保持不变。
-必须提供 activityId（从当前草稿上下文获取）。`,
+    description: '修改草稿。只改用户要求的字段，需要 activityId。',
     
     inputSchema: jsonSchema<RefineDraftParams>(toJsonSchema(refineDraftSchema)),
     

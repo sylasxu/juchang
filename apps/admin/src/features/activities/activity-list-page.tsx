@@ -12,8 +12,7 @@ import {
   Trash2,
   MoreHorizontal,
   Filter,
-  Search,
-  Download
+  Search
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -248,12 +247,7 @@ export function ActivityListPage() {
             管理平台上的所有活动，支持审核、筛选和批量操作
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            导出数据
-          </Button>
-        </div>
+
       </div>
 
       {/* 统计卡片 */}

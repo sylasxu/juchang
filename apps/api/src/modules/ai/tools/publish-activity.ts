@@ -84,9 +84,7 @@ function generateShareUrl(activityId: string): string {
  */
 export function publishActivityTool(userId: string | null) {
   return tool({
-    description: `发布活动。将草稿状态的活动改为 active 状态。
-
-需要用户确认后才能调用。发布后会消耗用户的 AI 创建额度（每日 3 次）。`,
+    description: '发布活动。将草稿改为 active 状态，消耗每日额度。',
     
     inputSchema: jsonSchema<PublishActivityParams>(toJsonSchema(publishActivitySchema)),
     

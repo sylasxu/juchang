@@ -21,12 +21,7 @@ type GetMyActivitiesParams = typeof getMyActivitiesSchema.static;
 
 export function getMyActivitiesTool(userId: string | null) {
   return tool({
-    description: `查看用户的活动列表。
-
-使用场景：
-- "看看我发布的活动" → type: "created"
-- "我参与了哪些活动" → type: "joined"
-- "我的活动" → 默认 type: "created"`,
+    description: '查看我的活动。type: "created" 我发布的，"joined" 我参与的。',
     
     inputSchema: jsonSchema<GetMyActivitiesParams>(toJsonSchema(getMyActivitiesSchema)),
     

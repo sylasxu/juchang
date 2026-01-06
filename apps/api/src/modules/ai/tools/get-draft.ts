@@ -28,14 +28,7 @@ type GetDraftParams = typeof getDraftSchema.static;
  */
 export function getDraftTool(userId: string | null) {
   return tool({
-    description: `查询用户的活动草稿。
-
-使用场景：
-- 用户说"继续编辑 xxx" → 用 title 参数搜索
-- 用户说"看看我的草稿" → 不传参数，返回最近的草稿
-- 已知 activityId → 用 activityId 精确查询
-
-至少提供 activityId 或 title 其中一个，或都不提供（返回最近草稿）。`,
+    description: '查询草稿。按 activityId 或 title 搜索，不传参返回最近草稿。',
     
     inputSchema: jsonSchema<GetDraftParams>(toJsonSchema(getDraftSchema)),
     

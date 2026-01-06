@@ -1,7 +1,7 @@
 // AI Controller - v3.4 统一 AI Chat 接口 (Data Stream Protocol)
 import { Elysia, t } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
-import { aiModel, type ErrorResponse } from './ai.model';
+import { aiModel, type ErrorResponse, type ConversationMessageType } from './ai.model';
 import { 
   checkAIQuota, 
   consumeAIQuota, 
@@ -17,7 +17,7 @@ import {
   addMessageToConversation,
   getOrCreateCurrentConversation,
 } from './ai.service';
-import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v37';
+import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v38';
 import { getTokenUsageStats, getTokenUsageSummary, getToolCallStats } from './services/metrics';
 import { db, users, eq } from '@juchang/db';
 
@@ -304,7 +304,7 @@ Data Stream 格式：
               userId: m.userId,
               userNickname: m.userNickname,
               role: m.role,
-              type: m.messageType,
+              type: m.messageType as ConversationMessageType,
               content: m.content,
               activityId: activityId,
               createdAt: m.createdAt,

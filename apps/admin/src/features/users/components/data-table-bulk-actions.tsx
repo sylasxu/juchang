@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { type Table } from '@tanstack/react-table'
-import { Trash2, CircleArrowUp, Download } from 'lucide-react'
+import { Trash2, CircleArrowUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { sleep } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -37,19 +37,6 @@ export function UsersBulkActions({ table }: UsersBulkActionsProps) {
         return `已将 ${selectedUsers.length} 个用户的状态更新为"${statuses.find(s => s.value === status)?.label}"`
       },
       error: '操作失败',
-    })
-    table.resetRowSelection()
-  }
-
-  const handleBulkExport = () => {
-    const selectedUsers = selectedRows.map((row) => row.original)
-    toast.promise(sleep(2000), {
-      loading: '导出用户数据中...',
-      success: () => {
-        table.resetRowSelection()
-        return `已导出 ${selectedUsers.length} 个用户数据到 CSV`
-      },
-      error: '导出失败',
     })
     table.resetRowSelection()
   }
@@ -92,25 +79,6 @@ export function UsersBulkActions({ table }: UsersBulkActionsProps) {
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant='outline'
-              size='icon'
-              onClick={() => handleBulkExport()}
-              className='size-8'
-              aria-label='导出用户'
-              title='导出用户'
-            >
-              <Download />
-              <span className='sr-only'>导出用户</span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>导出用户</p>
-          </TooltipContent>
-        </Tooltip>
 
         <Tooltip>
           <TooltipTrigger asChild>

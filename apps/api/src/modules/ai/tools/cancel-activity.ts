@@ -18,9 +18,7 @@ type CancelActivityParams = typeof cancelActivitySchema.static;
 
 export function cancelActivityTool(userId: string | null) {
   return tool({
-    description: `取消活动。当发起人说"取消这个活动"、"不办了"等时使用。
-
-仅活动发起人可以取消活动。需要提供 activityId。`,
+    description: '取消活动。仅发起人可用，需要 activityId。',
     
     inputSchema: jsonSchema<CancelActivityParams>(toJsonSchema(cancelActivitySchema)),
     
