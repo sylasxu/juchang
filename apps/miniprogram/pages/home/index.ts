@@ -13,7 +13,7 @@ import { useHomeStore } from '../../src/stores/home'
 import { useAppStore } from '../../src/stores/app'
 import { useUserStore } from '../../src/stores/user'
 import { postActivitiesByIdPublish } from '../../src/api/endpoints/activities/activities'
-import { getWelcomeCard, getUserLocation, type WelcomeResponse, type QuickAction } from '../../src/services/welcome'
+import { getWelcomeCard, getUserLocation, type WelcomeResponse, type QuickItem } from '../../src/services/welcome'
 import type { ShareActivityData, SendEventDetail, SendMessageEventDetail, DraftContext } from '../../src/types/global'
 
 // 页面数据类型
@@ -30,7 +30,7 @@ interface PageData {
   shareGuideData: { activityId?: string; title?: string; mapUrl?: string } | null
   scrollToView: string
   
-  // 欢迎卡片
+  // 欢迎卡片 (v3.10 新结构)
   welcomeData: WelcomeResponse | null
   isWelcomeLoading: boolean
 }
@@ -162,6 +162,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   /**
    * 显示欢迎卡片
+   * v3.10: 使用新的 sections 结构
    */
   async showDashboard() {
     const chatStore = useChatStore.getState()
@@ -182,12 +183,12 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         isWelcomeLoading: false,
       })
       
-      // 使用 useChatStore 添加 Dashboard Widget
+      // 使用 useChatStore 添加 Dashboard Widget (v3.10 新结构)
       chatStore.addWidgetMessage('dashboard', {
         nickname: this.data.userNickname,
         greeting: welcomeData.greeting,
-        quickActions: welcomeData.quickActions,
-        fallbackPrompt: welcomeData.fallbackPrompt,
+        subGreeting: welcomeData.subGreeting,
+        sections: welcomeData.sections,
       })
     } catch (error) {
       console.error('[Home] Failed to load welcome card:', error)
@@ -261,24 +262,13 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     this.onSend({ detail: { text: prompt } } as WechatMiniprogram.CustomEvent<SendEventDetail>)
   },
 
-  onDashboardQuickActionTap(e: WechatMiniprogram.CustomEvent<{ action: QuickAction }>) {
-    const { action } = e.detail
-    console.log('[Home] Quick action tap:', action)
-  },
-
-  onDashboardExploreNearby(e: WechatMiniprogram.CustomEvent<{ locationName: string; lat: number; lng: number; activityCount: number }>) {
-    const { locationName } = e.detail
-    const searchText = `看看${locationName}附近有什么活动`
-    this.onSend({ detail: { text: searchText } } as WechatMiniprogram.CustomEvent<SendEventDetail>)
-  },
-
-  onDashboardFindPartner(e: WechatMiniprogram.CustomEvent<{ activityType: string; activityTypeLabel: string; suggestedPrompt: string }>) {
-    const { suggestedPrompt } = e.detail
-    const aiDock = this.selectComponent('#aiDock')
-    if (aiDock) {
-      aiDock.setValue(suggestedPrompt)
-      aiDock.focus()
-    }
+  /**
+   * 处理快捷项点击 (v3.10 新结构)
+   */
+  onDashboardQuickItemTap(e: WechatMiniprogram.CustomEvent<{ item: QuickItem }>) {
+    const { item } = e.detail
+    console.log('[Home] Quick item tap:', item)
+    // prompttap 事件会自动触发，这里只做日志
   },
 
   async onDraftConfirm(e: WechatMiniprogram.CustomEvent<{ draft: any }>) {

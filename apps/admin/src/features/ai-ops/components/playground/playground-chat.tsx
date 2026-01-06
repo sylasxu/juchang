@@ -18,7 +18,7 @@ import { Slider } from '@/components/ui/slider'
 import { Label } from '@/components/ui/label'
 import { 
   Send, Trash2, Settings2, Bot, User, Loader2, Copy, Check,
-  FileEdit, RotateCcw, StopCircle, Search, MessageSquare,
+  RotateCcw, StopCircle, ChevronRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StreamingText } from '../shared/streaming-text'
@@ -360,86 +360,93 @@ export function PlaygroundChat({
 }
 
 
-// 空状态组件 - 像 AI 消息一样左对齐
+// 空状态组件 - 分层信息架构（基于 API 返回的 sections）
 function EmptyState({ onQuickAction }: { onQuickAction: (prompt: string) => void }) {
   const { data: welcomeData, isLoading } = useQuery({
     queryKey: ['ai', 'welcome', 'playground'],
-    queryFn: () => unwrap(api.ai.welcome.get({})), // 不传位置，让 AI 主动询问
+    queryFn: () => unwrap(api.ai.welcome.get({})),
   })
 
   if (isLoading) {
     return (
-      <div className='flex gap-3'>
-        <Skeleton className='h-8 w-8 rounded-full' />
-        <div className='space-y-2'>
-          <Skeleton className='h-4 w-48' />
-          <Skeleton className='h-20 w-80' />
-        </div>
+      <div className='space-y-4'>
+        <Skeleton className='h-12 w-48' />
+        <Skeleton className='h-24 w-full' />
+        <Skeleton className='h-20 w-full' />
       </div>
     )
   }
 
   return (
-    <div className='flex gap-3'>
-      {/* AI 头像 */}
-      <div className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted'>
-        <Bot className='h-4 w-4' />
-      </div>
-
-      {/* 欢迎消息内容 */}
-      <div className='flex max-w-[85%] flex-col gap-3'>
-        {/* 问候语 */}
-        <div className='rounded-lg bg-muted px-3 py-2 text-sm'>
-          <p>{welcomeData?.greeting || 'Hi，我是小聚，你的 AI 活动助理。'}</p>
-          <p className='mt-1 text-muted-foreground'>
-            {welcomeData?.fallbackPrompt || '今天想玩点什么，告诉我！～'}
-          </p>
-        </div>
-
-        {/* 快捷操作 */}
-        {welcomeData?.quickActions && welcomeData.quickActions.length > 0 && (
-          <div className='space-y-1.5'>
-            {welcomeData.quickActions.map((action, index) => (
-              <Button
-                key={index}
-                variant='outline'
-                size='sm'
-                className='justify-start gap-2 text-left'
-                onClick={() => {
-                  const context = action.context as Record<string, unknown>
-                  if (action.type === 'explore_nearby') {
-                    onQuickAction(`看看${context.locationName || '附近'}有什么活动`)
-                  } else if (action.type === 'continue_draft') {
-                    onQuickAction(`继续编辑「${context.activityTitle || '草稿'}」`)
-                  } else if (action.type === 'find_partner') {
-                    onQuickAction(String(context.suggestedPrompt || '想找人一起玩'))
-                  }
-                }}
-              >
-                {action.type === 'explore_nearby' && <Search className='h-3.5 w-3.5 text-green-500' />}
-                {action.type === 'continue_draft' && <FileEdit className='h-3.5 w-3.5 text-blue-500' />}
-                {action.type === 'find_partner' && <MessageSquare className='h-3.5 w-3.5 text-purple-500' />}
-                <span className='text-xs'>{action.label}</span>
-              </Button>
-            ))}
-          </div>
+    <div className='space-y-6'>
+      {/* 顶部问候 */}
+      <div>
+        <h2 className='text-xl font-semibold'>
+          {welcomeData?.greeting || 'Hello ✨'}
+        </h2>
+        {welcomeData?.subGreeting && (
+          <p className='text-muted-foreground'>{welcomeData.subGreeting}</p>
         )}
-
-        {/* 示例提示 */}
-        <div className='flex flex-wrap gap-1.5'>
-          {['明晚观音桥打麻将，3缺1', '周末想吃火锅', '附近有什么活动'].map((example) => (
-            <Button
-              key={example}
-              variant='ghost'
-              size='sm'
-              className='h-auto rounded-full border bg-background px-2.5 py-1 text-xs hover:bg-muted'
-              onClick={() => onQuickAction(example)}
-            >
-              {example}
-            </Button>
-          ))}
-        </div>
       </div>
+
+      {/* 分组列表 */}
+      {welcomeData?.sections?.map((section) => (
+        <WelcomeSection 
+          key={section.id} 
+          section={section} 
+          onQuickAction={onQuickAction} 
+        />
+      ))}
+    </div>
+  )
+}
+
+/** 欢迎页分组 */
+function WelcomeSection({ 
+  section, 
+  onQuickAction 
+}: { 
+  section: { id: string; icon: string; title: string; items: Array<{ type: string; icon?: string; label: string; prompt: string }> }
+  onQuickAction: (prompt: string) => void 
+}) {
+  return (
+    <div className='space-y-2'>
+      <div className='flex items-center gap-2 text-sm font-medium'>
+        <span>{section.icon}</span>
+        <span>{section.title}</span>
+      </div>
+      <div className='space-y-1 pl-6'>
+        {section.items.map((item, i) => (
+          <QuickItem 
+            key={i} 
+            item={item} 
+            onClick={() => onQuickAction(item.prompt)} 
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** 快捷项 */
+function QuickItem({ 
+  item, 
+  onClick 
+}: { 
+  item: { type: string; icon?: string; label: string }
+  onClick: () => void 
+}) {
+  return (
+    <div
+      className='flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-sm cursor-pointer hover:bg-muted transition-colors'
+      onClick={onClick}
+    >
+      <div className='flex items-center gap-2'>
+        {item.icon && <span>{item.icon}</span>}
+        {item.type === 'suggestion' && <span className='text-primary font-medium'>#</span>}
+        <span>{item.label}</span>
+      </div>
+      <ChevronRight className='h-4 w-4 text-muted-foreground' />
     </div>
   )
 }

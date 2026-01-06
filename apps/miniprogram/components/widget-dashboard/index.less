@@ -1,13 +1,12 @@
 /**
  * Widget Dashboard 样式
- * Requirements: 3.2, 3.3, 3.4, 3.5, 4.1-4.8
- * v3.4 新增: 7.1, 7.2, 7.3, 7.4, 7.5 - 智能欢迎卡片
+ * v3.10 重构: 分组结构 (sections)
  * 
  * Crypto-Clean 视觉风格
  * - Halo Card 渐变边框
  * - 超大圆角
  * - 彩色弥散阴影
- * - 快捷按钮白底 + 渐变文字
+ * - 分组快捷项
  */
 @import '/styles/tokens.less';
 
@@ -49,20 +48,47 @@
   line-height: 1.4;
 }
 
-// ==================== 快捷操作按钮区域 (v3.4 新增) ====================
+// ==================== 分组快捷操作 (v3.10) ====================
 
-.quick-actions {
+.sections-container {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-4;
+}
+
+.section-group {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-2;
+}
+
+.section-group-header {
+  display: flex;
+  align-items: center;
+  gap: @spacing-1;
+}
+
+.section-group-icon {
+  font-size: @text-base;
+}
+
+.section-group-title {
+  font-size: @text-sm;
+  font-weight: 500;
+  color: var(--text-secondary, @text-secondary);
+}
+
+.section-group-items {
   display: flex;
   flex-wrap: wrap;
   gap: @spacing-2;
-  margin-bottom: @spacing-3;
 }
 
-.quick-action-btn {
+.quick-item {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: @spacing-2 @spacing-4;
+  gap: @spacing-1;
+  padding: @spacing-2 @spacing-3;
   background: var(--bg-card, #FFFFFF);
   border-radius: var(--radius-full, @rounded-full);
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
@@ -75,31 +101,20 @@
   }
 }
 
-.quick-action-text {
+.quick-item-icon {
+  font-size: @text-base;
+}
+
+.quick-item-label {
   font-size: @text-sm;
   font-weight: 500;
   line-height: 1.4;
-  // 默认渐变文字
-  background: linear-gradient(135deg, #5B75FB 0%, #8B5CF6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-main, @text-main);
 }
 
-// 不同类型按钮的渐变色区分 (Requirements: 7.3)
-.quick-action-btn--explore_nearby {
-  .quick-action-text {
-    // 蓝色系 - 探索附近
-    background: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-}
-
-.quick-action-btn--continue_draft {
-  .quick-action-text {
-    // 橙色系 - 继续草稿
+// 不同类型快捷项的样式
+.quick-item--draft {
+  .quick-item-label {
     background: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -107,26 +122,22 @@
   }
 }
 
-.quick-action-btn--find_partner {
-  .quick-action-text {
-    // 紫色系 - 找搭子
-    background: linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%);
+.quick-item--suggestion {
+  .quick-item-label {
+    background: linear-gradient(135deg, #5B75FB 0%, #8B5CF6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 }
 
-// ==================== 兜底询问文案 (v3.4 新增) ====================
-
-.fallback-prompt {
-  margin-top: @spacing-2;
-}
-
-.fallback-text {
-  font-size: @text-sm;
-  color: var(--text-tertiary, @text-tertiary);
-  line-height: 1.5;
+.quick-item--explore {
+  .quick-item-label {
+    background: linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }
 
 // ==================== 活动列表区域 ====================
@@ -193,46 +204,6 @@
 .empty-text {
   font-size: @text-base;
   color: var(--text-secondary, @text-secondary);
-  margin-bottom: @spacing-6;
-}
-
-// ==================== 热门 Prompt ====================
-
-.hot-prompts {
-  width: 100%;
-}
-
-.prompts-label {
-  display: block;
-  font-size: @text-sm;
-  color: var(--text-tertiary, @text-tertiary);
-  margin-bottom: @spacing-3;
-}
-
-.prompts-list {
-  display: flex;
-  flex-direction: column;
-  gap: @spacing-2;
-}
-
-.prompt-item {
-  display: flex;
-  align-items: center;
-  padding: @spacing-3 @spacing-4;
-  background: var(--bg-input, @bg-input);
-  border-radius: var(--radius-md, @rounded-md);
-  transition: transform var(--duration-fast, @duration-fast) var(--ease-out-back, @ease-out-back);
-  
-  &:active {
-    transform: scale(0.98);
-    background: var(--bg-hover, @bg-hover);
-  }
-}
-
-.prompt-text {
-  font-size: @text-sm;
-  color: var(--text-main, @text-main);
-  font-style: italic;
 }
 
 // ==================== 深色模式 ====================
@@ -250,33 +221,20 @@
     color: var(--text-main, @text-main-dark);
   }
   
+  .section-group-title {
+    color: var(--text-secondary, @text-secondary-dark);
+  }
+  
   .empty-text {
     color: var(--text-secondary, @text-secondary-dark);
   }
   
-  .prompts-label {
-    color: var(--text-tertiary, @text-tertiary-dark);
-  }
-  
-  .prompt-item {
-    background: var(--bg-input, @bg-input-dark);
-    
-    &:active {
-      background: var(--bg-hover, @bg-hover-dark);
-    }
-  }
-  
-  .prompt-text {
-    color: var(--text-main, @text-main-dark);
-  }
-  
-  // v3.4 新增：快捷按钮深色模式
-  .quick-action-btn {
+  .quick-item {
     background: var(--bg-card-dark, rgba(255, 255, 255, 0.08));
     box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.2);
   }
   
-  .fallback-text {
-    color: var(--text-tertiary, @text-tertiary-dark);
+  .quick-item-label {
+    color: var(--text-main, @text-main-dark);
   }
 }

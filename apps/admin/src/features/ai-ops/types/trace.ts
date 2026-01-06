@@ -129,6 +129,29 @@ export interface ToolStepData {
   output?: Record<string, unknown>
   /** Widget 类型 (如果返回 Widget) */
   widgetType?: 'widget_draft' | 'widget_explore' | 'widget_share'
+  /** v3.10: 评估结果 */
+  evaluation?: EvaluationResult
+}
+
+/** v3.10: 评估结果 */
+export interface EvaluationResult {
+  /** 是否通过 */
+  passed: boolean
+  /** 质量评分 1-10 */
+  score: number
+  /** 意图是否匹配 */
+  intentMatch: boolean
+  /** 发现的问题 */
+  issues: string[]
+  /** 改进建议 */
+  suggestions?: string[]
+  /** 字段完整性（草稿专用） */
+  fieldCompleteness?: {
+    hasTitle: boolean
+    hasType: boolean
+    hasLocationHint: boolean
+    hasValidTime: boolean
+  }
 }
 
 /** 最终输出步骤数据 */

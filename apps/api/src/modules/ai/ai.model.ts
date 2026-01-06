@@ -209,55 +209,75 @@ const ErrorResponse = t.Object({
 });
 
 // ==========================================
-// Welcome Card 相关 Schema (v3.4 新增)
+// Welcome Card 相关 Schema (v3.10 重构 - 分组结构)
 // ==========================================
 
-// 快捷按钮类型
-const QuickActionType = t.Union([
-  t.Literal('explore_nearby'),
-  t.Literal('continue_draft'),
-  t.Literal('find_partner'),
+// 快捷项类型
+const QuickItemType = t.Union([
+  t.Literal('draft'),        // 继续草稿
+  t.Literal('suggestion'),   // 快速组局建议
+  t.Literal('explore'),      // 探索附近
 ]);
 
-// 探索附近按钮上下文
-const ExploreNearbyContext = t.Object({
-  locationName: t.String({ description: '地点名称，如"观音桥"' }),
-  lat: t.Number({ description: '纬度' }),
-  lng: t.Number({ description: '经度' }),
-  activityCount: t.Number({ description: '附近活动数量' }),
+// 快捷项
+const QuickItem = t.Object({
+  type: QuickItemType,
+  icon: t.Optional(t.String({ description: 'Emoji 图标' })),
+  label: t.String({ description: '显示文案' }),
+  prompt: t.String({ description: '点击后发送的 prompt' }),
+  context: t.Optional(t.Any({ description: '附加上下文数据' })),
 });
 
-// 继续草稿按钮上下文
-const ContinueDraftContext = t.Object({
-  activityId: t.String({ description: '草稿活动 ID' }),
-  activityTitle: t.String({ description: '活动标题' }),
+// 分组
+const WelcomeSection = t.Object({
+  id: t.String({ description: '分组 ID' }),
+  icon: t.String({ description: '分组图标 Emoji' }),
+  title: t.String({ description: '分组标题' }),
+  items: t.Array(QuickItem),
 });
 
-// 找搭子按钮上下文
-const FindPartnerContext = t.Object({
-  activityType: t.String({ description: '活动类型，如 food、boardgame' }),
-  activityTypeLabel: t.String({ description: '活动类型中文标签，如"火锅"、"桌游"' }),
-  suggestedPrompt: t.String({ description: '预填的输入内容' }),
-});
-
-// 快捷按钮
-const QuickAction = t.Object({
-  type: QuickActionType,
-  label: t.String({ description: '按钮文案' }),
-  context: t.Union([ExploreNearbyContext, ContinueDraftContext, FindPartnerContext]),
-});
-
-// Welcome Card 响应
+// Welcome Card 响应 (v3.10 重构)
 const WelcomeResponse = t.Object({
   greeting: t.String({ description: '问候语' }),
-  quickActions: t.Array(QuickAction, { description: '快捷按钮数组，0-3 个' }),
-  fallbackPrompt: t.String({ description: '兜底询问文案' }),
+  subGreeting: t.Optional(t.String({ description: '副标题' })),
+  sections: t.Array(WelcomeSection, { description: '分组列表' }),
 });
 
 // Welcome Card 查询参数
 const WelcomeQuery = t.Object({
   lat: t.Optional(t.Number({ description: '用户纬度' })),
   lng: t.Optional(t.Number({ description: '用户经度' })),
+});
+
+// 兼容旧版 quickActions（deprecated）
+const QuickActionType = t.Union([
+  t.Literal('explore_nearby'),
+  t.Literal('continue_draft'),
+  t.Literal('find_partner'),
+]);
+
+const ExploreNearbyContext = t.Object({
+  locationName: t.String(),
+  lat: t.Number(),
+  lng: t.Number(),
+  activityCount: t.Number(),
+});
+
+const ContinueDraftContext = t.Object({
+  activityId: t.String(),
+  activityTitle: t.String(),
+});
+
+const FindPartnerContext = t.Object({
+  activityType: t.String(),
+  activityTypeLabel: t.String(),
+  suggestedPrompt: t.String(),
+});
+
+const QuickAction = t.Object({
+  type: QuickActionType,
+  label: t.String(),
+  context: t.Union([ExploreNearbyContext, ContinueDraftContext, FindPartnerContext]),
 });
 
 // ==========================================

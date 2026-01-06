@@ -14,16 +14,13 @@ import { randomUUID } from 'crypto';
 import type { 
   ConversationsQuery,
   ConversationMessageType,
-  WelcomeResponse,
-  QuickAction,
-  ExploreNearbyContext,
   ContinueDraftContext,
-  FindPartnerContext,
 } from './ai.model';
 import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v38';
 import { getAIToolsV34, getToolsByIntent, classifyIntent } from './tools';
 import { recordTokenUsage } from './services/metrics';
 import { enrichMessages, injectContextToSystemPrompt, type EnrichmentContext } from './enrichment';
+import { shouldEvaluate, runEvaluation, EVALUATION_CONFIG, type EvaluationResult } from './services/evaluation';
 
 /**
  * DeepSeek Provider 配置
@@ -222,6 +219,9 @@ export async function streamChat(request: StreamChatRequest) {
   const traceSteps: Array<{ toolName: string; toolCallId: string; args: unknown; result?: unknown }> = [];
   let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
   
+  // v3.10: 评估结果收集
+  const evaluationResults: EvaluationResult[] = [];
+  
   // 执行 AI 推理
   const result = streamText({
     model: getAIModel(),
@@ -348,6 +348,8 @@ export async function streamChat(request: StreamChatRequest) {
                 args: s.args,
                 result: s.result,
               })),
+              // v3.10: 附加评估结果
+              evaluation: evaluationResults.length > 0 ? evaluationResults : undefined,
             },
             activityId,
           });
@@ -357,6 +359,31 @@ export async function streamChat(request: StreamChatRequest) {
           // 保存失败不影响响应
           console.error('[AI Chat] Failed to save conversation:', error);
         }
+      }
+      
+      // v3.10: 执行 Tool 调用评估（异步，不阻塞响应）
+      if (EVALUATION_CONFIG.ENABLED && traceSteps.length > 0) {
+        // 异步评估，不阻塞主流程
+        (async () => {
+          for (const step of traceSteps) {
+            if (shouldEvaluate(step.toolName) && step.result) {
+              try {
+                const evalResult = await runEvaluation(
+                  lastUserText,
+                  step.toolName,
+                  step.args,
+                  step.result
+                );
+                evaluationResults.push(evalResult);
+                
+                const status = evalResult.passed ? '✅' : '⚠️';
+                console.log(`[AI Eval] ${status} ${step.toolName}: score=${evalResult.score}, issues=${(evalResult.evaluation as any).issues?.length || 0}`);
+              } catch (error) {
+                console.error(`[AI Eval] Failed to evaluate ${step.toolName}:`, error);
+              }
+            }
+          }
+        })();
       }
     },
   });
@@ -477,7 +504,7 @@ export async function streamChat(request: StreamChatRequest) {
       
       // 5. 合并 AI 响应流（自动包含 Tool Parts）
       writer.merge(result.toUIMessageStream({
-        onFinish: () => {
+        onFinish: async () => {
           const llmCompletedAt = new Date().toISOString();
           const llmDuration = new Date(llmCompletedAt).getTime() - new Date(llmStartedAt).getTime();
           
@@ -499,8 +526,31 @@ export async function streamChat(request: StreamChatRequest) {
             transient: true,
           });
           
-          // 发送 tool 步骤（从 onStepFinish 收集的数据）
+          // v3.10: 对需要评估的 Tool 执行评估
+          const toolEvaluations: Map<string, EvaluationResult> = new Map();
+          if (EVALUATION_CONFIG.ENABLED) {
+            for (const step of traceSteps) {
+              if (shouldEvaluate(step.toolName) && step.result) {
+                try {
+                  const evalResult = await runEvaluation(
+                    lastUserText,
+                    step.toolName,
+                    step.args,
+                    step.result
+                  );
+                  toolEvaluations.set(step.toolCallId, evalResult);
+                  const status = evalResult.passed ? '✅' : '⚠️';
+                  console.log(`[AI Eval] ${status} ${step.toolName}: score=${evalResult.score}`);
+                } catch (error) {
+                  console.error(`[AI Eval] Failed: ${step.toolName}`, error);
+                }
+              }
+            }
+          }
+          
+          // 发送 tool 步骤（从 onStepFinish 收集的数据 + 评估结果）
           for (const step of traceSteps) {
+            const evaluation = toolEvaluations.get(step.toolCallId);
             writer.write({
               type: 'data-trace-step',
               data: {
@@ -517,6 +567,15 @@ export async function streamChat(request: StreamChatRequest) {
                   input: step.args,
                   output: step.result,
                   widgetType: getWidgetType(step.toolName),
+                  // v3.10: 附加评估结果
+                  evaluation: evaluation ? {
+                    passed: evaluation.passed,
+                    score: evaluation.score,
+                    intentMatch: evaluation.evaluation.intentMatch,
+                    issues: (evaluation.evaluation as any).issues || [],
+                    suggestions: (evaluation.evaluation as any).suggestions,
+                    fieldCompleteness: (evaluation.evaluation as any).fieldCompleteness,
+                  } : undefined,
                 },
               },
               transient: true,
@@ -537,7 +596,7 @@ export async function streamChat(request: StreamChatRequest) {
             transient: true,
           });
           
-          console.log(`[AI Chat + Trace] Source: ${source}, User: ${userId}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}, Duration: ${totalDuration}ms`);
+          console.log(`[AI Chat + Trace] Source: ${source}, User: ${userId}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}, Evals: ${toolEvaluations.size}, Duration: ${totalDuration}ms`);
         },
       }));
     },
@@ -893,39 +952,11 @@ async function countNearbyActivities(
 }
 
 /**
- * 构建探索附近按钮
+ * 构建继续草稿按钮（内部使用）
  */
-export async function buildExploreNearbyAction(
-  location: { lat: number; lng: number }
-): Promise<QuickAction | null> {
-  // 1. 逆地理编码获取地点名
-  const locationName = await reverseGeocode(location.lat, location.lng);
-  
-  // 2. 查询附近活动数量 (5km 范围)
-  const nearbyCount = await countNearbyActivities(location, 5000);
-  
-  if (nearbyCount === 0) return null;
-  
-  const context: ExploreNearbyContext = {
-    locationName,
-    lat: location.lat,
-    lng: location.lng,
-    activityCount: nearbyCount,
-  };
-  
-  return {
-    type: 'explore_nearby',
-    label: `看看${locationName}附近的活动？`,
-    context,
-  };
-}
-
-/**
- * 构建继续草稿按钮
- */
-export async function buildContinueDraftAction(
+async function buildContinueDraftAction(
   userId: string
-): Promise<QuickAction | null> {
+): Promise<{ activityId: string; activityTitle: string } | null> {
   const draft = await db
     .select({
       id: activities.id,
@@ -942,15 +973,9 @@ export async function buildContinueDraftAction(
   
   if (draft.length === 0) return null;
   
-  const context: ContinueDraftContext = {
+  return {
     activityId: draft[0].id,
     activityTitle: draft[0].title,
-  };
-  
-  return {
-    type: 'continue_draft',
-    label: `上次的「${draft[0].title}」还没发，继续？`,
-    context,
   };
 }
 
@@ -980,39 +1005,7 @@ export async function getUserActivityTypeStats(
 }
 
 /**
- * 构建找搭子按钮
- */
-export async function buildFindPartnerAction(
-  userId: string | null
-): Promise<QuickAction> {
-  let preferredType = 'food'; // 默认
-  
-  if (userId) {
-    // 统计用户历史活动类型
-    const typeStats = await getUserActivityTypeStats(userId);
-    if (typeStats.length > 0) {
-      preferredType = typeStats[0].type;
-    }
-  }
-  
-  const typeLabel = ACTIVITY_TYPE_LABELS[preferredType] || '活动';
-  const suggestedPrompt = SUGGESTED_PROMPTS[preferredType] || SUGGESTED_PROMPTS.other;
-  
-  const context: FindPartnerContext = {
-    activityType: preferredType,
-    activityTypeLabel: typeLabel,
-    suggestedPrompt,
-  };
-  
-  return {
-    type: 'find_partner',
-    label: `找${typeLabel}搭子？`,
-    context,
-  };
-}
-
-/**
- * 获取欢迎卡片数据
+ * 获取欢迎卡片数据 (v3.10 重构 - 分组结构)
  * 
  * @param userId - 用户 ID，null 表示未登录
  * @param nickname - 用户昵称，null 表示未设置或未登录
@@ -1025,38 +1018,139 @@ export async function getWelcomeCard(
   location: { lat: number; lng: number } | null,
   currentHour?: number
 ): Promise<WelcomeResponse> {
-  const quickActions: QuickAction[] = [];
+  const sections: WelcomeSection[] = [];
 
   // 1. 生成问候语
-  // 未登录用户使用固定问候语
   const greeting = userId === null
-    ? "Hi，我是小聚，你的 AI 活动助理。"
-    : generateGreeting(nickname, currentHour);
+    ? "Hello ✨"
+    : `Hello${nickname ? ` ${nickname}` : ''} ✨`;
+  const subGreeting = "想玩点什么？";
 
-  // 2. 尝试生成 explore_nearby 按钮（有位置即可，不需要登录）
-  if (location) {
-    const exploreAction = await buildExploreNearbyAction(location);
-    if (exploreAction) quickActions.push(exploreAction);
-  }
-
-  // 3. 尝试生成 continue_draft 按钮（需要登录）
+  // 2. 继续草稿分组（需要登录）
   if (userId) {
     const draftAction = await buildContinueDraftAction(userId);
-    if (draftAction) quickActions.push(draftAction);
+    if (draftAction) {
+      sections.push({
+        id: 'draft',
+        icon: '📝',
+        title: '继续草稿',
+        items: [{
+          type: 'draft',
+          icon: '🎲',
+          label: draftAction.activityTitle,
+          prompt: `继续编辑「${draftAction.activityTitle}」`,
+          context: { activityId: draftAction.activityId },
+        }],
+      });
+    }
   }
 
-  // 4. 生成 find_partner 按钮
-  const partnerAction = await buildFindPartnerAction(userId);
-  quickActions.push(partnerAction);
+  // 3. 快速组局分组
+  const suggestions = await buildSuggestionItems(userId);
+  sections.push({
+    id: 'suggestions',
+    icon: '💡',
+    title: '快速组局',
+    items: suggestions,
+  });
 
-  // 5. 限制最多 3 个按钮
-  const limitedActions = quickActions.slice(0, 3);
+  // 4. 探索附近分组
+  const exploreItems = await buildExploreItems(location);
+  sections.push({
+    id: 'explore',
+    icon: '📍',
+    title: '探索附近',
+    items: exploreItems,
+  });
 
   return {
     greeting,
-    quickActions: limitedActions,
-    fallbackPrompt: '或者还有什么想法，今天想玩点什么，告诉我！～',
+    subGreeting,
+    sections,
   };
+}
+
+/**
+ * 构建快速组局建议项
+ */
+async function buildSuggestionItems(userId: string | null): Promise<QuickItem[]> {
+  // 基于用户历史偏好生成建议（简化版：固定建议）
+  const items: QuickItem[] = [
+    {
+      type: 'suggestion',
+      label: '明晚打麻将，3缺1',
+      prompt: '明晚观音桥打麻将，3缺1',
+    },
+    {
+      type: 'suggestion',
+      label: '周末想吃火锅',
+      prompt: '周末想吃火锅',
+    },
+    {
+      type: 'suggestion',
+      label: '找人一起运动',
+      prompt: '想找人一起打羽毛球',
+    },
+  ];
+
+  // TODO: 后续可以基于用户历史活动类型动态生成
+  // if (userId) {
+  //   const typeStats = await getUserActivityTypeStats(userId);
+  //   // 根据 typeStats 调整建议顺序
+  // }
+
+  return items;
+}
+
+/**
+ * 构建探索附近项
+ */
+async function buildExploreItems(
+  location: { lat: number; lng: number } | null
+): Promise<QuickItem[]> {
+  if (location) {
+    const locationName = await reverseGeocode(location.lat, location.lng);
+    const nearbyCount = await countNearbyActivities(location, 5000);
+    
+    return [{
+      type: 'explore',
+      label: nearbyCount > 0 
+        ? `${locationName}附近有 ${nearbyCount} 个活动`
+        : `看看${locationName}附近有什么`,
+      prompt: `看看${locationName}附近有什么活动`,
+      context: { locationName, lat: location.lat, lng: location.lng, count: nearbyCount },
+    }];
+  }
+
+  return [{
+    type: 'explore',
+    label: '看看附近有什么活动',
+    prompt: '附近有什么活动',
+  }];
+}
+
+/** 快捷项类型 */
+interface QuickItem {
+  type: 'draft' | 'suggestion' | 'explore';
+  icon?: string;
+  label: string;
+  prompt: string;
+  context?: Record<string, unknown>;
+}
+
+/** 分组类型 */
+interface WelcomeSection {
+  id: string;
+  icon: string;
+  title: string;
+  items: QuickItem[];
+}
+
+/** Welcome 响应类型 (v3.10) */
+interface WelcomeResponse {
+  greeting: string;
+  subGreeting?: string;
+  sections: WelcomeSection[];
 }
 
 

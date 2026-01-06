@@ -1,48 +1,38 @@
 /**
  * 智能欢迎卡片服务
  * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
+ * v3.10 重构: 分组结构 (sections)
  *
  * 调用 /ai/welcome API 获取个性化欢迎卡片数据
  */
 
 import { wxRequest } from '../utils/wx-request';
 
-// 快捷按钮类型
-export type QuickActionType = 'explore_nearby' | 'continue_draft' | 'find_partner';
+// 快捷项类型
+export type QuickItemType = 'draft' | 'suggestion' | 'explore';
 
-// 探索附近按钮上下文
-export interface ExploreNearbyContext {
-  locationName: string;
-  lat: number;
-  lng: number;
-  activityCount: number;
-}
-
-// 继续草稿按钮上下文
-export interface ContinueDraftContext {
-  activityId: string;
-  activityTitle: string;
-}
-
-// 找搭子按钮上下文
-export interface FindPartnerContext {
-  activityType: string;
-  activityTypeLabel: string;
-  suggestedPrompt: string;
-}
-
-// 快捷按钮
-export interface QuickAction {
-  type: QuickActionType;
+// 快捷项
+export interface QuickItem {
+  type: QuickItemType;
+  icon?: string;
   label: string;
-  context: ExploreNearbyContext | ContinueDraftContext | FindPartnerContext;
+  prompt: string;
+  context?: Record<string, unknown>;
 }
 
-// Welcome API 响应
+// 分组
+export interface WelcomeSection {
+  id: string;
+  icon: string;
+  title: string;
+  items: QuickItem[];
+}
+
+// Welcome API 响应 (v3.10)
 export interface WelcomeResponse {
   greeting: string;
-  quickActions: QuickAction[];
-  fallbackPrompt: string;
+  subGreeting?: string;
+  sections: WelcomeSection[];
 }
 
 // Welcome API 查询参数
@@ -98,4 +88,20 @@ export function getUserLocation(): Promise<{ lat: number; lng: number } | null> 
       },
     });
   });
+}
+
+/**
+ * 从 sections 中提取指定类型的 items
+ */
+export function getSectionItems(sections: WelcomeSection[], sectionId: string): QuickItem[] {
+  const section = sections.find(s => s.id === sectionId);
+  return section?.items || [];
+}
+
+/**
+ * 从 sections 中提取草稿项（如果有）
+ */
+export function getDraftItem(sections: WelcomeSection[]): QuickItem | null {
+  const draftSection = sections.find(s => s.id === 'draft');
+  return draftSection?.items[0] || null;
 }

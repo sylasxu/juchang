@@ -1,14 +1,11 @@
 <!--
   Widget Dashboard 组件
-  Requirements: 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8
-  v3.4 新增: 7.1, 7.2, 7.3, 7.4, 7.5 - 智能欢迎卡片
+  v3.10 重构: 分组结构 (sections)
   
   进场欢迎卡片
-  - 动态问候语（根据时间变化）
-  - 快捷操作按钮（上下文感知）
-  - 兜底询问文案
+  - 动态问候语（API 返回）
+  - 分组快捷操作（draft/suggestions/explore）
   - 待参加活动列表（最多 3 个）
-  - 空状态引导文案和热门 Prompt
 -->
 <view class="widget-dashboard halo-card">
   <!-- 问候语区域 -->
@@ -22,28 +19,37 @@
     </view>
   </view>
   
-  <!-- v3.4 新增：快捷操作按钮区域 -->
-  <block wx:if="{{hasQuickActions}}">
-    <view class="quick-actions">
+  <!-- v3.10: 分组快捷操作 -->
+  <block wx:if="{{hasSections}}">
+    <view class="sections-container">
       <view 
-        wx:for="{{quickActions}}" 
-        wx:key="type"
-        class="quick-action-btn quick-action-btn--{{item.type}} btn-pressable"
-        data-action="{{item}}"
-        bindtap="onQuickActionTap"
+        wx:for="{{sections}}" 
+        wx:key="id"
+        class="section-group"
       >
-        <text class="quick-action-text">{{item.label}}</text>
+        <view class="section-group-header">
+          <text class="section-group-icon">{{item.icon}}</text>
+          <text class="section-group-title">{{item.title}}</text>
+        </view>
+        <view class="section-group-items">
+          <view 
+            wx:for="{{item.items}}" 
+            wx:for-item="quickItem"
+            wx:key="label"
+            class="quick-item quick-item--{{quickItem.type}} btn-pressable"
+            data-item="{{quickItem}}"
+            bindtap="onQuickItemTap"
+          >
+            <text wx:if="{{quickItem.icon}}" class="quick-item-icon">{{quickItem.icon}}</text>
+            <text class="quick-item-label">{{quickItem.label}}</text>
+          </view>
+        </view>
       </view>
-    </view>
-    
-    <!-- 兜底询问文案 -->
-    <view class="fallback-prompt">
-      <text class="fallback-text">{{fallbackPrompt}}</text>
     </view>
   </block>
   
   <!-- 有活动时显示活动列表 -->
-  <block wx:elif="{{hasActivities}}">
+  <block wx:if="{{hasActivities}}">
     <view class="dashboard-section">
       <view class="section-header">
         <text class="section-title">待参加的活动</text>
@@ -71,29 +77,13 @@
     </view>
   </block>
   
-  <!-- 无活动且无快捷按钮时显示引导 -->
-  <block wx:else>
+  <!-- 无分组且无活动时显示引导 -->
+  <block wx:if="{{!hasSections && !hasActivities}}">
     <view class="dashboard-empty">
       <view class="empty-icon">
         <t-icon name="chat" size="64rpx" color="#5B75FB" />
       </view>
       <text class="empty-text">最近没局？有些朋友可能在等你开口。</text>
-      
-      <!-- 热门 Prompt 示例 -->
-      <view class="hot-prompts">
-        <text class="prompts-label">试试这样说：</text>
-        <view class="prompts-list">
-          <view 
-            wx:for="{{hotPrompts}}" 
-            wx:key="*this"
-            class="prompt-item btn-pressable"
-            data-prompt="{{item}}"
-            bindtap="onPromptTap"
-          >
-            <text class="prompt-text">"{{item}}"</text>
-          </view>
-        </view>
-      </view>
     </view>
   </block>
 </view>
