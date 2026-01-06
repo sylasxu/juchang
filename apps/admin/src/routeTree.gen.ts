@@ -25,7 +25,6 @@ import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authen
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedReportsIndexRouteImport } from './routes/_authenticated/reports/index'
-import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
 import { Route as AuthenticatedNotificationsIndexRouteImport } from './routes/_authenticated/notifications/index'
 import { Route as AuthenticatedAiOpsIndexRouteImport } from './routes/_authenticated/ai-ops/index'
 import { Route as AuthenticatedActivitiesIndexRouteImport } from './routes/_authenticated/activities/index'
@@ -119,12 +118,6 @@ const AuthenticatedReportsIndexRoute =
   AuthenticatedReportsIndexRouteImport.update({
     id: '/reports/',
     path: '/reports/',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedPlaygroundIndexRoute =
-  AuthenticatedPlaygroundIndexRouteImport.update({
-    id: '/playground/',
-    path: '/playground/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedNotificationsIndexRoute =
@@ -223,7 +216,6 @@ export interface FileRoutesByFullPath {
   '/activities': typeof AuthenticatedActivitiesIndexRoute
   '/ai-ops': typeof AuthenticatedAiOpsIndexRoute
   '/notifications': typeof AuthenticatedNotificationsIndexRoute
-  '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
@@ -252,7 +244,6 @@ export interface FileRoutesByTo {
   '/activities': typeof AuthenticatedActivitiesIndexRoute
   '/ai-ops': typeof AuthenticatedAiOpsIndexRoute
   '/notifications': typeof AuthenticatedNotificationsIndexRoute
-  '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/reports': typeof AuthenticatedReportsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
@@ -284,7 +275,6 @@ export interface FileRoutesById {
   '/_authenticated/activities/': typeof AuthenticatedActivitiesIndexRoute
   '/_authenticated/ai-ops/': typeof AuthenticatedAiOpsIndexRoute
   '/_authenticated/notifications/': typeof AuthenticatedNotificationsIndexRoute
-  '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/reports/': typeof AuthenticatedReportsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
@@ -316,7 +306,6 @@ export interface FileRouteTypes {
     | '/activities'
     | '/ai-ops'
     | '/notifications'
-    | '/playground'
     | '/reports'
     | '/settings/'
     | '/users'
@@ -345,7 +334,6 @@ export interface FileRouteTypes {
     | '/activities'
     | '/ai-ops'
     | '/notifications'
-    | '/playground'
     | '/reports'
     | '/settings'
     | '/users'
@@ -376,7 +364,6 @@ export interface FileRouteTypes {
     | '/_authenticated/activities/'
     | '/_authenticated/ai-ops/'
     | '/_authenticated/notifications/'
-    | '/_authenticated/playground/'
     | '/_authenticated/reports/'
     | '/_authenticated/settings/'
     | '/_authenticated/users/'
@@ -510,13 +497,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReportsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/playground/': {
-      id: '/_authenticated/playground/'
-      path: '/playground'
-      fullPath: '/playground'
-      preLoaderRoute: typeof AuthenticatedPlaygroundIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/notifications/': {
       id: '/_authenticated/notifications/'
       path: '/notifications'
@@ -635,7 +615,6 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedActivitiesIndexRoute: typeof AuthenticatedActivitiesIndexRoute
   AuthenticatedAiOpsIndexRoute: typeof AuthenticatedAiOpsIndexRoute
   AuthenticatedNotificationsIndexRoute: typeof AuthenticatedNotificationsIndexRoute
-  AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedReportsIndexRoute: typeof AuthenticatedReportsIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
 }
@@ -653,7 +632,6 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedActivitiesIndexRoute: AuthenticatedActivitiesIndexRoute,
   AuthenticatedAiOpsIndexRoute: AuthenticatedAiOpsIndexRoute,
   AuthenticatedNotificationsIndexRoute: AuthenticatedNotificationsIndexRoute,
-  AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedReportsIndexRoute: AuthenticatedReportsIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
 }

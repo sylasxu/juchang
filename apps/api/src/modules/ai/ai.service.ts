@@ -3,6 +3,8 @@ import { db, users, conversations, conversationMessages, activities, participant
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { 
   streamText, 
+  generateObject,
+  jsonSchema,
   createUIMessageStream, 
   createUIMessageStreamResponse,
   convertToModelMessages,
@@ -10,6 +12,7 @@ import {
   hasToolCall,
   type UIMessage,
 } from 'ai';
+import { t } from 'elysia';
 import { randomUUID } from 'crypto';
 import type { 
   ConversationsQuery,
@@ -17,10 +20,11 @@ import type {
   ContinueDraftContext,
 } from './ai.model';
 import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v38';
-import { getAIToolsV34, getToolsByIntent, classifyIntent } from './tools';
+import { getAIToolsV34, getToolsByIntent, type IntentType } from './tools';
 import { recordTokenUsage } from './services/metrics';
 import { enrichMessages, injectContextToSystemPrompt, type EnrichmentContext } from './enrichment';
 import { shouldEvaluate, runEvaluation, EVALUATION_CONFIG, type EvaluationResult } from './services/evaluation';
+import { toJsonSchema } from '@juchang/utils';
 
 /**
  * DeepSeek Provider 配置
@@ -45,6 +49,137 @@ function getDeepSeekProvider() {
  */
 function getAIModel() {
   return getDeepSeekProvider()('deepseek-chat');
+}
+
+// ==========================================
+// 意图分类 (混合模式：正则优先 + LLM 兜底)
+// ==========================================
+
+/**
+ * 正则快速分类意图（无延迟）
+ */
+function classifyIntentByRegex(text: string, hasDraftContext: boolean): IntentType {
+  const lowerText = text.toLowerCase();
+  
+  // 空闲/暂停意图（优先级最高）
+  if (/改天|下次|先这样|不用了|算了|没事了|好的.*谢|谢谢.*不|拜拜|再见|88|byebye/.test(lowerText)) {
+    return 'idle';
+  }
+  
+  // 管理意图
+  if (/我的活动|我发布的|我参与的|取消活动|不办了/.test(lowerText)) {
+    return 'manage';
+  }
+  
+  // 修改意图（需要草稿上下文）
+  if (hasDraftContext && /改|换|加|减|调|发布|没问题|就这样/.test(lowerText)) {
+    return 'create';
+  }
+  
+  // 明确创建意图
+  if (/帮我组|帮我创建|自己组|我来组|我要组|我想组/.test(lowerText)) {
+    return 'create';
+  }
+  
+  // 探索意图
+  if (/想找|找人|一起|有什么|附近|推荐|看看|想.*打|想.*吃|想.*玩/.test(lowerText)) {
+    return 'explore';
+  }
+  
+  // 兜底探索
+  if (/想|约/.test(lowerText)) {
+    return 'explore';
+  }
+  
+  return 'unknown';
+}
+
+/** 意图分类 Schema */
+const IntentClassificationSchema = t.Object({
+  intent: t.Union([
+    t.Literal('create'),
+    t.Literal('explore'),
+    t.Literal('manage'),
+    t.Literal('idle'),
+    t.Literal('unknown'),
+  ], { description: '用户意图分类' }),
+  confidence: t.Number({ description: '置信度 0-1' }),
+});
+
+type IntentClassification = typeof IntentClassificationSchema.static;
+
+/**
+ * 使用 LLM 分类用户意图（仅在正则无法识别时调用）
+ */
+async function classifyIntentWithLLM(
+  messages: Array<{ role: string; content: string }>,
+  hasDraftContext: boolean
+): Promise<IntentType> {
+  // 只取最近 3 轮对话，减少 token
+  const recentMessages = messages.slice(-6);
+  const conversationText = recentMessages
+    .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`)
+    .join('\n');
+
+  const contextHint = hasDraftContext ? '（当前有活动草稿待确认）' : '';
+
+  try {
+    const result = await generateObject({
+      model: getAIModel(),
+      schema: jsonSchema<IntentClassification>(toJsonSchema(IntentClassificationSchema)),
+      prompt: `你是一个意图分类器。根据对话历史，判断用户当前的意图。${contextHint}
+
+意图类型：
+- create: 用户想创建/组织/发布活动（如"帮我组一个"、"我要发布"、"创建活动"）
+- explore: 用户想找活动/探索附近/询问推荐（如"想找人一起"、"附近有什么"、"推荐一下"）
+- manage: 用户想管理自己的活动（如"我的活动"、"取消活动"、"查看报名"）
+- idle: 用户暂时没有明确需求，闲聊或暂停（如"改天再说"、"先这样"、"不用了"、"谢谢"）
+- unknown: 无法判断
+
+注意：
+1. 如果用户在回答 AI 的问题（如选择地点、时间），应继承之前的意图
+2. "解放碑"、"明天"这类短回答通常是在回答问题，不是新意图
+3. 用户表示暂停、拒绝、告别时，应分类为 idle
+
+对话历史：
+${conversationText}
+
+请判断用户当前意图：`,
+      temperature: 0,
+    });
+
+    console.log(`[Intent LLM] ${result.object.intent} (confidence: ${result.object.confidence})`);
+    return result.object.intent as IntentType;
+  } catch (error) {
+    console.error('[Intent LLM] Error:', error);
+    // 降级到 explore（最常见的意图）
+    return 'explore';
+  }
+}
+
+/**
+ * 混合意图分类：正则优先，unknown 时调用 LLM
+ * 返回意图和分类方法
+ */
+async function classifyIntent(
+  messages: Array<{ role: string; content: string }>,
+  hasDraftContext: boolean
+): Promise<{ intent: IntentType; method: 'regex' | 'llm' }> {
+  // 获取最后一条用户消息
+  const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+  const lastUserText = lastUserMessage?.content || '';
+  
+  // 1. 先用正则快速分类
+  const quickResult = classifyIntentByRegex(lastUserText, hasDraftContext);
+  if (quickResult !== 'unknown') {
+    console.log(`[Intent Regex] ${quickResult}`);
+    return { intent: quickResult, method: 'regex' };
+  }
+  
+  // 2. 正则无法识别时，调用 LLM
+  console.log('[Intent] Regex unknown, falling back to LLM...');
+  const llmResult = await classifyIntentWithLLM(messages, hasDraftContext);
+  return { intent: llmResult, method: 'llm' };
 }
 
 // ==========================================
@@ -110,7 +245,6 @@ export async function consumeAIQuota(userId: string): Promise<boolean> {
  * v3.3 更新：意图分类逻辑已迁移到 Vercel AI SDK Tools
  * AI 会自动选择调用 createActivityDraft 或 exploreNearby
  */
-export type IntentType = 'create' | 'explore' | 'unknown';
 
 // ==========================================
 // AI Chat (v3.4)
@@ -200,15 +334,17 @@ export async function streamChat(request: StreamChatRequest) {
   // 构建 XML 结构化 System Prompt（v3.6），注入增强上下文
   const systemPrompt = buildXmlSystemPrompt(promptContext, contextXml);
   
-  // v3.9: 动态加载 Tools，根据意图只加载需要的 Tool，减少 Token 消耗
-  const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-  const lastUserText = lastUserMessage?.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text 
-    || (lastUserMessage as { content?: string })?.content 
-    || '';
-  const intent = classifyIntent(lastUserText, !!draftContext);
+  // v3.12: 混合意图分类（正则优先，unknown 时调用 LLM）
+  const conversationHistory = messages.map(m => ({
+    role: m.role,
+    content: m.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text 
+      || (m as unknown as { content?: string })?.content 
+      || '',
+  }));
+  const { intent, method: intentMethod } = await classifyIntent(conversationHistory, !!draftContext);
   const tools = getToolsByIntent(userId, intent, !!draftContext);
   
-  console.log(`[AI Chat] Intent: ${intent}, Tools: ${Object.keys(tools).join(', ')}`);
+  console.log(`[AI Chat] Intent: ${intent} (${intentMethod}), Tools: ${Object.keys(tools).join(', ')}`);
   
   // Trace 模式的元数据
   const requestId = trace ? randomUUID() : undefined;
@@ -218,6 +354,7 @@ export async function streamChat(request: StreamChatRequest) {
   // trace 模式的数据收集（通过 onStepFinish 实时收集）
   const traceSteps: Array<{ toolName: string; toolCallId: string; args: unknown; result?: unknown }> = [];
   let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+  let aiResponseText = ''; // AI 的文字响应
   
   // v3.10: 评估结果收集
   const evaluationResults: EvaluationResult[] = [];
@@ -255,6 +392,9 @@ export async function streamChat(request: StreamChatRequest) {
       }
     },
     onFinish: async ({ usage, text, response }) => {
+      // 保存 AI 文字响应
+      aiResponseText = text || '';
+      
       // 直接使用 DeepSeek provider 标准化的 usage 格式
       // DeepSeek 返回的 usage 可能包含 prompt_cache_hit_tokens 和 prompt_cache_miss_tokens
       const rawUsage = usage as unknown as {
@@ -293,16 +433,17 @@ export async function streamChat(request: StreamChatRequest) {
       
       // v3.9: 保存对话历史到数据库
       // 有登录用户就保存，没有就不保存
+      
+      // 提取最后一条用户消息（在 try 外定义，供后续评估使用）
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+      const lastUserText = lastUserMessage?.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text 
+        || (lastUserMessage as { content?: string })?.content 
+        || '';
+      
       if (userId) {
         try {
           // 获取或创建会话
           const { id: conversationId } = await getOrCreateCurrentConversation(userId);
-          
-          // 提取最后一条用户消息
-          const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-          const lastUserText = lastUserMessage?.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text 
-            || (lastUserMessage as { content?: string })?.content 
-            || '';
           
           // 保存用户消息
           if (lastUserText) {
@@ -433,6 +574,8 @@ export async function streamChat(request: StreamChatRequest) {
           startedAt,
           systemPrompt,
           tools: toolsInfo,
+          intent, // 意图分类
+          intentMethod, // 分类方法：regex 或 llm
         },
         transient: true,
       });
@@ -582,9 +725,21 @@ export async function streamChat(request: StreamChatRequest) {
             });
           }
           
-          // 发送 trace-end
+          // 发送 trace-end（包含输出摘要）
           const completedAt = new Date().toISOString();
           const totalDuration = new Date(completedAt).getTime() - new Date(startedAt!).getTime();
+          
+          // 构建输出摘要
+          const outputSummary = {
+            text: aiResponseText || null,
+            toolCalls: traceSteps.map(step => ({
+              name: step.toolName,
+              displayName: getToolDisplayName(step.toolName),
+              input: step.args,
+              output: step.result,
+            })),
+          };
+          
           writer.write({
             type: 'data-trace-end',
             data: {
@@ -592,6 +747,7 @@ export async function streamChat(request: StreamChatRequest) {
               completedAt,
               totalDuration,
               status: 'completed',
+              output: outputSummary,
             },
             transient: true,
           });
@@ -1079,7 +1235,7 @@ async function buildSuggestionItems(userId: string | null): Promise<QuickItem[]>
     {
       type: 'suggestion',
       label: '明晚打麻将，3缺1',
-      prompt: '明晚观音桥打麻将，3缺1',
+      prompt: '明晚打麻将，3缺1',
     },
     {
       type: 'suggestion',
@@ -1088,7 +1244,7 @@ async function buildSuggestionItems(userId: string | null): Promise<QuickItem[]>
     },
     {
       type: 'suggestion',
-      label: '找人一起运动',
+      label: '想找人一起打羽毛球',
       prompt: '想找人一起打羽毛球',
     },
   ];

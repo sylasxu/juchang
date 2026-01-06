@@ -14,11 +14,12 @@
   
   // 用户消息气泡
   // Requirements: 15.6 - 矢车菊蓝渐变 + 白色文字
+  // 右上角无圆角，指向用户头像
   &--user {
     .bubble-content {
       background: var(--gradient-primary, @gradient-primary);
       color: #FFFFFF;
-      border-radius: var(--radius-lg, @rounded-lg) var(--radius-lg, @rounded-lg) 8rpx var(--radius-lg, @rounded-lg);
+      border-radius: var(--radius-lg, @rounded-lg) 0 var(--radius-lg, @rounded-lg) var(--radius-lg, @rounded-lg);
       padding: @spacing-3 @spacing-4;
       box-shadow: var(--shadow-sm, @shadow-sm);
     }
@@ -38,12 +39,14 @@
   
   // AI 消息气泡
   // Requirements: 15.7 - 透明背景 + 深灰文字
+  // 左上角无圆角，指向 AI 头像
   &--assistant {
     max-width: 85%;
     
     .bubble-content {
       background: transparent;
       padding: @spacing-3 0;
+      border-radius: 0 var(--radius-lg, @rounded-lg) var(--radius-lg, @rounded-lg) var(--radius-lg, @rounded-lg);
     }
     
     .bubble-text {

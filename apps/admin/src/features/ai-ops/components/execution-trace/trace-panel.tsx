@@ -1,283 +1,563 @@
 /**
- * ExecutionTracePanel Component (v3.10)
+ * ExecutionTracePanel Component (v3.11)
  * 
- * 重构版执行追踪面板：
- * 1. 概览区 - 状态、耗时、Token 统计
- * 2. 执行流程 - 精简时间线
- * 3. 工具调用 - 只展示实际调用的 Tool
- * 4. 评估结果 - 新增评估面板
+ * 多轮对话执行追踪面板：
+ * 1. 顶部工具栏 - 模型选择 + 参数调节 + 重跑按钮
+ * 2. 会话统计 - 总轮次、Token、耗时、费用
+ * 3. 轮次列表 - 按时间倒序，可展开查看详情
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { 
   ChevronDown, 
   ChevronRight, 
-  Clock, 
-  Zap, 
   CheckCircle2, 
   XCircle, 
-  AlertCircle,
-  Wrench,
   FileText,
   Bot,
+  RotateCcw,
+  Settings2,
+  Loader2,
+  Wallet,
+  RefreshCw,
+  Target,
+  Wrench,
+  MessageSquare,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Slider } from '@/components/ui/slider'
+import { Label } from '@/components/ui/label'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import type { ExecutionTrace, TraceStep, ToolStepData, LLMStepData, EvaluationResult } from '../../types/trace'
-import { isToolStepData, isLLMStepData } from '../../types/trace'
+import type { 
+  ExecutionTrace, 
+  TraceStep, 
+  ToolStepData, 
+  LLMStepData, 
+  EvaluationResult,
+  ModelParams,
+  InputStepData,
+  TraceOutput,
+} from '../../types/trace'
+import { 
+  calculateSessionStats,
+  formatCost,
+  formatDuration,
+  DEFAULT_MODEL_PARAMS,
+  INTENT_DISPLAY_NAMES,
+  INTENT_METHOD_NAMES,
+} from '../../types/trace'
 
 interface ExecutionTracePanelProps {
-  trace: ExecutionTrace | null
+  /** 所有轮次的追踪记录 */
+  traces: ExecutionTrace[]
+  /** 当前是否正在流式输出 */
   isStreaming: boolean
+  /** 模型参数 */
+  modelParams?: ModelParams
+  /** 模型参数变更回调 */
+  onModelParamsChange?: (params: ModelParams) => void
+  /** 重跑回调 */
+  onRerun?: () => void
+  /** 是否可以重跑 */
+  canRerun?: boolean
+  /** 余额信息 */
+  balance?: { total: number; isAvailable: boolean } | null
+  /** 余额加载中 */
+  balanceLoading?: boolean
+  /** 刷新余额 */
+  onRefreshBalance?: () => void
 }
 
-export function ExecutionTracePanel({ trace, isStreaming }: ExecutionTracePanelProps) {
-  const [promptOpen, setPromptOpen] = useState(false)
+export function ExecutionTracePanel({ 
+  traces,
+  isStreaming,
+  modelParams = DEFAULT_MODEL_PARAMS,
+  onModelParamsChange,
+  onRerun,
+  canRerun = false,
+  balance,
+  balanceLoading,
+  onRefreshBalance,
+}: ExecutionTracePanelProps) {
+  const [promptDialogOpen, setPromptDialogOpen] = useState(false)
+  const [selectedPrompt, setSelectedPrompt] = useState<string>('')
+  
+  // 计算会话统计
+  const stats = useMemo(() => calculateSessionStats(traces), [traces])
+  
+  // 获取最新轮次的 System Prompt
+  const latestPrompt = traces[0]?.systemPrompt
 
-  if (!trace) {
-    return (
-      <div className='h-full flex flex-col'>
-        <PanelHeader />
-        <div className='flex flex-1 items-center justify-center'>
-          <p className='text-sm text-muted-foreground'>发送消息后查看执行追踪</p>
-        </div>
-      </div>
-    )
+  const handleViewPrompt = (prompt: string) => {
+    setSelectedPrompt(prompt)
+    setPromptDialogOpen(true)
   }
-
-  // 提取关键数据
-  const llmStep = trace.steps.find(s => isLLMStepData(s.data))
-  const toolSteps = trace.steps.filter(s => isToolStepData(s.data))
-  const llmData = llmStep?.data as LLMStepData | undefined
-  const totalDuration = trace.completedAt
-    ? new Date(trace.completedAt).getTime() - new Date(trace.startedAt).getTime()
-    : undefined
 
   return (
     <div className='h-full flex flex-col'>
-      <PanelHeader isStreaming={isStreaming} status={trace.status} />
+      {/* 顶部工具栏 */}
+      <PanelHeader 
+        isStreaming={isStreaming}
+        modelParams={modelParams}
+        onModelParamsChange={onModelParamsChange}
+        onRerun={onRerun}
+        canRerun={canRerun && !isStreaming && traces.length > 0}
+        hasPrompt={!!latestPrompt}
+        onViewPrompt={() => latestPrompt && handleViewPrompt(latestPrompt)}
+        balance={balance}
+        balanceLoading={balanceLoading}
+        onRefreshBalance={onRefreshBalance}
+      />
       
-      <div className='flex-1 overflow-y-auto'>
-        {/* 概览统计 */}
-        <div className='px-4 py-3 border-b'>
-          <div className='grid grid-cols-3 gap-3 text-xs'>
-            <StatItem 
-              icon={<Clock className='h-3.5 w-3.5' />} 
-              label='耗时' 
-              value={totalDuration ? formatDuration(totalDuration) : '-'} 
-            />
-            <StatItem 
-              icon={<Zap className='h-3.5 w-3.5' />} 
-              label='Tokens' 
-              value={llmData?.totalTokens?.toLocaleString() || '-'} 
-            />
-            <StatItem 
-              icon={<Wrench className='h-3.5 w-3.5' />} 
-              label='Tool 调用' 
-              value={`${toolSteps.length} 次`} 
-            />
-          </div>
+      {traces.length === 0 ? (
+        <div className='flex flex-1 items-center justify-center'>
+          <p className='text-sm text-muted-foreground'>发送消息后查看执行追踪</p>
         </div>
-
-        {/* 执行流程 */}
-        <div className='px-4 py-3 space-y-3'>
-          {/* LLM 推理 */}
-          {llmStep && llmData && (
-            <FlowStep 
-              icon={<Bot className='h-4 w-4' />}
-              title='LLM 推理'
-              status={llmStep.status}
-              duration={llmStep.duration}
-            >
-              <div className='text-xs text-muted-foreground space-y-1'>
-                <div>模型: {llmData.model}</div>
-                <div>输入: {llmData.inputTokens} / 输出: {llmData.outputTokens}</div>
-              </div>
-            </FlowStep>
-          )}
-
-          {/* Tool 调用列表 */}
-          {toolSteps.map((step, idx) => {
-            const toolData = step.data as ToolStepData
-            return (
-              <ToolCallStep 
-                key={step.id} 
-                step={step} 
-                data={toolData}
-                index={idx + 1}
-              />
-            )
-          })}
-        </div>
-
-        {/* System Prompt（折叠） */}
-        {trace.systemPrompt && (
-          <div className='px-4 py-2 border-t'>
-            <Collapsible open={promptOpen} onOpenChange={setPromptOpen}>
-              <CollapsibleTrigger className='flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground w-full'>
-                {promptOpen ? <ChevronDown className='h-3 w-3' /> : <ChevronRight className='h-3 w-3' />}
-                <FileText className='h-3 w-3' />
-                System Prompt
-              </CollapsibleTrigger>
-              <CollapsibleContent className='mt-2'>
-                <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-60 whitespace-pre-wrap'>
-                  {trace.systemPrompt}
-                </pre>
-              </CollapsibleContent>
-            </Collapsible>
+      ) : (
+        <>
+          {/* 会话统计 - 固定 */}
+          <SessionStatsBar stats={stats} />
+          
+          {/* 轮次列表 - 可滚动 */}
+          <div className='flex-1 overflow-y-auto min-h-0'>
+            <div className='px-4 py-3 space-y-2'>
+              {[...traces].reverse().map((trace, index, arr) => (
+                <RoundItem 
+                  key={trace.requestId} 
+                  trace={trace}
+                  index={index + 1}
+                  isLatest={index === arr.length - 1}
+                  onViewPrompt={handleViewPrompt}
+                />
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
+
+      {/* System Prompt Modal */}
+      <Dialog open={promptDialogOpen} onOpenChange={setPromptDialogOpen}>
+        <DialogContent className='max-w-3xl max-h-[80vh]'>
+          <DialogHeader>
+            <DialogTitle>System Prompt</DialogTitle>
+          </DialogHeader>
+          <pre className='text-xs bg-muted p-4 rounded overflow-auto max-h-[60vh] whitespace-pre-wrap'>
+            {selectedPrompt || '无 System Prompt'}
+          </pre>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-/** 面板头部 */
-function PanelHeader({ isStreaming, status }: { isStreaming?: boolean; status?: string }) {
-  return (
-    <div className='flex-shrink-0 border-b px-4 py-3'>
-      <div className='flex items-center justify-between'>
-        <h3 className='text-sm font-medium'>执行追踪</h3>
-        {isStreaming && <Badge variant='secondary' className='text-xs'>执行中</Badge>}
-        {status === 'completed' && <Badge variant='outline' className='text-xs text-green-600'>完成</Badge>}
-        {status === 'error' && <Badge variant='destructive' className='text-xs'>错误</Badge>}
-      </div>
-    </div>
-  )
-}
 
-/** 统计项 */
-function StatItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className='flex items-center gap-1.5'>
-      <span className='text-muted-foreground'>{icon}</span>
-      <div>
-        <div className='text-muted-foreground'>{label}</div>
-        <div className='font-medium'>{value}</div>
-      </div>
-    </div>
-  )
-}
-
-/** 流程步骤 */
-function FlowStep({ 
-  icon, 
-  title, 
-  status, 
-  duration, 
-  children 
+/** 面板头部 - 紧凑单行布局 */
+function PanelHeader({ 
+  isStreaming,
+  modelParams,
+  onModelParamsChange,
+  onRerun,
+  canRerun,
+  hasPrompt,
+  onViewPrompt,
+  balance,
+  balanceLoading,
+  onRefreshBalance,
 }: { 
-  icon: React.ReactNode
-  title: string
-  status: string
-  duration?: number
-  children?: React.ReactNode 
+  isStreaming: boolean
+  modelParams: ModelParams
+  onModelParamsChange?: (params: ModelParams) => void
+  onRerun?: () => void
+  canRerun?: boolean
+  hasPrompt?: boolean
+  onViewPrompt?: () => void
+  balance?: { total: number; isAvailable: boolean } | null
+  balanceLoading?: boolean
+  onRefreshBalance?: () => void
 }) {
   return (
-    <div className='flex gap-3'>
-      <div className='flex-shrink-0 mt-0.5'>
-        <div className={cn(
-          'w-6 h-6 rounded-full flex items-center justify-center',
-          status === 'success' ? 'bg-green-100 text-green-600' :
-          status === 'error' ? 'bg-red-100 text-red-600' :
-          'bg-muted text-muted-foreground'
-        )}>
-          {icon}
-        </div>
-      </div>
-      <div className='flex-1 min-w-0'>
-        <div className='flex items-center justify-between'>
-          <span className='text-sm font-medium'>{title}</span>
-          {duration !== undefined && (
-            <span className='text-xs text-muted-foreground'>{formatDuration(duration)}</span>
+    <div className='flex-shrink-0 border-b px-4 py-2'>
+      <div className='flex items-center justify-between gap-2'>
+        {/* 左侧：标题 + 状态 */}
+        <div className='flex items-center gap-2'>
+          <h2 className='text-lg font-medium'>执行追踪</h2>
+          {isStreaming && (
+            <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
           )}
         </div>
-        {children}
-      </div>
-    </div>
-  )
-}
+        
+        {/* 右侧：余额 + 工具按钮组 */}
+        <div className='flex items-center gap-2'>
+          {/* 余额显示 */}
+          <div className='flex items-center gap-1'>
+            <Wallet className='h-3.5 w-3.5 text-muted-foreground' />
+            {balanceLoading ? (
+              <Loader2 className='h-3 w-3 animate-spin' />
+            ) : balance ? (
+              <Badge 
+                variant={balance.total <= 0 ? 'destructive' : 'secondary'}
+                className='font-mono text-xs'
+              >
+                ¥{balance.total.toFixed(2)}
+              </Badge>
+            ) : (
+              <span className='text-xs text-muted-foreground'>--</span>
+            )}
+            {onRefreshBalance && (
+              <Button
+                variant='ghost'
+                size='icon'
+                className='h-6 w-6'
+                onClick={onRefreshBalance}
+                disabled={balanceLoading}
+              >
+                <RefreshCw className={`h-3 w-3 ${balanceLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
+          </div>
 
-/** Tool 调用步骤（含评估） */
-function ToolCallStep({ step, data, index }: { step: TraceStep; data: ToolStepData; index: number }) {
-  const [expanded, setExpanded] = useState(false)
-  const evaluation = data.evaluation
+          {/* 模型参数 Popover */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant='ghost' size='icon' className='h-7 w-7'>
+                <Settings2 className='h-3.5 w-3.5' />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className='w-72' align='end'>
+              <div className='space-y-4'>
+                <div className='text-sm font-medium'>模型参数</div>
+                
+                {/* 模型选择 */}
+                <div className='space-y-2'>
+                  <Label className='text-xs text-muted-foreground'>模型</Label>
+                  <Select 
+                    value={modelParams.model} 
+                    onValueChange={(v) => onModelParamsChange?.({ ...modelParams, model: v as 'deepseek' })}
+                  >
+                    <SelectTrigger className='h-8 text-xs'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='deepseek'>DeepSeek V3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {/* Temperature */}
+                <div className='space-y-2'>
+                  <div className='flex items-center justify-between'>
+                    <Label className='text-xs text-muted-foreground'>Temperature</Label>
+                    <span className='text-xs font-mono'>{modelParams.temperature}</span>
+                  </div>
+                  <Slider
+                    value={[modelParams.temperature]}
+                    onValueChange={([v]) => onModelParamsChange?.({ ...modelParams, temperature: v })}
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    className='w-full'
+                  />
+                  <p className='text-xs text-muted-foreground'>
+                    越低越确定，越高越随机
+                  </p>
+                </div>
+                
+                {/* Max Tokens */}
+                <div className='space-y-2'>
+                  <div className='flex items-center justify-between'>
+                    <Label className='text-xs text-muted-foreground'>Max Tokens</Label>
+                    <span className='text-xs font-mono'>{modelParams.maxTokens}</span>
+                  </div>
+                  <Slider
+                    value={[modelParams.maxTokens]}
+                    onValueChange={([v]) => onModelParamsChange?.({ ...modelParams, maxTokens: v })}
+                    min={256}
+                    max={8192}
+                    step={256}
+                    className='w-full'
+                  />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
 
-  return (
-    <div className='flex gap-3'>
-      <div className='flex-shrink-0 mt-0.5'>
-        <div className={cn(
-          'w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium',
-          step.status === 'success' ? 'bg-blue-100 text-blue-600' :
-          step.status === 'error' ? 'bg-red-100 text-red-600' :
-          'bg-muted text-muted-foreground'
-        )}>
-          {index}
+          {/* 查看 Prompt */}
+          {hasPrompt && (
+            <Button variant='ghost' size='icon' className='h-7 w-7' onClick={onViewPrompt}>
+              <FileText className='h-3.5 w-3.5' />
+            </Button>
+          )}
+
+          {/* 重跑按钮 */}
+          {canRerun && (
+            <Button variant='ghost' size='icon' className='h-7 w-7' onClick={onRerun}>
+              <RotateCcw className='h-3.5 w-3.5' />
+            </Button>
+          )}
         </div>
       </div>
-      <div className='flex-1 min-w-0'>
-        <Collapsible open={expanded} onOpenChange={setExpanded}>
-          <CollapsibleTrigger className='flex items-center justify-between w-full text-left'>
-            <div className='flex items-center gap-2'>
-              <span className='text-sm font-medium'>{data.toolDisplayName}</span>
-              <code className='text-xs text-muted-foreground'>{data.toolName}</code>
-            </div>
-            <div className='flex items-center gap-2'>
-              {/* 评估徽章 */}
-              {evaluation && (
-                <EvaluationBadge evaluation={evaluation} />
-              )}
-              {step.duration !== undefined && (
-                <span className='text-xs text-muted-foreground'>{formatDuration(step.duration)}</span>
-              )}
-              {expanded ? <ChevronDown className='h-3 w-3' /> : <ChevronRight className='h-3 w-3' />}
-            </div>
-          </CollapsibleTrigger>
-          <CollapsibleContent className='mt-2 space-y-2'>
-            {/* 输入参数 */}
-            <div>
-              <div className='text-xs text-muted-foreground mb-1'>输入</div>
-              <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-32'>
-                {JSON.stringify(data.input, null, 2)}
-              </pre>
-            </div>
-            {/* 输出结果 */}
-            {data.output && (
-              <div>
-                <div className='text-xs text-muted-foreground mb-1'>输出</div>
-                <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-32'>
-                  {JSON.stringify(data.output, null, 2)}
-                </pre>
-              </div>
-            )}
-            {/* 评估详情 */}
-            {evaluation && (
-              <EvaluationDetail evaluation={evaluation} />
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+    </div>
+  )
+}
+
+/** 会话统计栏 - 紧凑水平布局 */
+function SessionStatsBar({ stats }: { stats: ReturnType<typeof calculateSessionStats> }) {
+  return (
+    <div className='px-3 py-1.5 border-b text-xs text-muted-foreground'>
+      <div className='flex items-center gap-3'>
+        <span>{stats.totalRounds} 轮</span>
+        <span className='text-muted-foreground/50'>·</span>
+        <span>{stats.totalTokens.toLocaleString()} tokens</span>
+        <span className='text-muted-foreground/50'>·</span>
+        <span>{formatDuration(stats.totalDuration)}</span>
+        <span className='text-muted-foreground/50'>·</span>
+        <span>${formatCost(stats.estimatedCost)}</span>
       </div>
     </div>
   )
 }
 
-/** 评估徽章 */
-function EvaluationBadge({ evaluation }: { evaluation: EvaluationResult }) {
-  if (evaluation.passed) {
-    return (
-      <Badge variant='outline' className='text-xs text-green-600 gap-1'>
-        <CheckCircle2 className='h-3 w-3' />
-        {evaluation.score}/10
-      </Badge>
-    )
-  }
+
+/** 单轮追踪项 - 简洁卡片 */
+function RoundItem({ 
+  trace, 
+  index, 
+  isLatest,
+  onViewPrompt,
+}: { 
+  trace: ExecutionTrace
+  index: number
+  isLatest: boolean
+  onViewPrompt: (prompt: string) => void
+}) {
+  const [expanded, setExpanded] = useState(isLatest)
+  
+  // 提取关键数据
+  const inputStep = trace.steps.find(s => s.type === 'input')
+  const llmStep = trace.steps.find(s => s.type === 'llm')
+  const toolSteps = trace.steps.filter(s => s.type === 'tool')
+  const llmData = llmStep?.data as LLMStepData | undefined
+  const inputData = inputStep?.data as InputStepData | undefined
+  
+  const duration = trace.completedAt
+    ? new Date(trace.completedAt).getTime() - new Date(trace.startedAt).getTime()
+    : undefined
+
+  // 用户输入摘要
+  const inputSummary = inputData?.text 
+    ? (inputData.text.length > 40 ? inputData.text.slice(0, 40) + '...' : inputData.text)
+    : '(无输入)'
+
+  // 状态图标
+  const StatusIcon = trace.status === 'running' 
+    ? () => <Loader2 className='h-3 w-3 animate-spin text-muted-foreground' />
+    : trace.status === 'error'
+    ? () => <XCircle className='h-3 w-3 text-destructive' />
+    : () => <CheckCircle2 className='h-3 w-3 text-green-500' />
+
   return (
-    <Badge variant='outline' className='text-xs text-amber-600 gap-1'>
-      <AlertCircle className='h-3 w-3' />
-      {evaluation.score}/10
-    </Badge>
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger className='flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-muted/50 rounded-md transition-colors'>
+        {/* 状态图标 */}
+        <StatusIcon />
+        {/* 轮次号 */}
+        <span className='text-xs text-muted-foreground w-5'>#{index}</span>
+        {/* 输入摘要 */}
+        <span className='flex-1 text-sm truncate'>{inputSummary}</span>
+        {/* 耗时 */}
+        {duration !== undefined && (
+          <span className='text-xs text-muted-foreground'>{formatDuration(duration)}</span>
+        )}
+        {/* 展开图标 */}
+        {expanded ? <ChevronDown className='h-3.5 w-3.5 text-muted-foreground' /> : <ChevronRight className='h-3.5 w-3.5 text-muted-foreground' />}
+      </CollapsibleTrigger>
+      
+      <CollapsibleContent>
+        <div className='ml-5 pl-3 border-l space-y-1.5 py-2'>
+          {/* LLM 推理信息 */}
+          {llmStep && llmData && (
+            <div className='flex items-center gap-2 text-xs text-muted-foreground'>
+              <Bot className='h-3 w-3' />
+              <span>{llmData.model}</span>
+              <span className='text-muted-foreground/50'>·</span>
+              <span>{llmData.inputTokens}+{llmData.outputTokens} tokens</span>
+              {llmStep.duration && (
+                <>
+                  <span className='text-muted-foreground/50'>·</span>
+                  <span>{formatDuration(llmStep.duration)}</span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 意图分类（可展开） */}
+          {trace.intent && (
+            <IntentSection intent={trace.intent} intentMethod={trace.intentMethod} />
+          )}
+
+          {/* Tool 调用（可展开查看详情） */}
+          {toolSteps.length > 0 && (
+            <ToolCallSection toolSteps={toolSteps} />
+          )}
+
+          {/* AI 输出（可展开查看详情） */}
+          {trace.output && (
+            <OutputSection output={trace.output} />
+          )}
+
+          {/* 查看该轮 Prompt */}
+          {trace.systemPrompt && (
+            <button 
+              className='flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors'
+              onClick={() => onViewPrompt(trace.systemPrompt!)}
+            >
+              <FileText className='h-3 w-3' />
+              查看 Prompt
+            </button>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+
+/** 意图分类区块 */
+function IntentSection({ intent, intentMethod }: { intent: string; intentMethod?: 'regex' | 'llm' }) {
+  const [expanded, setExpanded] = useState(true)
+  const displayName = INTENT_DISPLAY_NAMES[intent as keyof typeof INTENT_DISPLAY_NAMES] || intent
+  const methodName = intentMethod ? INTENT_METHOD_NAMES[intentMethod] : null
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger className='flex items-center gap-2 w-full text-left text-xs'>
+        <Target className='h-3 w-3 text-muted-foreground' />
+        <span className='text-muted-foreground'>意图分类</span>
+        {expanded 
+          ? <ChevronDown className='h-3 w-3 ml-auto text-muted-foreground' /> 
+          : <ChevronRight className='h-3 w-3 ml-auto text-muted-foreground' />
+        }
+      </CollapsibleTrigger>
+      <CollapsibleContent className='mt-1.5 ml-5 pl-3 border-l'>
+        <div className='text-xs'>
+          {displayName}
+          {methodName && (
+            <span className='text-muted-foreground ml-1'>({methodName})</span>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+/** Tool 调用区块 */
+function ToolCallSection({ toolSteps }: { toolSteps: TraceStep[] }) {
+  const [expanded, setExpanded] = useState(true)
+  const totalDuration = toolSteps.reduce((sum, s) => sum + (s.duration || 0), 0)
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger className='flex items-center gap-2 w-full text-left text-xs'>
+        <Wrench className='h-3 w-3 text-muted-foreground' />
+        <span className='text-muted-foreground'>Tool 调用</span>
+        <span className='text-muted-foreground/50'>·</span>
+        <span className='text-muted-foreground/70'>{formatDuration(totalDuration)}</span>
+        {expanded 
+          ? <ChevronDown className='h-3 w-3 ml-auto text-muted-foreground' /> 
+          : <ChevronRight className='h-3 w-3 ml-auto text-muted-foreground' />
+        }
+      </CollapsibleTrigger>
+      
+      <CollapsibleContent className='mt-1.5 ml-5 space-y-2'>
+        {toolSteps.map((step) => {
+          const toolData = step.data as ToolStepData
+          return (
+            <ToolCallDetail 
+              key={step.id} 
+              step={step} 
+              data={toolData}
+            />
+          )
+        })}
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+/** Tool 调用详情 - 展开后显示 */
+function ToolCallDetail({ step, data }: { step: TraceStep; data: ToolStepData }) {
+  const evaluation = data.evaluation
+  const hasInput = data.input && Object.keys(data.input).length > 0
+  const hasOutput = data.output && Object.keys(data.output).length > 0
+
+  return (
+    <div className='space-y-1.5 border-l pl-3'>
+      {/* Tool 名称 + 评分 */}
+      <div className='flex items-center gap-2 text-xs'>
+        <span className='font-medium'>{data.toolDisplayName}</span>
+        {evaluation && (
+          <span className={cn(
+            'text-xs',
+            evaluation.passed ? 'text-green-600' : 'text-amber-600'
+          )}>
+            {evaluation.score}/10
+          </span>
+        )}
+        {step.duration !== undefined && (
+          <span className='text-muted-foreground/70'>{formatDuration(step.duration)}</span>
+        )}
+      </div>
+      
+      {/* 输入参数 */}
+      {hasInput ? (
+        <div>
+          <div className='text-xs text-muted-foreground mb-0.5'>输入</div>
+          <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-24 font-mono'>
+            {JSON.stringify(data.input, null, 2)}
+          </pre>
+        </div>
+      ) : (
+        <div className='text-xs text-muted-foreground'>无输入参数</div>
+      )}
+      
+      {/* 输出结果 */}
+      {hasOutput ? (
+        <div>
+          <div className='text-xs text-muted-foreground mb-0.5'>输出</div>
+          <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-24 font-mono'>
+            {JSON.stringify(data.output, null, 2)}
+          </pre>
+        </div>
+      ) : (
+        <div className='text-xs text-muted-foreground'>无输出结果</div>
+      )}
+      
+      {/* 评估详情 */}
+      {evaluation && (
+        <EvaluationDetail evaluation={evaluation} />
+      )}
+    </div>
   )
 }
 
@@ -349,11 +629,62 @@ function FieldCheck({ label, checked }: { label: string; checked: boolean }) {
   )
 }
 
-/** 格式化耗时 */
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
-  return `${(ms / 60000).toFixed(1)}m`
+/** AI 输出区块 */
+function OutputSection({ output }: { output: TraceOutput }) {
+  const [expanded, setExpanded] = useState(true)
+  const hasText = output.text && output.text.length > 0
+  const hasToolCalls = output.toolCalls.length > 0
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger className='flex items-center gap-2 w-full text-left text-xs'>
+        <MessageSquare className='h-3 w-3 text-muted-foreground' />
+        <span className='text-muted-foreground'>AI 输出</span>
+        <span className='text-muted-foreground/50'>·</span>
+        <span className='text-muted-foreground/70'>
+          {hasText ? '有文字' : '无文字'}
+          {hasToolCalls && ` + ${output.toolCalls.length} tool`}
+        </span>
+        {expanded 
+          ? <ChevronDown className='h-3 w-3 ml-auto text-muted-foreground' /> 
+          : <ChevronRight className='h-3 w-3 ml-auto text-muted-foreground' />
+        }
+      </CollapsibleTrigger>
+      
+      <CollapsibleContent className='mt-1.5 ml-5 space-y-2'>
+        {/* 文字响应 */}
+        <div className='border-l pl-3'>
+          <div className='text-xs text-muted-foreground mb-0.5'>文字响应</div>
+          {hasText ? (
+            <div className='text-xs bg-muted p-2 rounded max-h-32 overflow-auto whitespace-pre-wrap'>
+              {output.text}
+            </div>
+          ) : (
+            <div className='text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 p-2 rounded'>
+              ⚠️ 无文字响应
+            </div>
+          )}
+        </div>
+        
+        {/* Tool 调用摘要 */}
+        {hasToolCalls && (
+          <div className='border-l pl-3'>
+            <div className='text-xs text-muted-foreground mb-0.5'>Tool 调用 ({output.toolCalls.length})</div>
+            <div className='space-y-1'>
+              {output.toolCalls.map((tc, i) => (
+                <div key={i} className='text-xs bg-muted p-2 rounded'>
+                  <div className='font-medium'>{tc.displayName}</div>
+                  <pre className='mt-1 text-muted-foreground overflow-auto max-h-20'>
+                    {JSON.stringify(tc.output, null, 2)}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  )
 }
 
 /** 加载骨架 */

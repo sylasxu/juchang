@@ -1,11 +1,11 @@
 /**
- * PlaygroundChat Component
+ * PlaygroundChat Component (v3.11)
  * 
  * 对话区组件，集成执行追踪。
- * 参考 Requirements R1, R2, R3, R16, R17, R19, R20
+ * 模型参数已移至 ExecutionTracePanel 统一管理。
  */
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, useImperativeHandle, forwardRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useChat, type UIMessage } from '@ai-sdk/react'
 import { DefaultChatTransport, isToolUIPart, getToolName } from 'ai'
@@ -14,52 +14,61 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Slider } from '@/components/ui/slider'
-import { Label } from '@/components/ui/label'
 import { 
-  Send, Trash2, Settings2, Bot, User, Loader2, Copy, Check,
-  RotateCcw, StopCircle, ChevronRight,
+  Send, Trash2, Bot, User, Loader2, Copy, Check,
+  RotateCcw, StopCircle, ChevronRight, PanelRightOpen, PanelRightClose,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StreamingText } from '../shared/streaming-text'
-import type { TraceStep, TraceStatus } from '../../types/trace'
-import { getToolDisplayName } from '../../types/trace'
+import type { TraceStep, TraceStatus, ModelParams, IntentType } from '../../types/trace'
+import { getToolDisplayName, DEFAULT_MODEL_PARAMS } from '../../types/trace'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
+/** 暴露给父组件的方法 */
+export interface PlaygroundChatRef {
+  /** 获取最后一条用户消息 */
+  getLastUserMessage: () => string | null
+  /** 重跑最后一条消息 */
+  rerun: () => void
+}
 
 interface PlaygroundChatProps {
+  /** 模型参数（从父组件传入） */
+  modelParams?: ModelParams
   /** 追踪开始回调 */
-  onTraceStart?: (requestId: string, startedAt: string, systemPrompt?: string, tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }>) => void
+  onTraceStart?: (requestId: string, startedAt: string, systemPrompt?: string, tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }>, intent?: IntentType, intentMethod?: 'regex' | 'llm') => void
   /** 追踪步骤回调 */
   onTraceStep?: (step: TraceStep) => void
   /** 更新追踪步骤回调 */
   onUpdateTraceStep?: (stepId: string, updates: Partial<TraceStep>) => void
   /** 追踪结束回调 */
-  onTraceEnd?: (completedAt: string, status: TraceStatus, totalCost?: number) => void
+  onTraceEnd?: (completedAt: string, status: TraceStatus, totalCost?: number, output?: { text: string | null; toolCalls: Array<{ name: string; displayName: string; input: unknown; output: unknown }> }) => void
   /** 清空追踪回调 */
   onClearTrace?: () => void
   /** 选中消息回调 */
   onMessageSelect?: (messageId: string) => void
+  /** 追踪面板是否可见 */
+  tracePanelVisible?: boolean
+  /** 切换追踪面板 */
+  onToggleTracePanel?: () => void
 }
 
-export function PlaygroundChat({
+export const PlaygroundChat = forwardRef<PlaygroundChatRef, PlaygroundChatProps>(function PlaygroundChat({
+  modelParams = DEFAULT_MODEL_PARAMS,
   onTraceStart,
   onTraceStep,
   onUpdateTraceStep,
   onTraceEnd,
   onClearTrace,
   onMessageSelect,
-}: PlaygroundChatProps) {
-  const [showSettings, setShowSettings] = useState(false)
+  tracePanelVisible,
+  onToggleTracePanel,
+}, ref) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [inputValue, setInputValue] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
-  
-  // 模型参数状态
-  const [temperature, setTemperature] = useState(0)
-  const [maxTokens, setMaxTokens] = useState(2048)
 
   // 创建 transport（依赖模型参数）
   const transport = useMemo(() => {
@@ -71,12 +80,13 @@ export function PlaygroundChat({
         source: 'admin',
         trace: true,
         modelParams: {
-          temperature,
-          maxTokens,
+          model: modelParams.model,
+          temperature: modelParams.temperature,
+          maxTokens: modelParams.maxTokens,
         },
       },
     })
-  }, [temperature, maxTokens])
+  }, [modelParams])
 
   // 使用 useChat hook
   const { 
@@ -90,22 +100,20 @@ export function PlaygroundChat({
   } = useChat({
     transport,
     onData: (dataPart) => {
-      // AI SDK v6 的 onData 接收单个 data part 对象
-      // dataPart 结构: { type: 'data-xxx', data: {...} }
       if (dataPart && typeof dataPart === 'object' && 'type' in dataPart) {
         const part = dataPart as { type: string; data?: unknown }
         
         if (part.type === 'data-trace-start') {
-          const data = part.data as { requestId: string; startedAt: string; systemPrompt?: string; tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }> }
-          onTraceStart?.(data.requestId, data.startedAt, data.systemPrompt, data.tools)
+          const data = part.data as { requestId: string; startedAt: string; systemPrompt?: string; tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }>; intent?: IntentType; intentMethod?: 'regex' | 'llm' }
+          onTraceStart?.(data.requestId, data.startedAt, data.systemPrompt, data.tools, data.intent, data.intentMethod)
         } else if (part.type === 'data-trace-step') {
           onTraceStep?.(part.data as TraceStep)
         } else if (part.type === 'data-trace-step-update') {
           const data = part.data as { stepId: string; [key: string]: unknown }
           onUpdateTraceStep?.(data.stepId, data as Partial<TraceStep>)
         } else if (part.type === 'data-trace-end') {
-          const data = part.data as { completedAt: string; status: TraceStatus; totalCost?: number }
-          onTraceEnd?.(data.completedAt, data.status, data.totalCost)
+          const data = part.data as { completedAt: string; status: TraceStatus; totalCost?: number; output?: { text: string | null; toolCalls: Array<{ name: string; displayName: string; input: unknown; output: unknown }> } }
+          onTraceEnd?.(data.completedAt, data.status, data.totalCost, data.output)
         }
       }
     },
@@ -117,6 +125,40 @@ export function PlaygroundChat({
 
   const isLoading = status === 'submitted' || status === 'streaming'
 
+  // 获取最后一条用户消息
+  const getLastUserMessage = useCallback((): string | null => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        const textPart = messages[i].parts?.find(
+          (p): p is { type: 'text'; text: string } => p.type === 'text'
+        )
+        return textPart?.text || null
+      }
+    }
+    return null
+  }, [messages])
+
+  // 发送消息的核心逻辑
+  const doSendMessage = useCallback((text: string) => {
+    if (!text.trim() || isLoading) return
+    
+    sendMessage({ text: text.trim() })
+    setAutoScroll(true)
+  }, [isLoading, sendMessage])
+
+  // 重跑最后一条消息
+  const rerun = useCallback(() => {
+    const lastMessage = getLastUserMessage()
+    if (lastMessage) {
+      doSendMessage(lastMessage)
+    }
+  }, [getLastUserMessage, doSendMessage])
+
+  // 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    getLastUserMessage,
+    rerun,
+  }), [getLastUserMessage, rerun])
 
   // 自动滚动
   useEffect(() => {
@@ -146,55 +188,15 @@ export function PlaygroundChat({
     e.preventDefault()
     if (!inputValue.trim() || isLoading) return
     
-    const requestId = crypto.randomUUID()
-    const startedAt = new Date().toISOString()
-    
-    // 开始追踪
-    onTraceStart?.(requestId, startedAt)
-    
-    // 添加用户输入步骤
-    onTraceStep?.({
-      id: `${requestId}-input`,
-      type: 'input',
-      name: '用户输入',
-      startedAt,
-      status: 'success',
-      duration: 0,
-      data: { text: inputValue.trim() },
-    })
-    
-    // 使用 sendMessage 发送消息
-    // API 已更新支持 text 和 content 两种格式
-    sendMessage({ text: inputValue.trim() })
+    doSendMessage(inputValue.trim())
     setInputValue('')
-    setAutoScroll(true)
     inputRef.current?.focus()
-  }, [inputValue, isLoading, sendMessage, onTraceStart, onTraceStep])
+  }, [inputValue, isLoading, doSendMessage])
 
   // 发送消息（供按钮点击使用）
   const handleSendMessage = useCallback((text: string) => {
-    if (!text.trim() || isLoading) return
-    
-    const requestId = crypto.randomUUID()
-    const startedAt = new Date().toISOString()
-    
-    // 开始追踪
-    onTraceStart?.(requestId, startedAt)
-    
-    // 添加用户输入步骤
-    onTraceStep?.({
-      id: `${requestId}-input`,
-      type: 'input',
-      name: '用户输入',
-      startedAt,
-      status: 'success',
-      duration: 0,
-      data: { text: text.trim() },
-    })
-    
-    sendMessage({ text: text.trim() })
-    setAutoScroll(true)
-  }, [isLoading, sendMessage, onTraceStart, onTraceStep])
+    doSendMessage(text)
+  }, [doSendMessage])
 
   // 键盘快捷键
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -204,160 +206,104 @@ export function PlaygroundChat({
     }
   }, [handleSubmit])
 
-
   return (
-    <div className='flex h-full gap-6 p-4 overflow-hidden'>
-      {/* 主聊天区 */}
-      <div className='flex flex-1 flex-col min-h-0'>
-        {/* 顶部工具栏 */}
-        <div className='mb-4 flex items-center justify-between flex-shrink-0'>
-          <div className='flex items-center gap-3'>
-            <h2 className='text-lg font-medium'>对话测试</h2>
-          </div>
-          <div className='flex items-center gap-1'>
-            <Button variant='ghost' size='sm' onClick={() => setShowSettings(!showSettings)}>
-              <Settings2 className='mr-1 h-4 w-4' />
-              设置
+    <div className='flex h-full flex-col p-4 pt-2 overflow-hidden'>
+      {/* 顶部工具栏 */}
+      <div className='mb-4 flex items-center justify-between flex-shrink-0'>
+        <h2 className='text-lg font-medium'>对话测试</h2>
+        <div className='flex items-center gap-1'>
+          <Button variant='ghost' size='sm' onClick={handleClear} disabled={messages.length === 0}>
+            <Trash2 className='mr-1 h-4 w-4' />
+            清空
+          </Button>
+          {onToggleTracePanel && (
+            <Button variant='ghost' size='icon' className='h-8 w-8' onClick={onToggleTracePanel}>
+              {tracePanelVisible ? (
+                <PanelRightClose className='h-4 w-4' />
+              ) : (
+                <PanelRightOpen className='h-4 w-4' />
+              )}
             </Button>
-            <Button variant='ghost' size='sm' onClick={handleClear} disabled={messages.length === 0}>
-              <Trash2 className='mr-1 h-4 w-4' />
-              清空
-            </Button>
-          </div>
-        </div>
-
-        {/* 消息列表 */}
-        <ScrollArea className='flex-1 min-h-0' ref={scrollRef} onScrollCapture={handleScroll}>
-          <div className='space-y-6 pb-4 pr-4'>
-            {messages.length === 0 && (
-              <EmptyState onQuickAction={(prompt) => {
-                setInputValue(prompt)
-                inputRef.current?.focus()
-              }} />
-            )}
-            {messages.map((message, index) => {
-              const isLastAssistant = message.role === 'assistant' && 
-                index === messages.length - 1
-              return (
-                <MessageItem 
-                  key={message.id} 
-                  message={message}
-                  isStreaming={isLoading && isLastAssistant}
-                  onClick={() => onMessageSelect?.(message.id)}
-                  onSendMessage={handleSendMessage}
-                />
-              )
-            })}
-          </div>
-        </ScrollArea>
-
-        {/* 输入区 */}
-        <div className='mt-4 space-y-2 flex-shrink-0'>
-          {error && (
-            <div className='rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive'>
-              {error.message}
-            </div>
           )}
-          
-          {isLoading && (
-            <div className='flex justify-center'>
-              <Button variant='outline' size='sm' onClick={stop}>
-                <StopCircle className='mr-1 h-4 w-4' />
-                停止生成
-              </Button>
-            </div>
-          )}
-          {!isLoading && error && (
-            <div className='flex justify-center'>
-              <Button variant='outline' size='sm' onClick={() => regenerate()}>
-                <RotateCcw className='mr-1 h-4 w-4' />
-                重试
-              </Button>
-            </div>
-          )}
-          
-          <form onSubmit={handleSubmit} className='flex gap-2'>
-            <Input
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder='输入测试文本，如：明晚观音桥打麻将，3缺1'
-              disabled={isLoading}
-              className='flex-1'
-            />
-            <Button type='submit' disabled={!inputValue.trim() || isLoading}>
-              {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : <Send className='h-4 w-4' />}
-            </Button>
-          </form>
         </div>
       </div>
 
-
-      {/* 设置面板 */}
-      {showSettings && (
-        <div className='w-80 shrink-0 border-l pl-6'>
-          <h3 className='mb-4 text-sm font-medium'>模型参数</h3>
-          
-          {/* Temperature */}
-          <div className='space-y-3'>
-            <div className='space-y-2'>
-              <div className='flex items-center justify-between'>
-                <Label className='text-xs'>Temperature</Label>
-                <span className='text-xs text-muted-foreground'>{temperature}</span>
-              </div>
-              <Slider
-                value={[temperature]}
-                onValueChange={([v]) => setTemperature(v)}
-                min={0}
-                max={2}
-                step={0.1}
-                className='w-full'
+      {/* 消息列表 */}
+      <ScrollArea className='flex-1 min-h-0' ref={scrollRef} onScrollCapture={handleScroll}>
+        <div className='space-y-6 pb-4 pr-4'>
+          {messages.length === 0 && (
+            <EmptyState onQuickAction={(prompt) => {
+              handleSendMessage(prompt)
+            }} />
+          )}
+          {messages.map((message, index) => {
+            const isLastAssistant = message.role === 'assistant' && 
+              index === messages.length - 1
+            return (
+              <MessageItem 
+                key={message.id} 
+                message={message}
+                isStreaming={isLoading && isLastAssistant}
+                onClick={() => onMessageSelect?.(message.id)}
+                onSendMessage={handleSendMessage}
               />
-              <p className='text-xs text-muted-foreground'>
-                越低越确定，越高越随机。Tool 调用建议 0。
-              </p>
-            </div>
-            
-            {/* Max Tokens */}
-            <div className='space-y-2'>
-              <div className='flex items-center justify-between'>
-                <Label className='text-xs'>Max Tokens</Label>
-                <span className='text-xs text-muted-foreground'>{maxTokens}</span>
+            )
+          })}
+          {/* 已提交但还没收到 assistant 消息时，显示 loading */}
+          {isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
+            <div className='flex gap-3'>
+              <div className='flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted'>
+                <Bot className='h-4 w-4' />
               </div>
-              <Slider
-                value={[maxTokens]}
-                onValueChange={([v]) => setMaxTokens(v)}
-                min={256}
-                max={8192}
-                step={256}
-                className='w-full'
-              />
-              <p className='text-xs text-muted-foreground'>
-                最大输出 Token 数。
-              </p>
+              <div className='rounded-lg rounded-tl-none bg-muted px-3 py-2'>
+                <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+              </div>
             </div>
-          </div>
-          
-          <div className='mt-6 rounded-lg bg-muted/50 p-3'>
-            <p className='text-xs text-muted-foreground'>
-              <strong>注意</strong>：Tool 调用会写入数据库。测试产生的活动可以在活动管理页面删除。
-            </p>
-          </div>
-          
-          <div className='mt-4'>
-            <p className='text-xs text-muted-foreground'>
-              查看当前 System Prompt：
-              <a href='/ai-ops/prompt-viewer' className='ml-1 text-primary hover:underline'>
-                Prompt 查看器 →
-              </a>
-            </p>
-          </div>
+          )}
         </div>
-      )}
+      </ScrollArea>
+
+      {/* 输入区 */}
+      <div className='mt-4 space-y-2 flex-shrink-0'>
+        {error && (
+          <div className='rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive'>
+            {error.message}
+          </div>
+        )}
+        
+        {!isLoading && error && (
+          <div className='flex justify-center'>
+            <Button variant='outline' size='sm' onClick={() => regenerate()}>
+              <RotateCcw className='mr-1 h-4 w-4' />
+              重试
+            </Button>
+          </div>
+        )}
+        
+        <form onSubmit={handleSubmit} className='flex gap-2'>
+          <Input
+            ref={inputRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder='输入测试文本，如：明晚观音桥打麻将，3缺1'
+            disabled={isLoading}
+            className='flex-1'
+          />
+          {isLoading ? (
+            <Button type='button' variant='outline' onClick={stop}>
+              <StopCircle className='h-4 w-4' />
+            </Button>
+          ) : (
+            <Button type='submit' disabled={!inputValue.trim()}>
+              <Send className='h-4 w-4' />
+            </Button>
+          )}
+        </form>
+      </div>
     </div>
   )
-}
+})
 
 
 // 空状态组件 - 分层信息架构（基于 API 返回的 sections）
@@ -379,7 +325,6 @@ function EmptyState({ onQuickAction }: { onQuickAction: (prompt: string) => void
 
   return (
     <div className='space-y-6'>
-      {/* 顶部问候 */}
       <div>
         <h2 className='text-xl font-semibold'>
           {welcomeData?.greeting || 'Hello ✨'}
@@ -389,7 +334,6 @@ function EmptyState({ onQuickAction }: { onQuickAction: (prompt: string) => void
         )}
       </div>
 
-      {/* 分组列表 */}
       {welcomeData?.sections?.map((section) => (
         <WelcomeSection 
           key={section.id} 
@@ -401,7 +345,6 @@ function EmptyState({ onQuickAction }: { onQuickAction: (prompt: string) => void
   )
 }
 
-/** 欢迎页分组 */
 function WelcomeSection({ 
   section, 
   onQuickAction 
@@ -428,7 +371,6 @@ function WelcomeSection({
   )
 }
 
-/** 快捷项 */
 function QuickItem({ 
   item, 
   onClick 
@@ -451,8 +393,6 @@ function QuickItem({
   )
 }
 
-
-// Tool Part 类型
 interface ToolPartData {
   type: string
   toolCallId: string
@@ -463,7 +403,6 @@ interface ToolPartData {
   errorText?: string
 }
 
-// 消息项组件
 function MessageItem({ 
   message, 
   isStreaming,
@@ -477,13 +416,6 @@ function MessageItem({
 }) {
   const [copied, setCopied] = useState(false)
   const isUser = message.role === 'user'
-
-  // Debug: 打印消息结构
-  console.log('MessageItem:', { 
-    role: message.role, 
-    parts: message.parts,
-    content: (message as any).content,
-  })
 
   const textContent = message.parts
     ?.filter((part): part is { type: 'text'; text: string } => part.type === 'text')
@@ -513,11 +445,20 @@ function MessageItem({
       </div>
 
       <div className={cn('flex max-w-[85%] flex-col gap-2', isUser && 'items-end')}>
+        {/* AI 消息：正在流式输出但还没有文字时，显示 loading */}
+        {!isUser && isStreaming && !textContent && toolParts.length === 0 && (
+          <div className='rounded-lg rounded-tl-none bg-muted px-3 py-2'>
+            <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
+          </div>
+        )}
+        
         {textContent && (
           <div
             className={cn(
-              'rounded-lg px-3 py-2 text-sm',
-              isUser ? 'bg-primary text-primary-foreground' : 'bg-muted'
+              'px-3 py-2 text-sm',
+              isUser 
+                ? 'rounded-lg rounded-tr-none bg-primary text-primary-foreground' 
+                : 'rounded-lg rounded-tl-none bg-muted'
             )}
           >
             {isStreaming ? (
@@ -528,8 +469,8 @@ function MessageItem({
           </div>
         )}
 
-        {/* 流式结束后才展示 widget */}
-        {!isStreaming && toolParts.length > 0 && (
+        {/* Tool 调用：流式输出时也显示（有输出的 tool） */}
+        {toolParts.length > 0 && (
           <div className='w-full space-y-2'>
             {toolParts.map((part) => (
               <ToolCallCard key={part.toolCallId} toolPart={part} onSendMessage={onSendMessage} />
@@ -556,14 +497,11 @@ function MessageItem({
   )
 }
 
-
-// Tool Call 卡片 - 简化版，只显示 widget 预览（调试信息在执行追踪面板）
 function ToolCallCard({ toolPart, onSendMessage }: { toolPart: ToolPartData; onSendMessage?: (text: string) => void }) {
   const toolName = toolPart.type === 'dynamic-tool' 
     ? (toolPart.toolName || 'unknown')
     : getToolName(toolPart as Parameters<typeof getToolName>[0])
 
-  // 加载中状态
   if (toolPart.state === 'input-streaming' || toolPart.state === 'input-available') {
     return (
       <div className='flex items-center gap-2 text-sm text-muted-foreground'>
@@ -573,7 +511,6 @@ function ToolCallCard({ toolPart, onSendMessage }: { toolPart: ToolPartData; onS
     )
   }
 
-  // 错误状态
   if (toolPart.state === 'output-error') {
     return (
       <div className='rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive'>
@@ -582,12 +519,9 @@ function ToolCallCard({ toolPart, onSendMessage }: { toolPart: ToolPartData; onS
     )
   }
 
-  // 成功状态 - 只渲染 widget 预览
   return <ToolPreview toolPart={toolPart} onSendMessage={onSendMessage} />
 }
 
-
-// Tool 预览组件 - 友好展示 Tool 调用结果
 function ToolPreview({ toolPart, onSendMessage }: { toolPart: ToolPartData; onSendMessage?: (text: string) => void }) {
   const toolName = toolPart.type === 'dynamic-tool' 
     ? (toolPart.toolName || 'unknown')
@@ -595,36 +529,32 @@ function ToolPreview({ toolPart, onSendMessage }: { toolPart: ToolPartData; onSe
 
   const input = toolPart.input as Record<string, unknown> | undefined
   const output = toolPart.output as Record<string, unknown> | undefined
-
-  // 辅助函数：安全转换为字符串
   const str = (val: unknown): string => String(val ?? '')
 
-  // askPreference 预览 - 只显示选项按钮（问题文字由 AI 文本输出）
+  // askPreference: 渲染选项按钮（所有交互按钮统一由此 tool 提供）
   if (toolName === 'askPreference') {
-    const options = (input?.options || []) as Array<{ label: string; value: string }>
-    const allowSkip = input?.allowSkip !== false
+    const options = (output?.options || input?.options || []) as Array<{ label: string; value: string }>
+    const allowSkip = output?.allowSkip !== false && input?.allowSkip !== false
+    const isComplete = toolPart.state === 'output-available'
+
+    if (!isComplete) {
+      return null
+    }
 
     return (
-      <div className='space-y-3 text-sm'>
-        {/* 选项按钮 */}
-        {options.length > 0 && (
-          <div className='flex flex-wrap gap-2'>
-            {options.map((option, i) => (
-              <div
-                key={i}
-                className='rounded-full border bg-background px-3 py-1.5 text-xs hover:bg-muted cursor-pointer transition-colors'
-                onClick={() => onSendMessage?.(option.label)}
-              >
-                {option.label}
-              </div>
-            ))}
+      <div className='flex flex-wrap gap-2'>
+        {options.map((option, i) => (
+          <div
+            key={i}
+            className='rounded-full border bg-background px-3 py-1.5 text-xs hover:bg-muted cursor-pointer transition-colors'
+            onClick={() => onSendMessage?.(option.label)}
+          >
+            {option.label}
           </div>
-        )}
-        
-        {/* 跳过按钮 */}
+        ))}
         {allowSkip && (
           <div 
-            className='rounded-full border border-dashed bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground cursor-pointer hover:bg-muted transition-colors inline-block'
+            className='rounded-full border border-dashed bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground cursor-pointer hover:bg-muted transition-colors'
             onClick={() => onSendMessage?.('都可以，你随便推荐')}
           >
             都可以，你随便推荐
@@ -634,119 +564,40 @@ function ToolPreview({ toolPart, onSendMessage }: { toolPart: ToolPartData; onSe
     )
   }
 
-  // createActivityDraft 预览 - 简化为确认按钮（详情在执行追踪面板）
-  if (toolName === 'createActivityDraft') {
-    return (
-      <div className='space-y-3 text-sm'>
-        {/* 确认按钮 */}
-        {toolPart.state === 'output-available' && (
-          <div className='flex flex-wrap gap-2'>
-            <div 
-              className='rounded-full border bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/20 cursor-pointer transition-colors'
-              onClick={() => onSendMessage?.('没问题，就这样发布吧')}
-            >
-              没问题，就这样！
-            </div>
-            <div 
-              className='rounded-full border border-dashed bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted cursor-pointer transition-colors'
-              onClick={() => onSendMessage?.('不对，帮我修改')}
-            >
-              不对，帮我修改
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // refineDraft 预览 - 简化为确认按钮
-  if (toolName === 'refineDraft') {
-    return (
-      <div className='space-y-3 text-sm'>
-        {/* 确认按钮 */}
-        {toolPart.state === 'output-available' && (
-          <div className='flex flex-wrap gap-2'>
-            <div 
-              className='rounded-full border bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/20 cursor-pointer transition-colors'
-              onClick={() => onSendMessage?.('没问题，就这样发布吧')}
-            >
-              没问题，就这样！
-            </div>
-            <div 
-              className='rounded-full border border-dashed bg-muted/30 px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted cursor-pointer transition-colors'
-              onClick={() => onSendMessage?.('还要改')}
-            >
-              还要改
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // exploreNearby 预览
+  // exploreNearby: 只展示活动列表，按钮由后续 askPreference 提供
   if (toolName === 'exploreNearby') {
     const activities = (output?.activities || []) as Array<Record<string, unknown>>
-    const searchType = input?.type ? str(input.type) : null
-    const locationName = input?.center && typeof input.center === 'object' 
-      ? str((input.center as Record<string, unknown>).name || '') 
-      : ''
 
-    // 根据类型生成创建提示
-    const getCreatePrompt = () => {
-      const typeMap: Record<string, string> = {
-        food: '美食局',
-        entertainment: '娱乐局', 
-        sports: '运动局',
-        boardgame: '桌游局',
-      }
-      const typeName = searchType ? typeMap[searchType] || '活动' : '活动'
-      const location = locationName ? `在${locationName}` : ''
-      return `帮我${location}组一个${typeName}`
+    if (toolPart.state !== 'output-available' || activities.length === 0) {
+      return null
     }
 
     return (
-      <div className='space-y-3 text-sm'>
-        {toolPart.state === 'output-available' && (
-          <>
-            {activities.length > 0 ? (
-              <div className='space-y-1'>
-                {activities.slice(0, 3).map((activity, i) => {
-                  const actTitle = str(activity.title || '未命名')
-                  const distance = activity.distance ? Number(activity.distance).toFixed(1) : null
-                  return (
-                    <div key={i} className='flex items-center gap-2 rounded bg-muted p-1.5 text-xs'>
-                      <span className='truncate'>{actTitle}</span>
-                      {distance && (
-                        <span className='ml-auto shrink-0 text-muted-foreground'>
-                          {distance}km
-                        </span>
-                      )}
-                    </div>
-                  )
-                })}
-                {activities.length > 3 && (
-                  <div className='text-xs text-muted-foreground'>
-                    还有 {activities.length - 3} 个活动...
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* 无结果时显示创建按钮 */
-              <div 
-                className='rounded-full border bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/20 cursor-pointer transition-colors inline-block'
-                onClick={() => onSendMessage?.(getCreatePrompt())}
-              >
-                帮我组一个 ✨
-              </div>
-            )}
-          </>
+      <div className='space-y-1'>
+        {activities.slice(0, 3).map((activity, i) => {
+          const actTitle = str(activity.title || '未命名')
+          const distance = activity.distance ? Number(activity.distance).toFixed(1) : null
+          return (
+            <div key={i} className='flex items-center gap-2 rounded bg-muted p-1.5 text-xs'>
+              <span className='truncate'>{actTitle}</span>
+              {distance && (
+                <span className='ml-auto shrink-0 text-muted-foreground'>
+                  {distance}km
+                </span>
+              )}
+            </div>
+          )
+        })}
+        {activities.length > 3 && (
+          <div className='text-xs text-muted-foreground'>
+            还有 {activities.length - 3} 个活动...
+          </div>
         )}
       </div>
     )
   }
 
-  // publishActivity 预览
+  // publishActivity: 成功提示
   if (toolName === 'publishActivity') {
     return (
       <div className='rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300'>
@@ -755,10 +606,6 @@ function ToolPreview({ toolPart, onSendMessage }: { toolPart: ToolPartData; onSe
     )
   }
 
-  // 默认预览 - 简洁显示
-  return (
-    <div className='text-xs text-muted-foreground'>
-      {toolPart.state === 'output-available' ? '✓ 完成' : '处理中...'}
-    </div>
-  )
+  // 其他 tool: 不渲染任何 UI，按钮由 askPreference 统一提供
+  return null
 }

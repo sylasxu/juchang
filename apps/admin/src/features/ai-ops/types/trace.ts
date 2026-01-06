@@ -32,6 +32,43 @@ export interface ExecutionTrace {
   systemPrompt?: string
   /** 可用工具列表 */
   tools?: ToolDefinition[]
+  /** 意图分类 */
+  intent?: IntentType
+  /** 意图分类方法 */
+  intentMethod?: 'regex' | 'llm'
+  /** AI 输出摘要 */
+  output?: TraceOutput
+}
+
+/** AI 输出摘要 */
+export interface TraceOutput {
+  /** 文字响应 */
+  text: string | null
+  /** Tool 调用列表 */
+  toolCalls: Array<{
+    name: string
+    displayName: string
+    input: unknown
+    output: unknown
+  }>
+}
+
+/** 意图类型 */
+export type IntentType = 'create' | 'explore' | 'manage' | 'idle' | 'unknown'
+
+/** 意图分类方法显示名称 */
+export const INTENT_METHOD_NAMES: Record<'regex' | 'llm', string> = {
+  regex: '正则',
+  llm: 'LLM',
+}
+
+/** 意图显示名称 */
+export const INTENT_DISPLAY_NAMES: Record<IntentType, string> = {
+  create: '创建',
+  explore: '探索',
+  manage: '管理',
+  idle: '空闲',
+  unknown: '未知',
 }
 
 /** 工具定义 */
@@ -128,7 +165,7 @@ export interface ToolStepData {
   /** 输出结果 */
   output?: Record<string, unknown>
   /** Widget 类型 (如果返回 Widget) */
-  widgetType?: 'widget_draft' | 'widget_explore' | 'widget_share'
+  widgetType?: 'widget_draft' | 'widget_explore' | 'widget_share' | 'widget_detail' | 'widget_ask_preference'
   /** v3.10: 评估结果 */
   evaluation?: EvaluationResult
 }
@@ -257,3 +294,91 @@ export interface TraceEndEvent {
 
 /** SSE 追踪事件联合类型 */
 export type TraceEvent = TraceStartEvent | TraceStepEvent | TraceEndEvent
+
+// ============ Model Params & Session Stats (v3.11) ============
+
+/** 模型参数 */
+export interface ModelParams {
+  /** 模型名称 */
+  model: 'deepseek'
+  /** Temperature (0-2) */
+  temperature: number
+  /** 最大输出 Token 数 (256-8192) */
+  maxTokens: number
+}
+
+/** 默认模型参数 */
+export const DEFAULT_MODEL_PARAMS: ModelParams = {
+  model: 'deepseek',
+  temperature: 0,
+  maxTokens: 2048,
+}
+
+/** 会话统计 */
+export interface SessionStats {
+  /** 总轮次 */
+  totalRounds: number
+  /** 累计 Token 消耗 */
+  totalTokens: number
+  /** 累计耗时 (ms) */
+  totalDuration: number
+  /** 费用估算 (USD) */
+  estimatedCost: number
+}
+
+/** DeepSeek 价格 (USD per token) */
+const DEEPSEEK_PRICE = {
+  input: 0.14 / 1_000_000,   // $0.14/M tokens
+  output: 0.28 / 1_000_000,  // $0.28/M tokens
+}
+
+/** 计算会话统计 */
+export function calculateSessionStats(traces: ExecutionTrace[]): SessionStats {
+  let totalTokens = 0
+  let totalDuration = 0
+  let inputTokens = 0
+  let outputTokens = 0
+
+  for (const trace of traces) {
+    // 计算耗时
+    if (trace.completedAt) {
+      totalDuration += new Date(trace.completedAt).getTime() - new Date(trace.startedAt).getTime()
+    }
+
+    // 查找 LLM 步骤获取 Token 信息
+    const llmStep = trace.steps.find(s => isLLMStepData(s.data))
+    if (llmStep) {
+      const data = llmStep.data as LLMStepData
+      totalTokens += data.totalTokens || 0
+      inputTokens += data.inputTokens || 0
+      outputTokens += data.outputTokens || 0
+    }
+  }
+
+  // 计算费用
+  const estimatedCost = 
+    inputTokens * DEEPSEEK_PRICE.input + 
+    outputTokens * DEEPSEEK_PRICE.output
+
+  return {
+    totalRounds: traces.length,
+    totalTokens,
+    totalDuration,
+    estimatedCost,
+  }
+}
+
+/** 格式化费用显示 */
+export function formatCost(cost: number): string {
+  if (cost >= 99.99) return '>99.99'
+  if (cost < 0.0001) return '<0.0001'
+  if (cost < 0.01) return cost.toFixed(4)
+  return cost.toFixed(2)
+}
+
+/** 格式化耗时显示 */
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+  return `${(ms / 60000).toFixed(1)}m`
+}

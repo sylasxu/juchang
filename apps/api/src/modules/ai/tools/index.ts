@@ -31,7 +31,7 @@ import { getActivityDetailTool } from './get-activity-detail';
 /**
  * 意图类型
  */
-export type IntentType = 'create' | 'explore' | 'manage' | 'unknown';
+export type IntentType = 'create' | 'explore' | 'manage' | 'idle' | 'unknown';
 
 /**
  * 简单规则预分类意图（不需要 LLM）
@@ -39,7 +39,7 @@ export type IntentType = 'create' | 'explore' | 'manage' | 'unknown';
  * @param message - 用户消息
  * @param hasDraftContext - 是否有草稿上下文
  */
-export function classifyIntent(message: string, hasDraftContext: boolean): IntentType {
+export function classifyIntent(message: string, hasDraftContext: boolean, previousIntent?: IntentType): IntentType {
   const text = message.toLowerCase();
   
   // 管理意图（优先级最高）
@@ -49,17 +49,28 @@ export function classifyIntent(message: string, hasDraftContext: boolean): Inten
   
   // 修改意图（需要草稿上下文）
   if (hasDraftContext && /改|换|加|减|调|发布/.test(text)) {
-    return 'create'; // 修改草稿属于创建流程
+    return 'create';
   }
   
-  // 探索意图
-  if (/想找|有什么|附近|推荐|看看|找.*局/.test(text)) {
+  // 明确创建意图（用户明确要自己组局）
+  if (/帮我组|帮我创建|自己组|我来组|我要组|我想组/.test(text)) {
+    return 'create';
+  }
+  
+  // 探索意图（想找人/想找活动/一起/有什么/推荐）
+  // "想找人一起打羽毛球" = 探索，不是创建
+  if (/想找|找人|一起|有什么|附近|推荐|看看|想.*打|想.*吃|想.*玩/.test(text)) {
     return 'explore';
   }
   
-  // 创建意图
-  if (/想|约|组|搞|整|来|一起/.test(text)) {
-    return 'create';
+  // 兜底：其他"想/约"等词汇也归为探索
+  if (/想|约/.test(text)) {
+    return 'explore';
+  }
+  
+  // 无法识别时，继承上一轮意图（多轮对话连贯性）
+  if (previousIntent && previousIntent !== 'unknown') {
+    return previousIntent;
   }
   
   return 'unknown';
@@ -128,6 +139,10 @@ export function getToolsByIntent(
       tools.getMyActivities = getMyActivitiesTool(userId);
       tools.cancelActivity = cancelActivityTool(userId);
       tools.getActivityDetail = getActivityDetailTool(userId);
+      break;
+      
+    case 'idle':
+      // 空闲/暂停：不需要任何 Tool，直接让 AI 生成回复
       break;
       
     default:

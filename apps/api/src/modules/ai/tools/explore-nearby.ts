@@ -107,8 +107,8 @@ export function exploreNearbyTool(_userId: string | null) {
             startAt: new Date(r.startAt).toISOString(),
           })),
           title: results.length > 0 
-            ? `为你找到${center.name}附近的 ${results.length} 个热门活动`
-            : `${center.name}附近暂时没有活动，要不自己组一个？`,
+            ? `为你找到${center.name}附近的 ${results.length} 个活动`
+            : `${center.name}附近暂时没有活动`,
         };
         
         // v3.8: 对话记录由小程序端统一处理，Tool 只返回结果
