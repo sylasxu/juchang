@@ -31,7 +31,7 @@ import { getActivityDetailTool } from './get-activity-detail';
 /**
  * 意图类型
  */
-export type IntentType = 'create' | 'explore' | 'manage' | 'idle' | 'unknown';
+export type IntentType = 'create' | 'explore' | 'manage' | 'idle' | 'chitchat' | 'unknown';
 
 /**
  * 简单规则预分类意图（不需要 LLM）
@@ -143,6 +143,10 @@ export function getToolsByIntent(
       
     case 'idle':
       // 空闲/暂停：不需要任何 Tool，直接让 AI 生成回复
+      break;
+      
+    case 'chitchat':
+      // 闲聊：不需要任何 Tool，用模板回复
       break;
       
     default:

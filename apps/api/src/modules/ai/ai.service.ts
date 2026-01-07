@@ -66,6 +66,11 @@ function classifyIntentByRegex(text: string, hasDraftContext: boolean): IntentTy
     return 'idle';
   }
   
+  // 闲聊意图（与组局无关的话题）
+  if (/你是谁|你叫什么|讲个笑话|今天天气|你好厉害|你真棒|哈哈|嘿嘿|呵呵|无聊|聊聊天|陪我聊|说说话/.test(lowerText)) {
+    return 'chitchat';
+  }
+  
   // 管理意图
   if (/我的活动|我发布的|我参与的|取消活动|不办了/.test(lowerText)) {
     return 'manage';
@@ -101,6 +106,7 @@ const IntentClassificationSchema = t.Object({
     t.Literal('explore'),
     t.Literal('manage'),
     t.Literal('idle'),
+    t.Literal('chitchat'),
     t.Literal('unknown'),
   ], { description: '用户意图分类' }),
   confidence: t.Number({ description: '置信度 0-1' }),
@@ -342,9 +348,52 @@ export async function streamChat(request: StreamChatRequest) {
       || '',
   }));
   const { intent, method: intentMethod } = await classifyIntent(conversationHistory, !!draftContext);
+  
+  console.log(`[AI Chat] Intent: ${intent} (${intentMethod})`);
+  
+  // v3.14: chitchat 意图直接返回模板回复，不走 LLM
+  if (intent === 'chitchat') {
+    const chitchatResponses = [
+      '哈哈，我只会帮你组局约人，闲聊就不太行了～想约点什么？',
+      '聊天我不太擅长，但组局我很在行！想找人一起玩点什么？',
+      '我是组局小助手，帮你约人才是我的强项～有什么想玩的吗？',
+      '这个我不太懂，但如果你想约人吃饭、打球、桌游，随时找我！',
+    ];
+    const responseText = chitchatResponses[Math.floor(Math.random() * chitchatResponses.length)];
+    
+    // 返回简单的文本流响应
+    const stream = createUIMessageStream({
+      execute: ({ writer }) => {
+        // 使用 text-delta 类型发送文本（AI SDK 标准格式）
+        writer.write({ type: 'text-delta', delta: responseText, id: randomUUID() });
+        
+        // trace 模式：发送追踪数据
+        if (trace) {
+          const now = new Date().toISOString();
+          writer.write({
+            type: 'data-trace-start',
+            data: { requestId: randomUUID(), startedAt: now, intent, intentMethod },
+            transient: true,
+          });
+          writer.write({
+            type: 'data-trace-end',
+            data: { 
+              completedAt: now, 
+              status: 'completed',
+              output: { text: responseText, toolCalls: [] },
+            },
+            transient: true,
+          });
+        }
+      },
+    });
+    
+    return createUIMessageStreamResponse({ stream });
+  }
+  
   const tools = getToolsByIntent(userId, intent, !!draftContext);
   
-  console.log(`[AI Chat] Intent: ${intent} (${intentMethod}), Tools: ${Object.keys(tools).join(', ')}`);
+  console.log(`[AI Chat] Tools: ${Object.keys(tools).join(', ')}`);
   
   // Trace 模式的元数据
   const requestId = trace ? randomUUID() : undefined;
@@ -391,7 +440,19 @@ export async function streamChat(request: StreamChatRequest) {
         }
       }
     },
-    onFinish: async ({ usage, text, response }) => {
+    onFinish: async ({ usage, text, response, steps }) => {
+      // v3.13: 从 steps 中补充收集 tool results（解决 stopWhen 导致的 result 丢失问题）
+      if (steps) {
+        for (const step of steps) {
+          for (const tr of step.toolResults || []) {
+            const existingStep = traceSteps.find(s => s.toolCallId === tr.toolCallId);
+            if (existingStep && !existingStep.result) {
+              existingStep.result = (tr as unknown as { result: unknown }).result;
+            }
+          }
+        }
+      }
+      
       // 保存 AI 文字响应
       aiResponseText = text || '';
       
@@ -513,7 +574,8 @@ export async function streamChat(request: StreamChatRequest) {
                   lastUserText,
                   step.toolName,
                   step.args,
-                  step.result
+                  step.result,
+                  conversationHistory // v3.13: 传入对话历史用于上下文评估
                 );
                 evaluationResults.push(evalResult);
                 
@@ -648,6 +710,46 @@ export async function streamChat(request: StreamChatRequest) {
       // 5. 合并 AI 响应流（自动包含 Tool Parts）
       writer.merge(result.toUIMessageStream({
         onFinish: async () => {
+          // v3.13: 从 result.steps 补充收集 tool results（解决 stopWhen 导致的 result 丢失问题）
+          try {
+            const allSteps = await result.steps;
+            for (const step of allSteps) {
+              // 补充 toolCalls（如果 onStepFinish 没收集到）
+              for (const tc of step.toolCalls || []) {
+                const tcWithArgs = tc as unknown as { toolCallId: string; toolName: string; args: unknown };
+                let existingStep = traceSteps.find(s => s.toolCallId === tcWithArgs.toolCallId);
+                if (!existingStep) {
+                  existingStep = {
+                    toolName: tcWithArgs.toolName,
+                    toolCallId: tcWithArgs.toolCallId,
+                    args: tcWithArgs.args,
+                  };
+                  traceSteps.push(existingStep);
+                }
+              }
+              // 补充 toolResults（AI SDK 结构：{ type, toolCallId, toolName, input, ...toolReturnValue }）
+              for (const tr of step.toolResults || []) {
+                const { type, toolCallId, toolName, input, ...toolReturnValue } = tr as unknown as { 
+                  type: string; 
+                  toolCallId: string; 
+                  toolName: string;
+                  input: unknown;
+                  [key: string]: unknown;
+                };
+                const existingStep = traceSteps.find(s => s.toolCallId === toolCallId);
+                if (existingStep) {
+                  existingStep.result = toolReturnValue;
+                  // 补充 input（如果 args 为空）
+                  if (!existingStep.args || Object.keys(existingStep.args as object).length === 0) {
+                    existingStep.args = input;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.error('[AI Eval] Failed to get steps:', e);
+          }
+          
           const llmCompletedAt = new Date().toISOString();
           const llmDuration = new Date(llmCompletedAt).getTime() - new Date(llmStartedAt).getTime();
           
@@ -679,7 +781,8 @@ export async function streamChat(request: StreamChatRequest) {
                     lastUserText,
                     step.toolName,
                     step.args,
-                    step.result
+                    step.result,
+                    conversationHistory // v3.13: 传入对话历史用于上下文评估
                   );
                   toolEvaluations.set(step.toolCallId, evalResult);
                   const status = evalResult.passed ? '✅' : '⚠️';
@@ -710,11 +813,15 @@ export async function streamChat(request: StreamChatRequest) {
                   input: step.args,
                   output: step.result,
                   widgetType: getWidgetType(step.toolName),
-                  // v3.10: 附加评估结果
+                  // v3.13: 附加扩展评估结果
                   evaluation: evaluation ? {
                     passed: evaluation.passed,
                     score: evaluation.score,
                     intentMatch: evaluation.evaluation.intentMatch,
+                    toneScore: (evaluation.evaluation as any).toneScore,
+                    relevanceScore: (evaluation.evaluation as any).relevanceScore,
+                    contextScore: (evaluation.evaluation as any).contextScore,
+                    thinking: (evaluation.evaluation as any).thinking,
                     issues: (evaluation.evaluation as any).issues || [],
                     suggestions: (evaluation.evaluation as any).suggestions,
                     fieldCompleteness: (evaluation.evaluation as any).fieldCompleteness,

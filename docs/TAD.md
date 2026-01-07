@@ -637,6 +637,34 @@ export function useUsers(params = {}) {
 }
 ```
 
+### 8.3 AI Playground 执行追踪
+
+Admin 后台的 AI Playground 支持两种模式：
+
+| 模式 | API 参数 | 用途 |
+|------|---------|------|
+| **Trace 模式** | `trace: true` | 调试用，返回完整执行追踪数据 |
+| **生产模式** | `trace: false` | 模拟小程序真实调用，验证最终返回值 |
+
+**Trace 模式显示内容**：
+- LLM 推理信息（模型、tokens、耗时）
+- 意图分类（explore/create/manage/idle）
+- Tool 调用详情（input 参数 + output 返回值）
+- 质量评估结果（语气、相关性、上下文评分）
+- System Prompt 查看
+- AI 输出完整 JSON
+
+**生产模式隐藏内容**：
+- ❌ 意图分类
+- ❌ Tool input（参数）
+- ❌ 评估结果
+- ❌ System Prompt 按钮
+
+**生产模式保留内容**：
+- ✅ LLM 推理信息
+- ✅ Tool output（返回值）
+- ✅ AI 输出完整 JSON（原样展示，用于排查问题）
+
 ---
 
 ## 9. TypeBox Schema 派生规则

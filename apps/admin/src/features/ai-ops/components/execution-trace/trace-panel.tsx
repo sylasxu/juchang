@@ -66,6 +66,9 @@ import {
   DEFAULT_MODEL_PARAMS,
   INTENT_DISPLAY_NAMES,
   INTENT_METHOD_NAMES,
+  TONE_SCORE_LABELS,
+  RELEVANCE_SCORE_LABELS,
+  CONTEXT_SCORE_LABELS,
 } from '../../types/trace'
 
 interface ExecutionTracePanelProps {
@@ -87,6 +90,8 @@ interface ExecutionTracePanelProps {
   balanceLoading?: boolean
   /** 刷新余额 */
   onRefreshBalance?: () => void
+  /** 是否启用 trace 模式（用于控制显示内容） */
+  traceEnabled?: boolean
 }
 
 export function ExecutionTracePanel({ 
@@ -99,6 +104,7 @@ export function ExecutionTracePanel({
   balance,
   balanceLoading,
   onRefreshBalance,
+  traceEnabled = true,
 }: ExecutionTracePanelProps) {
   const [promptDialogOpen, setPromptDialogOpen] = useState(false)
   const [selectedPrompt, setSelectedPrompt] = useState<string>('')
@@ -118,7 +124,6 @@ export function ExecutionTracePanel({
     <div className='h-full flex flex-col'>
       {/* 顶部工具栏 */}
       <PanelHeader 
-        isStreaming={isStreaming}
         modelParams={modelParams}
         onModelParamsChange={onModelParamsChange}
         onRerun={onRerun}
@@ -149,6 +154,7 @@ export function ExecutionTracePanel({
                   index={index + 1}
                   isLatest={index === arr.length - 1}
                   onViewPrompt={handleViewPrompt}
+                  traceEnabled={traceEnabled}
                 />
               ))}
             </div>
@@ -174,7 +180,6 @@ export function ExecutionTracePanel({
 
 /** 面板头部 - 紧凑单行布局 */
 function PanelHeader({ 
-  isStreaming,
   modelParams,
   onModelParamsChange,
   onRerun,
@@ -185,7 +190,6 @@ function PanelHeader({
   balanceLoading,
   onRefreshBalance,
 }: { 
-  isStreaming: boolean
   modelParams: ModelParams
   onModelParamsChange?: (params: ModelParams) => void
   onRerun?: () => void
@@ -199,13 +203,8 @@ function PanelHeader({
   return (
     <div className='flex-shrink-0 border-b px-4 py-2'>
       <div className='flex items-center justify-between gap-2'>
-        {/* 左侧：标题 + 状态 */}
-        <div className='flex items-center gap-2'>
-          <h2 className='text-lg font-medium'>执行追踪</h2>
-          {isStreaming && (
-            <Loader2 className='h-4 w-4 animate-spin text-muted-foreground' />
-          )}
-        </div>
+        {/* 左侧：标题 */}
+        <h2 className='text-lg font-medium'>执行追踪</h2>
         
         {/* 右侧：余额 + 工具按钮组 */}
         <div className='flex items-center gap-2'>
@@ -345,11 +344,13 @@ function RoundItem({
   index, 
   isLatest,
   onViewPrompt,
+  traceEnabled = true,
 }: { 
   trace: ExecutionTrace
   index: number
   isLatest: boolean
   onViewPrompt: (prompt: string) => void
+  traceEnabled?: boolean
 }) {
   const [expanded, setExpanded] = useState(isLatest)
   
@@ -411,14 +412,14 @@ function RoundItem({
             </div>
           )}
 
-          {/* 意图分类（可展开） */}
-          {trace.intent && (
+          {/* 意图分类（仅 trace 模式） */}
+          {traceEnabled && trace.intent && (
             <IntentSection intent={trace.intent} intentMethod={trace.intentMethod} />
           )}
 
           {/* Tool 调用（可展开查看详情） */}
           {toolSteps.length > 0 && (
-            <ToolCallSection toolSteps={toolSteps} />
+            <ToolCallSection toolSteps={toolSteps} traceEnabled={traceEnabled} />
           )}
 
           {/* AI 输出（可展开查看详情） */}
@@ -426,8 +427,8 @@ function RoundItem({
             <OutputSection output={trace.output} />
           )}
 
-          {/* 查看该轮 Prompt */}
-          {trace.systemPrompt && (
+          {/* 查看该轮 Prompt（仅 trace 模式） */}
+          {traceEnabled && trace.systemPrompt && (
             <button 
               className='flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors'
               onClick={() => onViewPrompt(trace.systemPrompt!)}
@@ -472,7 +473,7 @@ function IntentSection({ intent, intentMethod }: { intent: string; intentMethod?
 }
 
 /** Tool 调用区块 */
-function ToolCallSection({ toolSteps }: { toolSteps: TraceStep[] }) {
+function ToolCallSection({ toolSteps, traceEnabled = true }: { toolSteps: TraceStep[]; traceEnabled?: boolean }) {
   const [expanded, setExpanded] = useState(true)
   const totalDuration = toolSteps.reduce((sum, s) => sum + (s.duration || 0), 0)
 
@@ -497,6 +498,7 @@ function ToolCallSection({ toolSteps }: { toolSteps: TraceStep[] }) {
               key={step.id} 
               step={step} 
               data={toolData}
+              traceEnabled={traceEnabled}
             />
           )
         })}
@@ -506,17 +508,17 @@ function ToolCallSection({ toolSteps }: { toolSteps: TraceStep[] }) {
 }
 
 /** Tool 调用详情 - 展开后显示 */
-function ToolCallDetail({ step, data }: { step: TraceStep; data: ToolStepData }) {
+function ToolCallDetail({ step, data, traceEnabled = true }: { step: TraceStep; data: ToolStepData; traceEnabled?: boolean }) {
   const evaluation = data.evaluation
   const hasInput = data.input && Object.keys(data.input).length > 0
   const hasOutput = data.output && Object.keys(data.output).length > 0
 
   return (
     <div className='space-y-1.5 border-l pl-3'>
-      {/* Tool 名称 + 评分 */}
+      {/* Tool 名称 + 评分（评分仅 trace 模式） */}
       <div className='flex items-center gap-2 text-xs'>
         <span className='font-medium'>{data.toolDisplayName}</span>
-        {evaluation && (
+        {traceEnabled && evaluation && (
           <span className={cn(
             'text-xs',
             evaluation.passed ? 'text-green-600' : 'text-amber-600'
@@ -529,16 +531,18 @@ function ToolCallDetail({ step, data }: { step: TraceStep; data: ToolStepData })
         )}
       </div>
       
-      {/* 输入参数 */}
-      {hasInput ? (
-        <div>
-          <div className='text-xs text-muted-foreground mb-0.5'>输入</div>
-          <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-24 font-mono'>
-            {JSON.stringify(data.input, null, 2)}
-          </pre>
-        </div>
-      ) : (
-        <div className='text-xs text-muted-foreground'>无输入参数</div>
+      {/* 输入参数（仅 trace 模式） */}
+      {traceEnabled && (
+        hasInput ? (
+          <div>
+            <div className='text-xs text-muted-foreground mb-0.5'>输入</div>
+            <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-24 font-mono'>
+              {JSON.stringify(data.input, null, 2)}
+            </pre>
+          </div>
+        ) : (
+          <div className='text-xs text-muted-foreground'>无输入参数</div>
+        )
       )}
       
       {/* 输出结果 */}
@@ -553,8 +557,8 @@ function ToolCallDetail({ step, data }: { step: TraceStep; data: ToolStepData })
         <div className='text-xs text-muted-foreground'>无输出结果</div>
       )}
       
-      {/* 评估详情 */}
-      {evaluation && (
+      {/* 评估详情（仅 trace 模式） */}
+      {traceEnabled && evaluation && (
         <EvaluationDetail evaluation={evaluation} />
       )}
     </div>
@@ -563,8 +567,11 @@ function ToolCallDetail({ step, data }: { step: TraceStep; data: ToolStepData })
 
 /** 评估详情 */
 function EvaluationDetail({ evaluation }: { evaluation: EvaluationResult }) {
+  const [showThinking, setShowThinking] = useState(false)
+  
   return (
     <div className='bg-muted/50 rounded p-2 space-y-2'>
+      {/* 头部：通过状态 + 总分 */}
       <div className='flex items-center justify-between'>
         <span className='text-xs font-medium'>质量评估</span>
         <span className={cn(
@@ -573,6 +580,39 @@ function EvaluationDetail({ evaluation }: { evaluation: EvaluationResult }) {
         )}>
           {evaluation.passed ? '通过' : '需改进'} ({evaluation.score}/10)
         </span>
+      </div>
+      
+      {/* 多维度评分条 */}
+      <div className='space-y-1.5'>
+        {/* 语气评分 */}
+        {evaluation.toneScore !== undefined && (
+          <ScoreBar 
+            label='语气' 
+            score={evaluation.toneScore} 
+            maxScore={5}
+            description={TONE_SCORE_LABELS[evaluation.toneScore]}
+          />
+        )}
+        
+        {/* 相关性评分 */}
+        {evaluation.relevanceScore !== undefined && (
+          <ScoreBar 
+            label='相关性' 
+            score={evaluation.relevanceScore} 
+            maxScore={5}
+            description={RELEVANCE_SCORE_LABELS[evaluation.relevanceScore]}
+          />
+        )}
+        
+        {/* 上下文利用度评分 */}
+        {evaluation.contextScore !== undefined && (
+          <ScoreBar 
+            label='上下文' 
+            score={evaluation.contextScore} 
+            maxScore={5}
+            description={CONTEXT_SCORE_LABELS[evaluation.contextScore]}
+          />
+        )}
       </div>
       
       {/* 字段完整性 */}
@@ -611,6 +651,53 @@ function EvaluationDetail({ evaluation }: { evaluation: EvaluationResult }) {
           </ul>
         </div>
       )}
+      
+      {/* 评估推理过程（可折叠） */}
+      {evaluation.thinking && (
+        <Collapsible open={showThinking} onOpenChange={setShowThinking}>
+          <CollapsibleTrigger className='flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors'>
+            {showThinking ? <ChevronDown className='h-3 w-3' /> : <ChevronRight className='h-3 w-3' />}
+            查看评估推理
+          </CollapsibleTrigger>
+          <CollapsibleContent className='mt-1'>
+            <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-32 whitespace-pre-wrap text-muted-foreground'>
+              {evaluation.thinking}
+            </pre>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+    </div>
+  )
+}
+
+/** 评分条组件 */
+function ScoreBar({ 
+  label, 
+  score, 
+  maxScore,
+  description,
+}: { 
+  label: string
+  score: number
+  maxScore: number
+  description?: string
+}) {
+  const percentage = (score / maxScore) * 100
+  const colorClass = score >= 4 ? 'bg-green-500' : score >= 3 ? 'bg-amber-500' : 'bg-red-500'
+  
+  return (
+    <div className='flex items-center gap-2 text-xs'>
+      <span className='w-12 text-muted-foreground'>{label}</span>
+      <div className='flex-1 h-1.5 bg-muted rounded-full overflow-hidden'>
+        <div 
+          className={cn('h-full rounded-full transition-all', colorClass)}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+      <span className='w-6 text-right font-mono'>{score}/{maxScore}</span>
+      {description && (
+        <span className='text-muted-foreground/70 truncate max-w-20'>{description}</span>
+      )}
     </div>
   )
 }
@@ -629,7 +716,7 @@ function FieldCheck({ label, checked }: { label: string; checked: boolean }) {
   )
 }
 
-/** AI 输出区块 */
+/** AI 输出区块 - 展示完整 JSON */
 function OutputSection({ output }: { output: TraceOutput }) {
   const [expanded, setExpanded] = useState(true)
   const hasText = output.text && output.text.length > 0
@@ -641,47 +728,25 @@ function OutputSection({ output }: { output: TraceOutput }) {
         <MessageSquare className='h-3 w-3 text-muted-foreground' />
         <span className='text-muted-foreground'>AI 输出</span>
         <span className='text-muted-foreground/50'>·</span>
-        <span className='text-muted-foreground/70'>
+        <span className={hasText ? 'text-muted-foreground/70' : 'text-amber-600'}>
           {hasText ? '有文字' : '无文字'}
-          {hasToolCalls && ` + ${output.toolCalls.length} tool`}
         </span>
+        {hasToolCalls && (
+          <>
+            <span className='text-muted-foreground/50'>·</span>
+            <span className='text-muted-foreground/70'>{output.toolCalls.length} tool</span>
+          </>
+        )}
         {expanded 
           ? <ChevronDown className='h-3 w-3 ml-auto text-muted-foreground' /> 
           : <ChevronRight className='h-3 w-3 ml-auto text-muted-foreground' />
         }
       </CollapsibleTrigger>
       
-      <CollapsibleContent className='mt-1.5 ml-5 space-y-2'>
-        {/* 文字响应 */}
-        <div className='border-l pl-3'>
-          <div className='text-xs text-muted-foreground mb-0.5'>文字响应</div>
-          {hasText ? (
-            <div className='text-xs bg-muted p-2 rounded max-h-32 overflow-auto whitespace-pre-wrap'>
-              {output.text}
-            </div>
-          ) : (
-            <div className='text-xs text-amber-600 bg-amber-50 dark:bg-amber-950/30 p-2 rounded'>
-              ⚠️ 无文字响应
-            </div>
-          )}
-        </div>
-        
-        {/* Tool 调用摘要 */}
-        {hasToolCalls && (
-          <div className='border-l pl-3'>
-            <div className='text-xs text-muted-foreground mb-0.5'>Tool 调用 ({output.toolCalls.length})</div>
-            <div className='space-y-1'>
-              {output.toolCalls.map((tc, i) => (
-                <div key={i} className='text-xs bg-muted p-2 rounded'>
-                  <div className='font-medium'>{tc.displayName}</div>
-                  <pre className='mt-1 text-muted-foreground overflow-auto max-h-20'>
-                    {JSON.stringify(tc.output, null, 2)}
-                  </pre>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+      <CollapsibleContent className='mt-1.5 ml-5 pl-3 border-l'>
+        <pre className='text-xs bg-muted p-2 rounded overflow-auto max-h-64 font-mono'>
+          {JSON.stringify(output, null, 2)}
+        </pre>
       </CollapsibleContent>
     </Collapsible>
   )
@@ -701,3 +766,4 @@ export function TracePanelSkeleton() {
     </div>
   )
 }
+

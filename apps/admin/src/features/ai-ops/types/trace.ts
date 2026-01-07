@@ -54,7 +54,7 @@ export interface TraceOutput {
 }
 
 /** 意图类型 */
-export type IntentType = 'create' | 'explore' | 'manage' | 'idle' | 'unknown'
+export type IntentType = 'create' | 'explore' | 'manage' | 'idle' | 'chitchat' | 'unknown'
 
 /** 意图分类方法显示名称 */
 export const INTENT_METHOD_NAMES: Record<'regex' | 'llm', string> = {
@@ -68,6 +68,7 @@ export const INTENT_DISPLAY_NAMES: Record<IntentType, string> = {
   explore: '探索',
   manage: '管理',
   idle: '空闲',
+  chitchat: '闲聊',
   unknown: '未知',
 }
 
@@ -170,7 +171,7 @@ export interface ToolStepData {
   evaluation?: EvaluationResult
 }
 
-/** v3.10: 评估结果 */
+/** v3.10: 评估结果（扩展版 v3.13） */
 export interface EvaluationResult {
   /** 是否通过 */
   passed: boolean
@@ -178,6 +179,14 @@ export interface EvaluationResult {
   score: number
   /** 意图是否匹配 */
   intentMatch: boolean
+  /** 语气接地气程度 1-5 */
+  toneScore?: number
+  /** 响应相关性 1-5 */
+  relevanceScore?: number
+  /** 上下文利用度 1-5 */
+  contextScore?: number
+  /** 评估推理过程 */
+  thinking?: string
   /** 发现的问题 */
   issues: string[]
   /** 改进建议 */
@@ -189,6 +198,33 @@ export interface EvaluationResult {
     hasLocationHint: boolean
     hasValidTime: boolean
   }
+}
+
+/** 语气评分描述 */
+export const TONE_SCORE_LABELS: Record<number, string> = {
+  1: '太装逼',
+  2: '偏正式',
+  3: '中规中矩',
+  4: '比较接地气',
+  5: '很接地气',
+}
+
+/** 相关性评分描述 */
+export const RELEVANCE_SCORE_LABELS: Record<number, string> = {
+  1: '完全跑题',
+  2: '部分相关',
+  3: '基本切题',
+  4: '切题完整',
+  5: '切题+有价值补充',
+}
+
+/** 上下文利用度评分描述 */
+export const CONTEXT_SCORE_LABELS: Record<number, string> = {
+  1: '完全忽略',
+  2: '部分利用',
+  3: '基本利用',
+  4: '利用良好',
+  5: '完美衔接',
 }
 
 /** 最终输出步骤数据 */

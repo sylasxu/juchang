@@ -11,12 +11,23 @@ import { useChat, type UIMessage } from '@ai-sdk/react'
 import { DefaultChatTransport, isToolUIPart, getToolName } from 'ai'
 import { api, unwrap } from '@/lib/eden'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { 
-  Send, Trash2, Bot, User, Loader2, Copy, Check,
-  RotateCcw, StopCircle, ChevronRight, PanelRightOpen, PanelRightClose,
+  Trash2, Bot, User, Loader2, Copy, Check,
+  RotateCcw, Square, ChevronRight, PanelRightOpen, PanelRightClose,
+  Send, Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { StreamingText } from '../shared/streaming-text'
@@ -34,8 +45,12 @@ export interface PlaygroundChatRef {
 }
 
 interface PlaygroundChatProps {
-  /** 模型参数（从父组件传入） */
+  /** 模型参数（从父组件传入，只读展示） */
   modelParams?: ModelParams
+  /** 是否启用 trace 模式 */
+  traceEnabled?: boolean
+  /** trace 模式变更回调 */
+  onTraceEnabledChange?: (enabled: boolean) => void
   /** 追踪开始回调 */
   onTraceStart?: (requestId: string, startedAt: string, systemPrompt?: string, tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }>, intent?: IntentType, intentMethod?: 'regex' | 'llm') => void
   /** 追踪步骤回调 */
@@ -56,6 +71,8 @@ interface PlaygroundChatProps {
 
 export const PlaygroundChat = forwardRef<PlaygroundChatRef, PlaygroundChatProps>(function PlaygroundChat({
   modelParams = DEFAULT_MODEL_PARAMS,
+  traceEnabled = true,
+  onTraceEnabledChange,
   onTraceStart,
   onTraceStep,
   onUpdateTraceStep,
@@ -70,7 +87,7 @@ export const PlaygroundChat = forwardRef<PlaygroundChatRef, PlaygroundChatProps>
   const [inputValue, setInputValue] = useState('')
   const [autoScroll, setAutoScroll] = useState(true)
 
-  // 创建 transport（依赖模型参数）
+  // 创建 transport（依赖模型参数和 trace 开关）
   const transport = useMemo(() => {
     const token = localStorage.getItem('admin_token')
     return new DefaultChatTransport({
@@ -78,7 +95,7 @@ export const PlaygroundChat = forwardRef<PlaygroundChatRef, PlaygroundChatProps>
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: { 
         source: 'admin',
-        trace: true,
+        trace: traceEnabled,
         modelParams: {
           model: modelParams.model,
           temperature: modelParams.temperature,
@@ -86,7 +103,7 @@ export const PlaygroundChat = forwardRef<PlaygroundChatRef, PlaygroundChatProps>
         },
       },
     })
-  }, [modelParams])
+  }, [modelParams, traceEnabled])
 
   // 使用 useChat hook
   const { 
@@ -198,14 +215,6 @@ export const PlaygroundChat = forwardRef<PlaygroundChatRef, PlaygroundChatProps>
     doSendMessage(text)
   }, [doSendMessage])
 
-  // 键盘快捷键
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e)
-    }
-  }, [handleSubmit])
-
   return (
     <div className='flex h-full flex-col p-4 pt-2 overflow-hidden'>
       {/* 顶部工具栏 */}
@@ -263,43 +272,135 @@ export const PlaygroundChat = forwardRef<PlaygroundChatRef, PlaygroundChatProps>
         </div>
       </ScrollArea>
 
-      {/* 输入区 */}
-      <div className='mt-4 space-y-2 flex-shrink-0'>
+      {/* 输入区 - AI Studio 风格 */}
+      <div className='mt-4 flex-shrink-0'>
         {error && (
-          <div className='rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive'>
-            {error.message}
-          </div>
-        )}
-        
-        {!isLoading && error && (
-          <div className='flex justify-center'>
-            <Button variant='outline' size='sm' onClick={() => regenerate()}>
-              <RotateCcw className='mr-1 h-4 w-4' />
+          <div className='mb-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive flex items-center justify-between'>
+            <span>{error.message}</span>
+            <Button variant='ghost' size='sm' className='h-6 px-2' onClick={() => regenerate()}>
+              <RotateCcw className='mr-1 h-3 w-3' />
               重试
             </Button>
           </div>
         )}
         
-        <form onSubmit={handleSubmit} className='flex gap-2'>
-          <Input
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder='输入测试文本，如：明晚观音桥打麻将，3缺1'
-            disabled={isLoading}
-            className='flex-1'
-          />
-          {isLoading ? (
-            <Button type='button' variant='outline' onClick={stop}>
-              <StopCircle className='h-4 w-4' />
-            </Button>
-          ) : (
-            <Button type='submit' disabled={!inputValue.trim()}>
-              <Send className='h-4 w-4' />
-            </Button>
-          )}
-        </form>
+        <div className='rounded-xl border bg-muted/30 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 transition-shadow'>
+          {/* 输入框 */}
+          <form onSubmit={handleSubmit}>
+            <textarea
+              ref={inputRef as unknown as React.RefObject<HTMLTextAreaElement>}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSubmit(e)
+                }
+              }}
+              placeholder='输入测试文本...'
+              disabled={isLoading}
+              rows={1}
+              className='w-full resize-none bg-transparent px-4 py-3 text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
+              style={{ minHeight: '44px', maxHeight: '120px' }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement
+                target.style.height = 'auto'
+                target.style.height = Math.min(target.scrollHeight, 120) + 'px'
+              }}
+            />
+          </form>
+          
+          {/* 底部工具栏 */}
+          <div className='flex items-center justify-between border-t px-3 py-2'>
+            <div className='flex items-center gap-1.5'>
+              {/* 功能设置 Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <div 
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs cursor-pointer transition-colors',
+                      traceEnabled 
+                        ? 'bg-primary/10 text-primary hover:bg-primary/20' 
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    )}
+                  >
+                    <Settings2 className='h-3 w-3' />
+                    <span>功能</span>
+                    {traceEnabled && (
+                      <span className='h-1.5 w-1.5 rounded-full bg-primary' />
+                    )}
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className='w-64' align='start' side='top'>
+                  <div className='space-y-1'>
+                    {/* Trace 模式 */}
+                    <div className='flex items-center justify-between rounded-lg px-2 py-2 hover:bg-muted transition-colors'>
+                      <div className='flex items-center gap-2'>
+                        <span className='text-sm'>Trace 模式</span>
+                      </div>
+                      <Switch
+                        checked={traceEnabled}
+                        onCheckedChange={onTraceEnabledChange}
+                      />
+                    </div>
+                    <p className='px-2 text-xs text-muted-foreground'>
+                      开启后显示完整执行追踪，关闭为生产模式
+                    </p>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* 模型信息标签（只读展示） */}
+              <div className='flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground'>
+                <Bot className='h-3 w-3' />
+                DeepSeek
+              </div>
+              {modelParams.temperature !== 0 && (
+                <div className='rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground'>
+                  T={modelParams.temperature}
+                </div>
+              )}
+            </div>
+            
+            <div className='flex items-center gap-1'>
+              {isLoading ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      type='button' 
+                      variant='ghost' 
+                      size='icon'
+                      className='h-8 w-8'
+                      onClick={stop}
+                    >
+                      <Square className='h-4 w-4 fill-current' />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side='top'>
+                    <p>停止生成</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      type='submit' 
+                      size='icon'
+                      className='h-8 w-8'
+                      disabled={!inputValue.trim()}
+                      onClick={handleSubmit}
+                    >
+                      <Send className='h-4 w-4' />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side='top'>
+                    <p>发送 <kbd className='ml-1 rounded border bg-muted px-1 font-mono text-xs'>⏎</kbd></p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

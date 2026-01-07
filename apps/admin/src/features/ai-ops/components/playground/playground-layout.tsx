@@ -24,6 +24,7 @@ export function PlaygroundLayout() {
   const [isDragging, setIsDragging] = useState(false)
   const [balance, setBalance] = useState<{ total: number; isAvailable: boolean } | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
+  const [traceEnabled, setTraceEnabled] = useState(true)
 
   const { 
     traces, 
@@ -139,6 +140,8 @@ export function PlaygroundLayout() {
             <PlaygroundChat
               ref={chatRef}
               modelParams={modelParams}
+              traceEnabled={traceEnabled}
+              onTraceEnabledChange={setTraceEnabled}
               onTraceStart={handleTraceStart}
               onTraceStep={handleTraceStep}
               onTraceEnd={handleTraceEnd}
@@ -171,6 +174,7 @@ export function PlaygroundLayout() {
                 balance={balance}
                 balanceLoading={balanceLoading}
                 onRefreshBalance={fetchBalance}
+                traceEnabled={traceEnabled}
               />
             </div>
           )}
