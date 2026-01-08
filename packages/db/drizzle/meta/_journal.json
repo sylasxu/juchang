@@ -57,6 +57,13 @@
       "when": 1767520766141,
       "tag": "0007_lean_human_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1767792310735,
+      "tag": "0008_typical_professor_monster",
+      "breakpoints": true
     }
   ]
 }

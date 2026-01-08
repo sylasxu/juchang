@@ -54,3 +54,23 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "completed",      // 活动成局
   "cancelled"       // 活动取消
 ]);
+
+// ==========================================
+// 5. 🤝 搭子意向 (Partner Intent Domain)
+// ==========================================
+
+// 搭子意向状态
+export const partnerIntentStatusEnum = pgEnum("partner_intent_status", [
+  "active",     // 活跃中，等待匹配
+  "matched",    // 已匹配成功
+  "expired",    // 已过期 (24h)
+  "cancelled"   // 用户取消
+]);
+
+// 匹配结果状态
+export const intentMatchOutcomeEnum = pgEnum("intent_match_outcome", [
+  "pending",    // 等待确认
+  "confirmed",  // 已确认，转为活动
+  "expired",    // 超时未确认
+  "cancelled"   // 取消
+]);

@@ -1,0 +1,2 @@
+-- Migration 0006: Empty placeholder (file was missing)
+-- This is a placeholder migration to maintain journal consistency

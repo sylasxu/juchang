@@ -4,6 +4,7 @@
  * 导出所有 AI 工具函数
  * 
  * v3.9: 支持动态加载 Tool，根据意图只加载需要的 Tool，减少 Token 消耗
+ * v4.0: 新增 Partner Intent Tools (找搭子)
  */
 
 export { createActivityDraftTool } from './create-draft';
@@ -17,6 +18,12 @@ export { cancelActivityTool } from './cancel-activity';
 export { getMyActivitiesTool } from './get-my-activities';
 export { getActivityDetailTool } from './get-activity-detail';
 
+// v4.0 Partner Intent Tools
+export { createPartnerIntentTool } from './create-partner-intent';
+export { getMyIntentsTool } from './get-my-intents';
+export { cancelIntentTool } from './cancel-intent';
+export { confirmMatchTool } from './confirm-match';
+
 import { createActivityDraftTool } from './create-draft';
 import { getDraftTool } from './get-draft';
 import { refineDraftTool } from './refine-draft';
@@ -28,10 +35,16 @@ import { cancelActivityTool } from './cancel-activity';
 import { getMyActivitiesTool } from './get-my-activities';
 import { getActivityDetailTool } from './get-activity-detail';
 
+// v4.0 Partner Intent Tools
+import { createPartnerIntentTool } from './create-partner-intent';
+import { getMyIntentsTool } from './get-my-intents';
+import { cancelIntentTool } from './cancel-intent';
+import { confirmMatchTool } from './confirm-match';
+
 /**
  * 意图类型
  */
-export type IntentType = 'create' | 'explore' | 'manage' | 'idle' | 'chitchat' | 'unknown';
+export type IntentType = 'create' | 'explore' | 'manage' | 'partner' | 'idle' | 'chitchat' | 'unknown';
 
 /**
  * 简单规则预分类意图（不需要 LLM）
@@ -45,6 +58,11 @@ export function classifyIntent(message: string, hasDraftContext: boolean, previo
   // 管理意图（优先级最高）
   if (/我的活动|我发布的|我参与的|取消活动|不办了/.test(text)) {
     return 'manage';
+  }
+  
+  // v4.0 找搭子意图
+  if (/找搭子|谁组我就去|懒得组局|等人约|我的意向|取消意向|确认匹配|确认发布/.test(text)) {
+    return 'partner';
   }
   
   // 修改意图（需要草稿上下文）
@@ -107,13 +125,16 @@ export function getAIToolsV34(userId: string | null) {
  * @param userId - 用户 ID
  * @param intent - 意图类型
  * @param hasDraftContext - 是否有草稿上下文
+ * @param userLocation - 用户位置（v4.0 Partner Intent 需要）
  */
 export function getToolsByIntent(
   userId: string | null, 
   intent: IntentType,
-  hasDraftContext: boolean
+  hasDraftContext: boolean,
+  userLocation?: { lat: number; lng: number } | null
 ) {
-  const tools: Record<string, ReturnType<typeof createActivityDraftTool>> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tools: Record<string, any> = {};
   
   switch (intent) {
     case 'create':
@@ -132,6 +153,8 @@ export function getToolsByIntent(
       tools.getActivityDetail = getActivityDetailTool(userId);
       tools.joinActivity = joinActivityTool(userId);
       tools.askPreference = askPreferenceTool(userId);
+      // v4.0: 探索无结果时可以进入找搭子流程
+      tools.createPartnerIntent = createPartnerIntentTool(userId, userLocation || null);
       break;
       
     case 'manage':
@@ -139,6 +162,15 @@ export function getToolsByIntent(
       tools.getMyActivities = getMyActivitiesTool(userId);
       tools.cancelActivity = cancelActivityTool(userId);
       tools.getActivityDetail = getActivityDetailTool(userId);
+      break;
+      
+    case 'partner':
+      // v4.0 找搭子流程
+      tools.createPartnerIntent = createPartnerIntentTool(userId, userLocation || null);
+      tools.getMyIntents = getMyIntentsTool(userId);
+      tools.cancelIntent = cancelIntentTool(userId);
+      tools.confirmMatch = confirmMatchTool(userId);
+      tools.askPreference = askPreferenceTool(userId);
       break;
       
     case 'idle':
@@ -154,6 +186,8 @@ export function getToolsByIntent(
       tools.createActivityDraft = createActivityDraftTool(userId);
       tools.exploreNearby = exploreNearbyTool(userId);
       tools.askPreference = askPreferenceTool(userId);
+      // v4.0: 也加载找搭子工具
+      tools.createPartnerIntent = createPartnerIntentTool(userId, userLocation || null);
       break;
   }
   

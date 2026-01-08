@@ -99,6 +99,14 @@ const BusinessMetrics = t.Object({
   oneTimeCreatorRate: MetricItem,
 });
 
+// v4.0 搭子意向指标
+const IntentMetrics = t.Object({
+  activeIntents: MetricItem,      // 活跃意向数
+  todayNewIntents: MetricItem,    // 今日新增
+  conversionRate: MetricItem,     // 转化率 (matched / total)
+  avgMatchTime: MetricItem,       // 平均匹配时长 (分钟)
+});
+
 // 注册到 Elysia Model Plugin
 export const dashboardModel = new Elysia({ name: 'dashboardModel' })
   .model({
@@ -108,6 +116,7 @@ export const dashboardModel = new Elysia({ name: 'dashboardModel' })
     'dashboard.activityTypes': ActivityTypeDistribution,
     'dashboard.geographic': t.Array(GeographicItem),
     'dashboard.businessMetrics': BusinessMetrics,
+    'dashboard.intentMetrics': IntentMetrics,
     'dashboard.error': ErrorResponse,
   });
 
@@ -123,3 +132,4 @@ export type MetricItem = Static<typeof MetricItem>;
 export type J2CMetric = Static<typeof J2CMetric>;
 export type WeeklyCompletedMetric = Static<typeof WeeklyCompletedMetric>;
 export type BusinessMetrics = Static<typeof BusinessMetrics>;
+export type IntentMetrics = Static<typeof IntentMetrics>;

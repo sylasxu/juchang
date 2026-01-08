@@ -54,7 +54,7 @@ export interface TraceOutput {
 }
 
 /** 意图类型 */
-export type IntentType = 'create' | 'explore' | 'manage' | 'idle' | 'chitchat' | 'unknown'
+export type IntentType = 'create' | 'explore' | 'manage' | 'partner' | 'idle' | 'chitchat' | 'unknown'
 
 /** 意图分类方法显示名称 */
 export const INTENT_METHOD_NAMES: Record<'regex' | 'llm', string> = {
@@ -67,6 +67,7 @@ export const INTENT_DISPLAY_NAMES: Record<IntentType, string> = {
   create: '创建',
   explore: '探索',
   manage: '管理',
+  partner: '找搭子',
   idle: '空闲',
   chitchat: '闲聊',
   unknown: '未知',
@@ -292,6 +293,11 @@ export const TOOL_DISPLAY_NAMES: Record<string, string> = {
   cancelActivity: '取消活动',
   getMyActivities: '查看我的活动',
   askPreference: '询问偏好',
+  // v4.0 Partner Intent Tools
+  createPartnerIntent: '创建搭子意向',
+  getMyIntents: '查看我的意向',
+  cancelIntent: '取消意向',
+  confirmMatch: '确认匹配',
 }
 
 /** 获取 Tool 显示名称 */

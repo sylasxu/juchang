@@ -2,7 +2,7 @@
 import { Elysia } from 'elysia';
 import { basePlugins } from '../../setup';
 import { dashboardModel, type ErrorResponse } from './dashboard.model';
-import { getDashboardStats, getRecentActivities, getUserGrowthTrend, getActivityTypeDistribution, getGeographicDistribution, getBusinessMetrics } from './dashboard.service';
+import { getDashboardStats, getRecentActivities, getUserGrowthTrend, getActivityTypeDistribution, getGeographicDistribution, getBusinessMetrics, getIntentMetrics } from './dashboard.service';
 
 export const dashboardController = new Elysia({ prefix: '/dashboard' })
   .use(basePlugins)
@@ -160,6 +160,32 @@ export const dashboardController = new Elysia({ prefix: '/dashboard' })
       },
       response: {
         200: 'dashboard.businessMetrics',
+        500: 'dashboard.error',
+      },
+    }
+  )
+
+  // v4.0 获取搭子意向指标
+  .get(
+    '/intent-metrics',
+    async ({ set }) => {
+      try {
+        const metrics = await getIntentMetrics();
+        return metrics;
+      } catch (error) {
+        console.error('获取意向指标失败:', error);
+        set.status = 500;
+        return { code: 500, msg: '获取意向指标失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Dashboard'],
+        summary: '获取搭子意向指标',
+        description: '获取活跃意向数、今日新增、转化率、平均匹配时长等意向相关指标',
+      },
+      response: {
+        200: 'dashboard.intentMetrics',
         500: 'dashboard.error',
       },
     }

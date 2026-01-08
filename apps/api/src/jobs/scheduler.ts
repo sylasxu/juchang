@@ -6,11 +6,14 @@
  * 1. 履约超时自动确认 - 活动结束后 48h 未确认自动标记全员履约
  * 2. 申诉超时自动处理 - 申诉提交后 72h 未处理自动扣分
  * 3. 活动状态自动更新 - 根据时间自动更新活动状态
+ * 4. 意向过期处理 - 每小时检查并更新过期意向状态 (v4.0)
+ * 5. 匹配过期处理 - 每 10 分钟检查过期匹配 (v4.0)
  */
 
 import { processExpiredFulfillments } from './fulfillment-timeout';
 import { processExpiredDisputes } from './dispute-timeout';
 import { updateActivityStatuses } from './activity-status';
+import { expireOldIntents, handleExpiredMatches } from './intent-jobs';
 import { jobLogger } from '../lib/logger';
 
 interface ScheduledJob {
@@ -38,6 +41,19 @@ const jobs: ScheduledJob[] = [
     name: '活动状态自动更新',
     interval: 5 * 60 * 1000, // 每5分钟执行
     handler: updateActivityStatuses,
+    isRunning: false,
+  },
+  // v4.0 Partner Intent Jobs
+  {
+    name: '意向过期处理',
+    interval: 60 * 60 * 1000, // 每小时执行
+    handler: expireOldIntents,
+    isRunning: false,
+  },
+  {
+    name: '匹配过期处理',
+    interval: 10 * 60 * 1000, // 每10分钟执行
+    handler: handleExpiredMatches,
     isRunning: false,
   },
 ];

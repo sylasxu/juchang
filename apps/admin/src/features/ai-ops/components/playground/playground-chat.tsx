@@ -707,6 +707,133 @@ function ToolPreview({ toolPart, onSendMessage }: { toolPart: ToolPartData; onSe
     )
   }
 
+  // v4.0 Partner Intent Tools
+  
+  // createPartnerIntent: 显示创建的意向信息
+  if (toolName === 'createPartnerIntent') {
+    if (toolPart.state !== 'output-available') return null
+    
+    const success = output?.success as boolean
+    const matchFound = output?.matchFound as boolean
+    const message = str(output?.message)
+    
+    if (!success) {
+      return (
+        <div className='rounded-lg bg-destructive/10 p-3 text-sm text-destructive'>
+          {str(output?.error) || '创建意向失败'}
+        </div>
+      )
+    }
+    
+    return (
+      <div className={cn(
+        'rounded-lg p-3 text-sm',
+        matchFound 
+          ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
+          : 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300'
+      )}>
+        {matchFound ? '🎉 ' : '📋 '}{message}
+      </div>
+    )
+  }
+
+  // getMyIntents: 显示意向列表
+  if (toolName === 'getMyIntents') {
+    if (toolPart.state !== 'output-available') return null
+    
+    const success = output?.success as boolean
+    if (!success) {
+      return (
+        <div className='rounded-lg bg-destructive/10 p-3 text-sm text-destructive'>
+          {str(output?.error) || '查询失败'}
+        </div>
+      )
+    }
+    
+    const intents = (output?.intents || []) as Array<Record<string, unknown>>
+    const pendingMatches = (output?.pendingMatches || []) as Array<Record<string, unknown>>
+    
+    const typeLabels: Record<string, string> = {
+      food: '🍲 饭搭子',
+      entertainment: '🎬 玩搭子',
+      sports: '🏸 运动搭子',
+      boardgame: '🎲 桌游搭子',
+      other: '📌 搭子',
+    }
+    
+    return (
+      <div className='space-y-2'>
+        {pendingMatches.length > 0 && (
+          <div className='space-y-1'>
+            <div className='text-xs font-medium text-green-600'>待确认匹配</div>
+            {pendingMatches.map((match, i) => (
+              <div key={i} className='flex items-center gap-2 rounded bg-green-50 p-2 text-xs dark:bg-green-950'>
+                <span>🎉</span>
+                <span>{typeLabels[str(match.activityType)] || '搭子'}匹配成功</span>
+                <span className='ml-auto text-muted-foreground'>{str(match.locationHint)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {intents.length > 0 && (
+          <div className='space-y-1'>
+            <div className='text-xs font-medium'>活跃意向</div>
+            {intents.map((intent, i) => (
+              <div key={i} className='flex items-center gap-2 rounded bg-muted p-2 text-xs'>
+                <span>{typeLabels[str(intent.type)] || '📌 搭子'}</span>
+                <span>{str(intent.locationHint)}</span>
+                <span className='ml-auto text-muted-foreground'>{str(intent.timePreference)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {intents.length === 0 && pendingMatches.length === 0 && (
+          <div className='text-xs text-muted-foreground'>暂无活跃意向</div>
+        )}
+      </div>
+    )
+  }
+
+  // cancelIntent: 取消成功提示
+  if (toolName === 'cancelIntent') {
+    if (toolPart.state !== 'output-available') return null
+    
+    const success = output?.success as boolean
+    if (!success) {
+      return (
+        <div className='rounded-lg bg-destructive/10 p-3 text-sm text-destructive'>
+          {str(output?.error) || '取消失败'}
+        </div>
+      )
+    }
+    
+    return (
+      <div className='rounded-lg bg-muted p-3 text-sm'>
+        ✓ 意向已取消
+      </div>
+    )
+  }
+
+  // confirmMatch: 确认匹配成功
+  if (toolName === 'confirmMatch') {
+    if (toolPart.state !== 'output-available') return null
+    
+    const success = output?.success as boolean
+    if (!success) {
+      return (
+        <div className='rounded-lg bg-destructive/10 p-3 text-sm text-destructive'>
+          {str(output?.error) || '确认失败'}
+        </div>
+      )
+    }
+    
+    return (
+      <div className='rounded-lg bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950 dark:text-green-300'>
+        🎉 {str(output?.message) || '活动创建成功！'}
+      </div>
+    )
+  }
+
   // 其他 tool: 不渲染任何 UI，按钮由 askPreference 统一提供
   return null
 }

@@ -1,5 +1,5 @@
 // Dashboard Service - MVP 简化版：只保留 Admin 基础统计
-import { db, users, activities, participants, eq, gte, desc, count, and, lte, lt, sql, inArray, not } from '@juchang/db';
+import { db, users, activities, participants, eq, gte, desc, count, and, lte, lt, sql, inArray, not, partnerIntents, intentMatches } from '@juchang/db';
 import type { 
   DashboardStats, 
   RecentActivity, 
@@ -11,6 +11,7 @@ import type {
   WeeklyCompletedMetric,
   MetricItem,
   BusinessMetrics,
+  IntentMetrics,
 } from './dashboard.model';
 
 /**
@@ -523,4 +524,173 @@ export async function getBusinessMetrics(): Promise<BusinessMetrics> {
     weeklyRetention,
     oneTimeCreatorRate,
   };
+}
+
+
+// ==========================================
+// v4.0 搭子意向指标
+// ==========================================
+
+// 意向指标基准阈值
+const INTENT_BENCHMARKS = {
+  activeIntents: { red: 5, yellow: 20 },      // <5 red, 5-20 yellow, >20 green
+  todayNewIntents: { red: 2, yellow: 5 },     // <2 red, 2-5 yellow, >5 green
+  conversionRate: { red: 10, yellow: 30 },    // <10% red, 10-30% yellow, >30% green
+  avgMatchTime: { red: 360, yellow: 120 },    // >360min red, 120-360 yellow, <120 green (反向)
+};
+
+/**
+ * 获取搭子意向指标
+ */
+export async function getIntentMetrics(): Promise<IntentMetrics> {
+  const [
+    activeIntents,
+    todayNewIntents,
+    conversionRate,
+    avgMatchTime,
+  ] = await Promise.all([
+    calculateActiveIntents(),
+    calculateTodayNewIntents(),
+    calculateIntentConversionRate(),
+    calculateAvgMatchTime(),
+  ]);
+
+  return {
+    activeIntents,
+    todayNewIntents,
+    conversionRate,
+    avgMatchTime,
+  };
+}
+
+/**
+ * 活跃意向数
+ */
+async function calculateActiveIntents(): Promise<MetricItem> {
+  try {
+    const [result] = await db
+      .select({ count: count() })
+      .from(partnerIntents)
+      .where(eq(partnerIntents.status, 'active'));
+
+    const value = result?.count || 0;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, INTENT_BENCHMARKS.activeIntents),
+      comparison: `${value} 个活跃`,
+    };
+  } catch (error) {
+    console.error('计算活跃意向数失败:', error);
+    return { value: 0, benchmark: 'red', comparison: '计算失败' };
+  }
+}
+
+/**
+ * 今日新增意向数
+ */
+async function calculateTodayNewIntents(): Promise<MetricItem> {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [result] = await db
+      .select({ count: count() })
+      .from(partnerIntents)
+      .where(gte(partnerIntents.createdAt, today));
+
+    const value = result?.count || 0;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, INTENT_BENCHMARKS.todayNewIntents),
+      comparison: `今日 +${value}`,
+    };
+  } catch (error) {
+    console.error('计算今日新增意向失败:', error);
+    return { value: 0, benchmark: 'red', comparison: '计算失败' };
+  }
+}
+
+/**
+ * 意向转化率 (matched / total)
+ */
+async function calculateIntentConversionRate(): Promise<MetricItem> {
+  try {
+    const [totalResult] = await db
+      .select({ count: count() })
+      .from(partnerIntents);
+
+    const [matchedResult] = await db
+      .select({ count: count() })
+      .from(partnerIntents)
+      .where(eq(partnerIntents.status, 'matched'));
+
+    const total = totalResult?.count || 0;
+    const matched = matchedResult?.count || 0;
+    const value = total > 0 ? Math.round((matched / total) * 100) : 0;
+
+    return {
+      value,
+      benchmark: getBenchmark(value, INTENT_BENCHMARKS.conversionRate),
+      comparison: `${matched}/${total} 转化`,
+    };
+  } catch (error) {
+    console.error('计算意向转化率失败:', error);
+    return { value: 0, benchmark: 'red', comparison: '计算失败' };
+  }
+}
+
+/**
+ * 平均匹配时长 (分钟)
+ * 从意向创建到匹配成功的平均时间
+ */
+async function calculateAvgMatchTime(): Promise<MetricItem> {
+  try {
+    // 查询已匹配的意向及其匹配时间
+    const matchedIntents = await db
+      .select({
+        intentCreatedAt: partnerIntents.createdAt,
+        matchedAt: intentMatches.matchedAt,
+      })
+      .from(partnerIntents)
+      .innerJoin(intentMatches, sql`${partnerIntents.id} IN (
+        SELECT intent_id FROM intent_match_members WHERE match_id = ${intentMatches.id}
+      )`)
+      .where(eq(partnerIntents.status, 'matched'))
+      .limit(100); // 限制查询数量
+
+    if (matchedIntents.length === 0) {
+      return {
+        value: 0,
+        benchmark: 'yellow',
+        comparison: '暂无数据',
+      };
+    }
+
+    // 计算平均时长
+    let totalMinutes = 0;
+    for (const intent of matchedIntents) {
+      const diff = intent.matchedAt.getTime() - intent.intentCreatedAt.getTime();
+      totalMinutes += diff / (1000 * 60);
+    }
+    const avgMinutes = Math.round(totalMinutes / matchedIntents.length);
+
+    // 反向基准：时间越短越好
+    let benchmark: 'green' | 'yellow' | 'red' = 'green';
+    if (avgMinutes > INTENT_BENCHMARKS.avgMatchTime.red) {
+      benchmark = 'red';
+    } else if (avgMinutes > INTENT_BENCHMARKS.avgMatchTime.yellow) {
+      benchmark = 'yellow';
+    }
+
+    return {
+      value: avgMinutes,
+      benchmark,
+      comparison: avgMinutes < 60 ? `${avgMinutes} 分钟` : `${Math.round(avgMinutes / 60)} 小时`,
+    };
+  } catch (error) {
+    console.error('计算平均匹配时长失败:', error);
+    return { value: 0, benchmark: 'red', comparison: '计算失败' };
+  }
 }

@@ -6,9 +6,12 @@ import { notifications } from "./notifications";
 import { activityMessages } from "./activity_messages";
 import { conversations, conversationMessages } from "./conversations";
 import { reports } from "./reports";
+import { partnerIntents } from "./partner-intents";
+import { intentMatches } from "./intent-matches";
+import { matchMessages } from "./match-messages";
 
 // ==========================================
-// User Relations (v3.3 行业标准命名)
+// User Relations
 // ==========================================
 export const usersRelations = relations(users, ({ many }) => ({
   activitiesCreated: many(activities),
@@ -19,10 +22,14 @@ export const usersRelations = relations(users, ({ many }) => ({
   conversationMessages: many(conversationMessages),
   reportsSubmitted: many(reports, { relationName: "reporter" }),
   reportsResolved: many(reports, { relationName: "resolver" }),
+  // v4.0 Partner Intent
+  partnerIntents: many(partnerIntents),
+  organizedMatches: many(intentMatches),
+  matchMessages: many(matchMessages),
 }));
 
 // ==========================================
-// Activity Relations (v3.3 行业标准命名)
+// Activity Relations
 // ==========================================
 export const activitiesRelations = relations(activities, ({ one, many }) => ({
   creator: one(users, {
@@ -64,7 +71,7 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
 }));
 
 // ==========================================
-// Activity Message Relations (v3.3 语义化命名)
+// Activity Message Relations
 // ==========================================
 export const activityMessagesRelations = relations(activityMessages, ({ one }) => ({
   activity: one(activities, {
@@ -78,7 +85,7 @@ export const activityMessagesRelations = relations(activityMessages, ({ one }) =
 }));
 
 // ==========================================
-// Conversation Relations (会话)
+// Conversation Relations
 // ==========================================
 export const conversationsRelations = relations(conversations, ({ one, many }) => ({
   user: one(users, {
@@ -89,7 +96,7 @@ export const conversationsRelations = relations(conversations, ({ one, many }) =
 }));
 
 // ==========================================
-// ConversationMessage Relations (消息)
+// ConversationMessage Relations
 // ==========================================
 export const conversationMessagesRelations = relations(conversationMessages, ({ one }) => ({
   conversation: one(conversations, {
@@ -107,7 +114,7 @@ export const conversationMessagesRelations = relations(conversationMessages, ({ 
 }));
 
 // ==========================================
-// Report Relations (内容审核)
+// Report Relations
 // ==========================================
 export const reportsRelations = relations(reports, ({ one }) => ({
   reporter: one(users, {
@@ -123,8 +130,40 @@ export const reportsRelations = relations(reports, ({ one }) => ({
 }));
 
 // ==========================================
-// MVP 移除的关系：
-// - feedbacksRelations (复杂反馈系统)
-// - transactionsRelations (支付功能)
-// - actionLogsRelations (审计日志)
+// Partner Intent Relations (v4.0 Smart Broker)
 // ==========================================
+export const partnerIntentsRelations = relations(partnerIntents, ({ one }) => ({
+  user: one(users, {
+    fields: [partnerIntents.userId],
+    references: [users.id],
+  }),
+}));
+
+// ==========================================
+// Intent Match Relations (3表精简版)
+// ==========================================
+export const intentMatchesRelations = relations(intentMatches, ({ one, many }) => ({
+  tempOrganizer: one(users, {
+    fields: [intentMatches.tempOrganizerId],
+    references: [users.id],
+  }),
+  activity: one(activities, {
+    fields: [intentMatches.activityId],
+    references: [activities.id],
+  }),
+  messages: many(matchMessages),
+}));
+
+// ==========================================
+// Match Message Relations
+// ==========================================
+export const matchMessagesRelations = relations(matchMessages, ({ one }) => ({
+  match: one(intentMatches, {
+    fields: [matchMessages.matchId],
+    references: [intentMatches.id],
+  }),
+  sender: one(users, {
+    fields: [matchMessages.senderId],
+    references: [users.id],
+  }),
+}));

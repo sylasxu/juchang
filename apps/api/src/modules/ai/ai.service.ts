@@ -1,5 +1,5 @@
 // AI Service - v3.7 统一 AI Chat (Data Stream Protocol + Execution Trace + Message Enrichment + Conversations)
-import { db, users, conversations, conversationMessages, activities, participants, eq, desc, sql } from '@juchang/db';
+import { db, users, conversations, conversationMessages, activities, participants, eq, desc, sql, intentMatches } from '@juchang/db';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { 
   streamText, 
@@ -19,7 +19,7 @@ import type {
   ConversationMessageType,
   ContinueDraftContext,
 } from './ai.model';
-import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v38';
+import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v39';
 import { getAIToolsV34, getToolsByIntent, type IntentType } from './tools';
 import { recordTokenUsage } from './services/metrics';
 import { enrichMessages, injectContextToSystemPrompt, type EnrichmentContext } from './enrichment';
@@ -391,7 +391,9 @@ export async function streamChat(request: StreamChatRequest) {
     return createUIMessageStreamResponse({ stream });
   }
   
-  const tools = getToolsByIntent(userId, intent, !!draftContext);
+  // v3.9: 传递 userLocation 给 getToolsByIntent（Partner Intent 需要）
+  const userLocationForTools = location ? { lat: location[1], lng: location[0] } : null;
+  const tools = getToolsByIntent(userId, intent, !!draftContext, userLocationForTools);
   
   console.log(`[AI Chat] Tools: ${Object.keys(tools).join(', ')}`);
   
@@ -1289,6 +1291,19 @@ export async function getWelcomeCard(
     : `Hello${nickname ? ` ${nickname}` : ''} ✨`;
   const subGreeting = "想玩点什么？";
 
+  // v4.0: 待确认匹配分组（置顶高亮）
+  if (userId) {
+    const pendingMatches = await buildPendingMatchItems(userId);
+    if (pendingMatches.length > 0) {
+      sections.push({
+        id: 'pending-matches',
+        icon: '🎉',
+        title: '待确认匹配',
+        items: pendingMatches,
+      });
+    }
+  }
+
   // 2. 继续草稿分组（需要登录）
   if (userId) {
     const draftAction = await buildContinueDraftAction(userId);
@@ -1354,6 +1369,12 @@ async function buildSuggestionItems(userId: string | null): Promise<QuickItem[]>
       label: '想找人一起打羽毛球',
       prompt: '想找人一起打羽毛球',
     },
+    // v4.0: 找搭子快捷入口
+    {
+      type: 'suggestion',
+      label: '想吃火锅找搭子',
+      prompt: '想吃火锅，谁组我就去',
+    },
   ];
 
   // TODO: 后续可以基于用户历史活动类型动态生成
@@ -1363,6 +1384,53 @@ async function buildSuggestionItems(userId: string | null): Promise<QuickItem[]>
   // }
 
   return items;
+}
+
+/**
+ * v4.0: 构建待确认匹配项
+ */
+async function buildPendingMatchItems(userId: string): Promise<QuickItem[]> {
+  try {
+    // 查询用户作为 Temp_Organizer 的待确认匹配
+    const pendingMatches = await db
+      .select({
+        id: intentMatches.id,
+        activityType: intentMatches.activityType,
+        matchScore: intentMatches.matchScore,
+        centerLocationHint: intentMatches.centerLocationHint,
+        confirmDeadline: intentMatches.confirmDeadline,
+      })
+      .from(intentMatches)
+      .where(sql`${intentMatches.tempOrganizerId} = ${userId} AND ${intentMatches.outcome} = 'pending' AND ${intentMatches.confirmDeadline} > NOW()`)
+      .limit(3);
+
+    if (pendingMatches.length === 0) {
+      return [];
+    }
+
+    const typeLabels: Record<string, string> = {
+      food: '饭搭子',
+      entertainment: '玩搭子',
+      sports: '运动搭子',
+      boardgame: '桌游搭子',
+      other: '搭子',
+    };
+
+    return pendingMatches.map(match => ({
+      type: 'suggestion' as const,
+      icon: '🎉',
+      label: `${typeLabels[match.activityType] || '搭子'}匹配成功！点击确认`,
+      prompt: `确认匹配 ${match.id}`,
+      context: { 
+        matchId: match.id, 
+        activityType: match.activityType,
+        location: match.centerLocationHint,
+      },
+    }));
+  } catch (error) {
+    console.error('[Welcome] Failed to get pending matches:', error);
+    return [];
+  }
 }
 
 /**

@@ -6,7 +6,7 @@
  */
 
 import type { EnrichmentResult } from '../types';
-import type { ActivityDraftForPrompt } from '../../prompts/xiaoju-v37';
+import type { ActivityDraftForPrompt } from '../../prompts/xiaoju-v39';
 
 /**
  * 草稿上下文类型
