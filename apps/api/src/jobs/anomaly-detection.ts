@@ -6,7 +6,6 @@
  */
 
 import { detectAllAnomalies, getAnomalyStats } from '../modules/ai/anomaly/detector';
-import { jobLogger } from '../lib/logger';
 
 /**
  * 执行异常检测扫描

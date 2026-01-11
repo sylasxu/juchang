@@ -6,7 +6,6 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import { cn } from '@/lib/utils'
 import { TraceStep } from './trace-step'
 import { TraceStepInput } from './trace-step-input'
 import { TraceStepPrompt } from './trace-step-prompt'
@@ -47,7 +46,6 @@ export function TraceTimeline({
   selectedStepId,
   onStepClick,
   startedAt,
-  isStreaming,
 }: TraceTimelineProps) {
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set())
 

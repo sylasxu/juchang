@@ -3,7 +3,7 @@
  */
 import { Elysia, t } from 'elysia';
 import { basePlugins } from '../../../setup';
-import { detectAllAnomalies, getAnomalyStats, type AnomalyUser } from './detector';
+import { detectAllAnomalies, getAnomalyStats } from './detector';
 
 const AnomalyUserSchema = t.Object({
   anomalyId: t.String(),

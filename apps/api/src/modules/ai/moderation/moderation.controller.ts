@@ -3,7 +3,7 @@
  */
 import { Elysia, t } from 'elysia';
 import { basePlugins } from '../../../setup';
-import { analyzeActivity, analyzeContent, type ModerationResult } from './moderation.service';
+import { analyzeActivity, analyzeContent } from './moderation.service';
 
 const ModerationResultSchema = t.Object({
   activityId: t.String(),

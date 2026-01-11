@@ -71,11 +71,6 @@ interface StoredBrokerState {
 const REQUIRED_FIELDS = ['activityType', 'timeRange'];
 
 /**
- * 可选项
- */
-const OPTIONAL_FIELDS = ['location', 'participants'];
-
-/**
  * 追问问题模板
  */
 const QUESTION_TEMPLATES: Record<string, BrokerQuestion> = {

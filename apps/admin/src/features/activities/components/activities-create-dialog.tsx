@@ -56,7 +56,7 @@ export function ActivitiesCreateDialog() {
     },
   })
 
-  const onSubmit = async (values: CreateActivityForm) => {
+  const onSubmit = async (_values: CreateActivityForm) => {
     try {
       await new Promise(resolve => setTimeout(resolve, 1000))
       toast.success('活动创建成功')

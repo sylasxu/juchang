@@ -9,7 +9,7 @@ import { Loader2, Check, X, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import type { TraceStep as TraceStepType, StepStatus } from '../../types/trace'
-import { STEP_ICONS, STEP_LABELS } from '../../types/trace'
+import { STEP_LABELS } from '../../types/trace'
 
 interface TraceStepProps {
   /** 步骤数据 */

@@ -57,7 +57,7 @@ export async function detectBulkCreate(): Promise<AnomalyUser[]> {
     ORDER BY count DESC
   `);
 
-  return (result as unknown as any[]).map((row, index) => ({
+  return (result as unknown as any[]).map((row) => ({
     anomalyId: `bulk_create_${row.user_id}_${Date.now()}`,
     userId: row.user_id,
     userNickname: row.user_nickname,
@@ -89,7 +89,7 @@ export async function detectFrequentCancel(): Promise<AnomalyUser[]> {
     ORDER BY count DESC
   `);
 
-  return (result as unknown as any[]).map((row, index) => ({
+  return (result as unknown as any[]).map((row) => ({
     anomalyId: `frequent_cancel_${row.user_id}_${Date.now()}`,
     userId: row.user_id,
     userNickname: row.user_nickname,

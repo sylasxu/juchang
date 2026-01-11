@@ -9,7 +9,7 @@
 import { t } from 'elysia';
 import { tool, jsonSchema } from 'ai';
 import { toJsonSchema } from '@juchang/utils';
-import { db, activities, eq, and, sql, desc } from '@juchang/db';
+import { db, activities, eq, and, desc } from '@juchang/db';
 
 /**
  * Tool Schema

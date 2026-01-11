@@ -17,6 +17,7 @@ import { type UserDialogType } from './users-columns'
 export function UsersImportDialog() {
   const { open, setOpen } = useListContext<User, UserDialogType>()
   const [isImporting, setIsImporting] = useState(false)
+  const isOpen = open === 'import'
 
   const handleImport = async () => {
     setIsImporting(true)
@@ -33,7 +34,7 @@ export function UsersImportDialog() {
   }
 
   return (
-    <Dialog open={open === 'import'} onOpenChange={() => setOpen(null)}>
+    <Dialog open={isOpen} onOpenChange={() => setOpen(null)}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>导入用户</DialogTitle>

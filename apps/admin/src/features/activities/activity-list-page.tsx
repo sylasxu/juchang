@@ -403,7 +403,7 @@ export function ActivityListPage() {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        {new Date(activity.createdAt).toLocaleDateString()}
+                        {new Date(activity.startAt).toLocaleDateString()}
                       </div>
                     </TableCell>
                     <TableCell>

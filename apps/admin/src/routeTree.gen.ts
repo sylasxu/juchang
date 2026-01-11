@@ -33,9 +33,11 @@ import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
 import { Route as AuthenticatedAiOpsTokenUsageRouteImport } from './routes/_authenticated/ai-ops/token-usage'
+import { Route as AuthenticatedAiOpsQuotaRouteImport } from './routes/_authenticated/ai-ops/quota'
 import { Route as AuthenticatedAiOpsPromptViewerRouteImport } from './routes/_authenticated/ai-ops/prompt-viewer'
 import { Route as AuthenticatedAiOpsPlaygroundRouteImport } from './routes/_authenticated/ai-ops/playground'
 import { Route as AuthenticatedAiOpsConversationsRouteImport } from './routes/_authenticated/ai-ops/conversations'
+import { Route as AuthenticatedAiOpsAnomalyRouteImport } from './routes/_authenticated/ai-ops/anomaly'
 import { Route as AuthenticatedActivitiesIdRouteImport } from './routes/_authenticated/activities/$id'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -166,6 +168,11 @@ const AuthenticatedAiOpsTokenUsageRoute =
     path: '/ai-ops/token-usage',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAiOpsQuotaRoute = AuthenticatedAiOpsQuotaRouteImport.update({
+  id: '/ai-ops/quota',
+  path: '/ai-ops/quota',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAiOpsPromptViewerRoute =
   AuthenticatedAiOpsPromptViewerRouteImport.update({
     id: '/ai-ops/prompt-viewer',
@@ -182,6 +189,12 @@ const AuthenticatedAiOpsConversationsRoute =
   AuthenticatedAiOpsConversationsRouteImport.update({
     id: '/ai-ops/conversations',
     path: '/ai-ops/conversations',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAiOpsAnomalyRoute =
+  AuthenticatedAiOpsAnomalyRouteImport.update({
+    id: '/ai-ops/anomaly',
+    path: '/ai-ops/anomaly',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedActivitiesIdRoute =
@@ -205,9 +218,11 @@ export interface FileRoutesByFullPath {
   '/legal/$type': typeof LegalTypeRoute
   '/': typeof AuthenticatedIndexRoute
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
+  '/ai-ops/anomaly': typeof AuthenticatedAiOpsAnomalyRoute
   '/ai-ops/conversations': typeof AuthenticatedAiOpsConversationsRoute
   '/ai-ops/playground': typeof AuthenticatedAiOpsPlaygroundRoute
   '/ai-ops/prompt-viewer': typeof AuthenticatedAiOpsPromptViewerRoute
+  '/ai-ops/quota': typeof AuthenticatedAiOpsQuotaRoute
   '/ai-ops/token-usage': typeof AuthenticatedAiOpsTokenUsageRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -233,9 +248,11 @@ export interface FileRoutesByTo {
   '/legal/$type': typeof LegalTypeRoute
   '/': typeof AuthenticatedIndexRoute
   '/activities/$id': typeof AuthenticatedActivitiesIdRoute
+  '/ai-ops/anomaly': typeof AuthenticatedAiOpsAnomalyRoute
   '/ai-ops/conversations': typeof AuthenticatedAiOpsConversationsRoute
   '/ai-ops/playground': typeof AuthenticatedAiOpsPlaygroundRoute
   '/ai-ops/prompt-viewer': typeof AuthenticatedAiOpsPromptViewerRoute
+  '/ai-ops/quota': typeof AuthenticatedAiOpsQuotaRoute
   '/ai-ops/token-usage': typeof AuthenticatedAiOpsTokenUsageRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -264,9 +281,11 @@ export interface FileRoutesById {
   '/legal/$type': typeof LegalTypeRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/activities/$id': typeof AuthenticatedActivitiesIdRoute
+  '/_authenticated/ai-ops/anomaly': typeof AuthenticatedAiOpsAnomalyRoute
   '/_authenticated/ai-ops/conversations': typeof AuthenticatedAiOpsConversationsRoute
   '/_authenticated/ai-ops/playground': typeof AuthenticatedAiOpsPlaygroundRoute
   '/_authenticated/ai-ops/prompt-viewer': typeof AuthenticatedAiOpsPromptViewerRoute
+  '/_authenticated/ai-ops/quota': typeof AuthenticatedAiOpsQuotaRoute
   '/_authenticated/ai-ops/token-usage': typeof AuthenticatedAiOpsTokenUsageRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -295,9 +314,11 @@ export interface FileRouteTypes {
     | '/legal/$type'
     | '/'
     | '/activities/$id'
+    | '/ai-ops/anomaly'
     | '/ai-ops/conversations'
     | '/ai-ops/playground'
     | '/ai-ops/prompt-viewer'
+    | '/ai-ops/quota'
     | '/ai-ops/token-usage'
     | '/errors/$error'
     | '/settings/account'
@@ -323,9 +344,11 @@ export interface FileRouteTypes {
     | '/legal/$type'
     | '/'
     | '/activities/$id'
+    | '/ai-ops/anomaly'
     | '/ai-ops/conversations'
     | '/ai-ops/playground'
     | '/ai-ops/prompt-viewer'
+    | '/ai-ops/quota'
     | '/ai-ops/token-usage'
     | '/errors/$error'
     | '/settings/account'
@@ -353,9 +376,11 @@ export interface FileRouteTypes {
     | '/legal/$type'
     | '/_authenticated/'
     | '/_authenticated/activities/$id'
+    | '/_authenticated/ai-ops/anomaly'
     | '/_authenticated/ai-ops/conversations'
     | '/_authenticated/ai-ops/playground'
     | '/_authenticated/ai-ops/prompt-viewer'
+    | '/_authenticated/ai-ops/quota'
     | '/_authenticated/ai-ops/token-usage'
     | '/_authenticated/errors/$error'
     | '/_authenticated/settings/account'
@@ -553,6 +578,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAiOpsTokenUsageRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/ai-ops/quota': {
+      id: '/_authenticated/ai-ops/quota'
+      path: '/ai-ops/quota'
+      fullPath: '/ai-ops/quota'
+      preLoaderRoute: typeof AuthenticatedAiOpsQuotaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/ai-ops/prompt-viewer': {
       id: '/_authenticated/ai-ops/prompt-viewer'
       path: '/ai-ops/prompt-viewer'
@@ -572,6 +604,13 @@ declare module '@tanstack/react-router' {
       path: '/ai-ops/conversations'
       fullPath: '/ai-ops/conversations'
       preLoaderRoute: typeof AuthenticatedAiOpsConversationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ai-ops/anomaly': {
+      id: '/_authenticated/ai-ops/anomaly'
+      path: '/ai-ops/anomaly'
+      fullPath: '/ai-ops/anomaly'
+      preLoaderRoute: typeof AuthenticatedAiOpsAnomalyRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/activities/$id': {
@@ -606,9 +645,11 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedActivitiesIdRoute: typeof AuthenticatedActivitiesIdRoute
+  AuthenticatedAiOpsAnomalyRoute: typeof AuthenticatedAiOpsAnomalyRoute
   AuthenticatedAiOpsConversationsRoute: typeof AuthenticatedAiOpsConversationsRoute
   AuthenticatedAiOpsPlaygroundRoute: typeof AuthenticatedAiOpsPlaygroundRoute
   AuthenticatedAiOpsPromptViewerRoute: typeof AuthenticatedAiOpsPromptViewerRoute
+  AuthenticatedAiOpsQuotaRoute: typeof AuthenticatedAiOpsQuotaRoute
   AuthenticatedAiOpsTokenUsageRoute: typeof AuthenticatedAiOpsTokenUsageRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedUsersIdRoute: typeof AuthenticatedUsersIdRoute
@@ -623,9 +664,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedActivitiesIdRoute: AuthenticatedActivitiesIdRoute,
+  AuthenticatedAiOpsAnomalyRoute: AuthenticatedAiOpsAnomalyRoute,
   AuthenticatedAiOpsConversationsRoute: AuthenticatedAiOpsConversationsRoute,
   AuthenticatedAiOpsPlaygroundRoute: AuthenticatedAiOpsPlaygroundRoute,
   AuthenticatedAiOpsPromptViewerRoute: AuthenticatedAiOpsPromptViewerRoute,
+  AuthenticatedAiOpsQuotaRoute: AuthenticatedAiOpsQuotaRoute,
   AuthenticatedAiOpsTokenUsageRoute: AuthenticatedAiOpsTokenUsageRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedUsersIdRoute: AuthenticatedUsersIdRoute,

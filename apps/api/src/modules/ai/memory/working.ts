@@ -9,7 +9,7 @@
 
 import { db, users, eq } from '@juchang/db';
 import type { UserProfile } from './types';
-import type { ExtractedPreference, PreferenceExtraction, PreferenceCategory, PreferenceSentiment } from './extractor';
+import type { PreferenceExtraction, PreferenceCategory, PreferenceSentiment } from './extractor';
 
 // ============ 类型定义 ============
 
@@ -316,8 +316,9 @@ export async function clearWorkingMemory(userId: string): Promise<void> {
 
 /**
  * 检测存储格式是否为增强版（JSON）
+ * @internal Used by parseEnhancedProfile
  */
-function isEnhancedFormat(content: string | null): boolean {
+export function isEnhancedFormat(content: string | null): boolean {
   if (!content) return false;
   try {
     const parsed = JSON.parse(content);

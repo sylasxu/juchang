@@ -172,7 +172,7 @@ export const userController = new Elysia({ prefix: '/users' })
   // 批量设置用户额度（Admin 用）
   .post(
     '/quota/batch',
-    async ({ body, set }) => {
+    async ({ body }) => {
       const result = await setUserQuotaBatch(body.userIds, body.quota);
       return { success: true, updatedCount: result.updatedCount };
     },

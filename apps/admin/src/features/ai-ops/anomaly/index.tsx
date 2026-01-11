@@ -75,7 +75,7 @@ export function AnomalyDetectionPage() {
     mutationFn: ({ anomalyId, action }: { anomalyId: string; action: 'handled' | 'ignored' }) =>
       unwrap(api.ai.anomaly.users({ anomalyId }).action.post({ action })),
     onSuccess: (data) => {
-      toast.success(data.msg)
+      toast.success(data?.msg || '操作成功')
       queryClient.invalidateQueries({ queryKey: ['ai', 'anomaly'] })
     },
     onError: (error: Error) => {

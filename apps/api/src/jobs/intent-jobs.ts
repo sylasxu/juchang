@@ -93,7 +93,7 @@ async function reassignTempOrganizer(
   matchId: string, 
   currentOrganizerId: string,
   intentIds: string[],
-  userIds: string[]
+  _userIds: string[]
 ): Promise<boolean> {
   // 查找其他成员的意向（排除当前 Temp_Organizer）
   const otherIntents = await db

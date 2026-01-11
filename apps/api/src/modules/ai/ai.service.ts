@@ -222,14 +222,59 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
     maxOutputTokens: modelParams?.maxTokens,
     stopWhen: [stepCountIs(5), hasToolCall('askPreference')],
     onStepFinish: (step) => {
+      // 记录每一步的详细信息
+      const stepNumber = traceSteps.length + 1;
+      const stepType = (step as any).stepType; // 'initial' | 'continue' | 'tool-result'
+      
+      logger.debug('AI step finished', {
+        stepNumber,
+        stepType,
+        toolCallsCount: step.toolCalls?.length || 0,
+        toolResultsCount: step.toolResults?.length || 0,
+        hasText: !!step.text,
+        finishReason: step.finishReason,
+      });
+      
+      // 收集 Tool Calls
       for (const tc of step.toolCalls || []) {
         if (!traceSteps.find(s => s.toolCallId === tc.toolCallId)) {
-          traceSteps.push({ toolName: tc.toolName, toolCallId: tc.toolCallId, args: (tc as any).args });
+          traceSteps.push({ 
+            toolName: tc.toolName, 
+            toolCallId: tc.toolCallId, 
+            args: (tc as any).args,
+          });
+          
+          // 记录 Tool 调用日志
+          logger.info('Tool called', {
+            stepNumber,
+            toolName: tc.toolName,
+            toolCallId: tc.toolCallId,
+          });
         }
       }
+      
+      // 收集 Tool Results
       for (const tr of step.toolResults || []) {
         const existing = traceSteps.find(s => s.toolCallId === tr.toolCallId);
-        if (existing) existing.result = (tr as any).result;
+        if (existing) {
+          existing.result = (tr as any).result;
+          
+          // 记录 Tool 结果日志
+          logger.info('Tool result received', {
+            stepNumber,
+            toolName: existing.toolName,
+            toolCallId: tr.toolCallId,
+            hasResult: !!(tr as any).result,
+          });
+        }
+      }
+      
+      // 如果达到最大步数，记录警告
+      if (stepNumber >= 5) {
+        logger.warn('Max steps reached', {
+          stepNumber,
+          toolCalls: traceSteps.map(s => s.toolName),
+        });
       }
     },
     onFinish: async ({ usage, text }) => {
@@ -329,15 +374,15 @@ function createQuickResponse(text: string, trace?: boolean): Response {
       writer.write({ type: 'text-delta', delta: text, id: randomUUID() });
       if (trace) {
         const now = new Date().toISOString();
-        writer.write({ type: 'data-trace-start', data: { requestId: randomUUID(), startedAt: now, intent: 'blocked', intentMethod: 'guardrail' }, transient: true });
-        writer.write({ type: 'data-trace-end', data: { completedAt: now, status: 'blocked', output: { text, toolCalls: [] } }, transient: true });
+        writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'blocked', intentMethod: 'guardrail' }, transient: true });
+        writer.write({ type: 'data-trace-end' as any, data: { completedAt: now, status: 'blocked', output: { text, toolCalls: [] } }, transient: true });
       }
     },
   });
   return createUIMessageStreamResponse({ stream });
 }
 
-function handleChitchat(trace: boolean | undefined, intent: ClassifyResult): Response {
+function handleChitchat(trace: boolean | undefined, _intent: ClassifyResult): Response {
   const responses = [
     '哈哈，我只会帮你组局约人，闲聊就不太行了～想约点什么？',
     '聊天我不太擅长，但组局我很在行！想找人一起玩点什么？',
@@ -350,8 +395,8 @@ function handleChitchat(trace: boolean | undefined, intent: ClassifyResult): Res
       writer.write({ type: 'text-delta', delta: text, id: randomUUID() });
       if (trace) {
         const now = new Date().toISOString();
-        writer.write({ type: 'data-trace-start', data: { requestId: randomUUID(), startedAt: now, intent: intent.intent, intentMethod: intent.method }, transient: true });
-        writer.write({ type: 'data-trace-end', data: { completedAt: now, status: 'completed', output: { text, toolCalls: [] } }, transient: true });
+        writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: _intent.intent, intentMethod: _intent.method }, transient: true });
+        writer.write({ type: 'data-trace-end' as any, data: { completedAt: now, status: 'completed', output: { text, toolCalls: [] } }, transient: true });
       }
     },
   });
@@ -366,7 +411,7 @@ async function handleBrokerFlow(
   existingState: BrokerState | null,
   threadId: string,
   userMessage: string,
-  intentResult: ClassifyResult
+  _intentResult: ClassifyResult
 ): Promise<Response> {
   const { userId, trace } = request;
   
@@ -407,7 +452,7 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
         writer.write({ type: 'text-delta', delta: confirmText, id: randomUUID() });
         // 返回 Widget 数据让前端显示
         writer.write({ 
-          type: 'data', 
+          type: 'data' as any, 
           data: { 
             type: 'widget_ask_preference',
             payload: {
@@ -418,8 +463,8 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
         });
         if (trace) {
           const now = new Date().toISOString();
-          writer.write({ type: 'data-trace-start', data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'broker' }, transient: true });
-          writer.write({ type: 'data-trace-end', data: { completedAt: now, status: 'completed', output: { text: confirmText, toolCalls: [] } }, transient: true });
+          writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'broker' }, transient: true });
+          writer.write({ type: 'data-trace-end' as any, data: { completedAt: now, status: 'completed', output: { text: confirmText, toolCalls: [] } }, transient: true });
         }
       },
     });
@@ -438,7 +483,7 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
       writer.write({ type: 'text-delta', delta: questionText, id: randomUUID() });
       // 返回 Widget 数据让前端渲染选项按钮
       writer.write({ 
-        type: 'data', 
+        type: 'data' as any, 
         data: { 
           type: 'widget_ask_preference',
           payload: {
@@ -455,8 +500,8 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
       });
       if (trace) {
         const now = new Date().toISOString();
-        writer.write({ type: 'data-trace-start', data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'broker' }, transient: true });
-        writer.write({ type: 'data-trace-end', data: { completedAt: now, status: 'collecting', output: { text: questionText, toolCalls: [] } }, transient: true });
+        writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'broker' }, transient: true });
+        writer.write({ type: 'data-trace-end' as any, data: { completedAt: now, status: 'collecting', output: { text: questionText, toolCalls: [] } }, transient: true });
       }
     },
   });
@@ -784,7 +829,7 @@ export function generateGreeting(nickname: string | null): string {
 }
 
 export async function getWelcomeCard(
-  userId: string | null,
+  _userId: string | null,
   nickname: string | null,
   location: { lat: number; lng: number } | null
 ): Promise<WelcomeResponse> {

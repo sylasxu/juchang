@@ -9,9 +9,9 @@
  */
 
 import type { LanguageModel } from 'ai';
-import { deepseekProvider, getDeepSeekChat } from './adapters/deepseek';
+import { deepseekProvider } from './adapters/deepseek';
 import { zhipuProvider, getZhipuEmbeddings } from './adapters/zhipu';
-import type { ModelProvider, ModelProviderName, FallbackConfig, EmbedResponse } from './types';
+import type { ModelProvider, ModelProviderName, FallbackConfig } from './types';
 import { DEFAULT_FALLBACK_CONFIG, MODEL_IDS } from './types';
 
 /**

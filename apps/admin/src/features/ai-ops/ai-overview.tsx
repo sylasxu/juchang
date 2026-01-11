@@ -141,7 +141,7 @@ export function AIOverview() {
           <div>
             <h2 className='mb-4 text-lg font-semibold'>快捷入口</h2>
             <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-              <Link to='/ai-ops/quota'>
+              <Link to='/ai-ops/token-usage'>
                 <Card className='cursor-pointer transition-colors hover:bg-accent'>
                   <CardHeader className='pb-2'>
                     <Gauge className='h-8 w-8 text-primary' />
@@ -177,7 +177,7 @@ export function AIOverview() {
                 </Card>
               </Link>
 
-              <Link to='/conversations'>
+              <Link to='/ai-ops/conversations'>
                 <Card className='cursor-pointer transition-colors hover:bg-accent'>
                   <CardHeader className='pb-2'>
                     <Bot className='h-8 w-8 text-primary' />

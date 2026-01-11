@@ -9,7 +9,7 @@
 
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import type { LanguageModel } from 'ai';
-import type { ModelProvider, RerankParams, RerankResponse } from '../types';
+import type { ModelProvider } from '../types';
 import { MODEL_IDS } from '../types';
 
 /**

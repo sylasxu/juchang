@@ -119,7 +119,7 @@ export function TokenUsage() {
                   <Badge key={tool.toolName} variant='secondary' className='gap-1'>
                     <Bot className='h-3 w-3' />
                     {tool.toolName}
-                    <span className='text-muted-foreground'>×{tool.count}</span>
+                    <span className='text-muted-foreground'>×{tool.totalCount}</span>
                   </Badge>
                 ))}
               </div>

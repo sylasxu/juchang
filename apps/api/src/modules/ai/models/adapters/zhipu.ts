@@ -35,7 +35,7 @@ function getApiKey(): string {
  * 注意：这是一个简化实现，不完全兼容 AI SDK 的 LanguageModel 接口
  * 主要用于降级场景
  */
-function getChatModel(modelId?: string): LanguageModel {
+function getChatModel(_modelId?: string): LanguageModel {
   // 由于没有 @ai-sdk/openai-compatible，暂时抛出错误
   // 实际使用时应该安装依赖或使用其他方式
   throw new Error(

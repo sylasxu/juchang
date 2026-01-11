@@ -18,7 +18,7 @@ import { useListContext } from '@/components/list-page'
 import { type User } from '../data/schema'
 
 // 用户弹窗类型
-export type UserDialogType = 'update' | 'delete' | 'quota'
+export type UserDialogType = 'update' | 'delete' | 'quota' | 'import'
 
 // 行操作组件
 function UserRowActions({ user }: { user: User }) {

@@ -6,7 +6,6 @@
  */
 
 import { t } from 'elysia';
-import { selectActivitySchema } from '@juchang/db';
 import type { WidgetChunk } from './types';
 
 /**
