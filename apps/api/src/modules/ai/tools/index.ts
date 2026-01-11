@@ -5,8 +5,52 @@
  * 
  * v3.9: 支持动态加载 Tool，根据意图只加载需要的 Tool，减少 Token 消耗
  * v4.0: 新增 Partner Intent Tools (找搭子)
+ * v4.1: 模块化重构，新增 types, widgets, registry
  */
 
+// Types
+export type {
+  ToolContext,
+  ToolResult,
+  WidgetChunk,
+  ToolDefinition,
+} from './types';
+
+export {
+  TOOL_DISPLAY_NAMES,
+  TOOL_WIDGET_TYPES,
+  getToolDisplayName,
+  getToolWidgetType,
+} from './types';
+
+// Widgets
+export {
+  WidgetType,
+  buildDraftWidget,
+  buildExploreWidget,
+  buildAskPreferenceWidget,
+  buildShareWidget,
+  buildErrorWidget,
+} from './widgets';
+
+export type {
+  WidgetTypeValue,
+  WidgetDraftPayload,
+  WidgetExplorePayload,
+  WidgetAskPreferencePayload,
+  WidgetSharePayload,
+  WidgetErrorPayload,
+} from './widgets';
+
+// Registry
+export {
+  getToolNamesForIntent,
+  getToolsForIntent,
+  getAllTools,
+  getTool,
+} from './registry';
+
+// Tool Factories
 export { createActivityDraftTool } from './create-draft';
 export { getDraftTool } from './get-draft';
 export { refineDraftTool } from './refine-draft';

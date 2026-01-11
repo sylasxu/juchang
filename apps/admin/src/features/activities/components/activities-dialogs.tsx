@@ -3,6 +3,7 @@ import { ActivitiesMutateDrawer } from './activities-mutate-drawer'
 import { ActivitiesDeleteDialog } from './activities-delete-dialog'
 import { ActivityPromptDialog } from './activity-prompt-dialog'
 import { ActivitiesCreateDialog } from './activities-create-dialog'
+import { AIModerationDialog } from './ai-moderation-dialog'
 import { type Activity } from '../data/schema'
 import { type ActivityDialogType } from './activities-columns'
 
@@ -19,6 +20,17 @@ export function ActivitiesDialogs() {
           open={true}
           onOpenChange={() => setOpen(null)}
           currentRow={currentRow}
+        />
+      )}
+      {open === 'ai-moderation' && currentRow && (
+        <AIModerationDialog
+          open={true}
+          onOpenChange={() => setOpen(null)}
+          activity={{
+            id: currentRow.id,
+            title: currentRow.title,
+            description: currentRow.description,
+          }}
         />
       )}
     </>

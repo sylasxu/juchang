@@ -8,7 +8,7 @@ import { type Activity } from '../data/schema'
 import { DataTableRowActions } from './data-table-row-actions'
 
 // 活动弹窗类型
-export type ActivityDialogType = 'update' | 'delete' | 'moderate'
+export type ActivityDialogType = 'update' | 'delete' | 'moderate' | 'prompt' | 'ai-moderation'
 
 export const activitiesColumns: ColumnDef<Activity>[] = [
   {

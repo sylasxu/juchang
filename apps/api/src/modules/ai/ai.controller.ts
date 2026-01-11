@@ -18,7 +18,11 @@ import {
   getOrCreateCurrentConversation,
 } from './ai.service';
 import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v38';
-import { getTokenUsageStats, getTokenUsageSummary, getToolCallStats } from './services/metrics';
+import { 
+  getTokenUsageStats, 
+  getTokenUsageSummary, 
+  getToolCallStats,
+} from './services/metrics';
 import { db, users, eq } from '@juchang/db';
 
 /**

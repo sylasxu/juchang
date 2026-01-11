@@ -1,10 +1,20 @@
-// AI Service - v3.7 统一 AI Chat (Data Stream Protocol + Execution Trace + Message Enrichment + Conversations)
-import { db, users, conversations, conversationMessages, activities, participants, eq, desc, sql, intentMatches } from '@juchang/db';
-import { createDeepSeek } from '@ai-sdk/deepseek';
+/**
+ * AI Service - v4.0 模块化架构
+ * 
+ * 精简的服务层，编排各模块完成 AI Chat
+ * 
+ * 模块依赖：
+ * - orchestrator - 编排层
+ * - agent/ - Agent 核心
+ * - intent/ - 意图识别
+ * - memory/ - 会话存储
+ * - tools/ - 工具系统
+ * - models/ - 模型路由
+ */
+
+import { db, users, conversations, conversationMessages, eq, desc, sql, inArray } from '@juchang/db';
 import { 
   streamText, 
-  generateObject,
-  jsonSchema,
   createUIMessageStream, 
   createUIMessageStreamResponse,
   convertToModelMessages,
@@ -12,1687 +22,812 @@ import {
   hasToolCall,
   type UIMessage,
 } from 'ai';
-import { t } from 'elysia';
 import { randomUUID } from 'crypto';
-import type { 
-  ConversationsQuery,
-  ConversationMessageType,
-  ContinueDraftContext,
-} from './ai.model';
+
+// 新架构模块
+import { classifyIntent, type ClassifyResult } from './intent';
+import { getOrCreateThread, saveMessage, clearUserThreads, deleteThread } from './memory';
+import { getToolsByIntent, getToolWidgetType, getToolDisplayName } from './tools';
 import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v39';
-import { getAIToolsV34, getToolsByIntent, type IntentType } from './tools';
+import { getModel } from './models/router';
 import { recordTokenUsage } from './services/metrics';
-import { enrichMessages, injectContextToSystemPrompt, type EnrichmentContext } from './enrichment';
-import { shouldEvaluate, runEvaluation, EVALUATION_CONFIG, type EvaluationResult } from './services/evaluation';
-import { toJsonSchema } from '@juchang/utils';
+// Guardrails
+import { checkInput, sanitizeInput } from './guardrails/input-guard';
+import { checkRateLimit } from './guardrails/rate-limiter';
+// Observability
+import { createLogger } from './observability/logger';
+import { countAIRequest, recordAILatency, recordTokenUsage as recordMetricsTokenUsage } from './observability/metrics';
+// WorkingMemory (Enhanced)
+import { 
+  getEnhancedUserProfile,
+  updateEnhancedUserProfile,
+  buildProfilePrompt,
+} from './memory/working';
+import { extractPreferences } from './memory/extractor';
+// AI Pipeline
+import { processAIContext } from './processors/ai-pipeline';
+// Broker Mode
+import { 
+  shouldEnterBrokerMode, 
+  recoverBrokerState, 
+  createBrokerState,
+  updateBrokerState,
+  getNextQuestion,
+  parseUserAnswer,
+  persistBrokerState,
+  type BrokerState,
+} from './workflow/broker';
+// Evals
+import { evaluateResponseQuality } from './evals/runner';
 
-/**
- * DeepSeek Provider 配置
- * 使用官方 @ai-sdk/deepseek provider
- * 
- * 注意：延迟初始化，确保 .env 已加载
- */
-let _deepseek: ReturnType<typeof createDeepSeek> | null = null;
-
-function getDeepSeekProvider() {
-  if (!_deepseek) {
-    _deepseek = createDeepSeek({
-      apiKey: process.env.DEEPSEEK_API_KEY || '',
-    });
-  }
-  return _deepseek;
-}
-
-/**
- * 获取 AI 模型配置
- * 简化为单一 DeepSeek provider
- */
-function getAIModel() {
-  return getDeepSeekProvider()('deepseek-chat');
-}
+const logger = createLogger('ai.service');
 
 // ==========================================
-// 意图分类 (混合模式：正则优先 + LLM 兜底)
+// Types
 // ==========================================
 
-/**
- * 正则快速分类意图（无延迟）
- */
-function classifyIntentByRegex(text: string, hasDraftContext: boolean): IntentType {
-  const lowerText = text.toLowerCase();
-  
-  // 空闲/暂停意图（优先级最高）
-  if (/改天|下次|先这样|不用了|算了|没事了|好的.*谢|谢谢.*不|拜拜|再见|88|byebye/.test(lowerText)) {
-    return 'idle';
-  }
-  
-  // 闲聊意图（与组局无关的话题）
-  if (/你是谁|你叫什么|讲个笑话|今天天气|你好厉害|你真棒|哈哈|嘿嘿|呵呵|无聊|聊聊天|陪我聊|说说话/.test(lowerText)) {
-    return 'chitchat';
-  }
-  
-  // 管理意图
-  if (/我的活动|我发布的|我参与的|取消活动|不办了/.test(lowerText)) {
-    return 'manage';
-  }
-  
-  // 修改意图（需要草稿上下文）
-  if (hasDraftContext && /改|换|加|减|调|发布|没问题|就这样/.test(lowerText)) {
-    return 'create';
-  }
-  
-  // 明确创建意图
-  if (/帮我组|帮我创建|自己组|我来组|我要组|我想组/.test(lowerText)) {
-    return 'create';
-  }
-  
-  // 探索意图
-  if (/想找|找人|一起|有什么|附近|推荐|看看|想.*打|想.*吃|想.*玩/.test(lowerText)) {
-    return 'explore';
-  }
-  
-  // 兜底探索
-  if (/想|约/.test(lowerText)) {
-    return 'explore';
-  }
-  
-  return 'unknown';
+export interface ChatRequest {
+  messages: Array<Omit<UIMessage, 'id'>>;
+  userId: string | null;
+  location?: [number, number];
+  source: 'miniprogram' | 'admin';
+  draftContext?: { activityId: string; currentDraft: ActivityDraftForPrompt };
+  trace?: boolean;
+  modelParams?: { temperature?: number; maxTokens?: number };
 }
 
-/** 意图分类 Schema */
-const IntentClassificationSchema = t.Object({
-  intent: t.Union([
-    t.Literal('create'),
-    t.Literal('explore'),
-    t.Literal('manage'),
-    t.Literal('idle'),
-    t.Literal('chitchat'),
-    t.Literal('unknown'),
-  ], { description: '用户意图分类' }),
-  confidence: t.Number({ description: '置信度 0-1' }),
-});
-
-type IntentClassification = typeof IntentClassificationSchema.static;
-
-/**
- * 使用 LLM 分类用户意图（仅在正则无法识别时调用）
- */
-async function classifyIntentWithLLM(
-  messages: Array<{ role: string; content: string }>,
-  hasDraftContext: boolean
-): Promise<IntentType> {
-  // 只取最近 3 轮对话，减少 token
-  const recentMessages = messages.slice(-6);
-  const conversationText = recentMessages
-    .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`)
-    .join('\n');
-
-  const contextHint = hasDraftContext ? '（当前有活动草稿待确认）' : '';
-
-  try {
-    const result = await generateObject({
-      model: getAIModel(),
-      schema: jsonSchema<IntentClassification>(toJsonSchema(IntentClassificationSchema)),
-      prompt: `你是一个意图分类器。根据对话历史，判断用户当前的意图。${contextHint}
-
-意图类型：
-- create: 用户想创建/组织/发布活动（如"帮我组一个"、"我要发布"、"创建活动"）
-- explore: 用户想找活动/探索附近/询问推荐（如"想找人一起"、"附近有什么"、"推荐一下"）
-- manage: 用户想管理自己的活动（如"我的活动"、"取消活动"、"查看报名"）
-- idle: 用户暂时没有明确需求，闲聊或暂停（如"改天再说"、"先这样"、"不用了"、"谢谢"）
-- unknown: 无法判断
-
-注意：
-1. 如果用户在回答 AI 的问题（如选择地点、时间），应继承之前的意图
-2. "解放碑"、"明天"这类短回答通常是在回答问题，不是新意图
-3. 用户表示暂停、拒绝、告别时，应分类为 idle
-
-对话历史：
-${conversationText}
-
-请判断用户当前意图：`,
-      temperature: 0,
-    });
-
-    console.log(`[Intent LLM] ${result.object.intent} (confidence: ${result.object.confidence})`);
-    return result.object.intent as IntentType;
-  } catch (error) {
-    console.error('[Intent LLM] Error:', error);
-    // 降级到 explore（最常见的意图）
-    return 'explore';
-  }
-}
-
-/**
- * 混合意图分类：正则优先，unknown 时调用 LLM
- * 返回意图和分类方法
- */
-async function classifyIntent(
-  messages: Array<{ role: string; content: string }>,
-  hasDraftContext: boolean
-): Promise<{ intent: IntentType; method: 'regex' | 'llm' }> {
-  // 获取最后一条用户消息
-  const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-  const lastUserText = lastUserMessage?.content || '';
-  
-  // 1. 先用正则快速分类
-  const quickResult = classifyIntentByRegex(lastUserText, hasDraftContext);
-  if (quickResult !== 'unknown') {
-    console.log(`[Intent Regex] ${quickResult}`);
-    return { intent: quickResult, method: 'regex' };
-  }
-  
-  // 2. 正则无法识别时，调用 LLM
-  console.log('[Intent] Regex unknown, falling back to LLM...');
-  const llmResult = await classifyIntentWithLLM(messages, hasDraftContext);
-  return { intent: llmResult, method: 'llm' };
+export interface TraceStep {
+  toolName: string;
+  toolCallId: string;
+  args: unknown;
+  result?: unknown;
 }
 
 // ==========================================
 // AI 额度管理
 // ==========================================
 
-/**
- * 检查用户 AI 额度
- */
 export async function checkAIQuota(userId: string): Promise<{ hasQuota: boolean; remaining: number }> {
   const [user] = await db
-    .select({
-      aiCreateQuotaToday: users.aiCreateQuotaToday,
-    })
+    .select({ aiCreateQuotaToday: users.aiCreateQuotaToday })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
-  if (!user) {
-    return { hasQuota: false, remaining: 0 };
-  }
-
-  return {
-    hasQuota: user.aiCreateQuotaToday > 0,
-    remaining: user.aiCreateQuotaToday,
-  };
+  if (!user) return { hasQuota: false, remaining: 0 };
+  return { hasQuota: user.aiCreateQuotaToday > 0, remaining: user.aiCreateQuotaToday };
 }
 
-/**
- * 消耗 AI 额度
- */
 export async function consumeAIQuota(userId: string): Promise<boolean> {
   const [user] = await db
-    .select({
-      aiCreateQuotaToday: users.aiCreateQuotaToday,
-    })
+    .select({ aiCreateQuotaToday: users.aiCreateQuotaToday })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
 
-  if (!user || user.aiCreateQuotaToday <= 0) {
-    return false;
-  }
+  if (!user || user.aiCreateQuotaToday <= 0) return false;
 
-  await db
-    .update(users)
-    .set({
-      aiCreateQuotaToday: user.aiCreateQuotaToday - 1,
-    })
+  await db.update(users)
+    .set({ aiCreateQuotaToday: user.aiCreateQuotaToday - 1 })
     .where(eq(users.id, userId));
-
   return true;
 }
 
-
 // ==========================================
-// 意图分类 (v3.3 已迁移到 Tools)
-// ==========================================
-
-/**
- * 意图类型
- * 
- * v3.3 更新：意图分类逻辑已迁移到 Vercel AI SDK Tools
- * AI 会自动选择调用 createActivityDraft 或 exploreNearby
- */
-
-// ==========================================
-// AI Chat (v3.4)
+// AI Chat 核心
 // ==========================================
 
-/**
- * Chat 请求参数 (v3.7 支持模型参数配置)
- */
-export interface StreamChatRequest {
-  messages: Array<Omit<UIMessage, 'id'>>;
-  userId: string | null;
-  location?: [number, number];
-  source: 'miniprogram' | 'admin';
-  /** 草稿上下文，用于多轮对话 */
-  draftContext?: {
-    activityId: string;
-    currentDraft: ActivityDraftForPrompt;
-  };
-  /** 执行追踪，返回详细的执行步骤数据 */
-  trace?: boolean;
-  /** 模型参数（Admin Playground 用） */
-  modelParams?: {
-    temperature?: number;
-    maxTokens?: number;
-  };
-}
-
-/**
- * 统一 AI Chat - 返回 Data Stream Response (v3.6)
- * 
- * 小程序和 Admin 都使用此函数，返回 Vercel AI SDK 标准格式。
- * 
- * v3.6 新特性：
- * - 消息增强 (Message Enrichment)：自动注入时间、位置、草稿上下文
- * - XML 结构化 Prompt：基于 Claude 4.x Best Practices
- * 
- * v3.5 特性：
- * - trace 参数：返回执行追踪数据（Admin Playground 调试用）
- * 
- * v3.4 特性：
- * - 使用新的 System Prompt（草稿优先模式）
- * - 支持 draftContext 多轮对话
- * - 4 个 Tools：createActivityDraft, refineDraft, exploreNearby, publishActivity
- * - Token 使用量记录
- */
-export async function streamChat(request: StreamChatRequest) {
+export async function streamChat(request: ChatRequest): Promise<Response> {
   const { messages, userId, location, source, draftContext, trace, modelParams } = request;
+  const startTime = Date.now();
   
-  // 构建 Prompt 上下文
-  const locationName = location ? await reverseGeocode(location[1], location[0]) : undefined;
-  const promptContext: PromptContext = {
-    currentTime: new Date(),
-    userLocation: location ? {
-      lat: location[1],
-      lng: location[0],
-      name: locationName,
-    } : undefined,
-    userNickname: userId ? await getUserNickname(userId) : undefined,
-    draftContext,
-  };
-
-  // 构建消息增强上下文
-  const enrichmentContext: EnrichmentContext = {
-    userId,
-    location: location ? {
-      lat: location[1],
-      lng: location[0],
-      name: locationName,
-    } : undefined,
-    draftContext,
-    conversationHistory: messages.map(m => ({
-      role: m.role,
-      content: m.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text || '',
-    })),
-    currentTime: new Date(),
-  };
-
-  // 执行消息增强
-  const { enrichedMessages, contextXml, enrichmentTrace } = await enrichMessages(
-    messages as UIMessage[],
-    enrichmentContext
-  );
-
-  // 转换消息格式，自动处理 UIMessage 中的 parts（包含 Tool 调用历史）
-  const aiMessages = await convertToModelMessages(enrichedMessages);
-  
-  // 构建 XML 结构化 System Prompt（v3.6），注入增强上下文
-  const systemPrompt = buildXmlSystemPrompt(promptContext, contextXml);
-  
-  // v3.12: 混合意图分类（正则优先，unknown 时调用 LLM）
+  // 0. 提取最后一条用户消息（用于护栏检查）
   const conversationHistory = messages.map(m => ({
     role: m.role,
-    content: m.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text 
+    content: (m.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text)
       || (m as unknown as { content?: string })?.content 
       || '',
   }));
-  const { intent, method: intentMethod } = await classifyIntent(conversationHistory, !!draftContext);
-  
-  console.log(`[AI Chat] Intent: ${intent} (${intentMethod})`);
-  
-  // v3.14: chitchat 意图直接返回模板回复，不走 LLM
-  if (intent === 'chitchat') {
-    const chitchatResponses = [
-      '哈哈，我只会帮你组局约人，闲聊就不太行了～想约点什么？',
-      '聊天我不太擅长，但组局我很在行！想找人一起玩点什么？',
-      '我是组局小助手，帮你约人才是我的强项～有什么想玩的吗？',
-      '这个我不太懂，但如果你想约人吃饭、打球、桌游，随时找我！',
-    ];
-    const responseText = chitchatResponses[Math.floor(Math.random() * chitchatResponses.length)];
-    
-    // 返回简单的文本流响应
-    const stream = createUIMessageStream({
-      execute: ({ writer }) => {
-        // 使用 text-delta 类型发送文本（AI SDK 标准格式）
-        writer.write({ type: 'text-delta', delta: responseText, id: randomUUID() });
-        
-        // trace 模式：发送追踪数据
-        if (trace) {
-          const now = new Date().toISOString();
-          writer.write({
-            type: 'data-trace-start',
-            data: { requestId: randomUUID(), startedAt: now, intent, intentMethod },
-            transient: true,
-          });
-          writer.write({
-            type: 'data-trace-end',
-            data: { 
-              completedAt: now, 
-              status: 'completed',
-              output: { text: responseText, toolCalls: [] },
-            },
-            transient: true,
-          });
-        }
-      },
-    });
-    
-    return createUIMessageStreamResponse({ stream });
+  const lastUserMessage = conversationHistory.filter(m => m.role === 'user').pop()?.content || '';
+
+  // 1. 频率限制检查
+  const rateLimitResult = checkRateLimit(userId, { maxRequests: 30, windowSeconds: 60 });
+  if (!rateLimitResult.allowed) {
+    logger.warn('Rate limit exceeded', { userId, retryAfter: rateLimitResult.retryAfter });
+    return createQuickResponse('请求太频繁了，休息一下再来吧～', trace);
+  }
+
+  // 2. 输入护栏检查
+  const sanitizedMessage = sanitizeInput(lastUserMessage);
+  const guardResult = checkInput(sanitizedMessage);
+  if (guardResult.blocked) {
+    logger.warn('Input blocked', { userId, reason: guardResult.reason, rules: guardResult.triggeredRules });
+    return createQuickResponse(guardResult.suggestedResponse || '这个话题我帮不了你 😅', trace);
   }
   
-  // v3.9: 传递 userLocation 给 getToolsByIntent（Partner Intent 需要）
-  const userLocationForTools = location ? { lat: location[1], lng: location[0] } : null;
-  const tools = getToolsByIntent(userId, intent, !!draftContext, userLocationForTools);
+  // 3. 构建上下文
+  const locationName = location ? await reverseGeocode(location[1], location[0]) : undefined;
+  const userNickname = userId ? await getUserNickname(userId) : undefined;
   
-  console.log(`[AI Chat] Tools: ${Object.keys(tools).join(', ')}`);
+  // 4. 获取用户工作记忆（增强版用户画像）
+  const userProfile = userId ? await getEnhancedUserProfile(userId) : null;
   
-  // Trace 模式的元数据
-  const requestId = trace ? randomUUID() : undefined;
-  const startedAt = trace ? new Date().toISOString() : undefined;
-  let stepIndex = 0;
+  const promptContext: PromptContext = {
+    currentTime: new Date(),
+    userLocation: location ? { lat: location[1], lng: location[0], name: locationName } : undefined,
+    userNickname,
+    draftContext,
+    workingMemory: userProfile ? buildProfilePrompt(userProfile) : null,
+  };
+
+  // 5. 意图分类
+  const intentResult = await classifyIntent(sanitizedMessage, {
+    hasDraftContext: !!draftContext,
+    conversationHistory,
+    userId: userId || undefined,
+  });
+  logger.info('Intent classified', { intent: intentResult.intent, method: intentResult.method });
+
+  // 5.5 Broker Mode 检查（找搭子追问流程）
+  if (intentResult.intent === 'partner' && userId) {
+    const thread = await getOrCreateThread(userId);
+    const brokerState = await recoverBrokerState(thread.id);
+    
+    if (shouldEnterBrokerMode('partner', brokerState)) {
+      return handleBrokerFlow(request, brokerState, thread.id, sanitizedMessage, intentResult);
+    }
+  }
+
+  // 6. 特殊意图快速响应
+  if (intentResult.intent === 'chitchat') {
+    return handleChitchat(trace, intentResult);
+  }
+
+  // 7. 获取工具集
+  const userLocation = location ? { lat: location[1], lng: location[0] } : null;
+  const tools = getToolsByIntent(userId, intentResult.intent, !!draftContext, userLocation);
+  logger.debug('Tools selected', { tools: Object.keys(tools) });
+
+  // 8. 构建 System Prompt（使用 Pipeline 处理）
+  const uiMessages: UIMessage[] = messages.map((m, i) => ({
+    id: `msg-${i}`,
+    role: m.role,
+    content: (m as any).content || '',
+    parts: (m as any).parts || [{ type: 'text', text: (m as any).content || '' }],
+  }));
+  const aiMessages = await convertToModelMessages(uiMessages);
   
-  // trace 模式的数据收集（通过 onStepFinish 实时收集）
-  const traceSteps: Array<{ toolName: string; toolCallId: string; args: unknown; result?: unknown }> = [];
+  // 构建基础 System Prompt
+  let systemPrompt = buildXmlSystemPrompt(promptContext);
+  
+  // 使用 Pipeline 处理上下文（注入用户画像、召回历史等）
+  systemPrompt = await processAIContext({
+    userId,
+    message: sanitizedMessage,
+    systemPrompt,
+    history: conversationHistory,
+  });
+
+  // 9. 执行 LLM 推理
+  const traceSteps: TraceStep[] = [];
   let totalUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
-  let aiResponseText = ''; // AI 的文字响应
-  
-  // v3.10: 评估结果收集
-  const evaluationResults: EvaluationResult[] = [];
-  
-  // 执行 AI 推理
+  let aiResponseText = '';
+
   const result = streamText({
-    model: getAIModel(),
+    model: getModel('deepseek-chat'),
     system: systemPrompt,
     messages: aiMessages,
-    tools: tools,
-    temperature: modelParams?.temperature ?? 0, // 默认 0，更一致的 Tool 调用结果
+    tools,
+    temperature: modelParams?.temperature ?? 0,
     maxOutputTokens: modelParams?.maxTokens,
-    // 1. 最多 5 步（使用 stepCountIs）
-    // 2. 如果调用了 askPreference，立即停止（使用 hasToolCall）
     stopWhen: [stepCountIs(5), hasToolCall('askPreference')],
-    // 使用 onStepFinish 实时获取每个步骤的数据
     onStepFinish: (step) => {
-      // 收集 tool calls
       for (const tc of step.toolCalls || []) {
-        const existingStep = traceSteps.find(s => s.toolCallId === tc.toolCallId);
-        if (!existingStep) {
-          traceSteps.push({
-            toolName: tc.toolName,
-            toolCallId: tc.toolCallId,
-            args: (tc as unknown as { args: unknown }).args,
-          });
+        if (!traceSteps.find(s => s.toolCallId === tc.toolCallId)) {
+          traceSteps.push({ toolName: tc.toolName, toolCallId: tc.toolCallId, args: (tc as any).args });
         }
       }
-      // 收集 tool results
       for (const tr of step.toolResults || []) {
-        const existingStep = traceSteps.find(s => s.toolCallId === tr.toolCallId);
-        if (existingStep) {
-          existingStep.result = (tr as unknown as { result: unknown }).result;
-        }
+        const existing = traceSteps.find(s => s.toolCallId === tr.toolCallId);
+        if (existing) existing.result = (tr as any).result;
       }
     },
-    onFinish: async ({ usage, text, response, steps }) => {
-      // v3.13: 从 steps 中补充收集 tool results（解决 stopWhen 导致的 result 丢失问题）
-      if (steps) {
-        for (const step of steps) {
-          for (const tr of step.toolResults || []) {
-            const existingStep = traceSteps.find(s => s.toolCallId === tr.toolCallId);
-            if (existingStep && !existingStep.result) {
-              existingStep.result = (tr as unknown as { result: unknown }).result;
-            }
-          }
-        }
-      }
-      
-      // 保存 AI 文字响应
+    onFinish: async ({ usage, text }) => {
       aiResponseText = text || '';
-      
-      // 直接使用 DeepSeek provider 标准化的 usage 格式
-      // DeepSeek 返回的 usage 可能包含 prompt_cache_hit_tokens 和 prompt_cache_miss_tokens
-      const rawUsage = usage as unknown as {
-        inputTokens?: number;
-        outputTokens?: number;
-        totalTokens?: number;
-        // DeepSeek 特有的缓存字段（通过 experimental_providerMetadata 或直接在 usage 中）
-        promptCacheHitTokens?: number;
-        promptCacheMissTokens?: number;
-      };
-      
+      const rawUsage = usage as any;
       totalUsage = {
         promptTokens: rawUsage.inputTokens ?? 0,
         completionTokens: rawUsage.outputTokens ?? 0,
         totalTokens: rawUsage.totalTokens ?? 0,
       };
       
-      // 提取缓存信息（DeepSeek 可能通过不同方式返回）
-      const cacheHitTokens = rawUsage.promptCacheHitTokens;
-      const cacheMissTokens = rawUsage.promptCacheMissTokens;
+      const duration = Date.now() - startTime;
+      logger.info('AI request completed', { 
+        source, userId: userId || 'anon', 
+        tokens: totalUsage.totalTokens, 
+        duration,
+        intent: intentResult.intent,
+      });
       
-      console.log(`[AI Chat] Source: ${source}, User: ${userId || 'anonymous'}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}`);
+      // 记录指标
+      countAIRequest('deepseek-chat', 'success');
+      recordAILatency('deepseek-chat', duration);
+      recordMetricsTokenUsage('deepseek-chat', totalUsage.promptTokens, totalUsage.completionTokens);
       
-      // 始终记录 Token 使用量（userId 为 null 时记录为匿名）
-      await recordTokenUsage(
-        userId,
-        {
-          inputTokens: totalUsage.promptTokens,
-          outputTokens: totalUsage.completionTokens,
-          totalTokens: totalUsage.totalTokens,
-          cacheHitTokens,
-          cacheMissTokens,
-        },
-        traceSteps.map(s => ({ toolName: s.toolName }))
-      );
-      
-      // v3.9: 保存对话历史到数据库
-      // 有登录用户就保存，没有就不保存
-      
-      // 提取最后一条用户消息（在 try 外定义，供后续评估使用）
-      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-      const lastUserText = lastUserMessage?.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text 
-        || (lastUserMessage as { content?: string })?.content 
-        || '';
-      
+      // 记录 Token 使用量（日志）
+      recordTokenUsage(userId, {
+        inputTokens: totalUsage.promptTokens,
+        outputTokens: totalUsage.completionTokens,
+        totalTokens: totalUsage.totalTokens,
+        cacheHitTokens: rawUsage.promptCacheHitTokens,
+        cacheMissTokens: rawUsage.promptCacheMissTokens,
+      }, traceSteps.map(s => ({ toolName: s.toolName })), {
+        model: 'deepseek-chat',
+        source,
+        intent: intentResult.intent,
+      });
+
+      // 保存对话历史
       if (userId) {
-        try {
-          // 获取或创建会话
-          const { id: conversationId } = await getOrCreateCurrentConversation(userId);
-          
-          // 保存用户消息
-          if (lastUserText) {
-            await addMessageToConversation({
-              conversationId,
-              userId,
-              role: 'user',
-              messageType: 'text',
-              content: { text: lastUserText },
-            });
-          }
-          
-          // 从 Tool 结果中提取 activityId（如果有）
-          let activityId: string | undefined;
-          for (const step of traceSteps) {
-            const result = step.result as { activityId?: string } | undefined;
-            if (result?.activityId) {
-              activityId = result.activityId;
-              break;
+        await persistConversation(userId, lastUserMessage, text || '', traceSteps);
+        
+        // 异步使用 LLM 提取用户偏好并更新画像
+        extractPreferences(conversationHistory, { useLLM: true })
+          .then(extraction => {
+            if (extraction.preferences.length > 0 || extraction.frequentLocations.length > 0) {
+              return updateEnhancedUserProfile(userId, extraction);
             }
-          }
-          
-          // 确定 AI 响应的消息类型
-          let messageType: string = 'text';
-          if (traceSteps.length > 0) {
-            const lastTool = traceSteps[traceSteps.length - 1];
-            const widgetType = getWidgetType(lastTool.toolName);
-            if (widgetType) {
-              messageType = widgetType;
-            }
-          }
-          
-          // 保存 AI 响应
-          await addMessageToConversation({
-            conversationId,
-            userId,
-            role: 'assistant',
-            messageType: messageType as any,
-            content: {
-              text: text || '',
-              toolCalls: traceSteps.map(s => ({
-                toolName: s.toolName,
-                args: s.args,
-                result: s.result,
-              })),
-              // v3.10: 附加评估结果
-              evaluation: evaluationResults.length > 0 ? evaluationResults : undefined,
-            },
-            activityId,
-          });
-          
-          console.log(`[AI Chat] Saved conversation: ${conversationId}, activityId: ${activityId || 'none'}`);
-        } catch (error) {
-          // 保存失败不影响响应
-          console.error('[AI Chat] Failed to save conversation:', error);
-        }
+          })
+          .catch(err => 
+            logger.warn('Failed to update user profile', { error: err.message })
+          );
       }
       
-      // v3.10: 执行 Tool 调用评估（异步，不阻塞响应）
-      if (EVALUATION_CONFIG.ENABLED && traceSteps.length > 0) {
-        // 异步评估，不阻塞主流程
-        (async () => {
-          for (const step of traceSteps) {
-            if (shouldEvaluate(step.toolName) && step.result) {
-              try {
-                const evalResult = await runEvaluation(
-                  lastUserText,
-                  step.toolName,
-                  step.args,
-                  step.result,
-                  conversationHistory // v3.13: 传入对话历史用于上下文评估
-                );
-                evaluationResults.push(evalResult);
-                
-                const status = evalResult.passed ? '✅' : '⚠️';
-                console.log(`[AI Eval] ${status} ${step.toolName}: score=${evalResult.score}, issues=${(evalResult.evaluation as any).issues?.length || 0}`);
-              } catch (error) {
-                console.error(`[AI Eval] Failed to evaluate ${step.toolName}:`, error);
-              }
-            }
-          }
-        })();
-      }
+      // 异步评估响应质量（不阻塞响应）
+      evaluateResponseQuality({
+        input: lastUserMessage,
+        output: text || '',
+        expectedIntent: intentResult.intent,
+        actualToolCalls: traceSteps.map(s => s.toolName),
+      }).then(evalResult => {
+        if (evalResult.score < 0.6) {
+          logger.warn('Low quality response detected', { 
+            score: evalResult.score,
+            details: evalResult.details,
+            input: lastUserMessage.slice(0, 50),
+          });
+        }
+      }).catch(() => {});
     },
   });
-  
-  // 如果不需要 trace，直接返回 UIMessageStreamResponse（包含 Tool Parts）
+
+  // 10. 返回响应
   if (!trace) {
     return result.toUIMessageStreamResponse();
   }
-  
-  // trace 模式：使用 createUIMessageStream 发送 transient trace 数据
-  const llmStartedAt = new Date().toISOString();
-  const llmStepId = `step-${stepIndex++}`;
-  
+
+  return wrapWithTrace(result, {
+    requestId: randomUUID(),
+    startedAt: new Date().toISOString(),
+    intent: intentResult,
+    systemPrompt,
+    tools,
+    traceSteps,
+    totalUsage,
+    aiResponseText,
+    lastUserMessage,
+  });
+}
+
+// ==========================================
+// 辅助函数
+// ==========================================
+
+function createQuickResponse(text: string, trace?: boolean): Response {
   const stream = createUIMessageStream({
     execute: ({ writer }) => {
-      // 1. 发送 trace-start（transient - 不会添加到 message.parts）
-      // 提取 tool 的 schema 信息
-      const toolsInfo = Object.keys(tools).map(name => {
-        const t = (tools as any)[name];
-        // AI SDK tool 结构可能是:
-        // - { inputSchema: { jsonSchema: {...} } } (jsonSchema wrapper)
-        // - { inputSchema: {...} } (直接是 schema)
-        // - { parameters: {...} } (旧版 API)
-        let inputSchema = {};
-        if (t.inputSchema) {
-          // 检查是否有 jsonSchema 属性
-          if (t.inputSchema.jsonSchema) {
-            inputSchema = t.inputSchema.jsonSchema;
-          } else if (typeof t.inputSchema === 'object') {
-            // 直接使用 inputSchema
-            inputSchema = t.inputSchema;
-          }
-        } else if (t.parameters) {
-          inputSchema = t.parameters;
-        }
-        return {
-          name,
-          description: t.description || '',
-          schema: inputSchema,
-        };
-      });
-      
-      writer.write({
-        type: 'data-trace-start',
-        data: { 
-          requestId, 
-          startedAt,
-          systemPrompt,
-          tools: toolsInfo,
-          intent, // 意图分类
-          intentMethod, // 分类方法：regex 或 llm
-        },
-        transient: true,
-      });
-      
-      // 2. 发送 input 步骤
-      const lastUserMessage = messages.filter(m => m.role === 'user').pop();
-      // 从 UIMessage 中提取文本内容
-      const lastUserText = lastUserMessage?.parts?.find(p => p.type === 'text')?.text 
-        || (lastUserMessage as { content?: string })?.content 
-        || '';
-      writer.write({
-        type: 'data-trace-step',
-        data: {
-          id: `${requestId}-input`,
-          type: 'input',
-          name: '用户输入',
-          startedAt,
-          completedAt: startedAt,
-          status: 'success',
-          duration: 0,
-          data: { text: lastUserText },
-        },
-        transient: true,
-      });
-      
-      // 3. 发送 prompt 步骤
-      writer.write({
-        type: 'data-trace-step',
-        data: {
-          id: `${requestId}-prompt`,
-          type: 'prompt',
-          name: 'System Prompt',
-          startedAt,
-          completedAt: startedAt,
-          status: 'success',
-          duration: 0,
-          data: {
-            currentTime: promptContext.currentTime.toISOString(),
-            userLocation: promptContext.userLocation,
-            draftContext: promptContext.draftContext ? {
-              activityId: promptContext.draftContext.activityId,
-              title: promptContext.draftContext.currentDraft.title,
-            } : undefined,
-            enrichmentTrace: enrichmentTrace.length > 0 ? enrichmentTrace : undefined,
-            fullPrompt: systemPrompt,
-          },
-        },
-        transient: true,
-      });
-      
-      // 4. 发送 llm 步骤开始
-      writer.write({
-        type: 'data-trace-step',
-        data: {
-          id: llmStepId,
-          type: 'llm',
-          name: 'LLM 推理',
-          startedAt: llmStartedAt,
-          status: 'running',
-          data: {
-            model: process.env.AI_PROVIDER || 'deepseek',
-            inputTokens: 0,
-            outputTokens: 0,
-            totalTokens: 0,
-          },
-        },
-        transient: true,
-      });
-      
-      // 5. 合并 AI 响应流（自动包含 Tool Parts）
-      writer.merge(result.toUIMessageStream({
-        onFinish: async () => {
-          // v3.13: 从 result.steps 补充收集 tool results（解决 stopWhen 导致的 result 丢失问题）
-          try {
-            const allSteps = await result.steps;
-            for (const step of allSteps) {
-              // 补充 toolCalls（如果 onStepFinish 没收集到）
-              for (const tc of step.toolCalls || []) {
-                const tcWithArgs = tc as unknown as { toolCallId: string; toolName: string; args: unknown };
-                let existingStep = traceSteps.find(s => s.toolCallId === tcWithArgs.toolCallId);
-                if (!existingStep) {
-                  existingStep = {
-                    toolName: tcWithArgs.toolName,
-                    toolCallId: tcWithArgs.toolCallId,
-                    args: tcWithArgs.args,
-                  };
-                  traceSteps.push(existingStep);
-                }
-              }
-              // 补充 toolResults（AI SDK 结构：{ type, toolCallId, toolName, input, ...toolReturnValue }）
-              for (const tr of step.toolResults || []) {
-                const { type, toolCallId, toolName, input, ...toolReturnValue } = tr as unknown as { 
-                  type: string; 
-                  toolCallId: string; 
-                  toolName: string;
-                  input: unknown;
-                  [key: string]: unknown;
-                };
-                const existingStep = traceSteps.find(s => s.toolCallId === toolCallId);
-                if (existingStep) {
-                  existingStep.result = toolReturnValue;
-                  // 补充 input（如果 args 为空）
-                  if (!existingStep.args || Object.keys(existingStep.args as object).length === 0) {
-                    existingStep.args = input;
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            console.error('[AI Eval] Failed to get steps:', e);
-          }
-          
-          const llmCompletedAt = new Date().toISOString();
-          const llmDuration = new Date(llmCompletedAt).getTime() - new Date(llmStartedAt).getTime();
-          
-          // 更新 llm 步骤完成
-          writer.write({
-            type: 'data-trace-step-update',
-            data: {
-              stepId: llmStepId,
-              completedAt: llmCompletedAt,
-              status: 'success',
-              duration: llmDuration,
-              data: {
-                model: process.env.AI_PROVIDER || 'deepseek',
-                inputTokens: totalUsage.promptTokens,
-                outputTokens: totalUsage.completionTokens,
-                totalTokens: totalUsage.totalTokens,
-              },
-            },
-            transient: true,
-          });
-          
-          // v3.10: 对需要评估的 Tool 执行评估
-          const toolEvaluations: Map<string, EvaluationResult> = new Map();
-          if (EVALUATION_CONFIG.ENABLED) {
-            for (const step of traceSteps) {
-              if (shouldEvaluate(step.toolName) && step.result) {
-                try {
-                  const evalResult = await runEvaluation(
-                    lastUserText,
-                    step.toolName,
-                    step.args,
-                    step.result,
-                    conversationHistory // v3.13: 传入对话历史用于上下文评估
-                  );
-                  toolEvaluations.set(step.toolCallId, evalResult);
-                  const status = evalResult.passed ? '✅' : '⚠️';
-                  console.log(`[AI Eval] ${status} ${step.toolName}: score=${evalResult.score}`);
-                } catch (error) {
-                  console.error(`[AI Eval] Failed: ${step.toolName}`, error);
-                }
-              }
-            }
-          }
-          
-          // 发送 tool 步骤（从 onStepFinish 收集的数据 + 评估结果）
-          for (const step of traceSteps) {
-            const evaluation = toolEvaluations.get(step.toolCallId);
-            writer.write({
-              type: 'data-trace-step',
-              data: {
-                id: `${requestId}-tool-${step.toolCallId}`,
-                type: 'tool',
-                name: getToolDisplayName(step.toolName),
-                startedAt: llmCompletedAt,
-                completedAt: llmCompletedAt,
-                status: 'success',
-                duration: 0,
-                data: {
-                  toolName: step.toolName,
-                  toolDisplayName: getToolDisplayName(step.toolName),
-                  input: step.args,
-                  output: step.result,
-                  widgetType: getWidgetType(step.toolName),
-                  // v3.13: 附加扩展评估结果
-                  evaluation: evaluation ? {
-                    passed: evaluation.passed,
-                    score: evaluation.score,
-                    intentMatch: evaluation.evaluation.intentMatch,
-                    toneScore: (evaluation.evaluation as any).toneScore,
-                    relevanceScore: (evaluation.evaluation as any).relevanceScore,
-                    contextScore: (evaluation.evaluation as any).contextScore,
-                    thinking: (evaluation.evaluation as any).thinking,
-                    issues: (evaluation.evaluation as any).issues || [],
-                    suggestions: (evaluation.evaluation as any).suggestions,
-                    fieldCompleteness: (evaluation.evaluation as any).fieldCompleteness,
-                  } : undefined,
-                },
-              },
-              transient: true,
-            });
-          }
-          
-          // 发送 trace-end（包含输出摘要）
-          const completedAt = new Date().toISOString();
-          const totalDuration = new Date(completedAt).getTime() - new Date(startedAt!).getTime();
-          
-          // 构建输出摘要
-          const outputSummary = {
-            text: aiResponseText || null,
-            toolCalls: traceSteps.map(step => ({
-              name: step.toolName,
-              displayName: getToolDisplayName(step.toolName),
-              input: step.args,
-              output: step.result,
-            })),
-          };
-          
-          writer.write({
-            type: 'data-trace-end',
-            data: {
-              requestId,
-              completedAt,
-              totalDuration,
-              status: 'completed',
-              output: outputSummary,
-            },
-            transient: true,
-          });
-          
-          console.log(`[AI Chat + Trace] Source: ${source}, User: ${userId}, Tokens: ${totalUsage.totalTokens}, Tools: ${traceSteps.length}, Evals: ${toolEvaluations.size}, Duration: ${totalDuration}ms`);
-        },
-      }));
+      writer.write({ type: 'text-delta', delta: text, id: randomUUID() });
+      if (trace) {
+        const now = new Date().toISOString();
+        writer.write({ type: 'data-trace-start', data: { requestId: randomUUID(), startedAt: now, intent: 'blocked', intentMethod: 'guardrail' }, transient: true });
+        writer.write({ type: 'data-trace-end', data: { completedAt: now, status: 'blocked', output: { text, toolCalls: [] } }, transient: true });
+      }
     },
   });
-  
+  return createUIMessageStreamResponse({ stream });
+}
+
+function handleChitchat(trace: boolean | undefined, intent: ClassifyResult): Response {
+  const responses = [
+    '哈哈，我只会帮你组局约人，闲聊就不太行了～想约点什么？',
+    '聊天我不太擅长，但组局我很在行！想找人一起玩点什么？',
+    '我是组局小助手，帮你约人才是我的强项～有什么想玩的吗？',
+  ];
+  const text = responses[Math.floor(Math.random() * responses.length)];
+
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      writer.write({ type: 'text-delta', delta: text, id: randomUUID() });
+      if (trace) {
+        const now = new Date().toISOString();
+        writer.write({ type: 'data-trace-start', data: { requestId: randomUUID(), startedAt: now, intent: intent.intent, intentMethod: intent.method }, transient: true });
+        writer.write({ type: 'data-trace-end', data: { completedAt: now, status: 'completed', output: { text, toolCalls: [] } }, transient: true });
+      }
+    },
+  });
   return createUIMessageStreamResponse({ stream });
 }
 
 /**
- * 获取 Tool 显示名称
+ * 处理 Broker Mode 流程（找搭子追问）
  */
-function getToolDisplayName(toolName: string): string {
-  const displayNames: Record<string, string> = {
-    createActivityDraft: '创建活动草稿',
-    getDraft: '获取草稿',
-    refineDraft: '修改草稿',
-    publishActivity: '发布活动',
-    exploreNearby: '探索附近',
-    getActivityDetail: '查看活动详情',
-    joinActivity: '报名活动',
-    cancelActivity: '取消活动',
-    getMyActivities: '查看我的活动',
-    askPreference: '询问偏好',
-  };
-  return displayNames[toolName] || toolName;
+async function handleBrokerFlow(
+  request: ChatRequest,
+  existingState: BrokerState | null,
+  threadId: string,
+  userMessage: string,
+  intentResult: ClassifyResult
+): Promise<Response> {
+  const { userId, trace } = request;
+  
+  // 创建或恢复状态
+  let state = existingState || createBrokerState();
+  
+  // 如果有现有状态，尝试解析用户回答
+  if (existingState) {
+    const currentQuestion = getNextQuestion(existingState);
+    const answer = parseUserAnswer(userMessage, currentQuestion);
+    
+    if (answer) {
+      state = updateBrokerState(state, answer.field, answer.value);
+      logger.debug('Broker state updated', { field: answer.field, value: answer.value });
+    }
+  }
+  
+  // 获取下一个问题
+  const nextQuestion = getNextQuestion(state);
+  
+  // 如果没有更多问题，信息收集完成
+  if (!nextQuestion) {
+    // 持久化完成状态
+    if (userId) {
+      await persistBrokerState(threadId, userId, { ...state, status: 'completed' });
+    }
+    
+    // 返回确认消息，让 LLM 调用 createPartnerIntent
+    const confirmText = `📋 需求确认：
+- 🎯 活动类型：${state.collectedPreferences.activityType || '待定'}
+- ⏰ 时间：${state.collectedPreferences.timeRange || '待定'}
+${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPreferences.location}` : ''}
+
+正在帮你寻找匹配的搭子... 有消息第一时间叫你 🔔`;
+    
+    const stream = createUIMessageStream({
+      execute: ({ writer }) => {
+        writer.write({ type: 'text-delta', delta: confirmText, id: randomUUID() });
+        // 返回 Widget 数据让前端显示
+        writer.write({ 
+          type: 'data', 
+          data: { 
+            type: 'widget_ask_preference',
+            payload: {
+              status: 'completed',
+              preferences: state.collectedPreferences,
+            },
+          },
+        });
+        if (trace) {
+          const now = new Date().toISOString();
+          writer.write({ type: 'data-trace-start', data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'broker' }, transient: true });
+          writer.write({ type: 'data-trace-end', data: { completedAt: now, status: 'completed', output: { text: confirmText, toolCalls: [] } }, transient: true });
+        }
+      },
+    });
+    return createUIMessageStreamResponse({ stream });
+  }
+  
+  // 持久化当前状态
+  if (userId) {
+    await persistBrokerState(threadId, userId, state);
+  }
+  
+  // 返回追问
+  const questionText = nextQuestion.question;
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      writer.write({ type: 'text-delta', delta: questionText, id: randomUUID() });
+      // 返回 Widget 数据让前端渲染选项按钮
+      writer.write({ 
+        type: 'data', 
+        data: { 
+          type: 'widget_ask_preference',
+          payload: {
+            questionType: nextQuestion.field,
+            question: nextQuestion.question,
+            options: nextQuestion.options,
+            brokerState: {
+              workflowId: state.workflowId,
+              round: state.round,
+              collected: state.collectedPreferences,
+            },
+          },
+        },
+      });
+      if (trace) {
+        const now = new Date().toISOString();
+        writer.write({ type: 'data-trace-start', data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'broker' }, transient: true });
+        writer.write({ type: 'data-trace-end', data: { completedAt: now, status: 'collecting', output: { text: questionText, toolCalls: [] } }, transient: true });
+      }
+    },
+  });
+  return createUIMessageStreamResponse({ stream });
 }
 
-/**
- * 获取 Tool 对应的 Widget 类型
- */
-function getWidgetType(toolName: string): string | undefined {
-  const widgetTypes: Record<string, string> = {
-    createActivityDraft: 'widget_draft',
-    getDraft: 'widget_draft',
-    refineDraft: 'widget_draft',
-    exploreNearby: 'widget_explore',
-    getActivityDetail: 'widget_detail',
-    publishActivity: 'widget_share',
-    askPreference: 'widget_ask_preference',
-  };
-  return widgetTypes[toolName];
+async function persistConversation(
+  userId: string,
+  userMessage: string,
+  assistantResponse: string,
+  toolCalls: TraceStep[]
+) {
+  try {
+    const { id: threadId } = await getOrCreateThread(userId);
+    
+    if (userMessage) {
+      await saveMessage({ conversationId: threadId, userId, role: 'user', messageType: 'text', content: { text: userMessage } });
+    }
+
+    const activityId = toolCalls.find(tc => (tc.result as any)?.activityId)?.result as { activityId?: string } | undefined;
+    let messageType = 'text';
+    if (toolCalls.length > 0) {
+      const widgetType = getToolWidgetType(toolCalls[toolCalls.length - 1].toolName);
+      if (widgetType) messageType = widgetType;
+    }
+
+    await saveMessage({
+      conversationId: threadId,
+      userId,
+      role: 'assistant',
+      messageType,
+      content: { text: assistantResponse, toolCalls: toolCalls.map(tc => ({ toolName: tc.toolName, args: tc.args, result: tc.result })) },
+      activityId: activityId?.activityId,
+    });
+  } catch (error) {
+    console.error('[AI] Failed to save conversation:', error);
+  }
 }
 
+function wrapWithTrace(result: ReturnType<typeof streamText>, ctx: {
+  requestId: string;
+  startedAt: string;
+  intent: ClassifyResult;
+  systemPrompt: string;
+  tools: Record<string, unknown>;
+  traceSteps: TraceStep[];
+  totalUsage: { promptTokens: number; completionTokens: number; totalTokens: number };
+  aiResponseText: string;
+  lastUserMessage: string;
+}): Response {
+  const llmStartedAt = new Date().toISOString();
+  const llmStepId = `step-llm`;
 
-/**
- * 获取用户昵称
- */
+  const toolsInfo = Object.keys(ctx.tools).map(name => {
+    const t = (ctx.tools as any)[name];
+    let inputSchema = {};
+    if (t.inputSchema?.jsonSchema) inputSchema = t.inputSchema.jsonSchema;
+    else if (t.inputSchema) inputSchema = t.inputSchema;
+    else if (t.parameters) inputSchema = t.parameters;
+    return { name, description: t.description || '', schema: inputSchema };
+  });
+
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      writer.write({
+        type: 'data-trace-start',
+        data: { requestId: ctx.requestId, startedAt: ctx.startedAt, systemPrompt: ctx.systemPrompt, tools: toolsInfo, intent: ctx.intent.intent, intentMethod: ctx.intent.method },
+        transient: true,
+      });
+
+      writer.write({
+        type: 'data-trace-step',
+        data: { id: `${ctx.requestId}-input`, type: 'input', name: '用户输入', startedAt: ctx.startedAt, completedAt: ctx.startedAt, status: 'success', duration: 0, data: { text: ctx.lastUserMessage } },
+        transient: true,
+      });
+
+      writer.write({
+        type: 'data-trace-step',
+        data: { id: llmStepId, type: 'llm', name: 'LLM 推理', startedAt: llmStartedAt, status: 'running', data: { model: 'deepseek', inputTokens: 0, outputTokens: 0, totalTokens: 0 } },
+        transient: true,
+      });
+
+      writer.merge(result.toUIMessageStream({
+        onFinish: async () => {
+          const llmCompletedAt = new Date().toISOString();
+          const llmDuration = new Date(llmCompletedAt).getTime() - new Date(llmStartedAt).getTime();
+
+          writer.write({
+            type: 'data-trace-step-update',
+            data: { stepId: llmStepId, completedAt: llmCompletedAt, status: 'success', duration: llmDuration, data: { model: 'deepseek', inputTokens: ctx.totalUsage.promptTokens, outputTokens: ctx.totalUsage.completionTokens, totalTokens: ctx.totalUsage.totalTokens } },
+            transient: true,
+          });
+
+          for (const step of ctx.traceSteps) {
+            writer.write({
+              type: 'data-trace-step',
+              data: { id: `${ctx.requestId}-tool-${step.toolCallId}`, type: 'tool', name: getToolDisplayName(step.toolName), startedAt: llmCompletedAt, completedAt: llmCompletedAt, status: 'success', duration: 0, data: { toolName: step.toolName, input: step.args, output: step.result, widgetType: getToolWidgetType(step.toolName) } },
+              transient: true,
+            });
+          }
+
+          const completedAt = new Date().toISOString();
+          const totalDuration = new Date(completedAt).getTime() - new Date(ctx.startedAt).getTime();
+          writer.write({
+            type: 'data-trace-end',
+            data: { requestId: ctx.requestId, completedAt, totalDuration, status: 'completed', output: { text: ctx.aiResponseText || null, toolCalls: ctx.traceSteps.map(s => ({ name: s.toolName, input: s.args, output: s.result })) } },
+            transient: true,
+          });
+        },
+      }));
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
+}
+
 async function getUserNickname(userId: string): Promise<string | undefined> {
-  const [user] = await db
-    .select({ nickname: users.nickname })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const [user] = await db.select({ nickname: users.nickname }).from(users).where(eq(users.id, userId)).limit(1);
   return user?.nickname || undefined;
 }
 
-// ==========================================
-// 创建 Draft 活动 (v3.2 新增)
-// ==========================================
-
-/**
- * 活动草稿数据
- */
-export interface ActivityDraft {
-  title: string;
-  description?: string;
-  type: 'food' | 'entertainment' | 'sports' | 'boardgame' | 'other';
-  startAt: string;
-  location: [number, number]; // [lng, lat]
-  locationName: string;
-  address?: string;
-  locationHint: string;
-  maxParticipants: number;
-}
-
-/**
- * 从 AI 解析结果创建 draft 状态的活动
- */
-export async function createDraftActivity(
-  userId: string,
-  draft: ActivityDraft
-): Promise<{ activityId: string }> {
-  const { location, startAt, ...activityData } = draft;
-  
-  // 创建 draft 状态的活动
-  const [newActivity] = await db
-    .insert(activities)
-    .values({
-      ...activityData,
-      creatorId: userId,
-      location: sql`ST_SetSRID(ST_MakePoint(${location[0]}, ${location[1]}), 4326)`,
-      startAt: new Date(startAt),
-      currentParticipants: 1,
-      status: 'draft', // 草稿状态
-    })
-    .returning({ id: activities.id });
-  
-  // 将创建者加入参与者列表
-  await db
-    .insert(participants)
-    .values({
-      activityId: newActivity.id,
-      userId,
-      status: 'joined',
-    });
-  
-  return { activityId: newActivity.id };
-}
-
-
-
-
-// ==========================================
-// 探索场景类型定义
-// ==========================================
-
-/**
- * 探索结果项
- */
-export interface ExploreResult {
-  id: string;
-  title: string;
-  type: string;
-  lat: number;
-  lng: number;
-  locationName: string;
-  distance: number;
-  startAt: string;
-  currentParticipants: number;
-  maxParticipants: number;
-}
-
-/**
- * 探索响应
- */
-export interface ExploreResponse {
-  center: { lat: number; lng: number; name: string };
-  results: ExploreResult[];
-  title: string;
-}
-
-
-// ==========================================
-// 按活动 ID 查询关联消息
-// ==========================================
-
-/**
- * 按活动 ID 查询关联的对话消息
- * 用于 Admin 查看某个活动是通过哪些 AI 对话创建的
- */
-export async function getMessagesByActivityId(activityId: string): Promise<{
-  items: Array<{
-    id: string;
-    conversationId: string;
-    userId: string;
-    userNickname: string | null;
-    role: 'user' | 'assistant';
-    messageType: string;
-    content: unknown;
-    createdAt: string;
-  }>;
-  total: number;
-}> {
-  // 查询关联此活动的所有消息
-  const msgs = await db
-    .select({
-      id: conversationMessages.id,
-      conversationId: conversationMessages.conversationId,
-      userId: conversationMessages.userId,
-      userNickname: users.nickname,
-      role: conversationMessages.role,
-      messageType: conversationMessages.messageType,
-      content: conversationMessages.content,
-      createdAt: conversationMessages.createdAt,
-    })
-    .from(conversationMessages)
-    .leftJoin(users, eq(conversationMessages.userId, users.id))
-    .where(eq(conversationMessages.activityId, activityId))
-    .orderBy(conversationMessages.createdAt);
-
-  // 如果找到消息，获取完整的会话上下文
-  if (msgs.length > 0) {
-    // 获取所有相关的 conversationId
-    const conversationIds = [...new Set(msgs.map(m => m.conversationId))];
-    
-    // 查询这些会话的所有消息（提供完整上下文）
-    const allMsgs = await db
-      .select({
-        id: conversationMessages.id,
-        conversationId: conversationMessages.conversationId,
-        userId: conversationMessages.userId,
-        userNickname: users.nickname,
-        role: conversationMessages.role,
-        messageType: conversationMessages.messageType,
-        content: conversationMessages.content,
-        createdAt: conversationMessages.createdAt,
-      })
-      .from(conversationMessages)
-      .leftJoin(users, eq(conversationMessages.userId, users.id))
-      .where(sql`${conversationMessages.conversationId} IN (${sql.join(conversationIds.map(id => sql`${id}`), sql`, `)})`)
-      .orderBy(conversationMessages.createdAt);
-
-    return {
-      items: allMsgs.map(m => ({
-        ...m,
-        role: m.role as 'user' | 'assistant',
-        createdAt: m.createdAt.toISOString(),
-      })),
-      total: allMsgs.length,
-    };
-  }
-
-  return { items: [], total: 0 };
-}
-
-/**
- * 清空用户对话历史（删除所有会话）
- */
-export async function clearConversations(userId: string): Promise<{ deletedCount: number }> {
-  // 删除用户的所有会话（消息会级联删除）
-  const result = await db
-    .delete(conversations)
-    .where(eq(conversations.userId, userId))
-    .returning({ id: conversations.id });
-  
-  return { deletedCount: result.length };
-}
-
-/**
- * 删除单个会话（Admin 用）
- */
-export async function deleteConversation(conversationId: string): Promise<boolean> {
-  const result = await db
-    .delete(conversations)
-    .where(eq(conversations.id, conversationId))
-    .returning({ id: conversations.id });
-  
-  return result.length > 0;
-}
-
-/**
- * 批量删除会话（Admin 用）
- */
-export async function deleteConversationsBatch(conversationIds: string[]): Promise<{ deletedCount: number }> {
-  if (conversationIds.length === 0) {
-    return { deletedCount: 0 };
-  }
-  
-  const result = await db
-    .delete(conversations)
-    .where(sql`${conversations.id} IN (${sql.join(conversationIds.map(id => sql`${id}`), sql`, `)})`)
-    .returning({ id: conversations.id });
-  
-  return { deletedCount: result.length };
-}
-
-
-// ==========================================
-// Welcome Card 功能 (v3.4 新增)
-// ==========================================
-
-/**
- * 活动类型标签映射
- */
-const ACTIVITY_TYPE_LABELS: Record<string, string> = {
-  food: '饭',
-  entertainment: '玩',
-  sports: '运动',
-  boardgame: '桌游',
-  other: '活动',
-};
-
-/**
- * 预填提示语映射
- */
-const SUGGESTED_PROMPTS: Record<string, string> = {
-  food: '今晚想吃火锅，有人一起吗？',
-  entertainment: '周末想去看电影，有人约吗？',
-  sports: '想打羽毛球，求组队',
-  boardgame: '周末桌游局，三缺一',
-  other: '想找人一起玩，有人吗？',
-};
-
-/**
- * 生成问候语
- * 根据时间段和用户昵称生成个性化问候
- */
-export function generateGreeting(nickname: string | null, currentHour?: number): string {
-  const hour = currentHour ?? new Date().getHours();
-  const name = nickname || '';
-  
-  if (hour >= 0 && hour < 6) {
-    return "这么晚还没睡？想约宵夜还是找人聊天？";
-  } else if (hour >= 6 && hour < 12) {
-    return name ? `早上好，${name}！今天想怎么玩？` : "早上好！今天想怎么玩？";
-  } else if (hour >= 12 && hour < 18) {
-    return name ? `下午好，${name}！有什么安排吗？` : "下午好！有什么安排吗？";
-  } else {
-    return name ? `晚上好，${name}。今晚想约点什么？` : "晚上好。今晚想约点什么？";
-  }
-}
-
-/**
- * 逆地理编码（简化实现）
- * TODO: 后续接入腾讯地图 API
- */
 async function reverseGeocode(lat: number, lng: number): Promise<string> {
-  // 简化实现：根据坐标范围返回重庆主要地点名
-  const locationKeywords: Array<{ name: string; lat: number; lng: number; radius: number }> = [
+  const locations = [
     { name: '观音桥', lat: 29.5630, lng: 106.5516, radius: 0.02 },
     { name: '解放碑', lat: 29.5647, lng: 106.5770, radius: 0.02 },
     { name: '南坪', lat: 29.5230, lng: 106.5516, radius: 0.02 },
     { name: '沙坪坝', lat: 29.5410, lng: 106.4550, radius: 0.02 },
-    { name: '江北', lat: 29.6060, lng: 106.5740, radius: 0.02 },
-    { name: '杨家坪', lat: 29.5030, lng: 106.5100, radius: 0.02 },
-    { name: '大坪', lat: 29.5380, lng: 106.5230, radius: 0.02 },
-    { name: '北碚', lat: 29.8260, lng: 106.4370, radius: 0.03 },
   ];
-  
-  for (const loc of locationKeywords) {
-    const distance = Math.sqrt(
-      Math.pow(lat - loc.lat, 2) + Math.pow(lng - loc.lng, 2)
-    );
-    if (distance <= loc.radius) {
-      return loc.name;
-    }
+  for (const loc of locations) {
+    if (Math.sqrt(Math.pow(lat - loc.lat, 2) + Math.pow(lng - loc.lng, 2)) <= loc.radius) return loc.name;
   }
-  
   return '附近';
 }
 
-
-/**
- * 统计附近活动数量
- */
-async function countNearbyActivities(
-  location: { lat: number; lng: number },
-  radiusMeters: number
-): Promise<number> {
-  const result = await db.execute(sql`
-    SELECT COUNT(*)::int as count FROM activities
-    WHERE status = 'active'
-      AND start_at > NOW()
-      AND current_participants < max_participants
-      AND ST_DWithin(
-        location::geography,
-        ST_SetSRID(ST_MakePoint(${location.lng}, ${location.lat}), 4326)::geography,
-        ${radiusMeters}
-      )
-  `) as unknown as Array<{ count: number }>;
-  
-  return result[0]?.count || 0;
-}
-
-/**
- * 构建继续草稿按钮（内部使用）
- */
-async function buildContinueDraftAction(
-  userId: string
-): Promise<{ activityId: string; activityTitle: string } | null> {
-  const draft = await db
-    .select({
-      id: activities.id,
-      title: activities.title,
-    })
-    .from(activities)
-    .where(
-      sql`${activities.creatorId} = ${userId}
-        AND ${activities.status} = 'draft'
-        AND ${activities.startAt} > NOW()`
-    )
-    .orderBy(desc(activities.createdAt))
-    .limit(1);
-  
-  if (draft.length === 0) return null;
-  
-  return {
-    activityId: draft[0].id,
-    activityTitle: draft[0].title,
-  };
-}
-
-
-/**
- * 获取用户活动类型统计
- */
-export async function getUserActivityTypeStats(
-  userId: string
-): Promise<Array<{ type: string; count: number }>> {
-  const result = await db.execute(sql`
-    SELECT type, COUNT(*)::int as count FROM (
-      -- 用户创建的活动
-      SELECT type FROM activities WHERE creator_id = ${userId}
-      UNION ALL
-      -- 用户参与的活动
-      SELECT a.type FROM activities a
-      JOIN participants p ON a.id = p.activity_id
-      WHERE p.user_id = ${userId} AND p.status = 'joined'
-    ) AS combined
-    GROUP BY type
-    ORDER BY count DESC
-    LIMIT 1
-  `) as unknown as Array<{ type: string; count: number }>;
-  
-  return result;
-}
-
-/**
- * 获取欢迎卡片数据 (v3.10 重构 - 分组结构)
- * 
- * @param userId - 用户 ID，null 表示未登录
- * @param nickname - 用户昵称，null 表示未设置或未登录
- * @param location - 用户位置，null 表示未提供
- * @param currentHour - 当前小时（用于测试注入）
- */
-export async function getWelcomeCard(
-  userId: string | null,
-  nickname: string | null,
-  location: { lat: number; lng: number } | null,
-  currentHour?: number
-): Promise<WelcomeResponse> {
-  const sections: WelcomeSection[] = [];
-
-  // 1. 生成问候语
-  const greeting = userId === null
-    ? "Hello ✨"
-    : `Hello${nickname ? ` ${nickname}` : ''} ✨`;
-  const subGreeting = "想玩点什么？";
-
-  // v4.0: 待确认匹配分组（置顶高亮）
-  if (userId) {
-    const pendingMatches = await buildPendingMatchItems(userId);
-    if (pendingMatches.length > 0) {
-      sections.push({
-        id: 'pending-matches',
-        icon: '🎉',
-        title: '待确认匹配',
-        items: pendingMatches,
-      });
-    }
-  }
-
-  // 2. 继续草稿分组（需要登录）
-  if (userId) {
-    const draftAction = await buildContinueDraftAction(userId);
-    if (draftAction) {
-      sections.push({
-        id: 'draft',
-        icon: '📝',
-        title: '继续草稿',
-        items: [{
-          type: 'draft',
-          icon: '🎲',
-          label: draftAction.activityTitle,
-          prompt: `继续编辑「${draftAction.activityTitle}」`,
-          context: { activityId: draftAction.activityId },
-        }],
-      });
-    }
-  }
-
-  // 3. 快速组局分组
-  const suggestions = await buildSuggestionItems(userId);
-  sections.push({
-    id: 'suggestions',
-    icon: '💡',
-    title: '快速组局',
-    items: suggestions,
-  });
-
-  // 4. 探索附近分组
-  const exploreItems = await buildExploreItems(location);
-  sections.push({
-    id: 'explore',
-    icon: '📍',
-    title: '探索附近',
-    items: exploreItems,
-  });
-
-  return {
-    greeting,
-    subGreeting,
-    sections,
-  };
-}
-
-/**
- * 构建快速组局建议项
- */
-async function buildSuggestionItems(userId: string | null): Promise<QuickItem[]> {
-  // 基于用户历史偏好生成建议（简化版：固定建议）
-  const items: QuickItem[] = [
-    {
-      type: 'suggestion',
-      label: '明晚打麻将，3缺1',
-      prompt: '明晚打麻将，3缺1',
-    },
-    {
-      type: 'suggestion',
-      label: '周末想吃火锅',
-      prompt: '周末想吃火锅',
-    },
-    {
-      type: 'suggestion',
-      label: '想找人一起打羽毛球',
-      prompt: '想找人一起打羽毛球',
-    },
-    // v4.0: 找搭子快捷入口
-    {
-      type: 'suggestion',
-      label: '想吃火锅找搭子',
-      prompt: '想吃火锅，谁组我就去',
-    },
-  ];
-
-  // TODO: 后续可以基于用户历史活动类型动态生成
-  // if (userId) {
-  //   const typeStats = await getUserActivityTypeStats(userId);
-  //   // 根据 typeStats 调整建议顺序
-  // }
-
-  return items;
-}
-
-/**
- * v4.0: 构建待确认匹配项
- */
-async function buildPendingMatchItems(userId: string): Promise<QuickItem[]> {
-  try {
-    // 查询用户作为 Temp_Organizer 的待确认匹配
-    const pendingMatches = await db
-      .select({
-        id: intentMatches.id,
-        activityType: intentMatches.activityType,
-        matchScore: intentMatches.matchScore,
-        centerLocationHint: intentMatches.centerLocationHint,
-        confirmDeadline: intentMatches.confirmDeadline,
-      })
-      .from(intentMatches)
-      .where(sql`${intentMatches.tempOrganizerId} = ${userId} AND ${intentMatches.outcome} = 'pending' AND ${intentMatches.confirmDeadline} > NOW()`)
-      .limit(3);
-
-    if (pendingMatches.length === 0) {
-      return [];
-    }
-
-    const typeLabels: Record<string, string> = {
-      food: '饭搭子',
-      entertainment: '玩搭子',
-      sports: '运动搭子',
-      boardgame: '桌游搭子',
-      other: '搭子',
-    };
-
-    return pendingMatches.map(match => ({
-      type: 'suggestion' as const,
-      icon: '🎉',
-      label: `${typeLabels[match.activityType] || '搭子'}匹配成功！点击确认`,
-      prompt: `确认匹配 ${match.id}`,
-      context: { 
-        matchId: match.id, 
-        activityType: match.activityType,
-        location: match.centerLocationHint,
-      },
-    }));
-  } catch (error) {
-    console.error('[Welcome] Failed to get pending matches:', error);
-    return [];
-  }
-}
-
-/**
- * 构建探索附近项
- */
-async function buildExploreItems(
-  location: { lat: number; lng: number } | null
-): Promise<QuickItem[]> {
-  if (location) {
-    const locationName = await reverseGeocode(location.lat, location.lng);
-    const nearbyCount = await countNearbyActivities(location, 5000);
-    
-    return [{
-      type: 'explore',
-      label: nearbyCount > 0 
-        ? `${locationName}附近有 ${nearbyCount} 个活动`
-        : `看看${locationName}附近有什么`,
-      prompt: `看看${locationName}附近有什么活动`,
-      context: { locationName, lat: location.lat, lng: location.lng, count: nearbyCount },
-    }];
-  }
-
-  return [{
-    type: 'explore',
-    label: '看看附近有什么活动',
-    prompt: '附近有什么活动',
-  }];
-}
-
-/** 快捷项类型 */
-interface QuickItem {
-  type: 'draft' | 'suggestion' | 'explore';
-  icon?: string;
-  label: string;
-  prompt: string;
-  context?: Record<string, unknown>;
-}
-
-/** 分组类型 */
-interface WelcomeSection {
-  id: string;
-  icon: string;
-  title: string;
-  items: QuickItem[];
-}
-
-/** Welcome 响应类型 (v3.10) */
-interface WelcomeResponse {
-  greeting: string;
-  subGreeting?: string;
-  sections: WelcomeSection[];
-}
-
-
 // ==========================================
-// 会话管理 v3.8 (两层结构: conversations + conversationMessages)
+// 会话管理 API
 // ==========================================
 
-/**
- * 会话列表项（Admin 对话审计用）
- */
-export interface ConversationListItem {
-  id: string;
-  userId: string;
-  userNickname: string | null;
-  title: string | null;
-  messageCount: number;
-  lastMessageAt: string;
-  createdAt: string;
-}
-
-/**
- * 获取会话列表（Admin 模式）
- */
-export async function listConversations(params: {
-  page?: number;
-  limit?: number;
-  userId?: string;
-}): Promise<{ items: ConversationListItem[]; total: number }> {
-  const { page = 1, limit = 20, userId } = params;
+export async function listConversations(params: { userId?: string; page?: number; limit?: number }) {
+  const { userId, page = 1, limit = 20 } = params;
   const offset = (page - 1) * limit;
 
-  // 构建 WHERE 条件
-  let whereConditions = sql`1=1`;
-  if (userId) {
-    whereConditions = sql`${conversations.userId} = ${userId}`;
-  }
+  const whereClause = userId ? eq(conversations.userId, userId) : undefined;
 
-  // 查询总数
-  const [countResult] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(conversations)
-    .where(whereConditions);
+  const [items, countResult] = await Promise.all([
+    db
+      .select({
+        id: conversations.id,
+        userId: conversations.userId,
+        title: conversations.title,
+        messageCount: conversations.messageCount,
+        lastMessageAt: conversations.lastMessageAt,
+        createdAt: conversations.createdAt,
+      })
+      .from(conversations)
+      .where(whereClause)
+      .orderBy(desc(conversations.lastMessageAt))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(conversations)
+      .where(whereClause),
+  ]);
 
-  const total = countResult?.count || 0;
-
-  // 查询数据
-  const items = await db
-    .select({
-      id: conversations.id,
-      userId: conversations.userId,
-      userNickname: users.nickname,
-      title: conversations.title,
-      messageCount: conversations.messageCount,
-      lastMessageAt: conversations.lastMessageAt,
-      createdAt: conversations.createdAt,
-    })
-    .from(conversations)
-    .leftJoin(users, eq(conversations.userId, users.id))
-    .where(whereConditions)
-    .orderBy(desc(conversations.lastMessageAt))
-    .limit(limit)
-    .offset(offset);
+  // 获取用户昵称
+  const userIds = [...new Set(items.map(i => i.userId))];
+  const userNicknames = userIds.length > 0
+    ? await db.select({ id: users.id, nickname: users.nickname }).from(users).where(inArray(users.id, userIds))
+    : [];
+  const nicknameMap = new Map(userNicknames.map(u => [u.id, u.nickname]));
 
   return {
-    items: items.map(item => ({
-      ...item,
-      lastMessageAt: item.lastMessageAt.toISOString(),
-      createdAt: item.createdAt.toISOString(),
+    items: items.map(i => ({
+      ...i,
+      userNickname: nicknameMap.get(i.userId) || null,
+      lastMessageAt: i.lastMessageAt?.toISOString() || new Date().toISOString(),
+      createdAt: i.createdAt.toISOString(),
     })),
-    total,
+    total: Number(countResult[0]?.count || 0),
   };
 }
 
-/**
- * 获取会话的消息列表
- */
-export async function getConversationMessages(conversationId: string): Promise<{
-  conversation: ConversationListItem | null;
-  messages: Array<{
-    id: string;
-    role: 'user' | 'assistant';
-    messageType: string;
-    content: unknown;
-    activityId: string | null;
-    createdAt: string;
-  }>;
-}> {
-  // 获取会话信息
+export async function getConversationMessages(conversationId: string) {
   const [conv] = await db
-    .select({
-      id: conversations.id,
-      userId: conversations.userId,
-      userNickname: users.nickname,
-      title: conversations.title,
-      messageCount: conversations.messageCount,
-      lastMessageAt: conversations.lastMessageAt,
-      createdAt: conversations.createdAt,
-    })
+    .select()
     .from(conversations)
-    .leftJoin(users, eq(conversations.userId, users.id))
     .where(eq(conversations.id, conversationId))
     .limit(1);
 
-  if (!conv) {
-    return { conversation: null, messages: [] };
-  }
+  if (!conv) return { conversation: null, messages: [] };
 
-  // 获取消息列表
+  const [user] = await db.select({ nickname: users.nickname }).from(users).where(eq(users.id, conv.userId)).limit(1);
+
   const msgs = await db
-    .select({
-      id: conversationMessages.id,
-      role: conversationMessages.role,
-      messageType: conversationMessages.messageType,
-      content: conversationMessages.content,
-      activityId: conversationMessages.activityId,
-      createdAt: conversationMessages.createdAt,
-    })
+    .select()
     .from(conversationMessages)
     .where(eq(conversationMessages.conversationId, conversationId))
     .orderBy(conversationMessages.createdAt);
 
   return {
     conversation: {
-      ...conv,
-      lastMessageAt: conv.lastMessageAt.toISOString(),
+      id: conv.id,
+      userId: conv.userId,
+      userNickname: user?.nickname || null,
+      title: conv.title,
+      messageCount: conv.messageCount,
+      lastMessageAt: conv.lastMessageAt?.toISOString() || new Date().toISOString(),
       createdAt: conv.createdAt.toISOString(),
     },
     messages: msgs.map(m => ({
-      ...m,
-      role: m.role as 'user' | 'assistant',
+      id: m.id,
+      role: m.role,
+      messageType: m.messageType,
+      content: m.content,
+      activityId: m.activityId,
       createdAt: m.createdAt.toISOString(),
     })),
   };
 }
 
-/**
- * 创建新会话
- */
-export async function createConversation(userId: string, title?: string): Promise<{ id: string }> {
-  const [conv] = await db
-    .insert(conversations)
-    .values({
-      userId,
-      title: title || null,
-      messageCount: 0,
-    })
-    .returning({ id: conversations.id });
-
-  return { id: conv.id };
+export async function deleteConversation(conversationId: string): Promise<boolean> {
+  return deleteThread(conversationId);
 }
 
-/**
- * 添加消息到会话
- */
+export async function deleteConversationsBatch(ids: string[]): Promise<{ deletedCount: number }> {
+  if (ids.length === 0) return { deletedCount: 0 };
+  
+  const result = await db
+    .delete(conversations)
+    .where(inArray(conversations.id, ids))
+    .returning({ id: conversations.id });
+
+  return { deletedCount: result.length };
+}
+
+export async function clearConversations(userId: string): Promise<{ deletedCount: number }> {
+  return clearUserThreads(userId);
+}
+
+export async function getOrCreateCurrentConversation(userId: string) {
+  return getOrCreateThread(userId);
+}
+
 export async function addMessageToConversation(params: {
   conversationId: string;
   userId: string;
   role: 'user' | 'assistant';
   messageType: string;
   content: unknown;
-  activityId?: string;
-}): Promise<{ id: string }> {
-  const { conversationId, userId, role, messageType, content, activityId } = params;
-
-  // 插入消息
-  const [msg] = await db
-    .insert(conversationMessages)
-    .values({
-      conversationId,
-      userId,
-      role,
-      messageType: messageType as any,
-      content,
-      activityId,
-    })
-    .returning({ id: conversationMessages.id });
-
-  // 更新会话的 messageCount 和 lastMessageAt
-  await db
-    .update(conversations)
-    .set({
-      messageCount: sql`${conversations.messageCount} + 1`,
-      lastMessageAt: new Date(),
-      // 如果是第一条用户消息且没有标题，自动设置标题
-      ...(role === 'user' && !activityId ? {
-        title: sql`COALESCE(${conversations.title}, LEFT(${typeof content === 'object' && content && 'text' in content ? (content as { text: string }).text : String(content)}::text, 50))`,
-      } : {}),
-    })
-    .where(eq(conversations.id, conversationId));
-
-  return { id: msg.id };
+}) {
+  return saveMessage({
+    conversationId: params.conversationId,
+    userId: params.userId,
+    role: params.role,
+    messageType: params.messageType,
+    content: params.content,
+  });
 }
 
-/**
- * 获取或创建用户的当前会话
- * 如果用户没有活跃会话，创建一个新的
- */
-export async function getOrCreateCurrentConversation(userId: string): Promise<{ id: string; isNew: boolean }> {
-  // 查找最近的会话（24小时内）
-  const [recent] = await db
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(sql`${conversations.userId} = ${userId} AND ${conversations.lastMessageAt} > NOW() - INTERVAL '24 hours'`)
-    .orderBy(desc(conversations.lastMessageAt))
-    .limit(1);
+export async function getMessagesByActivityId(activityId: string) {
+  const msgs = await db
+    .select({
+      id: conversationMessages.id,
+      userId: conversationMessages.userId,
+      role: conversationMessages.role,
+      messageType: conversationMessages.messageType,
+      content: conversationMessages.content,
+      createdAt: conversationMessages.createdAt,
+    })
+    .from(conversationMessages)
+    .where(eq(conversationMessages.activityId, activityId))
+    .orderBy(conversationMessages.createdAt);
 
-  if (recent) {
-    return { id: recent.id, isNew: false };
+  const userIds = [...new Set(msgs.map(m => m.userId))];
+  const userNicknames = userIds.length > 0
+    ? await db.select({ id: users.id, nickname: users.nickname }).from(users).where(inArray(users.id, userIds))
+    : [];
+  const nicknameMap = new Map(userNicknames.map(u => [u.id, u.nickname]));
+
+  return {
+    items: msgs.map(m => ({
+      ...m,
+      userNickname: nicknameMap.get(m.userId) || null,
+      createdAt: m.createdAt.toISOString(),
+    })),
+    total: msgs.length,
+  };
+}
+
+// ==========================================
+// Welcome Card
+// ==========================================
+
+export interface WelcomeSection {
+  id: string;
+  icon: string;
+  title: string;
+  items: Array<{
+    type: 'draft' | 'suggestion' | 'explore';
+    icon?: string;
+    label: string;
+    prompt: string;
+    context?: unknown;
+  }>;
+}
+
+export interface WelcomeResponse {
+  greeting: string;
+  subGreeting?: string;
+  sections: WelcomeSection[];
+}
+
+export function generateGreeting(nickname: string | null): string {
+  const hour = new Date().getHours();
+  const name = nickname || '朋友';
+  
+  if (hour < 6) return `夜深了，${name}～`;
+  if (hour < 9) return `早上好，${name}！`;
+  if (hour < 12) return `上午好，${name}！`;
+  if (hour < 14) return `中午好，${name}！`;
+  if (hour < 18) return `下午好，${name}！`;
+  if (hour < 22) return `晚上好，${name}！`;
+  return `夜深了，${name}～`;
+}
+
+export async function getWelcomeCard(
+  userId: string | null,
+  nickname: string | null,
+  location: { lat: number; lng: number } | null
+): Promise<WelcomeResponse> {
+  const greeting = generateGreeting(nickname);
+  const sections: WelcomeSection[] = [];
+
+  // 快速组局建议
+  const suggestions: WelcomeSection = {
+    id: 'suggestions',
+    icon: '💡',
+    title: '快速组局',
+    items: [
+      { type: 'suggestion', icon: '🍜', label: '约饭局', prompt: '帮我组一个吃饭的局' },
+      { type: 'suggestion', icon: '🎮', label: '打游戏', prompt: '想找人一起打游戏' },
+      { type: 'suggestion', icon: '🏃', label: '运动', prompt: '想找人一起运动' },
+      { type: 'suggestion', icon: '☕', label: '喝咖啡', prompt: '想约人喝咖啡聊天' },
+    ],
+  };
+  sections.push(suggestions);
+
+  // 探索附近（有位置时显示）
+  if (location) {
+    const locationName = await reverseGeocode(location.lat, location.lng);
+    const explore: WelcomeSection = {
+      id: 'explore',
+      icon: '📍',
+      title: '探索附近',
+      items: [
+        { 
+          type: 'explore', 
+          icon: '🔍', 
+          label: `看看${locationName}有什么局`, 
+          prompt: `看看${locationName}附近有什么活动`,
+          context: { locationName, lat: location.lat, lng: location.lng },
+        },
+      ],
+    };
+    sections.push(explore);
   }
 
-  // 创建新会话
-  const { id } = await createConversation(userId);
-  return { id, isNew: true };
+  return {
+    greeting,
+    subGreeting: '想约点什么？',
+    sections,
+  };
 }

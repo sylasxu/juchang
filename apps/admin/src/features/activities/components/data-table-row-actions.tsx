@@ -1,6 +1,6 @@
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { type Row } from '@tanstack/react-table'
-import { Trash2, Eye, MessageSquare, CheckCircle, XCircle } from 'lucide-react'
+import { Trash2, Eye, MessageSquare, CheckCircle, XCircle, Brain } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -60,6 +60,17 @@ export function DataTableRowActions<TData>({
           查看关联 Prompt
           <DropdownMenuShortcut>
             <MessageSquare size={16} />
+          </DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => {
+            setCurrentRow(activity)
+            setOpen('ai-moderation')
+          }}
+        >
+          AI 审核
+          <DropdownMenuShortcut>
+            <Brain size={16} className='text-primary' />
           </DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

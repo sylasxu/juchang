@@ -14,6 +14,8 @@ import { processExpiredFulfillments } from './fulfillment-timeout';
 import { processExpiredDisputes } from './dispute-timeout';
 import { updateActivityStatuses } from './activity-status';
 import { expireOldIntents, handleExpiredMatches } from './intent-jobs';
+import { runAnomalyDetection } from './anomaly-detection';
+import { runContentModeration } from './content-moderation';
 import { jobLogger } from '../lib/logger';
 
 interface ScheduledJob {
@@ -54,6 +56,19 @@ const jobs: ScheduledJob[] = [
     name: '匹配过期处理',
     interval: 10 * 60 * 1000, // 每10分钟执行
     handler: handleExpiredMatches,
+    isRunning: false,
+  },
+  // AI 运营任务
+  {
+    name: '异常检测扫描',
+    interval: 30 * 60 * 1000, // 每30分钟执行
+    handler: runAnomalyDetection,
+    isRunning: false,
+  },
+  {
+    name: '内容审核扫描',
+    interval: 60 * 60 * 1000, // 每小时执行
+    handler: runContentModeration,
     isRunning: false,
   },
 ];

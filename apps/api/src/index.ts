@@ -22,6 +22,8 @@ import { dashboardController } from './modules/dashboard/dashboard.controller';
 import { chatController } from './modules/chat/chat.controller';
 import { notificationController } from './modules/notifications/notification.controller';
 import { reportController } from './modules/reports/report.controller';
+import { moderationController } from './modules/ai/moderation/moderation.controller';
+import { anomalyController } from './modules/ai/anomaly/anomaly.controller';
 
 // 导入定时任务调度器
 import { startScheduler, stopScheduler, getJobStatuses } from './jobs';
@@ -85,6 +87,8 @@ const app = new Elysia()
   .use(dashboardController)
   .use(notificationController)
   .use(reportController)
+  .use(moderationController)
+  .use(anomalyController)
   // 健康检查
   .get('/', () => 'Hello Juchang API')
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }))

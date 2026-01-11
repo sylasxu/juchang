@@ -16,6 +16,7 @@ import {
   setUserQuota,
   setUserQuotaBatch,
 } from './user.service';
+import { getEnhancedUserProfile } from '../ai/memory/working';
 
 export const userController = new Elysia({ prefix: '/users' })
   .use(basePlugins)
@@ -190,6 +191,68 @@ export const userController = new Elysia({ prefix: '/users' })
           success: t.Boolean(),
           updatedCount: t.Number(),
         }),
+      },
+    }
+  )
+
+  // 获取用户 AI 画像
+  .get(
+    '/:id/ai-profile',
+    async ({ params, set }) => {
+      const user = await getUserById(params.id);
+      if (!user) {
+        set.status = 404;
+        return { code: 404, msg: '用户不存在' } satisfies ErrorResponse;
+      }
+      
+      const profile = await getEnhancedUserProfile(params.id);
+      
+      // 转换 sentiment: like -> positive, dislike -> negative
+      const mapSentiment = (s: string): 'positive' | 'negative' | 'neutral' => {
+        if (s === 'like') return 'positive';
+        if (s === 'dislike') return 'negative';
+        return 'neutral';
+      };
+      
+      return {
+        userId: params.id,
+        preferences: profile.preferences.map(p => ({
+          category: p.category,
+          content: p.value,
+          sentiment: mapSentiment(p.sentiment),
+          confidence: p.confidence,
+          updatedAt: p.updatedAt.toISOString(),
+        })),
+        frequentLocations: profile.frequentLocations.map(loc => ({
+          name: loc,
+          count: 1,
+        })),
+        lastAnalyzedAt: profile.lastUpdated.toISOString(),
+      };
+    },
+    {
+      detail: {
+        tags: ['Users'],
+        summary: '获取用户 AI 画像',
+        description: '获取用户的 AI 提取画像，包括偏好和常去地点',
+      },
+      response: {
+        200: t.Object({
+          userId: t.String(),
+          preferences: t.Array(t.Object({
+            category: t.String(),
+            content: t.String(),
+            sentiment: t.Union([t.Literal('positive'), t.Literal('negative'), t.Literal('neutral')]),
+            confidence: t.Number(),
+            updatedAt: t.String(),
+          })),
+          frequentLocations: t.Array(t.Object({
+            name: t.String(),
+            count: t.Number(),
+          })),
+          lastAnalyzedAt: t.String(),
+        }),
+        404: 'user.error',
       },
     }
   );

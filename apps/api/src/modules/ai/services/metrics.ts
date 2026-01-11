@@ -1,41 +1,34 @@
 /**
- * AI Metrics Service
+ * AI Metrics Service - 简化版
  * 
- * Token 使用量记录和统计。
- * 
- * v3.8 更新：conversations 表已重构为两层结构，metrics 数据暂时只打印日志
- * v3.9 更新：添加 DeepSeek Context Caching 命中记录
- * TODO: 后续可以新建 ai_metrics 表专门存储
+ * 仅保留日志输出，不写入数据库
  */
 
-/**
- * Token 使用量
- */
+// ==========================================
+// Types
+// ==========================================
+
 export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
-  /** DeepSeek 缓存命中的 tokens */
   cacheHitTokens?: number;
-  /** DeepSeek 缓存未命中的 tokens */
   cacheMissTokens?: number;
 }
 
+// ==========================================
+// 记录函数（仅日志）
+// ==========================================
+
 /**
- * 记录 Token 使用量
- * 
- * v3.8: 暂时只打印日志，不写入数据库
- * v3.9: 添加缓存命中率日志
- * TODO: 后续可以新建 ai_metrics 表专门存储
+ * 记录 Token 使用量（仅日志输出）
  */
-export async function recordTokenUsage(
+export function recordTokenUsage(
   userId: string | null,
   usage: TokenUsage,
-  toolCalls?: Array<{ toolName: string }>
-): Promise<void> {
-  const effectiveUserId = userId || 'anonymous';
-  
-  // 计算缓存命中率
+  toolCalls?: Array<{ toolName: string }>,
+  _options?: { model?: string; source?: string; intent?: string }
+): void {
   let cacheInfo = '';
   if (usage.cacheHitTokens !== undefined && usage.cacheMissTokens !== undefined) {
     const totalPromptTokens = usage.cacheHitTokens + usage.cacheMissTokens;
@@ -44,71 +37,79 @@ export async function recordTokenUsage(
       : '0';
     cacheInfo = `, Cache: ${usage.cacheHitTokens}/${totalPromptTokens} (${cacheHitRate}% hit)`;
   }
-  
-  console.log(`[AI Metrics] User: ${effectiveUserId}, Tokens: ${usage.totalTokens}${cacheInfo}, Tools: ${toolCalls?.length || 0}`);
+  console.log(`[AI Metrics] User: ${userId || 'anon'}, Tokens: ${usage.totalTokens}${cacheInfo}, Tools: ${toolCalls?.length || 0}`);
 }
 
-/**
- * 每日 Token 使用统计
- */
+// ==========================================
+// 查询函数（返回空数据）
+// ==========================================
+
 export interface DailyTokenUsage {
   date: string;
   totalRequests: number;
   inputTokens: number;
   outputTokens: number;
   totalTokens: number;
+  cacheHitTokens: number;
+  cacheMissTokens: number;
+  cacheHitRate: number;
 }
 
-/**
- * 获取 Token 使用统计（Admin 用）
- * 
- * v3.8: 暂时返回空数据，后续新建 ai_metrics 表后实现
- */
-export async function getTokenUsageStats(
-  _startDate: Date,
-  _endDate: Date
-): Promise<DailyTokenUsage[]> {
-  // TODO: 新建 ai_metrics 表后实现
-  return [];
-}
-
-/**
- * 获取 Token 使用汇总（Admin 用）
- */
 export interface TokenUsageSummary {
   totalRequests: number;
   totalInputTokens: number;
   totalOutputTokens: number;
   totalTokens: number;
   avgTokensPerRequest: number;
+  totalCacheHitTokens: number;
+  totalCacheMissTokens: number;
+  overallCacheHitRate: number;
 }
 
+export interface ToolStats {
+  toolName: string;
+  totalCount: number;
+  successCount: number;
+  failureCount: number;
+  successRate: number;
+  avgDurationMs: number | null;
+}
+
+/**
+ * 获取每日 Token 使用统计（返回空数组）
+ */
+export async function getTokenUsageStats(
+  _startDate: Date,
+  _endDate: Date
+): Promise<DailyTokenUsage[]> {
+  return [];
+}
+
+/**
+ * 获取 Token 使用汇总（返回空数据）
+ */
 export async function getTokenUsageSummary(
   _startDate: Date,
   _endDate: Date
 ): Promise<TokenUsageSummary> {
-  // TODO: 新建 ai_metrics 表后实现
   return {
     totalRequests: 0,
     totalInputTokens: 0,
     totalOutputTokens: 0,
     totalTokens: 0,
     avgTokensPerRequest: 0,
+    totalCacheHitTokens: 0,
+    totalCacheMissTokens: 0,
+    overallCacheHitRate: 0,
   };
 }
 
 /**
- * 获取 Tool 调用统计（Admin 用）
+ * 获取 Tool 调用统计（返回空数组）
  */
-export interface ToolCallStats {
-  toolName: string;
-  count: number;
-}
-
 export async function getToolCallStats(
   _startDate: Date,
   _endDate: Date
-): Promise<ToolCallStats[]> {
-  // TODO: 新建 ai_metrics 表后实现
+): Promise<ToolStats[]> {
   return [];
 }

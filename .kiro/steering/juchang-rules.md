@@ -27,7 +27,7 @@ inclusion: always
 
 ### @juchang/db (数据源)
 - **Tech**: Drizzle ORM (PostgreSQL + PostGIS) + `drizzle-typebox`
-- **6 张核心表**: users, activities, participants, conversations, activity_messages, notifications
+- **10 张核心表**: users, activities, participants, conversations, conversation_messages, activity_messages, notifications, partner_intents, intent_matches, match_messages
 - **Schema 规范**:
   ```typescript
   export const users = pgTable("users", { ... });
@@ -139,17 +139,22 @@ bunx <package>       # 执行包命令
 - `activityStatusEnum`: draft, active, completed, cancelled
 - `conversationRoleEnum`: user, assistant
 - `conversationMessageTypeEnum`: text, widget_dashboard, widget_launcher, widget_action, widget_draft, widget_share, widget_explore, widget_error, widget_ask_preference
+- `partnerIntentStatusEnum`: active, matched, expired, cancelled (v4.0)
+- `intentMatchOutcomeEnum`: pending, confirmed, expired, cancelled (v4.0)
 
-**核心表** (v3.9 两层会话结构):
+**核心表** (v4.1 - 10 张):
 | 表 | 核心字段 |
 |---|---------|
-| users | id, wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday |
+| users | id, wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday, workingMemory |
 | activities | id, creatorId, title, location, locationHint, startAt, type, status |
 | participants | id, activityId, userId, status |
 | conversations | id, userId, title, messageCount, lastMessageAt (会话) |
 | conversation_messages | id, conversationId, userId, role, messageType, content, activityId (消息) |
 | activity_messages | id, activityId, senderId, messageType, content |
 | notifications | id, userId, type, title, isRead, activityId |
+| partner_intents | id, userId, type, tags, location, expiresAt, status (v4.0) |
+| intent_matches | id, intentAId, intentBId, tempOrganizerId, outcome (v4.0) |
+| match_messages | id, matchId, senderId, content (v4.0) |
 
 **AI 对话持久化 (v3.9)**:
 - 有登录用户的 AI 对话自动保存到 `conversation_messages` 表
@@ -160,13 +165,24 @@ bunx <package>       # 执行包命令
 
 ## ✅ 正确性属性 (CP)
 
+### 数据一致性
 - **CP-1**: `currentParticipants` = participants 表中 `status='joined'` 的记录数
 - **CP-4**: 每日创建活动次数 ≤ `aiCreateQuotaToday` (默认 3)
 - **CP-8**: `locationHint` 不能为空
+
+### 认证规则
 - **CP-9**: 未绑定手机号的用户不能发布/报名活动
 - **CP-11**: 未登录用户可以浏览对话、查看详情、探索附近
+
+### AI 对话
 - **CP-20**: AI 对话自动持久化 - 有 userId 时保存到 conversation_messages
 - **CP-21**: Tool 返回的 activityId 自动关联到 AI 响应消息
+
+### 找搭子 (v4.0)
+- **CP-23**: 同一用户同一类型只能有一个 active 意向
+- **CP-24**: 意向 24h 自动过期
+- **CP-25**: 匹配只在无 tag 冲突、同类型、3km 内、score ≥ 80% 时创建
+- **CP-26**: Temp_Organizer 是最早创建意向的用户
 
 ---
 

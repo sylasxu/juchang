@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from '@tanstack/react-router'
 import { format } from 'date-fns'
-import { ArrowLeft, CheckCircle, User, Phone } from 'lucide-react'
+import { ArrowLeft, CheckCircle, User, Phone, Brain } from 'lucide-react'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { ProfileDropdown } from '@/components/profile-dropdown'
@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { useUserDetail } from '@/hooks/use-users'
+import { AIProfileTab } from './ai-profile-tab'
 
 export function UserDetail() {
   const { id } = useParams({ from: '/_authenticated/users/$id' })
@@ -112,8 +113,12 @@ export function UserDetail() {
           {/* 主要内容区域 */}
           <div className='md:col-span-2'>
             <Tabs value={activeTab} onValueChange={setActiveTab} className='space-y-6'>
-              <TabsList className='grid w-full grid-cols-2'>
+              <TabsList className='grid w-full grid-cols-3'>
                 <TabsTrigger value='overview'>概览</TabsTrigger>
+                <TabsTrigger value='ai-profile'>
+                  <Brain className='h-4 w-4 mr-1' />
+                  AI 画像
+                </TabsTrigger>
                 <TabsTrigger value='activities'>活动记录</TabsTrigger>
               </TabsList>
 
@@ -180,6 +185,10 @@ export function UserDetail() {
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent value='ai-profile'>
+                <AIProfileTab userId={id} />
               </TabsContent>
 
               <TabsContent value='activities'>

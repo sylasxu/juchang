@@ -281,7 +281,7 @@ const QuickAction = t.Object({
 });
 
 // ==========================================
-// Metrics 相关 Schema (v3.4 新增)
+// Metrics 相关 Schema (v4.0 更新 - 完整监控)
 // ==========================================
 
 // Token 使用统计查询参数
@@ -290,28 +290,38 @@ const MetricsUsageQuery = t.Object({
   endDate: t.Optional(t.String({ description: '结束日期 YYYY-MM-DD' })),
 });
 
-// 每日 Token 使用统计
+// 每日 Token 使用统计 (v4.0 更新 - 增加缓存命中)
 const DailyTokenUsage = t.Object({
   date: t.String(),
   totalRequests: t.Number(),
   inputTokens: t.Number(),
   outputTokens: t.Number(),
   totalTokens: t.Number(),
+  cacheHitTokens: t.Number(),
+  cacheMissTokens: t.Number(),
+  cacheHitRate: t.Number(),
 });
 
-// Token 使用汇总
+// Token 使用汇总 (v4.0 更新 - 增加缓存命中)
 const TokenUsageSummary = t.Object({
   totalRequests: t.Number(),
   totalInputTokens: t.Number(),
   totalOutputTokens: t.Number(),
   totalTokens: t.Number(),
   avgTokensPerRequest: t.Number(),
+  totalCacheHitTokens: t.Number(),
+  totalCacheMissTokens: t.Number(),
+  overallCacheHitRate: t.Number(),
 });
 
-// Tool 调用统计
+// Tool 调用统计 (v4.0 更新 - 完整统计)
 const ToolCallStats = t.Object({
   toolName: t.String(),
-  count: t.Number(),
+  totalCount: t.Number(),
+  successCount: t.Number(),
+  failureCount: t.Number(),
+  successRate: t.Number(),
+  avgDurationMs: t.Union([t.Number(), t.Null()]),
 });
 
 // Metrics 响应
