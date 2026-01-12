@@ -1,7 +1,7 @@
 /**
  * 智能欢迎卡片服务
  * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5
- * v3.10 重构: 分组结构 (sections)
+ * v4.4 重构: 增加社交档案和快捷入口
  *
  * 调用 /ai/welcome API 获取个性化欢迎卡片数据
  */
@@ -28,11 +28,27 @@ export interface WelcomeSection {
   items: QuickItem[];
 }
 
-// Welcome API 响应 (v3.10)
+// 社交档案 (v4.4 新增)
+export interface SocialProfile {
+  participationCount: number;
+  activitiesCreatedCount: number;
+  preferenceCompleteness: number;
+}
+
+// 快捷入口 (v4.4 新增)
+export interface QuickPrompt {
+  icon: string;
+  text: string;
+  prompt: string;
+}
+
+// Welcome API 响应 (v4.4 更新)
 export interface WelcomeResponse {
   greeting: string;
   subGreeting?: string;
   sections: WelcomeSection[];
+  socialProfile?: SocialProfile;
+  quickPrompts: QuickPrompt[];
 }
 
 // Welcome API 查询参数

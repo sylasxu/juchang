@@ -1,0 +1,54 @@
+<!--
+  社交档案卡片组件
+  v4.4 新增
+  
+  展示用户社交统计数据，引导完善偏好
+-->
+<view class="social-profile-card" wx:if="{{hasProfile}}">
+  <!-- 卡片头部（可点击展开/收起） -->
+  <view class="card-header btn-pressable" bindtap="onToggle">
+    <view class="header-left">
+      <text class="header-icon">📊</text>
+      <text class="header-title">我的社交档案</text>
+    </view>
+    <view class="header-right">
+      <t-icon 
+        name="{{isExpanded ? 'chevron-up' : 'chevron-down'}}" 
+        size="32rpx" 
+        color="#9CA3AF"
+      />
+    </view>
+  </view>
+  
+  <!-- 卡片内容（可展开/收起） -->
+  <view class="card-content {{isExpanded ? 'expanded' : 'collapsed'}}">
+    <!-- 统计数据 -->
+    <view class="stats-row">
+      <view class="stat-item">
+        <text class="stat-icon">🎯</text>
+        <text class="stat-label">参与</text>
+        <text class="stat-value">{{displayProfile.participationCount}}</text>
+        <text class="stat-unit">场</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <text class="stat-icon">📍</text>
+        <text class="stat-label">发起</text>
+        <text class="stat-value">{{displayProfile.activitiesCreatedCount}}</text>
+        <text class="stat-unit">场</text>
+      </view>
+    </view>
+    
+    <!-- 偏好完善引导 -->
+    <view class="preference-guide">
+      <view class="guide-content">
+        <text class="guide-icon">✨</text>
+        <text class="guide-text">{{completenessText}}</text>
+      </view>
+      <view class="guide-action btn-pressable" bindtap="onGoToPreference">
+        <text class="action-text">去完善</text>
+        <t-icon name="chevron-right" size="28rpx" color="#5B75FB" />
+      </view>
+    </view>
+  </view>
+</view>

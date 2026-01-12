@@ -42,6 +42,39 @@ export interface UserProfile {
 }
 
 /**
+ * v4.5 用户兴趣向量
+ * 用于 MaxSim 个性化推荐策略
+ * 存储最近满意活动的向量（非平均值）
+ */
+export interface InterestVector {
+  /** 关联的活动 ID */
+  activityId: string;
+  /** 1024 维向量 (智谱 embedding-3) */
+  embedding: number[];
+  /** 参与时间 */
+  participatedAt: Date;
+  /** 用户反馈 */
+  feedback?: 'positive' | 'neutral' | 'negative';
+}
+
+/**
+ * v4.5 增强版用户画像
+ * 包含兴趣向量用于语义搜索个性化
+ */
+export interface EnhancedUserProfile extends UserProfile {
+  /** 版本号 */
+  version: 2;
+  /** 最后更新时间 */
+  lastUpdated: Date;
+  /** 
+   * 用户兴趣向量 (MaxSim 策略)
+   * 最多存储 3 个最近满意活动的向量
+   * 搜索时取与查询向量最大相似度的那个
+   */
+  interestVectors?: InterestVector[];
+}
+
+/**
  * 保存消息的参数
  */
 export interface SaveMessageParams {

@@ -1,6 +1,6 @@
 /**
  * Widget Dashboard 样式
- * v3.10 重构: 分组结构 (sections)
+ * v4.4 重构: 增加社交档案卡片和快捷入口
  * 
  * Crypto-Clean 视觉风格
  * - Halo Card 渐变边框
@@ -48,12 +48,19 @@
   line-height: 1.4;
 }
 
+// ==================== 快捷入口区域 (v4.4) ====================
+
+.quick-prompts-section {
+  margin-top: @spacing-3;
+}
+
 // ==================== 分组快捷操作 (v3.10) ====================
 
 .sections-container {
   display: flex;
   flex-direction: column;
   gap: @spacing-4;
+  margin-top: @spacing-3;
 }
 
 .section-group {

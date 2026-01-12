@@ -1,6 +1,9 @@
 // ==========================================
-// Schema Exports - v4.0 Smart Broker (3表精简版)
+// Schema Exports - v4.5 Semantic Search
 // ==========================================
+
+// 0. Custom Types (pgvector support)
+export * from "./custom-types";
 
 // 1. Enums
 export * from "./enums";
@@ -27,6 +30,13 @@ export * from "./match-messages";     // 匹配消息 (直接关联 matchId)
 
 // 7. Relations (must be last to avoid circular imports)
 export * from "./relations";
+
+// ==========================================
+// v4.5 变更说明 (Semantic Search):
+// - activities: 新增 embedding vector(1024) 列
+// - custom-types: 新增 pgvector 的 vector 类型支持
+// - 迁移文件: 0009_add_embedding.sql
+// ==========================================
 
 // ==========================================
 // v4.0 变更说明 (3表精简版):

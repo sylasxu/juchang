@@ -236,11 +236,23 @@ const WelcomeSection = t.Object({
   items: t.Array(QuickItem),
 });
 
-// Welcome Card 响应 (v3.10 重构)
+// Welcome Card 响应 (v4.4 重构 - 增加社交档案)
+const SocialProfile = t.Object({
+  participationCount: t.Number({ description: '参与活动数' }),
+  activitiesCreatedCount: t.Number({ description: '发起活动数' }),
+  preferenceCompleteness: t.Number({ description: '偏好完善度 0-100' }),
+});
+
 const WelcomeResponse = t.Object({
   greeting: t.String({ description: '问候语' }),
   subGreeting: t.Optional(t.String({ description: '副标题' })),
   sections: t.Array(WelcomeSection, { description: '分组列表' }),
+  socialProfile: t.Optional(SocialProfile, { description: '社交档案（已登录用户）' }),
+  quickPrompts: t.Array(t.Object({
+    icon: t.String(),
+    text: t.String(),
+    prompt: t.String(),
+  }), { description: '快捷入口' }),
 });
 
 // Welcome Card 查询参数

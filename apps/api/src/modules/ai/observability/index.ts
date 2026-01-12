@@ -94,5 +94,18 @@ export {
   getMetricSummary,
   clearMetrics,
   cleanupOldMetrics,
+  // v4.5: 从 services/metrics.ts 迁移
+  recordTokenUsageWithLog,
+  getTokenUsageStats,
+  getTokenUsageSummary,
+  getToolCallStats,
+} from './metrics';
+
+// v4.5: 从 services/metrics.ts 迁移的类型
+export type {
+  TokenUsage,
+  DailyTokenUsage,
+  TokenUsageSummary,
+  ToolStats,
 } from './metrics';
 

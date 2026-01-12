@@ -1,9 +1,11 @@
 <!--
   Widget Dashboard 组件
-  v3.10 重构: 分组结构 (sections)
+  v4.4 重构: 增加社交档案卡片和快捷入口
   
   进场欢迎卡片
   - 动态问候语（API 返回）
+  - 社交档案卡片（参与/发起统计 + 偏好完善引导）
+  - 快捷入口（预设 Prompt）
   - 分组快捷操作（draft/suggestions/explore）
   - 待参加活动列表（最多 3 个）
 -->
@@ -19,8 +21,26 @@
     </view>
   </view>
   
+  <!-- v4.4: 社交档案卡片 -->
+  <block wx:if="{{hasSocialProfile}}">
+    <social-profile-card 
+      profile="{{socialProfile}}"
+      collapsed="{{hasActivities}}"
+    />
+  </block>
+  
+  <!-- v4.4: 快捷入口 -->
+  <block wx:if="{{hasQuickPrompts && !hasActivities}}">
+    <view class="quick-prompts-section">
+      <quick-prompts 
+        prompts="{{quickPrompts}}"
+        bind:prompttap="onQuickPromptTap"
+      />
+    </view>
+  </block>
+  
   <!-- v3.10: 分组快捷操作 -->
-  <block wx:if="{{hasSections}}">
+  <block wx:if="{{hasSections && !hasQuickPrompts}}">
     <view class="sections-container">
       <view 
         wx:for="{{sections}}" 
@@ -77,8 +97,8 @@
     </view>
   </block>
   
-  <!-- 无分组且无活动时显示引导 -->
-  <block wx:if="{{!hasSections && !hasActivities}}">
+  <!-- 无分组、无快捷入口且无活动时显示引导 -->
+  <block wx:if="{{!hasSections && !hasQuickPrompts && !hasActivities && !hasSocialProfile}}">
     <view class="dashboard-empty">
       <view class="empty-icon">
         <t-icon name="chat" size="64rpx" color="#5B75FB" />

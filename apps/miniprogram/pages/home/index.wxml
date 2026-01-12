@@ -71,13 +71,14 @@
                     nickname="{{part.data.nickname || userNickname}}"
                     activities="{{part.data.activities}}"
                     greeting="{{part.data.greeting}}"
-                    quickActions="{{part.data.quickActions}}"
-                    fallbackPrompt="{{part.data.fallbackPrompt}}"
+                    subGreeting="{{part.data.subGreeting}}"
+                    sections="{{part.data.sections}}"
+                    socialProfile="{{part.data.socialProfile}}"
+                    quickPrompts="{{part.data.quickPrompts}}"
                     bind:activitytap="onDashboardActivityTap"
                     bind:prompttap="onDashboardPromptTap"
-                    bind:quickactiontap="onDashboardQuickActionTap"
-                    bind:explorenearby="onDashboardExploreNearby"
-                    bind:findpartner="onDashboardFindPartner"
+                    bind:quickitemtap="onDashboardQuickItemTap"
+                    bind:viewall="onDashboardViewAll"
                   />
                 </block>
                 

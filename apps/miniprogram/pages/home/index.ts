@@ -162,7 +162,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   /**
    * 显示欢迎卡片
-   * v3.10: 使用新的 sections 结构
+   * v4.4: 增加社交档案和快捷入口
    */
   async showDashboard() {
     const chatStore = useChatStore.getState()
@@ -183,12 +183,14 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
         isWelcomeLoading: false,
       })
       
-      // 使用 useChatStore 添加 Dashboard Widget (v3.10 新结构)
+      // 使用 useChatStore 添加 Dashboard Widget (v4.4 新结构)
       chatStore.addWidgetMessage('dashboard', {
         nickname: this.data.userNickname,
         greeting: welcomeData.greeting,
         subGreeting: welcomeData.subGreeting,
         sections: welcomeData.sections,
+        socialProfile: welcomeData.socialProfile,
+        quickPrompts: welcomeData.quickPrompts,
       })
     } catch (error) {
       console.error('[Home] Failed to load welcome card:', error)
@@ -269,6 +271,13 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     const { item } = e.detail
     console.log('[Home] Quick item tap:', item)
     // prompttap 事件会自动触发，这里只做日志
+  },
+
+  /**
+   * 查看全部活动 (v4.4 新增)
+   */
+  onDashboardViewAll() {
+    wx.navigateTo({ url: '/subpackages/activity/list/index?type=joined' })
   },
 
   async onDraftConfirm(e: WechatMiniprogram.CustomEvent<{ draft: any }>) {

@@ -2,6 +2,7 @@ import { pgTable, uuid, varchar, text, timestamp, integer, index } from "drizzle
 import { geometry } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { activityTypeEnum, activityStatusEnum } from "./enums";
+import { vector } from "./custom-types";
 import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
 
 /**
@@ -45,6 +46,9 @@ export const activities = pgTable("activities", {
   // --- 状态 (v3.3 默认 draft，符合 AI 解析 → 用户确认的工作流) ---
   status: activityStatusEnum("status").default("draft").notNull(),
 
+  // --- v4.5 语义搜索：向量字段 (智谱 embedding-3, 1024 维) ---
+  embedding: vector('embedding', { dimensions: 1024 }),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
@@ -53,6 +57,9 @@ export const activities = pgTable("activities", {
   index("activities_status_idx").on(t.status),
   index("activities_type_idx").on(t.type),
   index("activities_creator_idx").on(t.creatorId),
+  // v4.5: HNSW 索引用于向量相似度搜索
+  // 注意：HNSW 索引需要在 SQL 迁移中手动创建，因为 Drizzle 不支持 HNSW 索引语法
+  // 索引已在 0009_add_embedding.sql 中创建
 ]);
 
 export const insertActivitySchema = createInsertSchema(activities);

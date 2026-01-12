@@ -5,16 +5,21 @@
  * - "附近有什么好玩的"
  * - "推荐一下观音桥的活动"
  * - "有什么局可以参加"
+ * - "想找人一起打羽毛球"
+ * 
+ * v4.5: 升级为 RAG 语义搜索
+ * - 支持 semanticQuery 参数进行语义匹配
+ * - 返回 matchReason 推荐理由
+ * - 使用 createToolFactory 重构
  */
 
 import { t } from 'elysia';
-import { tool, jsonSchema } from 'ai';
-import { toJsonSchema } from '@juchang/utils';
-import { db, sql } from '@juchang/db';
+import { createToolFactory } from './create-tool';
+import { search, generateMatchReason } from '../rag';
+import type { ScoredActivity } from '../rag';
 
 /**
  * Tool Schema - 使用 TypeBox 语法
- * 处理嵌套对象结构
  */
 const exploreNearbySchema = t.Object({
   center: t.Object({
@@ -22,6 +27,9 @@ const exploreNearbySchema = t.Object({
     lng: t.Number({ description: '中心点经度' }),
     name: t.String({ description: '地点名称，如"观音桥"' }),
   }, { description: '搜索中心点' }),
+  semanticQuery: t.Optional(t.String({ 
+    description: '语义搜索关键词，如"想找人一起打羽毛球"、"周末聚餐"。用于智能匹配活动',
+  })),
   type: t.Optional(t.Union([
     t.Literal('food'),
     t.Literal('entertainment'),
@@ -29,7 +37,10 @@ const exploreNearbySchema = t.Object({
     t.Literal('boardgame'),
     t.Literal('other'),
   ], { description: '活动类型筛选' })),
-  radius: t.Optional(t.Number({ default: 5000, description: '搜索半径（米），默认 5000' })),
+  radius: t.Optional(t.Number({ 
+    default: 5, 
+    description: '搜索半径（公里），默认 5',
+  })),
 });
 
 /** 类型自动推导 */
@@ -38,7 +49,7 @@ type ExploreNearbyParams = typeof exploreNearbySchema.static;
 /**
  * 探索结果项
  */
-interface ExploreResult {
+export interface ExploreResultItem {
   id: string;
   title: string;
   type: string;
@@ -49,80 +60,98 @@ interface ExploreResult {
   startAt: string;
   currentParticipants: number;
   maxParticipants: number;
+  score?: number;
+  matchReason?: string;
 }
 
 /**
- * 创建 exploreNearby Tool
- * 
- * @param _userId - 用户 ID（保留参数，与其他 Tool 签名一致）
+ * 探索结果
  */
-export function exploreNearbyTool(_userId: string | null) {
-  return tool({
-    description: '探索附近活动。返回指定区域内的活动列表。',
-    
-    inputSchema: jsonSchema<ExploreNearbyParams>(toJsonSchema(exploreNearbySchema)),
-    
-    execute: async ({ center, type, radius = 5000 }: ExploreNearbyParams) => {
-      try {
-        // 构建查询
-        let query = sql`
-          SELECT 
-            a.id,
-            a.title,
-            a.type,
-            ST_Y(a.location::geometry) as lat,
-            ST_X(a.location::geometry) as lng,
-            a.location_name as "locationName",
-            ST_Distance(
-              a.location::geography,
-              ST_SetSRID(ST_MakePoint(${center.lng}, ${center.lat}), 4326)::geography
-            ) as distance,
-            a.start_at as "startAt",
-            a.current_participants as "currentParticipants",
-            a.max_participants as "maxParticipants"
-          FROM activities a
-          WHERE a.status = 'active'
-            AND a.start_at > NOW()
-            AND a.current_participants < a.max_participants
-            AND ST_DWithin(
-              a.location::geography,
-              ST_SetSRID(ST_MakePoint(${center.lng}, ${center.lat}), 4326)::geography,
-              ${radius}
-            )
-        `;
-        
-        if (type) {
-          query = sql`${query} AND a.type = ${type}`;
-        }
-        
-        query = sql`${query} ORDER BY distance ASC LIMIT 10`;
-        
-        const results = await db.execute(query) as unknown as ExploreResult[];
-        
-        const exploreData = {
-          center,
-          results: results.map(r => ({
-            ...r,
-            distance: Math.round(Number(r.distance)),
-            startAt: new Date(r.startAt).toISOString(),
-          })),
-          title: results.length > 0 
-            ? `为你找到${center.name}附近的 ${results.length} 个活动`
-            : `${center.name}附近暂时没有活动`,
-        };
-        
-        // v3.8: 对话记录由小程序端统一处理，Tool 只返回结果
-        return {
-          success: true as const,
-          explore: exploreData,
-        };
-      } catch (error) {
-        console.error('[exploreNearby] Error:', error);
-        return {
-          success: false as const,
-          error: '搜索失败，请再试一次',
-        };
-      }
-    },
-  });
+export interface ExploreData {
+  center: { lat: number; lng: number; name: string };
+  results: ExploreResultItem[];
+  title: string;
+  semanticQuery?: string;
 }
+
+/**
+ * 将 ScoredActivity 转换为 ExploreResultItem
+ */
+function toExploreResultItem(scored: ScoredActivity): ExploreResultItem {
+  const { activity, score, distance, matchReason } = scored;
+  
+  // 从 PostGIS point 提取经纬度
+  const location = activity.location as unknown as { x: number; y: number } | null;
+  
+  return {
+    id: activity.id,
+    title: activity.title,
+    type: activity.type,
+    lat: location?.y ?? 0,
+    lng: location?.x ?? 0,
+    locationName: activity.locationName,
+    distance: distance ? Math.round(distance) : 0,
+    startAt: new Date(activity.startAt).toISOString(),
+    currentParticipants: activity.currentParticipants,
+    maxParticipants: activity.maxParticipants,
+    score,
+    matchReason,
+  };
+}
+
+/**
+ * exploreNearby Tool 工厂
+ */
+export const exploreNearbyTool = createToolFactory<ExploreNearbyParams, ExploreData>({
+  name: 'exploreNearby',
+  description: '探索附近活动。支持语义搜索，返回匹配度最高的活动列表。',
+  parameters: exploreNearbySchema,
+  
+  execute: async ({ center, semanticQuery, type, radius = 5 }, context) => {
+    try {
+      // 构建搜索查询
+      // 如果没有 semanticQuery，使用地点名称作为默认查询
+      const query = semanticQuery || `${center.name}附近的活动`;
+      
+      // 调用 RAG 语义搜索（传递 userId 用于 MaxSim 个性化）
+      const scoredResults = await search({
+        semanticQuery: query,
+        filters: {
+          location: {
+            lat: center.lat,
+            lng: center.lng,
+            radiusInKm: radius,
+          },
+          type: type ?? undefined,
+        },
+        limit: 10,
+        includeMatchReason: !!semanticQuery, // 有语义查询时才生成理由
+        userId: context.userId, // v4.5: 传递 userId 用于 MaxSim 个性化
+      });
+      
+      // 转换结果格式
+      const results = scoredResults.map(toExploreResultItem);
+      
+      // 构建响应
+      const exploreData: ExploreData = {
+        center,
+        results,
+        title: results.length > 0 
+          ? `为你找到${center.name}附近的 ${results.length} 个活动`
+          : `${center.name}附近暂时没有活动`,
+        semanticQuery: semanticQuery || undefined,
+      };
+      
+      return {
+        success: true as const,
+        explore: exploreData,
+      };
+    } catch (error) {
+      console.error('[exploreNearby] Error:', error);
+      return {
+        success: false as const,
+        error: '搜索失败，请再试一次',
+      };
+    }
+  },
+});

@@ -583,3 +583,246 @@ export function injectEnhancedWorkingMemory(prompt: string, profile: EnhancedUse
 
 ${profilePrompt}`;
 }
+
+
+// ============ v4.5 兴趣向量操作 (MaxSim) ============
+
+import type { InterestVector, EnhancedUserProfile as EnhancedUserProfileWithVectors } from './types';
+
+/**
+ * 最大兴趣向量数量
+ */
+const MAX_INTEREST_VECTORS = 3;
+
+/**
+ * 添加用户兴趣向量
+ * 
+ * 当用户参与活动并给出正面反馈时调用
+ * 最多保留 3 个最近的向量（FIFO）
+ * 
+ * @param userId - 用户 ID
+ * @param vector - 兴趣向量
+ */
+export async function addInterestVector(
+  userId: string,
+  vector: InterestVector
+): Promise<void> {
+  const profile = await getEnhancedUserProfileWithVectors(userId);
+  
+  // 获取现有向量，如果不存在则初始化为空数组
+  const existingVectors = profile.interestVectors || [];
+  
+  // 检查是否已存在相同活动的向量
+  const filteredVectors = existingVectors.filter(v => v.activityId !== vector.activityId);
+  
+  // 添加新向量到开头
+  const newVectors = [vector, ...filteredVectors];
+  
+  // 限制最多 3 个向量（FIFO）
+  const limitedVectors = newVectors.slice(0, MAX_INTEREST_VECTORS);
+  
+  // 保存更新后的画像
+  await saveEnhancedUserProfileWithVectors(userId, {
+    ...profile,
+    interestVectors: limitedVectors,
+    lastUpdated: new Date(),
+  });
+}
+
+/**
+ * 获取用户兴趣向量
+ * 
+ * @param userId - 用户 ID
+ * @returns 兴趣向量数组（最多 3 个）
+ */
+export async function getInterestVectors(userId: string): Promise<InterestVector[]> {
+  const profile = await getEnhancedUserProfileWithVectors(userId);
+  return profile.interestVectors || [];
+}
+
+/**
+ * 清除用户兴趣向量
+ * 
+ * @param userId - 用户 ID
+ */
+export async function clearInterestVectors(userId: string): Promise<void> {
+  const profile = await getEnhancedUserProfileWithVectors(userId);
+  await saveEnhancedUserProfileWithVectors(userId, {
+    ...profile,
+    interestVectors: [],
+    lastUpdated: new Date(),
+  });
+}
+
+/**
+ * 计算 MaxSim 分数
+ * 
+ * MaxSim 策略：取用户所有兴趣向量与查询向量的最大相似度
+ * 这比平均值更能捕捉用户的多样化兴趣
+ * 
+ * @param queryVector - 查询向量
+ * @param interestVectors - 用户兴趣向量数组
+ * @returns 最大相似度分数 (0-1)
+ */
+export function calculateMaxSim(
+  queryVector: number[],
+  interestVectors: InterestVector[]
+): number {
+  if (interestVectors.length === 0) return 0;
+  
+  let maxSim = 0;
+  
+  for (const iv of interestVectors) {
+    const sim = cosineSimilarity(queryVector, iv.embedding);
+    if (sim > maxSim) {
+      maxSim = sim;
+    }
+  }
+  
+  return maxSim;
+}
+
+/**
+ * 计算余弦相似度
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (a.length !== b.length) return 0;
+  
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+  
+  for (let i = 0; i < a.length; i++) {
+    dotProduct += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  
+  const denominator = Math.sqrt(normA) * Math.sqrt(normB);
+  if (denominator === 0) return 0;
+  
+  return dotProduct / denominator;
+}
+
+// ============ 带兴趣向量的增强版画像操作 ============
+
+/**
+ * 存储格式（包含兴趣向量）
+ */
+interface StoredEnhancedProfileWithVectors {
+  version: 2;
+  preferences: Array<{
+    category: PreferenceCategory;
+    value: string;
+    sentiment: PreferenceSentiment;
+    confidence: number;
+    updatedAt: string;
+  }>;
+  frequentLocations: string[];
+  lastUpdated: string;
+  interestVectors?: Array<{
+    activityId: string;
+    embedding: number[];
+    participatedAt: string;
+    feedback?: 'positive' | 'neutral' | 'negative';
+  }>;
+}
+
+/**
+ * 获取带兴趣向量的增强版用户画像
+ */
+export async function getEnhancedUserProfileWithVectors(
+  userId: string
+): Promise<EnhancedUserProfileWithVectors> {
+  const memory = await getWorkingMemory(userId);
+  return parseEnhancedProfileWithVectors(memory);
+}
+
+/**
+ * 保存带兴趣向量的增强版用户画像
+ */
+export async function saveEnhancedUserProfileWithVectors(
+  userId: string,
+  profile: EnhancedUserProfileWithVectors
+): Promise<void> {
+  const content = serializeEnhancedProfileWithVectors(profile);
+  await updateWorkingMemory(userId, content);
+}
+
+/**
+ * 解析带兴趣向量的增强版用户画像
+ */
+function parseEnhancedProfileWithVectors(content: string | null): EnhancedUserProfileWithVectors {
+  if (!content) {
+    return {
+      preferences: [],
+      dislikes: [],
+      frequentLocations: [],
+      behaviorPatterns: [],
+      version: 2,
+      lastUpdated: new Date(),
+      interestVectors: [],
+    };
+  }
+
+  try {
+    const stored = JSON.parse(content) as StoredEnhancedProfileWithVectors;
+    if (stored.version !== 2) {
+      // 旧版格式，转换为增强版
+      const oldProfile = parseUserProfile(content);
+      return {
+        ...oldProfile,
+        version: 2,
+        lastUpdated: new Date(),
+        interestVectors: [],
+      };
+    }
+    
+    return {
+      preferences: stored.preferences.map(p => p.value),
+      dislikes: stored.preferences.filter(p => p.sentiment === 'dislike').map(p => p.value),
+      frequentLocations: stored.frequentLocations,
+      behaviorPatterns: [],
+      version: 2,
+      lastUpdated: new Date(stored.lastUpdated),
+      interestVectors: stored.interestVectors?.map(v => ({
+        ...v,
+        participatedAt: new Date(v.participatedAt),
+      })) || [],
+    };
+  } catch {
+    // 解析失败，尝试作为 Markdown 解析
+    const oldProfile = parseUserProfile(content);
+    return {
+      ...oldProfile,
+      version: 2,
+      lastUpdated: new Date(),
+      interestVectors: [],
+    };
+  }
+}
+
+/**
+ * 序列化带兴趣向量的增强版用户画像
+ */
+function serializeEnhancedProfileWithVectors(profile: EnhancedUserProfileWithVectors): string {
+  const stored: StoredEnhancedProfileWithVectors = {
+    version: 2,
+    preferences: profile.preferences.map(p => ({
+      category: 'activity_type' as PreferenceCategory,
+      value: p,
+      sentiment: 'like' as PreferenceSentiment,
+      confidence: 0.5,
+      updatedAt: new Date().toISOString(),
+    })),
+    frequentLocations: profile.frequentLocations,
+    lastUpdated: profile.lastUpdated.toISOString(),
+    interestVectors: profile.interestVectors?.map(v => ({
+      activityId: v.activityId,
+      embedding: v.embedding,
+      participatedAt: v.participatedAt.toISOString(),
+      feedback: v.feedback,
+    })),
+  };
+  return JSON.stringify(stored);
+}

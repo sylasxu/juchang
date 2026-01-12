@@ -12,6 +12,7 @@ import type {
   ActivitiesListResponse,
 } from './activity.model';
 import { deductAiCreateQuota } from '../users/user.service';
+import { indexActivity, deleteIndex } from '../ai/rag';
 
 // 群聊归档时间：活动开始后 24 小时
 const ARCHIVE_HOURS = 24;
@@ -383,6 +384,14 @@ export async function createActivity(
     })
     .where(eq(users.id, creatorId));
 
+  // v4.5: 异步索引活动到 RAG (不阻塞主流程)
+  const activityForIndex = await getActivityById(newActivity.id);
+  if (activityForIndex) {
+    indexActivity(activityForIndex as any).catch(err => {
+      console.error('Failed to index activity:', err);
+    });
+  }
+
   return { id: newActivity.id };
 }
 
@@ -457,6 +466,14 @@ export async function publishDraftActivity(
       updatedAt: new Date(),
     })
     .where(eq(users.id, creatorId));
+  
+  // v4.5: 异步索引活动到 RAG (不阻塞主流程)
+  const activityForIndex = await getActivityById(activityId);
+  if (activityForIndex) {
+    indexActivity(activityForIndex as any).catch(err => {
+      console.error('Failed to index activity:', err);
+    });
+  }
   
   return { id: activityId };
 }
@@ -537,6 +554,11 @@ export async function deleteActivity(activityId: string, userId: string): Promis
   await db
     .delete(activities)
     .where(eq(activities.id, activityId));
+
+  // v4.5: 删除 RAG 索引 (异步，不阻塞)
+  deleteIndex(activityId).catch(err => {
+    console.error('Failed to delete activity index:', err);
+  });
 }
 
 /**

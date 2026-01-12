@@ -9,20 +9,26 @@ import type { IntentType } from '../intent/types';
 import type { ToolContext } from './types';
 
 // 导入所有 Tool 工厂函数
-import { createActivityDraftTool } from './create-draft';
-import { getDraftTool } from './get-draft';
-import { refineDraftTool } from './refine-draft';
-import { publishActivityTool } from './publish-activity';
+import {
+  createActivityDraftTool,
+  getDraftTool,
+  refineDraftTool,
+  publishActivityTool,
+} from './activity-tools';
+import {
+  joinActivityTool,
+  cancelActivityTool,
+  getMyActivitiesTool,
+  getActivityDetailTool,
+  askPreferenceTool,
+} from './query-tools';
 import { exploreNearbyTool } from './explore-nearby';
-import { askPreferenceTool } from './ask-preference';
-import { joinActivityTool } from './join-activity';
-import { cancelActivityTool } from './cancel-activity';
-import { getMyActivitiesTool } from './get-my-activities';
-import { getActivityDetailTool } from './get-activity-detail';
-import { createPartnerIntentTool } from './create-partner-intent';
-import { getMyIntentsTool } from './get-my-intents';
-import { cancelIntentTool } from './cancel-intent';
-import { confirmMatchTool } from './confirm-match';
+import {
+  createPartnerIntentTool,
+  getMyIntentsTool,
+  cancelIntentTool,
+  confirmMatchTool,
+} from './partner-tools';
 
 /**
  * 意图到 Tool 的映射配置

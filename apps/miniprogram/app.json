@@ -33,6 +33,11 @@
       "pages": ["index"]
     },
     {
+      "root": "subpackages/setting",
+      "name": "setting-sub",
+      "pages": ["preference/index"]
+    },
+    {
       "root": "pages/search",
       "name": "search",
       "pages": ["index"]

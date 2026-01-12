@@ -22,7 +22,7 @@ import {
   getTokenUsageStats, 
   getTokenUsageSummary, 
   getToolCallStats,
-} from './services/metrics';
+} from './observability/metrics';
 import { db, users, eq } from '@juchang/db';
 
 /**

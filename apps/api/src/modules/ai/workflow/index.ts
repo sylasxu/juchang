@@ -2,8 +2,7 @@
  * Workflow Module - 工作流模块
  * 
  * HITL (Human-in-the-Loop) 工作流系统
- * 保留：broker, draft-flow, match-flow, workflow
- * 删除：preference-flow（与 broker 重叠）
+ * 包含：partner-matching, draft-flow, match-flow, workflow
  */
 
 // Types
@@ -51,22 +50,34 @@ export {
   isMatchExpired,
 } from './match-flow';
 
-// Broker Mode - 找搭子追问流程
+// Partner Matching - 找搭子追问流程
 export type {
+  PartnerMatchingState,
+  PartnerMatchingQuestion,
+  // Deprecated aliases
   BrokerState,
   BrokerQuestion,
-} from './broker';
+} from './partner-matching';
 export {
+  shouldStartPartnerMatching,
+  createPartnerMatchingState,
+  updatePartnerMatchingState,
+  pausePartnerMatchingState,
+  completePartnerMatchingState,
+  getNextQuestion,
+  buildAskPrompt,
+  parseUserAnswer,
+  isTopicSwitch,
+  persistPartnerMatchingState,
+  recoverPartnerMatchingState,
+  clearPartnerMatchingState,
+  // Deprecated aliases
   shouldEnterBrokerMode,
   createBrokerState,
   updateBrokerState,
   pauseBrokerState,
   completeBrokerState,
-  getNextQuestion,
-  buildAskPrompt,
-  parseUserAnswer,
-  isTopicSwitch,
   persistBrokerState,
   recoverBrokerState,
   clearBrokerState,
-} from './broker';
+} from './partner-matching';

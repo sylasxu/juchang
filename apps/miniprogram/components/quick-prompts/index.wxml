@@ -1,0 +1,21 @@
+<!--
+  快捷入口组件
+  v4.4 新增
+  
+  展示预设的快捷 Prompt 入口
+-->
+<view class="quick-prompts" wx:if="{{hasPrompts}}">
+  <view 
+    wx:for="{{displayPrompts}}" 
+    wx:key="text"
+    class="prompt-item btn-pressable"
+    data-prompt="{{item}}"
+    bindtap="onPromptTap"
+  >
+    <view class="prompt-content">
+      <text class="prompt-icon">{{item.icon}}</text>
+      <text class="prompt-text">{{item.text}}</text>
+    </view>
+    <t-icon name="chevron-right" size="32rpx" color="#9CA3AF" />
+  </view>
+</view>

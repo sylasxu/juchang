@@ -1,16 +1,31 @@
 /**
- * AI Service - v4.0 模块化架构
+ * AI Service - v4.5 模块化架构
  * 
  * 精简的服务层，编排各模块完成 AI Chat
  * 
+ * v4.5 更新：
+ * - 新增 Agent 封装层 (Mastra 风格)
+ * - streamChat/generateChat 委托给 agent/chat.ts
+ * - 保留原有 streamChat 实现用于兼容
+ * 
  * 模块依赖：
- * - orchestrator - 编排层
- * - agent/ - Agent 核心
+ * - agent/ - Agent 核心 (v4.5 新增)
  * - intent/ - 意图识别
  * - memory/ - 会话存储
  * - tools/ - 工具系统
  * - models/ - 模型路由
  */
+
+// ==========================================
+// v4.5 Agent 模块 Re-export
+// ==========================================
+export { 
+  streamChat as agentStreamChat, 
+  generateChat as agentGenerateChat,
+  toDataStreamResponse,
+  type StreamChatResult,
+  type GenerateChatResult,
+} from './agent';
 
 import { db, users, conversations, conversationMessages, eq, desc, sql, inArray } from '@juchang/db';
 import { 
@@ -30,33 +45,37 @@ import { getOrCreateThread, saveMessage, clearUserThreads, deleteThread } from '
 import { getToolsByIntent, getToolWidgetType, getToolDisplayName } from './tools';
 import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v39';
 import { getModel } from './models/router';
-import { recordTokenUsage } from './services/metrics';
 // Guardrails
 import { checkInput, sanitizeInput } from './guardrails/input-guard';
 import { checkRateLimit } from './guardrails/rate-limiter';
 // Observability
 import { createLogger } from './observability/logger';
-import { countAIRequest, recordAILatency, recordTokenUsage as recordMetricsTokenUsage } from './observability/metrics';
+import { 
+  countAIRequest, 
+  recordAILatency, 
+  recordTokenUsage as recordMetricsTokenUsage,
+  recordTokenUsageWithLog,
+} from './observability/metrics';
 // WorkingMemory (Enhanced)
 import { 
   getEnhancedUserProfile,
   updateEnhancedUserProfile,
   buildProfilePrompt,
 } from './memory/working';
+// AI Pipeline (from agent module)
+import { processAIContext } from './agent/processors';
 import { extractPreferences } from './memory/extractor';
-// AI Pipeline
-import { processAIContext } from './processors/ai-pipeline';
-// Broker Mode
+// Partner Matching - 找搭子追问流程
 import { 
-  shouldEnterBrokerMode, 
-  recoverBrokerState, 
-  createBrokerState,
-  updateBrokerState,
+  shouldStartPartnerMatching, 
+  recoverPartnerMatchingState, 
+  createPartnerMatchingState,
+  updatePartnerMatchingState,
   getNextQuestion,
   parseUserAnswer,
-  persistBrokerState,
-  type BrokerState,
-} from './workflow/broker';
+  persistPartnerMatchingState,
+  type PartnerMatchingState,
+} from './workflow/partner-matching';
 // Evals
 import { evaluateResponseQuality } from './evals/runner';
 
@@ -168,13 +187,13 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
   });
   logger.info('Intent classified', { intent: intentResult.intent, method: intentResult.method });
 
-  // 5.5 Broker Mode 检查（找搭子追问流程）
+  // 5.5 Partner Matching 检查（找搭子追问流程）
   if (intentResult.intent === 'partner' && userId) {
     const thread = await getOrCreateThread(userId);
-    const brokerState = await recoverBrokerState(thread.id);
+    const partnerMatchingState = await recoverPartnerMatchingState(thread.id);
     
-    if (shouldEnterBrokerMode('partner', brokerState)) {
-      return handleBrokerFlow(request, brokerState, thread.id, sanitizedMessage, intentResult);
+    if (shouldStartPartnerMatching('partner', partnerMatchingState)) {
+      return handlePartnerMatchingFlow(request, partnerMatchingState, thread.id, sanitizedMessage, intentResult);
     }
   }
 
@@ -300,7 +319,7 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
       recordMetricsTokenUsage('deepseek-chat', totalUsage.promptTokens, totalUsage.completionTokens);
       
       // 记录 Token 使用量（日志）
-      recordTokenUsage(userId, {
+      recordTokenUsageWithLog(userId, {
         inputTokens: totalUsage.promptTokens,
         outputTokens: totalUsage.completionTokens,
         totalTokens: totalUsage.totalTokens,
@@ -404,11 +423,11 @@ function handleChitchat(trace: boolean | undefined, _intent: ClassifyResult): Re
 }
 
 /**
- * 处理 Broker Mode 流程（找搭子追问）
+ * 处理 Partner Matching 流程（找搭子追问）
  */
-async function handleBrokerFlow(
+async function handlePartnerMatchingFlow(
   request: ChatRequest,
-  existingState: BrokerState | null,
+  existingState: PartnerMatchingState | null,
   threadId: string,
   userMessage: string,
   _intentResult: ClassifyResult
@@ -416,7 +435,7 @@ async function handleBrokerFlow(
   const { userId, trace } = request;
   
   // 创建或恢复状态
-  let state = existingState || createBrokerState();
+  let state = existingState || createPartnerMatchingState();
   
   // 如果有现有状态，尝试解析用户回答
   if (existingState) {
@@ -424,8 +443,8 @@ async function handleBrokerFlow(
     const answer = parseUserAnswer(userMessage, currentQuestion);
     
     if (answer) {
-      state = updateBrokerState(state, answer.field, answer.value);
-      logger.debug('Broker state updated', { field: answer.field, value: answer.value });
+      state = updatePartnerMatchingState(state, answer.field, answer.value);
+      logger.debug('Partner matching state updated', { field: answer.field, value: answer.value });
     }
   }
   
@@ -436,7 +455,7 @@ async function handleBrokerFlow(
   if (!nextQuestion) {
     // 持久化完成状态
     if (userId) {
-      await persistBrokerState(threadId, userId, { ...state, status: 'completed' });
+      await persistPartnerMatchingState(threadId, userId, { ...state, status: 'completed' });
     }
     
     // 返回确认消息，让 LLM 调用 createPartnerIntent
@@ -463,7 +482,7 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
         });
         if (trace) {
           const now = new Date().toISOString();
-          writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'broker' }, transient: true });
+          writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'partner_matching' }, transient: true });
           writer.write({ type: 'data-trace-end' as any, data: { completedAt: now, status: 'completed', output: { text: confirmText, toolCalls: [] } }, transient: true });
         }
       },
@@ -473,7 +492,7 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
   
   // 持久化当前状态
   if (userId) {
-    await persistBrokerState(threadId, userId, state);
+    await persistPartnerMatchingState(threadId, userId, state);
   }
   
   // 返回追问
@@ -490,7 +509,7 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
             questionType: nextQuestion.field,
             question: nextQuestion.question,
             options: nextQuestion.options,
-            brokerState: {
+            partnerMatchingState: {
               workflowId: state.workflowId,
               round: state.round,
               collected: state.collectedPreferences,
@@ -500,7 +519,7 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
       });
       if (trace) {
         const now = new Date().toISOString();
-        writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'broker' }, transient: true });
+        writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'partner', intentMethod: 'partner_matching' }, transient: true });
         writer.write({ type: 'data-trace-end' as any, data: { completedAt: now, status: 'collecting', output: { text: questionText, toolCalls: [] } }, transient: true });
       }
     },
@@ -809,10 +828,26 @@ export interface WelcomeSection {
   }>;
 }
 
+// 社交档案 (v4.4 新增)
+export interface SocialProfile {
+  participationCount: number;
+  activitiesCreatedCount: number;
+  preferenceCompleteness: number;
+}
+
+// 快捷入口 (v4.4 新增)
+export interface QuickPrompt {
+  icon: string;
+  text: string;
+  prompt: string;
+}
+
 export interface WelcomeResponse {
   greeting: string;
   subGreeting?: string;
   sections: WelcomeSection[];
+  socialProfile?: SocialProfile;
+  quickPrompts: QuickPrompt[];
 }
 
 export function generateGreeting(nickname: string | null): string {
@@ -829,12 +864,45 @@ export function generateGreeting(nickname: string | null): string {
 }
 
 export async function getWelcomeCard(
-  _userId: string | null,
+  userId: string | null,
   nickname: string | null,
   location: { lat: number; lng: number } | null
 ): Promise<WelcomeResponse> {
   const greeting = generateGreeting(nickname);
   const sections: WelcomeSection[] = [];
+
+  // 社交档案（已登录用户）
+  let socialProfile: { participationCount: number; activitiesCreatedCount: number; preferenceCompleteness: number } | undefined;
+  
+  if (userId) {
+    const [user] = await db
+      .select({
+        participationCount: users.participationCount,
+        activitiesCreatedCount: users.activitiesCreatedCount,
+        workingMemory: users.workingMemory,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    if (user) {
+      // 计算偏好完善度
+      let preferenceCompleteness = 0;
+      if (user.workingMemory) {
+        const memory = user.workingMemory as { preferences?: unknown[]; frequentLocations?: unknown[] };
+        const preferencesCount = memory.preferences?.length || 0;
+        const locationsCount = memory.frequentLocations?.length || 0;
+        // 偏好完善度：偏好数量 * 15 + 常去地点 * 10，最高 100
+        preferenceCompleteness = Math.min(100, preferencesCount * 15 + locationsCount * 10);
+      }
+      
+      socialProfile = {
+        participationCount: user.participationCount,
+        activitiesCreatedCount: user.activitiesCreatedCount,
+        preferenceCompleteness,
+      };
+    }
+  }
 
   // 快速组局建议
   const suggestions: WelcomeSection = {
@@ -870,9 +938,18 @@ export async function getWelcomeCard(
     sections.push(explore);
   }
 
+  // 快捷入口（v4.4 新增）
+  const quickPrompts = [
+    { icon: '🗓️', text: '周末附近有什么活动？', prompt: '周末附近有什么活动' },
+    { icon: '🤝', text: '帮我找个运动搭子', prompt: '帮我找个运动搭子' },
+    { icon: '🎉', text: '想组个周五晚的局', prompt: '想组个周五晚的局' },
+  ];
+
   return {
     greeting,
     subGreeting: '想约点什么？',
     sections,
+    socialProfile,
+    quickPrompts,
   };
 }

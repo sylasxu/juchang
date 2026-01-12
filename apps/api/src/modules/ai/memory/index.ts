@@ -62,7 +62,17 @@ export {
   saveEnhancedUserProfile,
   updateEnhancedUserProfile,
   injectEnhancedWorkingMemory,
+  // v4.5 兴趣向量 (MaxSim)
+  addInterestVector,
+  getInterestVectors,
+  clearInterestVectors,
+  calculateMaxSim,
+  getEnhancedUserProfileWithVectors,
+  saveEnhancedUserProfileWithVectors,
 } from './working';
+
+// Types - v4.5 兴趣向量
+export type { InterestVector } from './types';
 
 // Extractor - LLM 偏好提取
 export type {

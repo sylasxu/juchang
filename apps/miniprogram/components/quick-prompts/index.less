@@ -1,0 +1,44 @@
+/**
+ * 快捷入口样式
+ * v4.4 新增
+ */
+@import '../../styles/variables.less';
+
+.quick-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: @spacing-2;
+}
+
+.prompt-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: @spacing-3 @spacing-4;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: @radius-lg;
+  border: 1rpx solid @border-color;
+  transition: all 0.2s ease;
+  
+  &:active {
+    background: rgba(91, 117, 251, 0.05);
+    border-color: rgba(91, 117, 251, 0.2);
+  }
+}
+
+.prompt-content {
+  display: flex;
+  align-items: center;
+  gap: @spacing-2;
+  flex: 1;
+}
+
+.prompt-icon {
+  font-size: 32rpx;
+}
+
+.prompt-text {
+  font-size: @text-sm;
+  color: @text-primary;
+  font-weight: 400;
+}

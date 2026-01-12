@@ -1,10 +1,12 @@
 /**
  * Widget Dashboard 组件
- * Requirements: 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8
- * v3.10 重构: 分组结构 (sections)
+ * Requirements: 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 7.0
+ * v4.4 重构: 增加社交档案卡片和快捷入口
  * 
  * 进场欢迎卡片
  * - 动态问候语（API 返回）
+ * - 社交档案卡片（参与/发起统计 + 偏好完善引导）
+ * - 快捷入口（预设 Prompt）
  * - 分组快捷操作（draft/suggestions/explore）
  * - 待参加活动列表（最多 3 个）
  */
@@ -41,6 +43,20 @@ interface WelcomeSection {
   items: QuickItem[];
 }
 
+// 社交档案 (v4.4 新增)
+interface SocialProfile {
+  participationCount: number;
+  activitiesCreatedCount: number;
+  preferenceCompleteness: number;
+}
+
+// 快捷入口 (v4.4 新增)
+interface QuickPrompt {
+  icon: string;
+  text: string;
+  prompt: string;
+}
+
 interface ComponentData {
   greeting: string;
   subGreeting: string;
@@ -48,14 +64,13 @@ interface ComponentData {
   displayActivities: Activity[];
   hasActivities: boolean;
   hasSections: boolean;
-}
-
-interface ComponentProperties {
-  nickname: WechatMiniprogram.Component.PropertyOption;
-  activities: WechatMiniprogram.Component.PropertyOption;
-  greeting: WechatMiniprogram.Component.PropertyOption;
-  subGreeting: WechatMiniprogram.Component.PropertyOption;
-  sections: WechatMiniprogram.Component.PropertyOption;
+  // v4.4 新增
+  socialProfile: SocialProfile | null;
+  quickPrompts: QuickPrompt[];
+  hasSocialProfile: boolean;
+  hasQuickPrompts: boolean;
+  // 从 properties 同步
+  nickname: string;
 }
 
 Component({
@@ -89,6 +104,16 @@ Component({
       type: Array,
       value: [] as WelcomeSection[],
     },
+    // v4.4: 社交档案
+    socialProfile: {
+      type: Object,
+      value: {} as any,
+    },
+    // v4.4: 快捷入口
+    quickPrompts: {
+      type: Array,
+      value: [] as QuickPrompt[],
+    },
   },
 
   data: {
@@ -98,6 +123,12 @@ Component({
     displayActivities: [] as Activity[],
     hasActivities: false,
     hasSections: false,
+    // v4.4 新增
+    socialProfile: null as SocialProfile | null,
+    quickPrompts: [] as QuickPrompt[],
+    hasSocialProfile: false,
+    hasQuickPrompts: false,
+    nickname: '搭子',
   } as ComponentData,
 
   observers: {
@@ -116,6 +147,21 @@ Component({
       this.setData({
         sections: sections || [],
         hasSections: (sections || []).length > 0,
+      });
+    },
+    // v4.4 新增
+    'socialProfile': function(profile: SocialProfile | null) {
+      // 检查是否有有效数据（空对象视为无数据）
+      const hasValidProfile = profile && typeof profile === 'object' && 'participationCount' in profile;
+      this.setData({
+        socialProfile: hasValidProfile ? profile : null,
+        hasSocialProfile: !!hasValidProfile,
+      });
+    },
+    'quickPrompts': function(prompts: QuickPrompt[]) {
+      this.setData({
+        quickPrompts: prompts || [],
+        hasQuickPrompts: (prompts || []).length > 0,
       });
     },
   },
@@ -145,7 +191,7 @@ Component({
 
       // 降级：本地生成问候语
       const hour = new Date().getHours();
-      const nickname = this.properties.nickname || '搭子';
+      const nickname = (this.properties as any).nickname || this.data.nickname || '搭子';
       
       let greeting = '';
       let subGreeting = '想玩点什么？';
@@ -222,6 +268,13 @@ Component({
       wx.navigateTo({
         url: '/subpackages/activity/list/index?type=joined',
       });
+    },
+
+    /**
+     * v4.4: 快捷入口点击
+     */
+    onQuickPromptTap(e: WechatMiniprogram.CustomEvent<{ prompt: string; text: string }>) {
+      this.triggerEvent('prompttap', { prompt: e.detail.prompt });
     },
   },
 });

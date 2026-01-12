@@ -3,6 +3,8 @@
   "styleIsolation": "apply-shared",
   "usingComponents": {
     "t-icon": "tdesign-miniprogram/icon/icon",
-    "activity-mini-card": "../activity-mini-card/index"
+    "activity-mini-card": "../activity-mini-card/index",
+    "social-profile-card": "../social-profile-card/index",
+    "quick-prompts": "../quick-prompts/index"
   }
 }
