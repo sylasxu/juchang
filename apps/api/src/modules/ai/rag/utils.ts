@@ -11,6 +11,24 @@
 import type { Activity } from '@juchang/db';
 import type { ActivityVibe, TimeOfDay, DayOfWeek } from './types';
 import { getZhipuEmbedding, getZhipuEmbeddings } from '../models/adapters/zhipu';
+import { createLogger } from '../observability/logger';
+
+const logger = createLogger('rag-utils');
+
+// ============ 重试配置 ============
+
+const RETRY_CONFIG = {
+  maxRetries: 2,
+  initialDelayMs: 1000,
+  multiplier: 2,
+};
+
+/**
+ * 延迟函数
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // ============ 日期格式化 ============
 
@@ -176,6 +194,41 @@ export function enrichActivityText(activity: Activity): string {
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   return getZhipuEmbedding(text);
+}
+
+/**
+ * 带重试的向量生成
+ * 
+ * 失败时自动重试，使用指数退避策略
+ * 所有重试失败后返回 null（不抛异常），调用方可以降级处理
+ * 
+ * @param text - 要生成向量的文本
+ * @returns 向量数组，或 null（如果所有重试都失败）
+ */
+export async function generateEmbeddingWithRetry(text: string): Promise<number[] | null> {
+  let lastError: Error | null = null;
+  let delay = RETRY_CONFIG.initialDelayMs;
+  
+  for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+    try {
+      return await getZhipuEmbedding(text);
+    } catch (error) {
+      lastError = error as Error;
+      logger.warn('Embedding generation failed', { 
+        attempt: attempt + 1, 
+        maxAttempts: RETRY_CONFIG.maxRetries + 1,
+        error: lastError.message,
+      });
+      
+      if (attempt < RETRY_CONFIG.maxRetries) {
+        await sleep(delay);
+        delay *= RETRY_CONFIG.multiplier;
+      }
+    }
+  }
+  
+  logger.error('All embedding retries failed', { error: lastError?.message });
+  return null;
 }
 
 /**

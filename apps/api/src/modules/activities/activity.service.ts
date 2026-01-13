@@ -13,6 +13,7 @@ import type {
 } from './activity.model';
 import { deductAiCreateQuota } from '../users/user.service';
 import { indexActivity, deleteIndex } from '../ai/rag';
+import { addInterestVector } from '../ai/memory';
 
 // 群聊归档时间：活动开始后 24 小时
 const ARCHIVE_HOURS = 24;
@@ -631,6 +632,11 @@ export async function joinActivity(activityId: string, userId: string): Promise<
       })
       .where(eq(users.id, userId));
 
+    // v4.5: 异步更新用户兴趣向量 (不阻塞主流程)
+    updateUserInterestVector(userId, activityId).catch(err => {
+      console.error('Failed to update interest vector:', err);
+    });
+
     return { id: existing.id };
   }
 
@@ -662,9 +668,117 @@ export async function joinActivity(activityId: string, userId: string): Promise<
     })
     .where(eq(users.id, userId));
 
+  // v4.5: 异步更新用户兴趣向量 (不阻塞主流程)
+  updateUserInterestVector(userId, activityId).catch(err => {
+    console.error('Failed to update interest vector:', err);
+  });
+
   // TODO: 发送通知给活动创建者
 
   return { id: participant.id };
+}
+
+/**
+ * v4.5: 更新用户兴趣向量
+ * 
+ * 从活动提取 embedding 并保存到用户 workingMemory
+ * 用于 MaxSim 个性化推荐
+ */
+async function updateUserInterestVector(userId: string, activityId: string): Promise<void> {
+  // 1. 获取活动的 embedding
+  const [activity] = await db
+    .select({ embedding: activities.embedding })
+    .from(activities)
+    .where(eq(activities.id, activityId))
+    .limit(1);
+  
+  // 2. 如果没有 embedding，静默跳过
+  if (!activity?.embedding) {
+    return;
+  }
+  
+  // 3. 添加到用户兴趣向量
+  await addInterestVector(userId, {
+    activityId,
+    embedding: activity.embedding,
+    participatedAt: new Date(),
+    feedback: 'positive',
+  });
+}
+
+/**
+ * v4.5: 更新活动信息
+ * 
+ * 支持更新活动的基本信息，如果更新了语义相关字段则重新索引
+ */
+export async function updateActivity(
+  activityId: string,
+  userId: string,
+  updates: Partial<CreateActivityRequest>
+): Promise<void> {
+  // 验证用户是否为活动创建者
+  const [activity] = await db
+    .select()
+    .from(activities)
+    .where(eq(activities.id, activityId))
+    .limit(1);
+
+  if (!activity) {
+    throw new Error('活动不存在');
+  }
+
+  if (activity.creatorId !== userId) {
+    throw new Error('只有活动发起人可以更新活动');
+  }
+
+  // 只有 draft 或 active 状态的活动可以更新
+  if (activity.status !== 'draft' && activity.status !== 'active') {
+    throw new Error('只有草稿或进行中的活动可以更新');
+  }
+
+  // 构建更新数据
+  const updateData: Record<string, any> = {
+    updatedAt: new Date(),
+  };
+
+  if (updates.title !== undefined) updateData.title = updates.title;
+  if (updates.description !== undefined) updateData.description = updates.description;
+  if (updates.type !== undefined) updateData.type = updates.type;
+  if (updates.locationName !== undefined) updateData.locationName = updates.locationName;
+  if (updates.address !== undefined) updateData.address = updates.address;
+  if (updates.locationHint !== undefined) updateData.locationHint = updates.locationHint;
+  if (updates.maxParticipants !== undefined) updateData.maxParticipants = updates.maxParticipants;
+  
+  if (updates.startAt !== undefined) {
+    const startAtDate = new Date(updates.startAt);
+    if (startAtDate < new Date()) {
+      throw new Error('活动开始时间不能是过去');
+    }
+    updateData.startAt = startAtDate;
+  }
+  
+  if (updates.location !== undefined) {
+    updateData.location = sql`ST_SetSRID(ST_MakePoint(${updates.location[0]}, ${updates.location[1]}), 4326)`;
+  }
+
+  // 执行更新
+  await db
+    .update(activities)
+    .set(updateData)
+    .where(eq(activities.id, activityId));
+
+  // v4.5: 如果更新了影响语义的字段，异步重新索引
+  const semanticFields = ['title', 'description', 'type', 'startAt'];
+  const needsReindex = semanticFields.some(field => field in updates);
+
+  if (needsReindex) {
+    const activityForIndex = await getActivityById(activityId);
+    if (activityForIndex) {
+      indexActivity(activityForIndex as any).catch(err => {
+        console.error('Failed to re-index activity:', err);
+      });
+    }
+  }
 }
 
 /**

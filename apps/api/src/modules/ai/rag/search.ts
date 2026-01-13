@@ -22,6 +22,7 @@ import type {
 import { DEFAULT_RAG_CONFIG } from './types';
 import { 
   generateEmbedding,
+  generateEmbeddingWithRetry,
   generateActivityEmbedding,
 } from './utils';
 import { createLogger } from '../observability/logger';
@@ -132,6 +133,10 @@ export async function deleteIndex(activityId: string): Promise<void> {
 /**
  * 混合检索
  * 核心搜索方法：Hard Filter (SQL) → Soft Rank (Vector) → MaxSim Boost
+ * 
+ * 降级策略：
+ * - 如果向量生成失败，降级到 location-only 搜索
+ * - 如果用户无兴趣向量，跳过 MaxSim boost
  */
 export async function search(params: HybridSearchParams): Promise<ScoredActivity[]> {
   const {
@@ -150,11 +155,18 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     userId: userId ? 'present' : 'none',
   });
 
-  // 1. 生成查询向量
-  const queryVector = await generateEmbedding(semanticQuery);
+  // 1. 生成查询向量（带重试）
+  const queryVector = await generateEmbeddingWithRetry(semanticQuery);
+  
+  // 2. 如果向量生成失败，降级到 location-only 搜索
+  if (!queryVector) {
+    logger.warn('Query embedding failed, falling back to location-only search');
+    return searchByLocationOnly(filters, limit);
+  }
+  
   const vectorStr = `[${queryVector.join(',')}]`;
 
-  // 2. 获取用户兴趣向量（用于 MaxSim）
+  // 3. 获取用户兴趣向量（用于 MaxSim）
   let interestVectors: Awaited<ReturnType<typeof getInterestVectors>> = [];
   if (userId) {
     try {
@@ -164,11 +176,12 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
         vectorCount: interestVectors.length,
       });
     } catch (error) {
-      logger.warn('Failed to load interest vectors', { userId, error });
+      // 获取兴趣向量失败，静默跳过 MaxSim
+      logger.warn('Failed to load interest vectors, skipping MaxSim', { userId, error });
     }
   }
 
-  // 3. 构建 SQL 查询 (Hard Filter + Soft Rank)
+  // 4. 构建 SQL 查询 (Hard Filter + Soft Rank)
   // 使用 pgvector 的 <=> 操作符计算余弦距离
   // similarity = 1 - cosine_distance
   const baseConditions = [
@@ -203,7 +216,7 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     baseConditions.push(sql`${activities.startAt} <= ${filters.timeRange.end}`);
   }
 
-  // 4. 执行查询
+  // 5. 执行查询
   const results = await db.execute<{
     id: string;
     creator_id: string;
@@ -237,7 +250,7 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     LIMIT ${limit * 2}
   `);
 
-  // 5. 应用 MaxSim 个性化提升
+  // 6. 应用 MaxSim 个性化提升（如果有兴趣向量）
   let scoredResults = results.map(r => {
     let finalScore = r.similarity;
     
@@ -262,10 +275,10 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     };
   });
 
-  // 6. 按最终分数重新排序
+  // 7. 按最终分数重新排序
   scoredResults.sort((a, b) => b.finalScore - a.finalScore);
 
-  // 7. 过滤低于阈值的结果并限制数量
+  // 8. 过滤低于阈值的结果并限制数量
   const filtered = scoredResults
     .filter(r => r.similarity >= threshold)
     .slice(0, limit);
@@ -277,7 +290,7 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     hasMaxSimBoost: interestVectors.length > 0,
   });
 
-  // 8. 如果结果太少 (≤3)，直接返回（节省 Token）
+  // 9. 如果结果太少 (≤3)，直接返回（节省 Token）
   if (filtered.length <= 3) {
     return filtered.map(r => ({
       activity: mapRowToActivity(r),
@@ -286,7 +299,7 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     }));
   }
 
-  // 9. 可选：生成推荐理由
+  // 10. 可选：生成推荐理由
   if (includeMatchReason) {
     const scoredResultsWithReason = await Promise.all(
       filtered.map(async r => {
@@ -306,6 +319,98 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
   return filtered.map(r => ({
     activity: mapRowToActivity(r),
     score: r.finalScore,
+    distance: r.distance,
+  }));
+}
+
+// ============ 降级搜索 ============
+
+/**
+ * 降级搜索：仅基于位置
+ * 
+ * 当向量生成失败时使用此函数
+ * 使用 PostGIS 距离排序，不使用向量相似度
+ */
+async function searchByLocationOnly(
+  filters: HybridSearchParams['filters'],
+  limit: number = DEFAULT_RAG_CONFIG.defaultLimit
+): Promise<ScoredActivity[]> {
+  logger.info('Executing location-only fallback search');
+  
+  // 如果没有位置信息，返回空结果
+  if (!filters.location) {
+    logger.warn('No location provided for fallback search, returning empty results');
+    return [];
+  }
+  
+  const { lat, lng, radiusInKm } = filters.location;
+  
+  // 构建基础条件
+  const baseConditions = [
+    sql`${activities.status} = 'active'`,
+    sql`${activities.startAt} > NOW()`,
+    sql`${activities.currentParticipants} < ${activities.maxParticipants}`,
+    sql`ST_DWithin(
+      ${activities.location}::geography,
+      ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+      ${radiusInKm * 1000}
+    )`,
+  ];
+  
+  // 类型过滤
+  if (filters.type) {
+    baseConditions.push(sql`${activities.type} = ${filters.type}`);
+  }
+  
+  // 时间范围过滤
+  if (filters.timeRange?.start) {
+    baseConditions.push(sql`${activities.startAt} >= ${filters.timeRange.start}`);
+  }
+  if (filters.timeRange?.end) {
+    baseConditions.push(sql`${activities.startAt} <= ${filters.timeRange.end}`);
+  }
+  
+  // 执行查询，按距离排序
+  const results = await db.execute<{
+    id: string;
+    creator_id: string;
+    title: string;
+    description: string | null;
+    location: { x: number; y: number };
+    location_name: string;
+    address: string | null;
+    location_hint: string;
+    start_at: Date;
+    type: string;
+    max_participants: number;
+    current_participants: number;
+    status: string;
+    created_at: Date;
+    updated_at: Date;
+    embedding: number[] | null;
+    distance: number;
+  }>(sql`
+    SELECT 
+      a.*,
+      ST_Distance(
+        a.location::geography,
+        ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography
+      ) as distance
+    FROM activities a
+    WHERE ${sql.join(baseConditions, sql` AND `)}
+    ORDER BY distance ASC
+    LIMIT ${limit}
+  `);
+  
+  logger.debug('Location-only search results', { count: results.length });
+  
+  // 将距离转换为 0-1 分数（距离越近分数越高）
+  // 使用 radiusInKm * 1000 作为最大距离
+  const maxDistance = radiusInKm * 1000;
+  
+  return results.map(r => ({
+    activity: mapRowToActivity(r),
+    score: Math.max(0, 1 - (r.distance / maxDistance)),
     distance: r.distance,
   }));
 }
