@@ -26,3 +26,19 @@ export function useCurrentPrompt() {
     queryFn: () => unwrap(api.ai.prompts.current.get()),
   })
 }
+
+// ==========================================
+// v4.6: AI 健康度指标 (Dashboard)
+// ==========================================
+
+/**
+ * 获取 AI 健康度指标
+ */
+export function useAIHealthMetrics() {
+  return useQuery({
+    queryKey: ['ai', 'ops', 'metrics', 'health'],
+    queryFn: () => unwrap(api.ai.ops.metrics.health.get()),
+    // 每 5 分钟刷新一次
+    staleTime: 5 * 60 * 1000,
+  })
+}

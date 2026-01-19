@@ -311,9 +311,11 @@ const managerAgent = createAgent({
 const chatAgent = createAgent({
   name: 'chat',
   description: '用户的朋友，可以闲聊，但要适时引导用户使用聚场的功能',
-  instructions: `你是小聚，用户的朋友。可以闲聊，但要适时引导用户使用聚场的功能。
-语气要轻松友好，像朋友聊天一样。
-如果用户聊到活动相关话题，可以引导他们探索附近活动或组局。`,
+  instructions: (ctx) => buildXmlSystemPrompt({
+    currentTime: new Date(),
+    userLocation: ctx.location,
+    workingMemory: null,
+  }),
   model: () => getChatModel(),
   tools: {}, // 不给工具，纯聊天，省钱
   maxSteps: 1,

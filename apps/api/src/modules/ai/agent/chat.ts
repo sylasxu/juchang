@@ -8,7 +8,7 @@
  * - generateChat() - 非流式对话入口
  */
 
-import type { ChatParams, Message, RuntimeContext } from './types';
+import type { ChatParams, Message } from './types';
 import { getAgent, type AgentName } from './agents';
 import { classifyIntent } from './router';
 import { buildContext } from './context';
@@ -19,15 +19,6 @@ import {
 import { createLogger } from '../observability/logger';
 
 const logger = createLogger('agent-chat');
-
-/** 意图到 Agent 的映射 */
-const intentToAgent: Record<string, AgentName> = {
-  EXPLORE: 'explorer',
-  CREATE: 'creator',
-  PARTNER: 'partner',
-  MANAGE: 'manager',
-  CHAT: 'chat',
-};
 
 /** 流式对话结果 */
 export interface StreamChatResult {

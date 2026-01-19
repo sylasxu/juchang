@@ -17,9 +17,9 @@
      "env:init": "node scripts/init-env.js",
 
     "--- dockerSTRUCTURE ---": "echo '基础设施控制'",
-    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
-    "docker:down": "docker-compose -f docker/docker-compose.yml down",
-    "docker:logs": "docker-compose -f docker/docker-compose.yml logs -f",
+    "docker:up": "docker compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f docker/docker-compose.yml down",
+    "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
     "docker:restart": "bun run docker:down && bun run docker:up",
 
     "--- DATABASE ---": "echo '数据库管理 (Drizzle)'",

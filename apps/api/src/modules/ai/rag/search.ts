@@ -21,7 +21,6 @@ import type {
 } from './types';
 import { DEFAULT_RAG_CONFIG } from './types';
 import { 
-  generateEmbedding,
   generateEmbeddingWithRetry,
   generateActivityEmbedding,
 } from './utils';

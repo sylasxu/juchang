@@ -64,6 +64,13 @@
       "when": 1767792310735,
       "tag": "0008_typical_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1768661347836,
+      "tag": "0009_flawless_groot",
+      "breakpoints": true
     }
   ]
 }

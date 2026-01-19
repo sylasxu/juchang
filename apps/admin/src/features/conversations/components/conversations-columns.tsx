@@ -1,6 +1,7 @@
 import { type ColumnDef } from '@tanstack/react-table'
 import { DotsHorizontalIcon } from '@radix-ui/react-icons'
 import { Eye, Trash2 } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -13,7 +14,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { DataTableColumnHeader } from '@/components/data-table'
-import { TruncatedCell } from '@/components/truncated-cell'
 import { useListContext } from '@/components/list-page'
 import type { ConversationSession } from '@/hooks/use-conversations'
 
@@ -23,10 +23,11 @@ export type ConversationDialogType = 'view' | 'delete' | 'batch-delete'
 // 行操作组件
 function SessionRowActions({ session }: { session: ConversationSession }) {
   const { setOpen, setCurrentRow } = useListContext<ConversationSession, ConversationDialogType>()
+  const navigate = useNavigate()
 
   const handleView = () => {
-    setCurrentRow(session)
-    setOpen('view')
+    // 导航到详情页
+    navigate({ to: `/ai-ops/conversations/${session.id}` as '/ai-ops/conversations' })
   }
 
   const handleDelete = () => {
@@ -87,19 +88,32 @@ export const conversationsColumns: ColumnDef<ConversationSession>[] = [
     enableSorting: false,
     enableHiding: false,
   },
+  // v4.6: 评估状态列
+  {
+    id: 'evaluation',
+    header: ({ column }) => <DataTableColumnHeader column={column} title='评估' />,
+    cell: ({ row }) => {
+      const status = row.original.evaluationStatus
+      const hasError = row.original.hasError
+      
+      return (
+        <div className='flex items-center gap-1'>
+          {/* 评估状态图标 */}
+          {status === 'good' && <span title='Good Case'>✅</span>}
+          {status === 'bad' && <span title='Bad Case'>🔴</span>}
+          {status === 'unreviewed' && <span title='未评估' className='opacity-50'>⚪</span>}
+          {/* 错误标记 */}
+          {hasError && <span title='有错误'>⚠️</span>}
+        </div>
+      )
+    },
+    enableSorting: false,
+  },
   {
     accessorKey: 'userNickname',
     header: ({ column }) => <DataTableColumnHeader column={column} title='用户' />,
     cell: ({ row }) => (
       <span className='font-medium'>{row.getValue('userNickname') || '匿名用户'}</span>
-    ),
-    enableSorting: false,
-  },
-  {
-    accessorKey: 'title',
-    header: ({ column }) => <DataTableColumnHeader column={column} title='会话标题' />,
-    cell: ({ row }) => (
-      <TruncatedCell value={row.getValue('title') || '无标题'} maxLength={25} />
     ),
     enableSorting: false,
   },
@@ -117,15 +131,6 @@ export const conversationsColumns: ColumnDef<ConversationSession>[] = [
     cell: ({ row }) => (
       <div className='text-sm text-muted-foreground whitespace-nowrap'>
         {new Date(row.getValue('lastMessageAt') as string).toLocaleString('zh-CN')}
-      </div>
-    ),
-  },
-  {
-    accessorKey: 'createdAt',
-    header: ({ column }) => <DataTableColumnHeader column={column} title='创建时间' />,
-    cell: ({ row }) => (
-      <div className='text-sm text-muted-foreground whitespace-nowrap'>
-        {new Date(row.getValue('createdAt') as string).toLocaleString('zh-CN')}
       </div>
     ),
   },

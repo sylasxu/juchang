@@ -17,7 +17,7 @@ import { DEFAULT_FALLBACK_CONFIG, MODEL_IDS } from './types';
 /**
  * 提供商映射
  */
-const providers: Record<ModelProviderName, ModelProvider> = {
+const providers: Partial<Record<ModelProviderName, ModelProvider>> = {
   deepseek: deepseekProvider,
   zhipu: zhipuProvider,
 };
@@ -54,14 +54,22 @@ export function getChatModel(
   const primary = preferredProvider || fallbackConfig.primary;
   
   try {
-    return providers[primary].getChatModel(modelId);
+    const provider = providers[primary];
+    if (!provider) {
+      throw new Error(`Provider ${primary} not found`);
+    }
+    return provider.getChatModel(modelId);
   } catch (error) {
     if (!fallbackConfig.enableFallback) {
       throw error;
     }
     
     console.warn(`[ModelRouter] ${primary} failed, falling back to ${fallbackConfig.fallback}`, error);
-    return providers[fallbackConfig.fallback].getChatModel();
+    const fallbackProvider = providers[fallbackConfig.fallback];
+    if (!fallbackProvider) {
+      throw new Error(`Fallback provider ${fallbackConfig.fallback} not found`);
+    }
+    return fallbackProvider.getChatModel();
   }
 }
 
@@ -153,13 +161,16 @@ export async function checkProviderHealth(
   providerName: ModelProviderName
 ): Promise<boolean> {
   const provider = providers[providerName];
+  if (!provider) {
+    return false;
+  }
   return provider.healthCheck();
 }
 
 /**
  * 检查所有提供商健康状态
  */
-export async function checkAllProvidersHealth(): Promise<Record<ModelProviderName, boolean>> {
+export async function checkAllProvidersHealth(): Promise<Partial<Record<ModelProviderName, boolean>>> {
   const results = await Promise.all([
     checkProviderHealth('deepseek'),
     checkProviderHealth('zhipu'),

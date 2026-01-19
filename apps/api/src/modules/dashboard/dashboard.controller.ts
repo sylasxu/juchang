@@ -2,7 +2,7 @@
 import { Elysia } from 'elysia';
 import { basePlugins } from '../../setup';
 import { dashboardModel, type ErrorResponse } from './dashboard.model';
-import { getDashboardStats, getRecentActivities, getUserGrowthTrend, getActivityTypeDistribution, getGeographicDistribution, getBusinessMetrics, getIntentMetrics } from './dashboard.service';
+import { getDashboardStats, getRecentActivities, getUserGrowthTrend, getActivityTypeDistribution, getGeographicDistribution, getBusinessMetrics, getIntentMetrics, getGodViewData } from './dashboard.service';
 
 export const dashboardController = new Elysia({ prefix: '/dashboard' })
   .use(basePlugins)
@@ -186,6 +186,32 @@ export const dashboardController = new Elysia({ prefix: '/dashboard' })
       },
       response: {
         200: 'dashboard.intentMetrics',
+        500: 'dashboard.error',
+      },
+    }
+  )
+
+  // God View 仪表盘 (Admin Cockpit Redesign)
+  .get(
+    '/god-view',
+    async ({ set }) => {
+      try {
+        const data = await getGodViewData();
+        return data;
+      } catch (error) {
+        console.error('获取 God View 数据失败:', error);
+        set.status = 500;
+        return { code: 500, msg: '获取 God View 数据失败' } satisfies ErrorResponse;
+      }
+    },
+    {
+      detail: {
+        tags: ['Dashboard'],
+        summary: '获取 God View 仪表盘数据',
+        description: '获取实时概览、北极星指标、AI 健康度、异常警报等核心数据',
+      },
+      response: {
+        200: 'dashboard.godView',
         500: 'dashboard.error',
       },
     }

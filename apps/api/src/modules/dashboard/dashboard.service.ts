@@ -12,6 +12,7 @@ import type {
   MetricItem,
   BusinessMetrics,
   IntentMetrics,
+  GodViewData,
 } from './dashboard.model';
 
 /**
@@ -693,4 +694,152 @@ async function calculateAvgMatchTime(): Promise<MetricItem> {
     console.error('计算平均匹配时长失败:', error);
     return { value: 0, benchmark: 'red', comparison: '计算失败' };
   }
+}
+
+
+// ==========================================
+// God View 仪表盘 (Admin Cockpit Redesign)
+// ==========================================
+
+/**
+ * 获取 God View 仪表盘数据
+ * 聚合实时概览、北极星指标、AI 健康度、异常警报
+ */
+export async function getGodViewData(): Promise<GodViewData> {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  const oneWeekAgo = new Date(today);
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+  
+  const twoWeeksAgo = new Date(today);
+  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+  // 并行获取所有数据
+  const [
+    // 实时概览
+    activeUsersResult,
+    todayActivitiesResult,
+    todayConversationsResult,
+    // 北极星指标
+    j2cRate,
+    // AI 健康度 - 本周
+    thisWeekTotalResult,
+    thisWeekBadResult,
+    thisWeekErrorResult,
+    thisWeekEvaluatedResult,
+    // AI 健康度 - 上周（趋势对比）
+    lastWeekBadResult,
+    lastWeekErrorResult,
+    lastWeekEvaluatedResult,
+    lastWeekTotalResult,
+    // 异常警报
+    error24hResult,
+    sensitiveHitsResult,
+    pendingModerationResult,
+  ] = await Promise.all([
+    // 今日活跃用户（有参与记录或创建活动）
+    db.selectDistinct({ count: sql<number>`count(distinct ${participants.userId})` })
+      .from(participants)
+      .where(gte(participants.joinedAt, today)),
+    // 今日成局数
+    db.select({ count: count() })
+      .from(activities)
+      .where(and(
+        eq(activities.status, 'completed'),
+        gte(activities.updatedAt, today)
+      )),
+    // 今日对话数（使用 conversations 表）
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${today}`),
+    // J2C 转化率
+    calculateJ2CRate(),
+    // AI 健康度 - 本周数据
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${oneWeekAgo}`),
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${oneWeekAgo} AND evaluation_status = 'bad'`),
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${oneWeekAgo} AND has_error = true`),
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${oneWeekAgo} AND evaluation_status != 'unreviewed'`),
+    // AI 健康度 - 上周数据
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${twoWeeksAgo} AND created_at < ${oneWeekAgo} AND evaluation_status = 'bad'`),
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${twoWeeksAgo} AND created_at < ${oneWeekAgo} AND has_error = true`),
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${twoWeeksAgo} AND created_at < ${oneWeekAgo} AND evaluation_status != 'unreviewed'`),
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${twoWeeksAgo} AND created_at < ${oneWeekAgo}`),
+    // 异常警报 - 24h 报错
+    db.select({ count: count() })
+      .from(sql`conversations`)
+      .where(sql`created_at >= ${yesterday} AND has_error = true`),
+    // 敏感词触发（从 ai_security_events 表）
+    db.select({ count: count() })
+      .from(sql`ai_security_events`)
+      .where(sql`created_at >= ${yesterday}`),
+    // 待审核数（暂时返回 0，需要审核队列表）
+    Promise.resolve([{ count: 0 }]),
+  ]);
+
+  // 计算 AI 健康度指标
+  const totalSessions = Number(thisWeekTotalResult[0]?.count || 0);
+  const badCaseCount = Number(thisWeekBadResult[0]?.count || 0);
+  const errorSessionCount = Number(thisWeekErrorResult[0]?.count || 0);
+  const totalEvaluated = Number(thisWeekEvaluatedResult[0]?.count || 0);
+  
+  const badCaseRate = totalEvaluated > 0 ? badCaseCount / totalEvaluated : 0;
+  const toolErrorRate = totalSessions > 0 ? errorSessionCount / totalSessions : 0;
+  
+  // 计算趋势
+  const lastWeekBadCount = Number(lastWeekBadResult[0]?.count || 0);
+  const lastWeekErrorCount = Number(lastWeekErrorResult[0]?.count || 0);
+  const lastWeekEvaluatedCount = Number(lastWeekEvaluatedResult[0]?.count || 0);
+  const lastWeekTotalCount = Number(lastWeekTotalResult[0]?.count || 0);
+  
+  const lastWeekBadRate = lastWeekEvaluatedCount > 0 ? lastWeekBadCount / lastWeekEvaluatedCount : 0;
+  const lastWeekErrorRate = lastWeekTotalCount > 0 ? lastWeekErrorCount / lastWeekTotalCount : 0;
+  
+  const badCaseTrend = badCaseRate - lastWeekBadRate;
+  const toolErrorTrend = toolErrorRate - lastWeekErrorRate;
+
+  // Token 消耗估算（基于对话数，假设每次对话平均消耗 0.01 元）
+  const todayConversations = Number(todayConversationsResult[0]?.count || 0);
+  const tokenCost = todayConversations * 0.01;
+
+  return {
+    realtime: {
+      activeUsers: Number(activeUsersResult[0]?.count || 0),
+      todayActivities: Number(todayActivitiesResult[0]?.count || 0),
+      tokenCost: Math.round(tokenCost * 100) / 100,
+      totalConversations: todayConversations,
+    },
+    northStar: j2cRate,
+    aiHealth: {
+      badCaseRate: Math.round(badCaseRate * 10000) / 100, // 转为百分比
+      toolErrorRate: Math.round(toolErrorRate * 10000) / 100,
+      avgResponseTime: 1200, // TODO: 从 metrics 表获取真实数据
+      badCaseTrend: Math.round(badCaseTrend * 10000) / 100,
+      toolErrorTrend: Math.round(toolErrorTrend * 10000) / 100,
+    },
+    alerts: {
+      errorCount24h: Number(error24hResult[0]?.count || 0),
+      sensitiveWordHits: Number(sensitiveHitsResult[0]?.count || 0),
+      pendingModeration: Number(pendingModerationResult[0]?.count || 0),
+    },
+  };
 }

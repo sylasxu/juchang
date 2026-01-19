@@ -9,6 +9,8 @@ import { useEffect, useCallback, useRef, useState } from 'react'
 import { useExecutionTrace } from '../../hooks/use-execution-trace'
 import { ExecutionTracePanel } from '../execution-trace/trace-panel'
 import { PlaygroundChat, type PlaygroundChatRef } from './playground-chat'
+import { MockSettingsPanel, type MockSettings } from './mock-settings-panel'
+import { StatsPanel, type ConversationStats } from './stats-panel'
 import { Header } from '@/components/layout/header'
 import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
@@ -25,6 +27,15 @@ export function PlaygroundLayout() {
   const [balance, setBalance] = useState<{ total: number; isAvailable: boolean } | null>(null)
   const [balanceLoading, setBalanceLoading] = useState(false)
   const [traceEnabled, setTraceEnabled] = useState(true)
+  
+  // 模拟设置
+  const [mockSettings, setMockSettings] = useState<MockSettings>({
+    userType: 'with_phone',
+    location: 'guanyinqiao',
+  })
+  
+  // 统计信息
+  const [stats] = useState<ConversationStats | null>(null)
 
   const { 
     traces, 
@@ -133,6 +144,21 @@ export function PlaygroundLayout() {
 
       {/* 页面内容 - 使用 fixed 布局确保高度正确 */}
       <Main fixed className='flex flex-1 flex-col gap-0 p-0 overflow-hidden'>
+        {/* 顶部设置区 */}
+        <div className='border-b bg-muted/30 p-4'>
+          <div className='flex gap-4 max-w-7xl mx-auto'>
+            <div className='w-80'>
+              <MockSettingsPanel 
+                settings={mockSettings} 
+                onChange={setMockSettings} 
+              />
+            </div>
+            <div className='w-64'>
+              <StatsPanel stats={stats} />
+            </div>
+          </div>
+        </div>
+
         {/* Split View */}
         <div ref={containerRef} className='flex flex-1 min-h-0'>
           {/* Chat Panel */}
@@ -175,6 +201,7 @@ export function PlaygroundLayout() {
                 balanceLoading={balanceLoading}
                 onRefreshBalance={fetchBalance}
                 traceEnabled={traceEnabled}
+                onTraceEnabledChange={setTraceEnabled}
               />
             </div>
           )}

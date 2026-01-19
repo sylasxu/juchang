@@ -3,19 +3,17 @@ import {
   Settings,
   Users,
   Calendar,
-  UserCog,
-  Wrench,
-  Palette,
   Command,
   MessageSquare,
   Play,
-  Bell,
   Shield,
-  FileCode,
   TrendingUp,
+  Image,
+  Sparkles,
 } from 'lucide-react'
 import { type SidebarData } from '../types'
 
+// v4.7: Admin Cockpit Redesign - AI 驾驶舱 + 增长军火库
 export const sidebarData: SidebarData = {
   user: {
     name: '管理员',
@@ -30,8 +28,9 @@ export const sidebarData: SidebarData = {
     },
   ],
   navGroups: [
+    // 📊 指挥舱 - God View
     {
-      title: '概览',
+      title: '指挥舱',
       items: [
         {
           title: '仪表盘',
@@ -40,84 +39,78 @@ export const sidebarData: SidebarData = {
         },
       ],
     },
+    // 🧠 AI Ops - 大脑调优
     {
       title: 'AI Ops',
       items: [
         {
           title: 'Playground',
-          url: '/ai-ops',
+          url: '/ai-ops/playground',
           icon: Play,
-        },
-        {
-          title: 'Token 统计',
-          url: '/ai-ops/token-usage',
-          icon: TrendingUp,
-        },
-        {
-          title: 'Prompt 查看',
-          url: '/ai-ops/prompt-viewer',
-          icon: FileCode,
         },
         {
           title: '对话审计',
           url: '/ai-ops/conversations',
           icon: MessageSquare,
         },
+        {
+          title: '用量统计',
+          url: '/ai-ops/usage',
+          icon: TrendingUp,
+        },
       ],
     },
+    // 🛡️ 安全 - 保命模块
     {
-      title: '运营管理',
+      title: '安全',
       items: [
         {
-          title: '内容审核',
-          url: '/reports',
+          title: '风险审核',
+          url: '/safety/moderation',
           icon: Shield,
         },
         {
-          title: '通知管理',
-          url: '/notifications',
-          icon: Bell,
+          title: '活动管理',
+          url: '/safety/activities',
+          icon: Calendar,
         },
       ],
     },
+    // 🚀 增长 - MCN 工具箱
     {
-      title: '平台管理',
+      title: '增长',
+      items: [
+        {
+          title: '海报工厂',
+          url: '/growth/poster',
+          icon: Image,
+        },
+        {
+          title: '热门洞察',
+          url: '/growth/trends',
+          icon: Sparkles,
+        },
+      ],
+    },
+    // 👥 用户 - 私域运营
+    {
+      title: '用户',
       items: [
         {
           title: '用户管理',
           url: '/users',
           icon: Users,
         },
-        {
-          title: '活动管理',
-          url: '/activities',
-          icon: Calendar,
-        },
       ],
     },
+    // ⚙️ 设置
     {
-      title: '其他',
+      title: '设置',
       items: [
         {
-          title: '设置',
+          title: '系统配置',
+          url: '/settings',
           icon: Settings,
-          items: [
-            {
-              title: '个人资料',
-              url: '/settings',
-              icon: UserCog,
-            },
-            {
-              title: '账户设置',
-              url: '/settings/account',
-              icon: Wrench,
-            },
-            {
-              title: '外观设置',
-              url: '/settings/appearance',
-              icon: Palette,
-            },
-          ],
         },
       ],
     },

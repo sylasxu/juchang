@@ -44,11 +44,12 @@ export async function getUserList(query: UserListQuery): Promise<UserListRespons
   }
 
   // 查询用户列表
+  // v4.6: 默认按 activitiesCreatedCount 倒序（超级群主排序）
   const userList = await db
     .select()
     .from(users)
     .where(whereCondition)
-    .orderBy(desc(users.createdAt))
+    .orderBy(desc(users.activitiesCreatedCount), desc(users.createdAt))
     .limit(limit)
     .offset(offset);
 

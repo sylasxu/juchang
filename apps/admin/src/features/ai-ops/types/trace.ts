@@ -38,6 +38,36 @@ export interface ExecutionTrace {
   intentMethod?: 'regex' | 'llm'
   /** AI 输出摘要 */
   output?: TraceOutput
+  /** Memory 上下文 (v4.5) */
+  memory?: MemoryContext
+  /** RAG 搜索结果 (v4.5) */
+  rag?: RAGSearchResult
+}
+
+/** Memory 上下文 (v4.5) */
+export interface MemoryContext {
+  /** 用户画像字段数 */
+  profileFieldCount: number
+  /** 历史消息数 */
+  historyMessageCount: number
+  /** 工作记忆摘要 */
+  workingMemorySummary?: string
+}
+
+/** RAG 搜索结果 (v4.5) */
+export interface RAGSearchResult {
+  /** 搜索查询 */
+  query: string
+  /** 结果数量 */
+  resultCount: number
+  /** 最高相似度分数 */
+  topScore: number
+  /** 搜索结果列表 */
+  results: Array<{
+    activityId: string
+    title: string
+    score: number
+  }>
 }
 
 /** AI 输出摘要 */

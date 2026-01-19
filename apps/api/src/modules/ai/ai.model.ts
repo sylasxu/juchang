@@ -77,6 +77,8 @@ const ExploreResultItem = t.Object({
   startAt: t.String(),
   currentParticipants: t.Number(),
   maxParticipants: t.Number(),
+  score: t.Optional(t.Number({ description: '匹配分数 0-1' })),
+  matchReason: t.Optional(t.String({ description: '推荐理由' })),
 });
 
 // 探索响应数据
@@ -247,7 +249,7 @@ const WelcomeResponse = t.Object({
   greeting: t.String({ description: '问候语' }),
   subGreeting: t.Optional(t.String({ description: '副标题' })),
   sections: t.Array(WelcomeSection, { description: '分组列表' }),
-  socialProfile: t.Optional(SocialProfile, { description: '社交档案（已登录用户）' }),
+  socialProfile: t.Optional(SocialProfile),
   quickPrompts: t.Array(t.Object({
     icon: t.String(),
     text: t.String(),

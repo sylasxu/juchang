@@ -15,7 +15,7 @@
 
 import { t } from 'elysia';
 import { createToolFactory } from './create-tool';
-import { search, generateMatchReason } from '../rag';
+import { search } from '../rag';
 import type { ScoredActivity } from '../rag';
 
 /**

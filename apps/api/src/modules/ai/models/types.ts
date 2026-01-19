@@ -1,7 +1,10 @@
 /**
  * Models Module Types - 模型抽象层类型定义
  * 
- * 只支持 DeepSeek（主力）+ 智谱（备选）
+ * 架构设计：
+ * - Chat: DeepSeek (主力) + 智谱 (备选)
+ * - Embedding: Qwen text-embedding-v4 (主力)
+ * - 未来扩展: Doubao, OpenAI 等
  */
 
 import type { LanguageModel } from 'ai';
@@ -9,7 +12,12 @@ import type { LanguageModel } from 'ai';
 /**
  * 模型提供商名称
  */
-export type ModelProviderName = 'deepseek' | 'zhipu';
+export type ModelProviderName = 'deepseek' | 'zhipu' | 'qwen' | 'doubao' | 'openai';
+
+/**
+ * 模型用途
+ */
+export type ModelPurpose = 'chat' | 'embedding' | 'rerank' | 'vision';
 
 /**
  * 模型类型
@@ -197,16 +205,67 @@ export const DEFAULT_FALLBACK_CONFIG: FallbackConfig = {
 };
 
 /**
- * 模型 ID 常量
+ * 模型 ID 常量 - 按用途分类
  */
 export const MODEL_IDS = {
-  // DeepSeek
+  // ==========================================
+  // Chat 模型 (对话/Agent)
+  // ==========================================
+  
+  // DeepSeek - 主力 Chat
   DEEPSEEK_CHAT: 'deepseek-chat',
   DEEPSEEK_REASONER: 'deepseek-reasoner',
   
-  // 智谱
+  // 智谱 - 备选 Chat
   ZHIPU_GLM4: 'glm-4-flash',
   ZHIPU_GLM4_PLUS: 'glm-4-plus',
+  
+  // Qwen - 备选 Chat (未启用)
+  QWEN_PLUS: 'qwen-plus',
+  QWEN_TURBO: 'qwen-turbo',
+  
+  // ==========================================
+  // Embedding 模型 (向量化)
+  // ==========================================
+  
+  // Qwen - 主力 Embedding
+  QWEN_EMBEDDING: 'text-embedding-v4',
+  
+  // 智谱 - 备选 Embedding (已弃用)
   ZHIPU_EMBEDDING: 'embedding-3',
+  
+  // ==========================================
+  // 未来扩展
+  // ==========================================
+  
+  // Doubao (火山引擎)
+  // DOUBAO_PRO: 'doubao-pro-32k',
+  // DOUBAO_EMBEDDING: 'doubao-embedding-large',
+  
+  // OpenAI (海外)
+  // GPT4O: 'gpt-4o',
+  // GPT4O_MINI: 'gpt-4o-mini',
+} as const;
+
+/**
+ * 当前使用的模型配置
+ */
+export const ACTIVE_MODELS = {
+  /** Chat 主力模型 */
+  CHAT_PRIMARY: MODEL_IDS.DEEPSEEK_CHAT,
+  /** Chat 备选模型 */
+  CHAT_FALLBACK: MODEL_IDS.ZHIPU_GLM4,
+  /** Embedding 主力模型 */
+  EMBEDDING_PRIMARY: MODEL_IDS.QWEN_EMBEDDING,
+} as const;
+
+/**
+ * Embedding 维度配置
+ */
+export const EMBEDDING_DIMENSIONS = {
+  /** Qwen text-embedding-v4 */
+  QWEN: 1536,
+  /** 智谱 embedding-3 (已弃用) */
+  ZHIPU: 1024,
 } as const;
 

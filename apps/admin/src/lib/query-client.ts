@@ -69,6 +69,7 @@ export const queryKeys = {
     businessMetrics: () => [...queryKeys.dashboard.all, 'businessMetrics'],
     analytics: () => [...queryKeys.dashboard.all, 'analytics'],
     kpis: () => [...queryKeys.dashboard.all, 'kpis'],
+    godView: () => [...queryKeys.dashboard.all, 'godView'],
     userGrowth: (days: number) => [...queryKeys.dashboard.all, 'userGrowth', days],
     recentActivities: (limit: number) => [...queryKeys.dashboard.all, 'recentActivities', limit],
     activityTypes: () => [...queryKeys.dashboard.all, 'activityTypes'],

@@ -46,8 +46,8 @@ export const activities = pgTable("activities", {
   // --- 状态 (v3.3 默认 draft，符合 AI 解析 → 用户确认的工作流) ---
   status: activityStatusEnum("status").default("draft").notNull(),
 
-  // --- v4.5 语义搜索：向量字段 (智谱 embedding-3, 1024 维) ---
-  embedding: vector('embedding', { dimensions: 1024 }),
+  // --- v4.5 语义搜索：向量字段 (Qwen text-embedding-v4, 1536 维) ---
+  embedding: vector('embedding', { dimensions: 1536 }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

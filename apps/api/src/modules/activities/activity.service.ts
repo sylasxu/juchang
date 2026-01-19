@@ -1,7 +1,7 @@
 // Activity Service - 纯业务逻辑 (MVP 简化版 + v3.2 附近搜索)
 import { db, activities, users, participants, eq, sql, and, gt, like, inArray, desc } from '@juchang/db';
-import type { 
-  ActivityDetailResponse, 
+import type {
+  ActivityDetailResponse,
   ActivityListItem,
   MyActivitiesResponse,
   CreateActivityRequest,
@@ -14,6 +14,7 @@ import type {
 import { deductAiCreateQuota } from '../users/user.service';
 import { indexActivity, deleteIndex } from '../ai/rag';
 import { addInterestVector } from '../ai/memory';
+import { validateFields } from '../content-security';
 
 // 群聊归档时间：活动开始后 24 小时
 const ARCHIVE_HOURS = 24;
@@ -69,21 +70,21 @@ export async function getActivitiesList(
 
   // 构建查询条件
   const conditions = [];
-  
+
   if (status) {
     const statusList = filterActivityStatuses(status.split(',').map(s => s.trim()).filter(Boolean));
     if (statusList.length > 0) {
       conditions.push(inArray(activities.status, statusList));
     }
   }
-  
+
   if (type) {
     const typeList = filterActivityTypes(type.split(',').map(s => s.trim()).filter(Boolean));
     if (typeList.length > 0) {
       conditions.push(inArray(activities.type, typeList));
     }
   }
-  
+
   if (search) {
     conditions.push(like(activities.title, `%${search}%`));
   }
@@ -130,7 +131,7 @@ export async function getActivitiesList(
     id: item.id,
     title: item.title,
     description: item.description,
-    location: item.location 
+    location: item.location
       ? [item.location.x, item.location.y] as [number, number]
       : [0, 0] as [number, number],
     locationName: item.locationName,
@@ -160,7 +161,7 @@ export async function getActivitiesList(
  * 获取我相关的活动（发布的 + 参与的）
  */
 export async function getMyActivities(
-  userId: string, 
+  userId: string,
   type?: 'created' | 'joined'
 ): Promise<MyActivitiesResponse> {
   let activityList: any[] = [];
@@ -229,7 +230,7 @@ export async function getMyActivities(
     id: item.id,
     title: item.title,
     description: item.description,
-    location: item.location 
+    location: item.location
       ? [item.location.x, item.location.y] as [number, number]
       : [0, 0] as [number, number],
     locationName: item.locationName,
@@ -300,7 +301,7 @@ export async function getActivityById(id: string): Promise<ActivityDetailRespons
     .where(eq(participants.activityId, activity.id));
 
   // 转换 PostGIS geometry 为数组格式
-  const location = activity.location 
+  const location = activity.location
     ? [activity.location.x, activity.location.y] as [number, number]
     : [0, 0] as [number, number];
 
@@ -336,7 +337,7 @@ export async function getActivityById(id: string): Promise<ActivityDetailRespons
  * 创建活动（检查额度）
  */
 export async function createActivity(
-  data: CreateActivityRequest, 
+  data: CreateActivityRequest,
   creatorId: string
 ): Promise<{ id: string }> {
   // 检查并扣减额度
@@ -346,13 +347,25 @@ export async function createActivity(
   }
 
   const { location, startAt, maxParticipants = 4, ...activityData } = data;
-  
+
   // 时间校验：不允许发布过去时间的活动
   const startAtDate = new Date(startAt);
   if (startAtDate < new Date()) {
     throw new Error('活动开始时间不能是过去');
   }
-  
+
+  // 内容安全校验
+  const securityResult = await validateFields({
+    title: activityData.title,
+    description: activityData.description,
+    locationName: activityData.locationName,
+    locationHint: activityData.locationHint,
+  }, { userId: creatorId, scene: 'activity' });
+
+  if (!securityResult.pass) {
+    throw new Error('内容包含违规信息，请修改后重试');
+  }
+
   // 创建活动记录
   const [newActivity] = await db
     .insert(activities)
@@ -411,33 +424,33 @@ export async function publishDraftActivity(
     .from(activities)
     .where(eq(activities.id, activityId))
     .limit(1);
-  
+
   if (!activity) {
     throw new Error('活动不存在');
   }
-  
+
   // 验证是否为创建者
   if (activity.creatorId !== creatorId) {
     throw new Error('只有活动发起人可以发布活动');
   }
-  
+
   // 验证状态是否为 draft
   if (activity.status !== 'draft') {
     throw new Error('只有草稿状态的活动可以发布');
   }
-  
+
   // 时间校验：不允许发布过去时间的活动 (CP-19)
   const startAt = updates?.startAt ? new Date(updates.startAt) : activity.startAt;
   if (startAt < new Date()) {
     throw new Error('活动时间已过期，请重新创建');
   }
-  
+
   // 构建更新数据
   const updateData: Record<string, any> = {
     status: 'active',
     updatedAt: new Date(),
   };
-  
+
   // 如果有更新数据，合并进去
   if (updates) {
     if (updates.title) updateData.title = updates.title;
@@ -451,14 +464,26 @@ export async function publishDraftActivity(
     if (updates.locationHint) updateData.locationHint = updates.locationHint;
     if (updates.type) updateData.type = updates.type;
     if (updates.maxParticipants) updateData.maxParticipants = updates.maxParticipants;
+
+    // 内容安全校验（仅检查更新的字段）
+    const securityResult = await validateFields({
+      title: updates.title,
+      description: updates.description,
+      locationName: updates.locationName,
+      locationHint: updates.locationHint,
+    }, { userId: creatorId, scene: 'activity' });
+
+    if (!securityResult.pass) {
+      throw new Error('内容包含违规信息，请修改后重试');
+    }
   }
-  
+
   // 更新活动状态为 active
   await db
     .update(activities)
     .set(updateData)
     .where(eq(activities.id, activityId));
-  
+
   // 更新用户创建活动计数
   await db
     .update(users)
@@ -467,7 +492,7 @@ export async function publishDraftActivity(
       updatedAt: new Date(),
     })
     .where(eq(users.id, creatorId));
-  
+
   // v4.5: 异步索引活动到 RAG (不阻塞主流程)
   const activityForIndex = await getActivityById(activityId);
   if (activityForIndex) {
@@ -475,7 +500,7 @@ export async function publishDraftActivity(
       console.error('Failed to index activity:', err);
     });
   }
-  
+
   return { id: activityId };
 }
 
@@ -483,8 +508,8 @@ export async function publishDraftActivity(
  * 更新活动状态（completed/cancelled）
  */
 export async function updateActivityStatus(
-  activityId: string, 
-  userId: string, 
+  activityId: string,
+  userId: string,
   status: 'completed' | 'cancelled'
 ): Promise<void> {
   // 验证用户是否为活动创建者
@@ -691,12 +716,12 @@ async function updateUserInterestVector(userId: string, activityId: string): Pro
     .from(activities)
     .where(eq(activities.id, activityId))
     .limit(1);
-  
+
   // 2. 如果没有 embedding，静默跳过
   if (!activity?.embedding) {
     return;
   }
-  
+
   // 3. 添加到用户兴趣向量
   await addInterestVector(userId, {
     activityId,
@@ -748,7 +773,7 @@ export async function updateActivity(
   if (updates.address !== undefined) updateData.address = updates.address;
   if (updates.locationHint !== undefined) updateData.locationHint = updates.locationHint;
   if (updates.maxParticipants !== undefined) updateData.maxParticipants = updates.maxParticipants;
-  
+
   if (updates.startAt !== undefined) {
     const startAtDate = new Date(updates.startAt);
     if (startAtDate < new Date()) {
@@ -756,9 +781,21 @@ export async function updateActivity(
     }
     updateData.startAt = startAtDate;
   }
-  
+
   if (updates.location !== undefined) {
     updateData.location = sql`ST_SetSRID(ST_MakePoint(${updates.location[0]}, ${updates.location[1]}), 4326)`;
+  }
+
+  // 内容安全校验（仅检查更新的字段）
+  const securityResult = await validateFields({
+    title: updates.title,
+    description: updates.description,
+    locationName: updates.locationName,
+    locationHint: updates.locationHint,
+  }, { userId, scene: 'activity' });
+
+  if (!securityResult.pass) {
+    throw new Error('内容包含违规信息，请修改后重试');
   }
 
   // 执行更新
@@ -850,11 +887,11 @@ export async function getNearbyActivities(
   query: NearbyActivitiesQuery
 ): Promise<NearbyActivitiesResponse> {
   const { lat, lng, type, radius = 5000, limit = 20 } = query;
-  
+
   // 构建查询条件
   // 只查询 active 状态且未开始的活动
   const now = new Date();
-  
+
   // 使用 PostGIS 进行地理空间查询
   // ST_DWithin 使用米为单位（geography 类型）
   const nearbyActivities = await db
@@ -897,7 +934,7 @@ export async function getNearbyActivities(
     )
     .orderBy(sql`distance ASC`)
     .limit(limit);
-  
+
   // 转换为响应格式
   const data: NearbyActivityItem[] = nearbyActivities.map(item => ({
     id: item.id,
@@ -919,7 +956,7 @@ export async function getNearbyActivities(
       avatarUrl: item.creatorAvatar,
     },
   }));
-  
+
   return {
     data,
     total: data.length,

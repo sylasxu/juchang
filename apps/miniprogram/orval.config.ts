@@ -3,7 +3,7 @@ import { defineConfig } from 'orval'
 export default defineConfig({
   juchang: {
     input: {
-      target: 'http://localhost:3000/openapi/json',
+      target: 'http://localhost:1996/openapi/json',
     },
     output: {
       mode: 'tags-split',

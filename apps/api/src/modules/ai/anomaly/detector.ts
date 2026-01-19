@@ -82,7 +82,7 @@ export async function detectFrequentCancel(): Promise<AnomalyUser[]> {
       COUNT(*) as count
     FROM participants p
     LEFT JOIN users u ON p.user_id = u.id
-    WHERE p.status = 'cancelled'
+    WHERE p.status = 'quit'
       AND p.updated_at >= ${toTimestamp(since)}
     GROUP BY p.user_id, u.nickname
     HAVING COUNT(*) > ${threshold.count}

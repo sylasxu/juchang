@@ -27,7 +27,7 @@ export {
   type GenerateChatResult,
 } from './agent';
 
-import { db, users, conversations, conversationMessages, eq, desc, sql, inArray } from '@juchang/db';
+import { db, users, conversations, conversationMessages, eq, desc, sql, inArray, and } from '@juchang/db';
 import { 
   streamText, 
   createUIMessageStream, 
@@ -56,6 +56,10 @@ import {
   recordTokenUsage as recordMetricsTokenUsage,
   recordTokenUsageWithLog,
 } from './observability/metrics';
+import { 
+  recordConversationMetrics, 
+  extractConversionInfo,
+} from './observability/quality-metrics';
 // WorkingMemory (Enhanced)
 import { 
   getEnhancedUserProfile,
@@ -158,7 +162,7 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
 
   // 2. 输入护栏检查
   const sanitizedMessage = sanitizeInput(lastUserMessage);
-  const guardResult = checkInput(sanitizedMessage);
+  const guardResult = checkInput(sanitizedMessage, {}, { userId: userId || undefined });
   if (guardResult.blocked) {
     logger.warn('Input blocked', { userId, reason: guardResult.reason, rules: guardResult.triggeredRules });
     return createQuickResponse(guardResult.suggestedResponse || '这个话题我帮不了你 😅', trace);
@@ -361,6 +365,29 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
             input: lastUserMessage.slice(0, 50),
           });
         }
+      }).catch(() => {});
+      
+      // 记录对话质量指标到数据库（异步，不阻塞响应）
+      const conversionInfo = extractConversionInfo(traceSteps.map(s => ({ toolName: s.toolName, result: s.result })));
+      const toolsSucceeded = traceSteps.filter(s => s.result && !(s.result as any)?.error).length;
+      const toolsFailed = traceSteps.length - toolsSucceeded;
+      
+      recordConversationMetrics({
+        userId: userId || undefined,
+        intent: intentResult.intent,
+        intentConfidence: intentResult.confidence,
+        intentRecognized: intentResult.intent !== 'unknown',
+        toolsCalled: traceSteps.map(s => s.toolName),
+        toolsSucceeded,
+        toolsFailed,
+        inputTokens: totalUsage.promptTokens,
+        outputTokens: totalUsage.completionTokens,
+        totalTokens: totalUsage.totalTokens,
+        latencyMs: duration,
+        activityCreated: conversionInfo.activityCreated,
+        activityJoined: conversionInfo.activityJoined,
+        activityId: conversionInfo.activityId,
+        source,
       }).catch(() => {});
     },
   });
@@ -659,11 +686,24 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 // 会话管理 API
 // ==========================================
 
-export async function listConversations(params: { userId?: string; page?: number; limit?: number }) {
-  const { userId, page = 1, limit = 20 } = params;
+export async function listConversations(params: { 
+  userId?: string; 
+  page?: number; 
+  limit?: number;
+  // v4.6: 评估筛选
+  evaluationStatus?: 'unreviewed' | 'good' | 'bad';
+  hasError?: boolean;
+}) {
+  const { userId, page = 1, limit = 20, evaluationStatus, hasError } = params;
   const offset = (page - 1) * limit;
 
-  const whereClause = userId ? eq(conversations.userId, userId) : undefined;
+  // 构建 where 条件
+  const conditions = [];
+  if (userId) conditions.push(eq(conversations.userId, userId));
+  if (evaluationStatus) conditions.push(eq(conversations.evaluationStatus, evaluationStatus));
+  if (hasError !== undefined) conditions.push(eq(conversations.hasError, hasError));
+  
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [items, countResult] = await Promise.all([
     db
@@ -674,6 +714,11 @@ export async function listConversations(params: { userId?: string; page?: number
         messageCount: conversations.messageCount,
         lastMessageAt: conversations.lastMessageAt,
         createdAt: conversations.createdAt,
+        // v4.6: 评估字段
+        evaluationStatus: conversations.evaluationStatus,
+        evaluationTags: conversations.evaluationTags,
+        evaluationNote: conversations.evaluationNote,
+        hasError: conversations.hasError,
       })
       .from(conversations)
       .where(whereClause)
@@ -699,6 +744,11 @@ export async function listConversations(params: { userId?: string; page?: number
       userNickname: nicknameMap.get(i.userId) || null,
       lastMessageAt: i.lastMessageAt?.toISOString() || new Date().toISOString(),
       createdAt: i.createdAt.toISOString(),
+      // v4.6: 评估字段
+      evaluationStatus: i.evaluationStatus,
+      evaluationTags: i.evaluationTags || [],
+      evaluationNote: i.evaluationNote,
+      hasError: i.hasError,
     })),
     total: Number(countResult[0]?.count || 0),
   };
@@ -730,6 +780,11 @@ export async function getConversationMessages(conversationId: string) {
       messageCount: conv.messageCount,
       lastMessageAt: conv.lastMessageAt?.toISOString() || new Date().toISOString(),
       createdAt: conv.createdAt.toISOString(),
+      // v4.6: 评估字段
+      evaluationStatus: conv.evaluationStatus,
+      evaluationTags: conv.evaluationTags || [],
+      evaluationNote: conv.evaluationNote,
+      hasError: conv.hasError,
     },
     messages: msgs.map(m => ({
       id: m.id,
@@ -739,6 +794,52 @@ export async function getConversationMessages(conversationId: string) {
       activityId: m.activityId,
       createdAt: m.createdAt.toISOString(),
     })),
+  };
+}
+
+// ==========================================
+// v4.6: 会话评估 (Admin Command Center)
+// ==========================================
+
+export async function evaluateConversation(params: {
+  conversationId: string;
+  status: 'good' | 'bad';
+  tags?: string[];
+  note?: string;
+}) {
+  const { conversationId, status, tags = [], note } = params;
+  
+  const [updated] = await db
+    .update(conversations)
+    .set({
+      evaluationStatus: status,
+      evaluationTags: tags,
+      evaluationNote: note || null,
+    })
+    .where(eq(conversations.id, conversationId))
+    .returning();
+  
+  if (!updated) return null;
+  
+  // 获取用户昵称
+  const [user] = await db
+    .select({ nickname: users.nickname })
+    .from(users)
+    .where(eq(users.id, updated.userId))
+    .limit(1);
+  
+  return {
+    id: updated.id,
+    userId: updated.userId,
+    userNickname: user?.nickname || null,
+    title: updated.title,
+    messageCount: updated.messageCount,
+    lastMessageAt: updated.lastMessageAt?.toISOString() || new Date().toISOString(),
+    createdAt: updated.createdAt.toISOString(),
+    evaluationStatus: updated.evaluationStatus,
+    evaluationTags: updated.evaluationTags || [],
+    evaluationNote: updated.evaluationNote,
+    hasError: updated.hasError,
   };
 }
 
@@ -846,7 +947,7 @@ export interface WelcomeResponse {
   greeting: string;
   subGreeting?: string;
   sections: WelcomeSection[];
-  socialProfile?: SocialProfile;
+  socialProfile?: SocialProfile | undefined;
   quickPrompts: QuickPrompt[];
 }
 

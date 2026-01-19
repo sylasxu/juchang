@@ -23,6 +23,9 @@ import {
   Target,
   Wrench,
   MessageSquare,
+  Brain,
+  Search,
+  Download,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -58,6 +61,8 @@ import type {
   ModelParams,
   InputStepData,
   TraceOutput,
+  MemoryContext,
+  RAGSearchResult,
 } from '../../types/trace'
 import { 
   calculateSessionStats,
@@ -92,6 +97,8 @@ interface ExecutionTracePanelProps {
   onRefreshBalance?: () => void
   /** 是否启用 trace 模式（用于控制显示内容） */
   traceEnabled?: boolean
+  /** trace 模式变更回调 */
+  onTraceEnabledChange?: (enabled: boolean) => void
 }
 
 export function ExecutionTracePanel({ 
@@ -105,6 +112,7 @@ export function ExecutionTracePanel({
   balanceLoading,
   onRefreshBalance,
   traceEnabled = true,
+  onTraceEnabledChange,
 }: ExecutionTracePanelProps) {
   const [promptDialogOpen, setPromptDialogOpen] = useState(false)
   const [selectedPrompt, setSelectedPrompt] = useState<string>('')
@@ -120,6 +128,18 @@ export function ExecutionTracePanel({
     setPromptDialogOpen(true)
   }
 
+  // 导出功能
+  const handleExport = () => {
+    const data = JSON.stringify(traces, null, 2)
+    const blob = new Blob([data], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `trace-${Date.now()}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className='h-full flex flex-col'>
       {/* 顶部工具栏 */}
@@ -133,6 +153,9 @@ export function ExecutionTracePanel({
         balance={balance}
         balanceLoading={balanceLoading}
         onRefreshBalance={onRefreshBalance}
+        traceEnabled={traceEnabled}
+        onTraceEnabledChange={onTraceEnabledChange}
+        onExport={traces.length > 0 ? handleExport : undefined}
       />
       
       {traces.length === 0 ? (
@@ -189,6 +212,9 @@ function PanelHeader({
   balance,
   balanceLoading,
   onRefreshBalance,
+  traceEnabled,
+  onTraceEnabledChange,
+  onExport,
 }: { 
   modelParams: ModelParams
   onModelParamsChange?: (params: ModelParams) => void
@@ -199,12 +225,31 @@ function PanelHeader({
   balance?: { total: number; isAvailable: boolean } | null
   balanceLoading?: boolean
   onRefreshBalance?: () => void
+  traceEnabled?: boolean
+  onTraceEnabledChange?: (enabled: boolean) => void
+  onExport?: () => void
 }) {
   return (
     <div className='flex-shrink-0 border-b px-4 py-2'>
       <div className='flex items-center justify-between gap-2'>
-        {/* 左侧：标题 */}
-        <h2 className='text-lg font-medium'>执行追踪</h2>
+        {/* 左侧：标题 + 模式切换 */}
+        <div className='flex items-center gap-2'>
+          <h2 className='text-lg font-medium'>执行追踪</h2>
+          {onTraceEnabledChange && (
+            <Select 
+              value={traceEnabled ? 'trace' : 'production'} 
+              onValueChange={(v) => onTraceEnabledChange(v === 'trace')}
+            >
+              <SelectTrigger className='h-7 w-24 text-xs'>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value='trace'>Trace</SelectItem>
+                <SelectItem value='production'>生产</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        </div>
         
         {/* 右侧：余额 + 工具按钮组 */}
         <div className='flex items-center gap-2'>
@@ -305,6 +350,13 @@ function PanelHeader({
           {hasPrompt && (
             <Button variant='ghost' size='icon' className='h-7 w-7' onClick={onViewPrompt}>
               <FileText className='h-3.5 w-3.5' />
+            </Button>
+          )}
+
+          {/* 导出按钮 */}
+          {onExport && (
+            <Button variant='ghost' size='icon' className='h-7 w-7' onClick={onExport}>
+              <Download className='h-3.5 w-3.5' />
             </Button>
           )}
 
@@ -417,6 +469,16 @@ function RoundItem({
             <IntentSection intent={trace.intent} intentMethod={trace.intentMethod} />
           )}
 
+          {/* Memory 上下文（仅 trace 模式） */}
+          {traceEnabled && trace.memory && (
+            <MemorySection memory={trace.memory} />
+          )}
+
+          {/* RAG 搜索结果（仅 trace 模式且有 RAG 调用时） */}
+          {traceEnabled && trace.rag && trace.rag.resultCount > 0 && (
+            <RAGSection rag={trace.rag} />
+          )}
+
           {/* Tool 调用（可展开查看详情） */}
           {toolSteps.length > 0 && (
             <ToolCallSection toolSteps={toolSteps} traceEnabled={traceEnabled} />
@@ -467,6 +529,64 @@ function IntentSection({ intent, intentMethod }: { intent: string; intentMethod?
             <span className='text-muted-foreground ml-1'>({methodName})</span>
           )}
         </div>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+/** Memory 上下文区块 */
+function MemorySection({ memory }: { memory: MemoryContext }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger className='flex items-center gap-2 w-full text-left text-xs'>
+        <Brain className='h-3 w-3 text-muted-foreground' />
+        <span className='text-muted-foreground'>Memory</span>
+        <span className='text-muted-foreground/50'>·</span>
+        <span className='text-muted-foreground/70'>
+          {memory.profileFieldCount} 画像 · {memory.historyMessageCount} 历史
+        </span>
+        {expanded 
+          ? <ChevronDown className='h-3 w-3 ml-auto text-muted-foreground' /> 
+          : <ChevronRight className='h-3 w-3 ml-auto text-muted-foreground' />
+        }
+      </CollapsibleTrigger>
+      <CollapsibleContent className='mt-1.5 ml-5 pl-3 border-l text-xs space-y-1'>
+        <div>画像字段: {memory.profileFieldCount}</div>
+        <div>历史消息: {memory.historyMessageCount}</div>
+        {memory.workingMemorySummary && (
+          <div className='text-muted-foreground'>{memory.workingMemorySummary}</div>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+/** RAG 搜索结果区块 */
+function RAGSection({ rag }: { rag: RAGSearchResult }) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger className='flex items-center gap-2 w-full text-left text-xs'>
+        <Search className='h-3 w-3 text-muted-foreground' />
+        <span className='text-muted-foreground'>RAG 搜索</span>
+        <span className='text-muted-foreground/50'>·</span>
+        <span className='text-muted-foreground/70'>{rag.resultCount} 结果</span>
+        {expanded 
+          ? <ChevronDown className='h-3 w-3 ml-auto text-muted-foreground' /> 
+          : <ChevronRight className='h-3 w-3 ml-auto text-muted-foreground' />
+        }
+      </CollapsibleTrigger>
+      <CollapsibleContent className='mt-1.5 ml-5 pl-3 border-l text-xs space-y-1'>
+        <div>查询: {rag.query}</div>
+        <div>最高分: {rag.topScore.toFixed(2)}</div>
+        {rag.results.map(r => (
+          <div key={r.activityId} className='text-muted-foreground'>
+            {r.title} ({r.score.toFixed(2)})
+          </div>
+        ))}
       </CollapsibleContent>
     </Collapsible>
   )

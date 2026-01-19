@@ -107,6 +107,42 @@ const IntentMetrics = t.Object({
   avgMatchTime: MetricItem,       // 平均匹配时长 (分钟)
 });
 
+// ==========================================
+// God View 仪表盘 (Admin Cockpit Redesign)
+// ==========================================
+
+// 实时概览
+const RealtimeOverview = t.Object({
+  activeUsers: t.Number(),        // 今日活跃用户
+  todayActivities: t.Number(),    // 今日成局数
+  tokenCost: t.Number(),          // 今日 Token 消耗（元）
+  totalConversations: t.Number(), // 今日对话数
+});
+
+// AI 健康度
+const AIHealth = t.Object({
+  badCaseRate: t.Number(),        // Bad Case 率
+  toolErrorRate: t.Number(),      // Tool 错误率
+  avgResponseTime: t.Number(),    // 平均响应时长 (ms)
+  badCaseTrend: t.Number(),       // Bad Case 趋势（较上周）
+  toolErrorTrend: t.Number(),     // Tool 错误趋势
+});
+
+// 异常警报
+const Alerts = t.Object({
+  errorCount24h: t.Number(),      // 24h 报错数
+  sensitiveWordHits: t.Number(),  // 敏感词触发数
+  pendingModeration: t.Number(),  // 待审核数
+});
+
+// God View 完整数据
+const GodViewData = t.Object({
+  realtime: RealtimeOverview,
+  northStar: J2CMetric,           // 北极星指标：J2C 转化率
+  aiHealth: AIHealth,
+  alerts: Alerts,
+});
+
 // 注册到 Elysia Model Plugin
 export const dashboardModel = new Elysia({ name: 'dashboardModel' })
   .model({
@@ -117,6 +153,7 @@ export const dashboardModel = new Elysia({ name: 'dashboardModel' })
     'dashboard.geographic': t.Array(GeographicItem),
     'dashboard.businessMetrics': BusinessMetrics,
     'dashboard.intentMetrics': IntentMetrics,
+    'dashboard.godView': GodViewData,
     'dashboard.error': ErrorResponse,
   });
 
@@ -133,3 +170,9 @@ export type J2CMetric = Static<typeof J2CMetric>;
 export type WeeklyCompletedMetric = Static<typeof WeeklyCompletedMetric>;
 export type BusinessMetrics = Static<typeof BusinessMetrics>;
 export type IntentMetrics = Static<typeof IntentMetrics>;
+
+// God View 类型导出
+export type RealtimeOverview = Static<typeof RealtimeOverview>;
+export type AIHealth = Static<typeof AIHealth>;
+export type Alerts = Static<typeof Alerts>;
+export type GodViewData = Static<typeof GodViewData>;

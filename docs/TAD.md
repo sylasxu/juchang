@@ -1,7 +1,7 @@
 # 聚场 (JuChang) 技术架构文档
 
-> **版本**：v4.5 (Agent-First + Generative UI + Partner Matching + AI Ops + RAG Semantic Search)
-> **更新日期**：2026-01-12
+> **版本**：v4.5.1 (Admin Cockpit Redesign + Agent-First + Generative UI + Partner Matching + AI Ops + RAG Semantic Search)
+> **更新日期**：2026-01-19
 > **架构**：原生小程序 + Zustand Vanilla + Elysia API + Drizzle ORM
 
 ---
@@ -98,21 +98,44 @@
 │   ├── admin/                # Vite + React 管理后台
 │   │   └── src/
 │   │       ├── features/     # 功能模块
+│   │       │   ├── dashboard/      # 指挥舱 God View
+│   │       │   ├── ai-ops/         # AI Ops (Playground/对话审计/用量统计)
+│   │       │   ├── activities/     # 安全中心 - 活动管理
+│   │       │   ├── users/          # 用户管理
+│   │       │   └── settings/       # 系统设置
 │   │       ├── routes/       # TanStack Router
+│   │       │   ├── _authenticated/
+│   │       │   │   ├── index.tsx           # 指挥舱 God View
+│   │       │   │   ├── ai-ops/
+│   │       │   │   │   ├── playground.tsx  # AI 调试场
+│   │       │   │   │   ├── conversations.tsx # 对话审计
+│   │       │   │   │   └── usage.tsx       # 用量统计（合并 Token + 额度）
+│   │       │   │   ├── safety/
+│   │       │   │   │   ├── moderation.tsx  # 风险审核
+│   │       │   │   │   └── activities.tsx  # 活动管理
+│   │       │   │   ├── growth/
+│   │       │   │   │   ├── poster.tsx      # 海报工厂
+│   │       │   │   │   └── trends.tsx      # 热门洞察
+│   │       │   │   ├── users/
+│   │       │   │   │   └── index.tsx       # 用户列表
+│   │       │   │   └── settings/
+│   │       │   │       └── index.tsx       # 系统设置
+│   │       │   └── login.tsx
 │   │       └── lib/          # Eden Treaty
 │   │
 │   └── api/                  # Elysia API
 │       └── src/
 │           ├── index.ts      # 应用入口
 │           ├── setup.ts      # 全局插件
-│           └── modules/      # 功能模块 (9 个)
+│           └── modules/      # 功能模块 (10 个)
 │               ├── auth/         # 微信登录、手机号绑定
 │               ├── users/        # 用户 CRUD、额度
 │               ├── activities/   # 活动 CRUD、报名、附近搜索
 │               ├── participants/ # 参与者管理
 │               ├── chat/         # 活动群聊消息
 │               ├── ai/           # AI 解析、对话历史
-│               ├── dashboard/    # 首页数据聚合
+│               ├── dashboard/    # 首页数据聚合、God View
+│               ├── growth/       # 增长工具（海报工厂、热门洞察）
 │               ├── notifications/ # 通知管理
 │               └── reports/      # 举报管理
 │
@@ -262,7 +285,7 @@ export const activities = pgTable("activities", {
   maxParticipants: integer("max_participants").default(4).notNull(),
   currentParticipants: integer("current_participants").default(1).notNull(),
   status: activityStatusEnum("status").default("draft").notNull(),
-  embedding: vector("embedding", { dimensions: 1024 }),  // v4.5: 智谱 embedding-3 向量
+  embedding: vector("embedding", { dimensions: 1536 }),  // v4.5: Qwen text-embedding-v4 向量
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -346,6 +369,8 @@ export const matchMessages = pgTable('match_messages', {
 | `activities` | `/activities` | 活动 CRUD、报名退出、**附近搜索** |
 | `chat` | `/chat` | 活动群聊消息 (activity_messages 表) |
 | `ai` | `/ai` | AI 解析 (SSE)，**意图分类**，**对话历史管理** (conversations 表) |
+| `dashboard` | `/dashboard` | 首页数据聚合、God View 实时概览 |
+| `growth` | `/growth` | 增长工具：海报工厂、热门洞察 |
 
 **设计原则**：API 模块按功能领域划分，而非按页面划分。对话历史 (conversations) 属于 AI 功能领域，归入 `ai` 模块。
 
@@ -384,6 +409,13 @@ DELETE /ai/conversations  // 清空对话历史 (新对话)
 GET  /ai/sessions         // 获取会话列表 (Admin 对话审计)
 GET  /ai/sessions/:id     // 获取会话详情
 DELETE /ai/sessions/:id   // 删除会话
+
+// Dashboard (v4.5 新增：God View 实时概览)
+GET  /dashboard/god-view  // 获取 God View 数据（实时概览/AI健康度/异常警报）
+
+// Growth (v4.5 新增：增长工具)
+POST /growth/poster/generate  // 生成海报文案（小红书风格）
+GET  /growth/trends           // 获取热门洞察（高频词/意图分布）
 ```
 
 ### 5.3 AI 解析 - 意图分类 (v3.2)
@@ -415,7 +447,67 @@ interface ExploreResult {
 }
 ```
 
-### 5.4 SSE 事件 (v3.2)
+### 5.4 Growth 模块 - 增长工具 (v4.5 新增)
+
+**海报工厂 (Poster Factory)**：
+
+```typescript
+// POST /growth/poster/generate
+interface GeneratePosterRequest {
+  text: string;           // 活动描述或自定义文案
+  style: 'xiaohongshu' | 'casual' | 'professional';  // 文案风格
+}
+
+interface PosterResult {
+  title: string;          // 标题
+  content: string;        // 正文
+  tags: string[];         // 话题标签
+  emoji: string;          // 推荐 Emoji
+}
+```
+
+**实现原理**：
+- 使用 DeepSeek 生成小红书风格文案
+- 支持从活动描述提取关键信息
+- 自动生成话题标签和 Emoji
+- Admin 后台可复制文案，手动截图发布
+
+**热门洞察 (Trend Insights)**：
+
+```typescript
+// GET /growth/trends?period=7d
+interface TrendInsight {
+  period: '7d' | '30d';
+  keywords: Array<{
+    word: string;
+    count: number;
+    trend: 'up' | 'down' | 'stable';  // 相比上期趋势
+  }>;
+  intents: Array<{
+    type: 'create' | 'explore' | 'partner' | 'manage' | 'chitchat';
+    count: number;
+    percentage: number;
+  }>;
+  topActivities: Array<{
+    type: ActivityType;
+    count: number;
+  }>;
+}
+```
+
+**实现原理**：
+- 分析 `conversation_messages` 表中用户消息
+- 提取高频关键词 Top 20（中文分词）
+- 统计意图分类分布
+- 统计活动类型偏好
+- 支持 7 天/30 天时间范围
+
+**使用场景**：
+- Solo Founder 了解用户需求趋势
+- 发现新的活动类型机会
+- 优化 AI 提示词和工具选择
+
+### 5.5 SSE 事件 (v3.2)
 
 ```typescript
 type SSEEvent = 
@@ -698,7 +790,7 @@ const results = await search({
 ```typescript
 interface InterestVector {
   activityId: string;
-  embedding: number[];  // 1024 维
+  embedding: number[];  // 1536 维 (Qwen text-embedding-v4)
   participatedAt: Date;
   feedback?: 'positive' | 'neutral' | 'negative';
 }
@@ -769,7 +861,7 @@ export const exploreNearbyTool = createToolFactory<ExploreNearbyParams, ExploreD
     │
     ▼
 ┌─────────────────┐
-│ 1. 生成查询向量 │ ← 智谱 embedding-3 (1024 维)
+│ 1. 生成查询向量 │ ← Qwen text-embedding-v4 (1536 维)
 └────────┬────────┘
          │
          ▼
@@ -852,7 +944,7 @@ if (maxSim > 0.5) {
 | DeepSeek | `deepseek-chat` | 主力 Chat 模型 |
 | DeepSeek | `deepseek-reasoner` | 复杂推理 |
 | 智谱 | `glm-4-flash` | 备选 Chat |
-| 智谱 | `embedding-3` | 文本向量化 |
+| Qwen | `text-embedding-v4` | 文本向量化 (1536 维) |
 
 **降级策略**：
 
@@ -1414,7 +1506,63 @@ const isExpired = (draft: ActivityDraft) => {
 
 ## 9. Admin 后台架构
 
-### 9.1 Eden Treaty 客户端
+### 9.1 Admin Cockpit Redesign (v4.5.1)
+
+**设计理念**：从传统 CRUD 管理系统转型为 Solo Founder 的 AI Cockpit + Growth Arsenal
+
+**核心变化**：
+
+| 维度 | 旧设计 | 新设计 (v4.5.1) |
+|------|--------|----------------|
+| **定位** | 全能管理后台 | AI Cockpit + Growth Arsenal |
+| **用户** | 运营团队 | Solo Founder |
+| **首页** | 数据大屏 | God View 实时概览 |
+| **导航** | 功能平铺 | 分层聚焦（指挥舱/AI Ops/安全/增长） |
+| **AI 调试** | 分散的配置页 | 统一 Playground |
+| **增长工具** | 无 | 海报工厂 + 热门洞察 |
+
+**导航结构**：
+
+```
+指挥舱 (Dashboard)
+  └── God View - 实时概览（活跃用户/成局数/Token消耗/AI健康度/异常警报）
+
+AI Ops
+  ├── Playground - AI 调试场（模拟身份/思维链/Tool 追踪）
+  ├── 对话审计 - 会话列表（质量评估/用户反馈）
+  └── 用量统计 - Token 消耗 + 用户额度管理
+
+安全 (Safety)
+  ├── 风险审核 - 违规内容队列（通过/删除/封号）
+  └── 活动管理 - 活动列表（状态管理/删除）
+
+增长 (Growth)
+  ├── 海报工厂 - 生成小红书文案（活动描述 → 文案 + 标签）
+  └── 热门洞察 - 用户需求趋势（高频词/意图分布）
+
+用户 (Users)
+  └── 用户列表 - 用户管理（额度赠送/Working Memory 查看）
+
+设置 (Settings)
+  └── 系统设置 - 全局配置
+```
+
+**删除的低频入口**：
+- ❌ RAG 管理（开发者工具，不需要 UI）
+- ❌ Memory 管理（自动化，不需要手动干预）
+- ❌ 异常检测（合并到 God View 警报）
+- ❌ 通知管理（低频操作）
+- ❌ AI 配置页（合并到 Playground）
+- ❌ 额度管理页（合并到用量统计）
+
+**新增功能**：
+- ✅ God View 实时概览（生死攸关的数据）
+- ✅ Playground 统一调试（模拟身份/思维链/Tool 追踪）
+- ✅ 海报工厂（小红书文案生成）
+- ✅ 热门洞察（用户需求趋势分析）
+- ✅ 风险审核（一键处理违规内容）
+
+### 9.2 Eden Treaty 客户端
 
 ```typescript
 // lib/eden.ts
@@ -1424,7 +1572,17 @@ import type { App } from '@juchang/api';
 export const api = treaty<App>(import.meta.env.VITE_API_URL);
 ```
 
-### 9.2 React Query Hooks
+### 9.2 Eden Treaty 客户端
+
+```typescript
+// lib/eden.ts
+import { treaty } from '@elysiajs/eden';
+import type { App } from '@juchang/api';
+
+export const api = treaty<App>(import.meta.env.VITE_API_URL);
+```
+
+### 9.3 React Query Hooks
 
 ```typescript
 // features/users/hooks/use-users.ts
@@ -1443,7 +1601,37 @@ export function useUsers(params = {}) {
 }
 ```
 
-### 9.3 AI Playground 执行追踪
+### 9.4 God View Dashboard (v4.5.1)
+
+**实时概览卡片**：
+
+```typescript
+interface GodViewData {
+  overview: {
+    activeUsers: number;        // 今日活跃用户
+    completedActivities: number; // 今日成局数
+    tokenUsage: number;         // 今日 Token 消耗
+    j2cRate: number;            // Join-to-Complete 转化率
+  };
+  aiHealth: {
+    badCaseCount: number;       // Bad Case 数量
+    toolErrorRate: number;      // Tool 错误率
+    avgResponseTime: number;    // 平均响应时长
+  };
+  alerts: {
+    errorCount: number;         // 报错数量
+    sensitiveCount: number;     // 敏感词触发数
+    pendingReview: number;      // 待审核内容数
+  };
+}
+```
+
+**设计原则**：
+- 只显示生死攸关的数据（用户活跃/成局/AI 健康）
+- 异常警报一目了然（红色高亮）
+- 点击卡片跳转详情页
+
+### 9.5 AI Playground 执行追踪
 
 Admin 后台的 AI Playground 支持两种模式：
 

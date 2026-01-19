@@ -28,12 +28,17 @@ export * from "./partner-intents";    // 搭子意向
 export * from "./intent-matches";     // 意向匹配 (含 intentIds[], userIds[] 数组)
 export * from "./match-messages";     // 匹配消息 (直接关联 matchId)
 
-// 7. Relations (must be last to avoid circular imports)
+// 7. AI Ops (v4.6 对话质量监控 + 安全持久化)
+export * from "./ai-conversation-metrics";
+export * from "./ai-sensitive-words";
+export * from "./ai-security-events";
+
+// 8. Relations (must be last to avoid circular imports)
 export * from "./relations";
 
 // ==========================================
 // v4.5 变更说明 (Semantic Search):
-// - activities: 新增 embedding vector(1024) 列
+// - activities: 新增 embedding vector(1536) 列 (Qwen text-embedding-v4)
 // - custom-types: 新增 pgvector 的 vector 类型支持
 // - 迁移文件: 0009_add_embedding.sql
 // ==========================================

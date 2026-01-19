@@ -105,14 +105,14 @@ async function main() {
     steps.push({ name: 'embedding 列', status: 'done' });
   } else {
     if (dryRun) {
-      console.log('  ⚠️  embedding 列不存在，需要执行: ALTER TABLE activities ADD COLUMN embedding vector(1024)');
+      console.log('  ⚠️  embedding 列不存在，需要执行: ALTER TABLE activities ADD COLUMN embedding vector(1536)');
       steps.push({ name: 'embedding 列', status: 'pending', message: '需要添加' });
     } else if (skipDb) {
       console.log('  ⏭️  跳过数据库同步');
       steps.push({ name: 'embedding 列', status: 'skipped' });
     } else {
       try {
-        await db.execute(sql`ALTER TABLE activities ADD COLUMN embedding vector(1024)`);
+        await db.execute(sql`ALTER TABLE activities ADD COLUMN embedding vector(1536)`);
         console.log('  ✅ embedding 列已添加');
         steps.push({ name: 'embedding 列', status: 'done' });
       } catch (error) {

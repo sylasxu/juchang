@@ -43,7 +43,7 @@ export async function wxLogin(params: WxLoginRequest) {
   try {
     // 调用微信接口获取 openid
     const wxData = await getWxOpenId(code);
-    
+
     if (!wxData.openid) {
       throw new Error('微信登录失败，请重试');
     }
@@ -161,7 +161,7 @@ export async function bindPhone(userId: string, params: BindPhoneRequest) {
   try {
     // 调用微信接口获取手机号
     const phoneData = await getWxPhoneNumber(code);
-    
+
     if (!phoneData.phone_info?.phoneNumber) {
       throw new Error('获取手机号失败，请重试');
     }
@@ -211,7 +211,7 @@ async function getWxOpenId(code: string): Promise<WxLoginResponse> {
 
   try {
     const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${WECHAT_APP_ID}&secret=${WECHAT_APP_SECRET}&js_code=${code}&grant_type=authorization_code`;
-    
+
     const response = await fetch(url);
     const data: WxLoginResponse = await response.json();
 
@@ -228,14 +228,14 @@ async function getWxOpenId(code: string): Promise<WxLoginResponse> {
 
 /**
  * 根据 code 获取微信手机号
+ * 
+ * 重构：复用 content-security 模块的 Token 管理
  */
 async function getWxPhoneNumber(code: string): Promise<WxPhoneResponse> {
-  const WECHAT_APP_ID = process.env.WECHAT_APP_ID;
-  const WECHAT_APP_SECRET = process.env.WECHAT_APP_SECRET;
   const isDev = process.env.NODE_ENV === 'development';
 
   // 开发环境：跳过微信解密，直接返回测试手机号
-  if (isDev || !WECHAT_APP_ID || !WECHAT_APP_SECRET) {
+  if (isDev) {
     console.warn('[Auth] 开发环境：跳过微信解密，使用测试手机号');
     return {
       phone_info: {
@@ -247,17 +247,12 @@ async function getWxPhoneNumber(code: string): Promise<WxPhoneResponse> {
   }
 
   try {
-    // 先获取 access_token
-    const tokenUrl = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${WECHAT_APP_ID}&secret=${WECHAT_APP_SECRET}`;
-    const tokenRes = await fetch(tokenUrl);
-    const tokenData = await tokenRes.json();
-
-    if (!tokenData.access_token) {
-      throw new Error('获取 access_token 失败');
-    }
+    // 复用 content-security 模块的 Token 管理
+    const { getAccessToken } = await import('../content-security');
+    const accessToken = await getAccessToken();
 
     // 获取手机号
-    const phoneUrl = `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${tokenData.access_token}`;
+    const phoneUrl = `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${accessToken}`;
     const phoneRes = await fetch(phoneUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

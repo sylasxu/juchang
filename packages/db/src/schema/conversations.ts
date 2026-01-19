@@ -1,4 +1,4 @@
-import { pgTable, uuid, jsonb, timestamp, index, pgEnum, text, integer } from "drizzle-orm/pg-core";
+import { pgTable, uuid, jsonb, timestamp, index, pgEnum, text, integer, boolean } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { activities } from "./activities";
 import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
@@ -38,6 +38,13 @@ export const conversationMessageTypeEnum = pgEnum("conversation_message_type", [
   "widget_ask_preference"    // 多轮对话偏好询问卡片
 ]);
 
+// v4.6: 会话评估状态枚举 (Admin Command Center)
+export const evaluationStatusEnum = pgEnum("evaluation_status", [
+  "unreviewed",  // 未评估（默认）
+  "good",        // AI 表现良好
+  "bad"          // Bad Case，需要优化
+]);
+
 // ==========================================
 // conversations 表（会话）
 // ==========================================
@@ -57,9 +64,29 @@ export const conversations = pgTable("conversations", {
   // 时间戳
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+  
+  // ==========================================
+  // v4.6: Admin Command Center - 评估字段
+  // ==========================================
+  
+  // 评估状态：unreviewed(默认) / good / bad
+  evaluationStatus: evaluationStatusEnum("evaluation_status").default("unreviewed").notNull(),
+  
+  // 评估标签 (JSON 数组)
+  // 可选值: ['wrong_intent', 'hallucination', 'tool_error', 'bad_tone', 'incomplete']
+  evaluationTags: jsonb("evaluation_tags").$type<string[]>().default([]),
+  
+  // 人工备注
+  evaluationNote: text("evaluation_note"),
+  
+  // 是否包含错误 (widget_error)，方便筛选
+  hasError: boolean("has_error").default(false).notNull(),
 }, (t) => [
   index("conversations_user_idx").on(t.userId),
   index("conversations_last_message_idx").on(t.lastMessageAt),
+  // v4.6: 评估相关索引
+  index("conversations_evaluation_status_idx").on(t.evaluationStatus),
+  index("conversations_has_error_idx").on(t.hasError),
 ]);
 
 // ==========================================

@@ -1,6 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { PlaygroundLayout } from '@/features/ai-ops/components/playground/playground-layout'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/ai-ops/')({
-  component: PlaygroundLayout,
+  beforeLoad: () => {
+    throw redirect({ to: '/ai-ops/playground' })
+  },
+  component: () => null,
 })

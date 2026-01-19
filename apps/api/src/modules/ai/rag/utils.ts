@@ -10,7 +10,8 @@
 
 import type { Activity } from '@juchang/db';
 import type { ActivityVibe, TimeOfDay, DayOfWeek } from './types';
-import { getZhipuEmbedding, getZhipuEmbeddings } from '../models/adapters/zhipu';
+import { getQwenEmbedding, getQwenEmbeddings } from '../models/adapters/qwen';
+import { EMBEDDING_DIMENSIONS } from '../models/types';
 import { createLogger } from '../observability/logger';
 
 const logger = createLogger('rag-utils');
@@ -190,10 +191,10 @@ export function enrichActivityText(activity: Activity): string {
 
 /**
  * 生成单个文本的向量
- * 使用智谱 embedding-3 模型 (1024 维)
+ * 使用 Qwen text-embedding-v4 模型 (1536 维)
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  return getZhipuEmbedding(text);
+  return getQwenEmbedding(text);
 }
 
 /**
@@ -211,7 +212,7 @@ export async function generateEmbeddingWithRetry(text: string): Promise<number[]
   
   for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
     try {
-      return await getZhipuEmbedding(text);
+      return await getQwenEmbedding(text);
     } catch (error) {
       lastError = error as Error;
       logger.warn('Embedding generation failed', { 
@@ -244,7 +245,7 @@ export async function generateEmbeddings(
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
-    const embeddings = await getZhipuEmbeddings(batch);
+    const embeddings = await getQwenEmbeddings(batch);
     results.push(...embeddings);
 
     // 速率限制延迟
@@ -254,6 +255,13 @@ export async function generateEmbeddings(
   }
 
   return results;
+}
+
+/**
+ * 获取当前 Embedding 维度
+ */
+export function getEmbeddingDimension(): number {
+  return EMBEDDING_DIMENSIONS.QWEN;
 }
 
 /**

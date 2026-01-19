@@ -11,7 +11,7 @@
 
 import type { RuntimeContext, Message } from './types';
 import { getMessages, getOrCreateThread } from '../memory/store';
-import { getEnhancedUserProfile, type EnhancedUserProfile } from '../memory/working';
+import { getEnhancedUserProfile } from '../memory/working';
 import { createLogger } from '../observability/logger';
 
 const logger = createLogger('agent-context');

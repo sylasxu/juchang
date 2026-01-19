@@ -2,10 +2,30 @@
  * Input Guard - 输入护栏
  * 
  * 检测和过滤恶意输入
+ * 
+ * v4.6 更新：拦截时记录安全事件到数据库
  */
 
 import type { GuardResult, InputGuardConfig, RiskLevel } from './types';
 import { DEFAULT_INPUT_GUARD_CONFIG } from './types';
+
+// 延迟导入避免循环依赖
+let recordSecurityEventFn: ((event: {
+  userId?: string;
+  eventType: string;
+  triggerWord?: string;
+  inputText?: string;
+  severity?: string;
+  metadata?: Record<string, unknown>;
+}) => Promise<void>) | null = null;
+
+async function getRecordSecurityEvent() {
+  if (!recordSecurityEventFn) {
+    const { recordSecurityEvent } = await import('../ai-ops.service');
+    recordSecurityEventFn = recordSecurityEvent;
+  }
+  return recordSecurityEventFn;
+}
 
 /**
  * 注入攻击模式
@@ -45,14 +65,26 @@ const SENSITIVE_WORDS = [
  */
 export function checkInput(
   input: string,
-  config: Partial<InputGuardConfig> = {}
+  config: Partial<InputGuardConfig> = {},
+  context?: { userId?: string }
 ): GuardResult {
   const cfg = { ...DEFAULT_INPUT_GUARD_CONFIG, ...config };
   const triggeredRules: string[] = [];
   let riskLevel: RiskLevel = 'low';
+  let triggerWord: string | undefined;
   
   // 1. 长度检查
   if (input.length > cfg.maxInputLength) {
+    // 异步记录安全事件（不阻塞）
+    recordSecurityEventAsync({
+      userId: context?.userId,
+      eventType: 'input_blocked',
+      triggerWord: undefined,
+      inputText: input.slice(0, 200),
+      severity: 'low',
+      metadata: { reason: 'max_length', length: input.length },
+    });
+    
     return {
       passed: false,
       blocked: true,
@@ -69,6 +101,7 @@ export function checkInput(
       if (pattern.test(input)) {
         triggeredRules.push('injection_detected');
         riskLevel = 'high';
+        triggerWord = input.match(pattern)?.[0];
         break;
       }
     }
@@ -85,6 +118,7 @@ export function checkInput(
       if (input.includes(word)) {
         triggeredRules.push('sensitive_word');
         riskLevel = riskLevel === 'high' ? 'critical' : 'high';
+        triggerWord = word;
         break;
       }
     }
@@ -92,6 +126,18 @@ export function checkInput(
   
   // 判断是否阻止
   const blocked = riskLevel === 'high' || riskLevel === 'critical';
+  
+  // 如果被阻止，异步记录安全事件
+  if (blocked) {
+    recordSecurityEventAsync({
+      userId: context?.userId,
+      eventType: 'input_blocked',
+      triggerWord,
+      inputText: input.slice(0, 200), // 只存前 200 字符
+      severity: riskLevel === 'critical' ? 'high' : 'medium',
+      metadata: { triggeredRules },
+    });
+  }
   
   return {
     passed: !blocked,
@@ -101,6 +147,22 @@ export function checkInput(
     triggeredRules: triggeredRules.length > 0 ? triggeredRules : undefined,
     suggestedResponse: blocked ? '这个话题我帮不了你 😅' : undefined,
   };
+}
+
+/**
+ * 异步记录安全事件（不阻塞主流程）
+ */
+function recordSecurityEventAsync(event: {
+  userId?: string;
+  eventType: string;
+  triggerWord?: string;
+  inputText?: string;
+  severity?: string;
+  metadata?: Record<string, unknown>;
+}): void {
+  getRecordSecurityEvent()
+    .then(fn => fn(event))
+    .catch(() => {}); // 忽略错误，不影响主流程
 }
 
 /**
