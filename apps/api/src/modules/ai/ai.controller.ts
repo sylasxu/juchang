@@ -2,9 +2,9 @@
 import { Elysia, t } from 'elysia';
 import { basePlugins, verifyAuth } from '../../setup';
 import { aiModel, type ErrorResponse, type ConversationMessageType } from './ai.model';
-import { 
-  checkAIQuota, 
-  consumeAIQuota, 
+import {
+  checkAIQuota,
+  consumeAIQuota,
   streamChat,
   clearConversations,
   getWelcomeCard,
@@ -20,9 +20,9 @@ import {
   evaluateConversation,
 } from './ai.service';
 import { getPromptInfo, buildXmlSystemPrompt } from './prompts/xiaoju-v38';
-import { 
-  getTokenUsageStats, 
-  getTokenUsageSummary, 
+import {
+  getTokenUsageStats,
+  getTokenUsageSummary,
   getToolCallStats,
 } from './observability/metrics';
 import { db, users, eq } from '@juchang/db';
@@ -80,7 +80,7 @@ const messagePartSchema = t.Object({
 export const aiController = new Elysia({ prefix: '/ai' })
   .use(basePlugins)
   .use(aiModel)
-  
+
   // ==========================================
   // DeepSeek 余额查询 (Admin Playground 用)
   // ==========================================
@@ -88,7 +88,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
     '/balance',
     async ({ set }) => {
       const apiKey = process.env.DEEPSEEK_API_KEY;
-      
+
       if (!apiKey) {
         set.status = 500;
         return { code: 500, msg: 'DeepSeek API Key 未配置' };
@@ -135,7 +135,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
       },
     }
   )
-  
+
   // ==========================================
   // 欢迎卡片 (v3.4 新增)
   // ==========================================
@@ -144,11 +144,11 @@ export const aiController = new Elysia({ prefix: '/ai' })
     async ({ query, jwt, headers }) => {
       // 尝试获取用户身份（可选认证）
       const authResult = await verifyAuth(jwt, headers);
-      
+
       // 如果已登录，获取用户昵称
       let userId: string | null = null;
       let nickname: string | null = null;
-      
+
       if (authResult) {
         userId = authResult.id;
         // 从数据库获取用户昵称
@@ -159,19 +159,19 @@ export const aiController = new Elysia({ prefix: '/ai' })
           .limit(1);
         nickname = user?.nickname || null;
       }
-      
+
       // 解析位置参数
       const location = (query.lat !== undefined && query.lng !== undefined)
         ? { lat: query.lat, lng: query.lng }
         : null;
-      
+
       // 获取欢迎卡片数据
       const welcomeCard = await getWelcomeCard(
         userId,
         nickname,
         location
       );
-      
+
       return welcomeCard;
     },
     {
@@ -192,7 +192,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
       },
     }
   )
-  
+
   // ==========================================
   // 统一 AI Chat 接口 - Data Stream Protocol
   // 小程序和 Admin 都用这个接口
@@ -202,7 +202,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
     async ({ body, set, jwt, headers }) => {
       // 解析请求参数
       const { messages: rawMessages, source = 'miniprogram', mockUserId, mockLocation, trace } = body;
-      
+
       // 直接传递消息给 service，让 AI SDK 的 convertToModelMessages 处理格式转换
       // 支持两种格式：
       // 1. 简单格式：{ role, content }
@@ -212,14 +212,14 @@ export const aiController = new Elysia({ prefix: '/ai' })
         content: m.content || m.text || '',
         ...(m.parts && { parts: m.parts }),
       }));
-      
+
       // 获取用户身份
       const user = await verifyAuth(jwt, headers);
-      
+
       // Admin 可以 mock 用户（用于测试）
       const effectiveUserId = (source === 'admin' && mockUserId) ? mockUserId : user?.id || null;
       const effectiveLocation = mockLocation || body.location;
-      
+
       // 有真实用户时检查额度（Admin 不消耗额度）
       if (user && source !== 'admin') {
         const quota = await checkAIQuota(user.id);
@@ -246,7 +246,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
           trace: trace ?? false,
           modelParams: body.modelParams,
         });
-        
+
         return response;
       } catch (error: any) {
         console.error('AI Chat 失败:', error);
@@ -311,11 +311,11 @@ Data Stream 格式：
       }, { additionalProperties: true }), // AI SDK useChat 会添加 id, trigger 等字段
     }
   )
-  
+
   // ==========================================
   // 对话历史管理 (v3.2 新增，v3.5 重构为显式参数)
   // ==========================================
-  
+
   // 获取对话历史（分页）
   // 支持显式的 scope 参数区分模式：
   // - scope=mine（默认）：查当前用户的对话
@@ -418,7 +418,7 @@ Data Stream 格式：
       },
     }
   )
-  
+
   // 添加用户消息
   .post(
     '/conversations',
@@ -435,7 +435,7 @@ Data Stream 格式：
       try {
         // 获取或创建当前会话
         const { id: conversationId } = await getOrCreateCurrentConversation(user.id);
-        
+
         // 添加消息到会话
         const result = await addMessageToConversation({
           conversationId,
@@ -444,7 +444,7 @@ Data Stream 格式：
           messageType: 'text',
           content: { text: body.content },
         });
-        
+
         return {
           id: result.id,
           msg: '消息已添加',
@@ -471,7 +471,7 @@ Data Stream 格式：
       },
     }
   )
-  
+
   // 清空对话历史（开始新对话）
   .delete(
     '/conversations',
@@ -513,7 +513,7 @@ Data Stream 格式：
       },
     }
   )
-  
+
   // ==========================================
   // Token 使用统计 (v3.4 新增)
   // ==========================================
@@ -521,19 +521,19 @@ Data Stream 格式：
     '/metrics/usage',
     async ({ query }) => {
       // 解析日期范围，默认最近 30 天
-      const endDate = query.endDate 
-        ? new Date(query.endDate + 'T23:59:59') 
+      const endDate = query.endDate
+        ? new Date(query.endDate + 'T23:59:59')
         : new Date();
-      const startDate = query.startDate 
-        ? new Date(query.startDate + 'T00:00:00') 
+      const startDate = query.startDate
+        ? new Date(query.startDate + 'T00:00:00')
         : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-      
+
       const [summary, daily, toolCalls] = await Promise.all([
         getTokenUsageSummary(startDate, endDate),
         getTokenUsageStats(startDate, endDate),
         getToolCallStats(startDate, endDate),
       ]);
-      
+
       return { summary, daily, toolCalls };
     },
     {
@@ -553,7 +553,7 @@ Data Stream 格式：
       },
     }
   )
-  
+
   // ==========================================
   // Prompt 查看 (v3.6 - 代码即配置)
   // ==========================================
@@ -566,7 +566,7 @@ Data Stream 格式：
         userLocation: { lat: 29.5630, lng: 106.5516, name: '观音桥' },
         userNickname: '示例用户',
       });
-      
+
       return {
         ...info,
         content,
@@ -586,7 +586,7 @@ Prompt 通过 Git 版本控制，此接口为只读查看。
       },
     }
   )
-  
+
   // ==========================================
   // 会话列表 v3.8 (Admin 对话审计用)
   // v4.6: 支持评估状态筛选
@@ -627,7 +627,7 @@ v4.6 新增筛选：
       },
       query: t.Object({
         page: t.Optional(t.Number({ minimum: 1, default: 1 })),
-        limit: t.Optional(t.Number({ minimum: 1, maximum: 100, default: 20 })),
+        limit: t.Optional(t.Number({ minimum: 1, maximum: 1000, default: 20 })),
         userId: t.Optional(t.String({ description: '按用户 ID 筛选' })),
         // v4.6: 评估筛选
         evaluationStatus: t.Optional(t.Union([
@@ -664,7 +664,7 @@ v4.6 新增筛选：
       },
     }
   )
-  
+
   // 获取会话详情（消息列表）
   .get(
     '/sessions/:id',
@@ -734,7 +734,7 @@ v4.6 新增筛选：
       },
     }
   )
-  
+
   // ==========================================
   // v4.6: 会话评估 (Admin Command Center)
   // ==========================================
@@ -754,12 +754,12 @@ v4.6 新增筛选：
           tags: body.tags,
           note: body.note,
         });
-        
+
         if (!result) {
           set.status = 404;
           return { code: 404, msg: '会话不存在' } satisfies ErrorResponse;
         }
-        
+
         return result;
       } catch (error: any) {
         set.status = 500;
@@ -811,7 +811,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 删除单个会话（Admin 用）
   .delete(
     '/sessions/:id',
@@ -854,7 +854,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 批量删除会话（Admin 用）
   .post(
     '/sessions/batch-delete',
@@ -892,11 +892,11 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // ==========================================
   // RAG 运营 API (v4.5)
   // ==========================================
-  
+
   // 获取 RAG 统计信息
   .get(
     '/rag/stats',
@@ -940,7 +940,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // RAG 搜索测试
   .post(
     '/rag/search',
@@ -999,7 +999,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 重建单个活动索引
   .post(
     '/rag/rebuild/:id',
@@ -1042,7 +1042,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 开始批量回填
   .post(
     '/rag/backfill',
@@ -1077,7 +1077,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取回填状态
   .get(
     '/rag/backfill/status',
@@ -1120,11 +1120,11 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // ==========================================
   // Memory 运营 API (v4.5)
   // ==========================================
-  
+
   // 搜索用户
   .get(
     '/memory/users',
@@ -1166,7 +1166,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取用户画像
   .get(
     '/memory/:userId',
@@ -1223,7 +1223,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // MaxSim 测试
   .post(
     '/memory/:userId/maxsim',
@@ -1280,11 +1280,11 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // ==========================================
   // Security 运营 API (v4.5)
   // ==========================================
-  
+
   // 获取安全总览
   .get(
     '/security/overview',
@@ -1333,7 +1333,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取敏感词列表
   .get(
     '/security/sensitive-words',
@@ -1362,7 +1362,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 添加敏感词
   .post(
     '/security/sensitive-words',
@@ -1399,7 +1399,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 删除敏感词
   .delete(
     '/security/sensitive-words/:word',
@@ -1436,7 +1436,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 批量导入敏感词
   .post(
     '/security/sensitive-words/import',
@@ -1468,7 +1468,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取审核队列
   .get(
     '/security/moderation/queue',
@@ -1517,7 +1517,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 审核通过
   .post(
     '/security/moderation/:id/approve',
@@ -1555,7 +1555,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 审核拒绝
   .post(
     '/security/moderation/:id/reject',
@@ -1593,7 +1593,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 审核拒绝并封号
   .post(
     '/security/moderation/:id/ban',
@@ -1631,7 +1631,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取违规统计
   .get(
     '/security/violations/stats',
@@ -1680,11 +1680,11 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // ==========================================
   // 对话质量监控 API (v4.6)
   // ==========================================
-  
+
   // 获取对话质量指标
   .get(
     '/ops/metrics/quality',
@@ -1696,13 +1696,13 @@ Bad Case 标签可选值：
       }
 
       try {
-        const endDate = query.endDate 
-          ? new Date(query.endDate + 'T23:59:59') 
+        const endDate = query.endDate
+          ? new Date(query.endDate + 'T23:59:59')
           : new Date();
-        const startDate = query.startDate 
-          ? new Date(query.startDate + 'T00:00:00') 
+        const startDate = query.startDate
+          ? new Date(query.startDate + 'T00:00:00')
           : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-        
+
         const result = await getQualityMetrics({ startDate, endDate });
         return result;
       } catch (error: any) {
@@ -1746,7 +1746,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取转化率指标
   .get(
     '/ops/metrics/conversion',
@@ -1758,15 +1758,15 @@ Bad Case 标签可选值：
       }
 
       try {
-        const endDate = query.endDate 
-          ? new Date(query.endDate + 'T23:59:59') 
+        const endDate = query.endDate
+          ? new Date(query.endDate + 'T23:59:59')
           : new Date();
-        const startDate = query.startDate 
-          ? new Date(query.startDate + 'T00:00:00') 
+        const startDate = query.startDate
+          ? new Date(query.startDate + 'T00:00:00')
           : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-        
-        const result = await getConversionMetrics({ 
-          startDate, 
+
+        const result = await getConversionMetrics({
+          startDate,
           endDate,
           intent: query.intent,
         });
@@ -1812,7 +1812,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取 Playground 统计
   .get(
     '/ops/metrics/playground-stats',
@@ -1863,11 +1863,11 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // ==========================================
   // Security 持久化 API (v4.6)
   // ==========================================
-  
+
   // 获取敏感词列表（数据库）
   .get(
     '/ops/security/sensitive-words-db',
@@ -1913,7 +1913,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 添加敏感词（数据库）
   .post(
     '/ops/security/sensitive-words-db',
@@ -1959,7 +1959,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 删除敏感词（数据库）
   .delete(
     '/ops/security/sensitive-words-db/:id',
@@ -2002,7 +2002,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取安全事件列表
   .get(
     '/ops/security/events',
@@ -2016,7 +2016,7 @@ Bad Case 标签可选值：
       try {
         const startDate = query.startDate ? new Date(query.startDate + 'T00:00:00') : undefined;
         const endDate = query.endDate ? new Date(query.endDate + 'T23:59:59') : undefined;
-        
+
         const result = await getSecurityEvents({
           startDate,
           endDate,
@@ -2060,7 +2060,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // 获取安全统计（真实数据）
   .get(
     '/ops/security/stats-db',
@@ -2072,13 +2072,13 @@ Bad Case 标签可选值：
       }
 
       try {
-        const endDate = query.endDate 
-          ? new Date(query.endDate + 'T23:59:59') 
+        const endDate = query.endDate
+          ? new Date(query.endDate + 'T23:59:59')
           : new Date();
-        const startDate = query.startDate 
-          ? new Date(query.startDate + 'T00:00:00') 
+        const startDate = query.startDate
+          ? new Date(query.startDate + 'T00:00:00')
           : new Date(endDate.getTime() - 30 * 24 * 60 * 60 * 1000);
-        
+
         const result = await getSecurityStatsFromDB(startDate, endDate);
         return result;
       } catch (error: any) {
@@ -2117,7 +2117,7 @@ Bad Case 标签可选值：
       },
     }
   )
-  
+
   // ==========================================
   // v4.6: AI 健康度指标 (Dashboard)
   // ==========================================
@@ -2165,4 +2165,128 @@ Bad Case 标签可选值：
         500: 'ai.error',
       },
     }
+  )
+
+  // ==========================================
+  // AI Ops 运营接口 (v4.5)
+  // ==========================================
+  .group('/ops', (app) => app
+    // Security Moderation
+    .group('/security', (bp) => bp
+      // 获取审核队列
+      .get(
+        '/moderation/queue',
+        async ({ query, set, jwt, headers }) => {
+          const user = await verifyAuth(jwt, headers);
+          if (!user) {
+            set.status = 401;
+            return { code: 401, msg: '未授权' } satisfies ErrorResponse;
+          }
+
+          try {
+            const page = query.page ? parseInt(query.page) : 1;
+            const limit = query.limit ? parseInt(query.limit) : 20;
+            return await getModerationQueue(page, limit);
+          } catch (error: any) {
+            set.status = 500;
+            return { code: 500, msg: error.message || '获取审核队列失败' } satisfies ErrorResponse;
+          }
+        },
+        {
+          detail: {
+            tags: ['AI Ops'],
+            summary: '获取审核队列',
+            description: '获取待审核的内容列表',
+          },
+          query: t.Object({
+            page: t.Optional(t.String()),
+            limit: t.Optional(t.String()),
+          }),
+        }
+      )
+
+      // 审核通过
+      .post(
+        '/moderation/:id/approve',
+        async ({ params, set, jwt, headers }) => {
+          const user = await verifyAuth(jwt, headers);
+          if (!user) {
+            set.status = 401;
+            return { code: 401, msg: '未授权' } satisfies ErrorResponse;
+          }
+
+          try {
+            return await approveModeration(params.id);
+          } catch (error: any) {
+            set.status = 500;
+            return { code: 500, msg: error.message || '操作失败' } satisfies ErrorResponse;
+          }
+        },
+        {
+          detail: {
+            tags: ['AI Ops'],
+            summary: '审核通过',
+          },
+          params: t.Object({
+            id: t.String(),
+          }),
+        }
+      )
+
+      // 审核拒绝
+      .post(
+        '/moderation/:id/reject',
+        async ({ params, set, jwt, headers }) => {
+          const user = await verifyAuth(jwt, headers);
+          if (!user) {
+            set.status = 401;
+            return { code: 401, msg: '未授权' } satisfies ErrorResponse;
+          }
+
+          try {
+            return await rejectModeration(params.id);
+          } catch (error: any) {
+            set.status = 500;
+            return { code: 500, msg: error.message || '操作失败' } satisfies ErrorResponse;
+          }
+        },
+        {
+          detail: {
+            tags: ['AI Ops'],
+            summary: '审核拒绝',
+          },
+          params: t.Object({
+            id: t.String(),
+          }),
+        }
+      )
+
+      // 审核拒绝并封号
+      .post(
+        '/moderation/:id/ban',
+        async ({ params, set, jwt, headers }) => {
+          const user = await verifyAuth(jwt, headers);
+          if (!user) {
+            set.status = 401;
+            return { code: 401, msg: '未授权' } satisfies ErrorResponse;
+          }
+
+          try {
+            return await banModeration(params.id);
+          } catch (error: any) {
+            set.status = 500;
+            return { code: 500, msg: error.message || '操作失败' } satisfies ErrorResponse;
+          }
+        },
+        {
+          detail: {
+            tags: ['AI Ops'],
+            summary: '审核拒绝并封号',
+          },
+          params: t.Object({
+            id: t.String(),
+          }),
+        }
+      )
+    )
   );

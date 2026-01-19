@@ -1,5 +1,5 @@
 // Dashboard Service - MVP 简化版：只保留 Admin 基础统计
-import { db, users, activities, participants, eq, gte, desc, count, and, lte, lt, sql, inArray, not, partnerIntents, intentMatches } from '@juchang/db';
+import { db, users, activities, participants, eq, gte, desc, count, and, lte, lt, sql, inArray, not, partnerIntents, intentMatches, conversations, conversationMessages } from '@juchang/db';
 import type { 
   DashboardStats, 
   RecentActivity, 
@@ -754,44 +754,69 @@ export async function getGodViewData(): Promise<GodViewData> {
       )),
     // 今日对话数（使用 conversations 表）
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${today}`),
+      .from(conversations)
+      .where(gte(conversations.createdAt, today)),
     // J2C 转化率
     calculateJ2CRate(),
     // AI 健康度 - 本周数据
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${oneWeekAgo}`),
+      .from(conversations)
+      .where(gte(conversations.createdAt, oneWeekAgo)),
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${oneWeekAgo} AND evaluation_status = 'bad'`),
+      .from(conversations)
+      .where(and(
+        gte(conversations.createdAt, oneWeekAgo),
+        eq(conversations.evaluationStatus, 'bad')
+      )),
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${oneWeekAgo} AND has_error = true`),
+      .from(conversations)
+      .where(and(
+        gte(conversations.createdAt, oneWeekAgo),
+        eq(conversations.hasError, true)
+      )),
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${oneWeekAgo} AND evaluation_status != 'unreviewed'`),
+      .from(conversations)
+      .where(and(
+        gte(conversations.createdAt, oneWeekAgo),
+        not(eq(conversations.evaluationStatus, 'unreviewed'))
+      )),
     // AI 健康度 - 上周数据
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${twoWeeksAgo} AND created_at < ${oneWeekAgo} AND evaluation_status = 'bad'`),
+      .from(conversations)
+      .where(and(
+        gte(conversations.createdAt, twoWeeksAgo),
+        lt(conversations.createdAt, oneWeekAgo),
+        eq(conversations.evaluationStatus, 'bad')
+      )),
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${twoWeeksAgo} AND created_at < ${oneWeekAgo} AND has_error = true`),
+      .from(conversations)
+      .where(and(
+        gte(conversations.createdAt, twoWeeksAgo),
+        lt(conversations.createdAt, oneWeekAgo),
+        eq(conversations.hasError, true)
+      )),
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${twoWeeksAgo} AND created_at < ${oneWeekAgo} AND evaluation_status != 'unreviewed'`),
+      .from(conversations)
+      .where(and(
+        gte(conversations.createdAt, twoWeeksAgo),
+        lt(conversations.createdAt, oneWeekAgo),
+        not(eq(conversations.evaluationStatus, 'unreviewed'))
+      )),
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${twoWeeksAgo} AND created_at < ${oneWeekAgo}`),
+      .from(conversations)
+      .where(and(
+        gte(conversations.createdAt, twoWeeksAgo),
+        lt(conversations.createdAt, oneWeekAgo)
+      )),
     // 异常警报 - 24h 报错
     db.select({ count: count() })
-      .from(sql`conversations`)
-      .where(sql`created_at >= ${yesterday} AND has_error = true`),
-    // 敏感词触发（从 ai_security_events 表）
-    db.select({ count: count() })
-      .from(sql`ai_security_events`)
-      .where(sql`created_at >= ${yesterday}`),
+      .from(conversations)
+      .where(and(
+        gte(conversations.createdAt, yesterday),
+        eq(conversations.hasError, true)
+      )),
+    // 敏感词触发（暂时返回 0，需要 ai_security_events 表）
+    Promise.resolve([{ count: 0 }]),
     // 待审核数（暂时返回 0，需要审核队列表）
     Promise.resolve([{ count: 0 }]),
   ]);

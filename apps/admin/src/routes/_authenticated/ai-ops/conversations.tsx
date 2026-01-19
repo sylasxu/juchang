@@ -15,9 +15,10 @@ export type ConversationsSearchParams = Static<typeof searchSchema>
 export const Route = createFileRoute('/_authenticated/ai-ops/conversations')({
   component: Conversations,
   validateSearch: (search: Record<string, unknown>): ConversationsSearchParams => {
+    const pageSize = search.pageSize ? Number(search.pageSize) : undefined
     return {
       page: search.page ? Number(search.page) : undefined,
-      pageSize: search.pageSize ? Number(search.pageSize) : undefined,
+      pageSize: pageSize && pageSize <= 100 ? pageSize : undefined,
       search: search.search as string | undefined,
       hasError: search.hasError as string[] | undefined,
     }
