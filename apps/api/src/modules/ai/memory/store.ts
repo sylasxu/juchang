@@ -5,18 +5,22 @@
  * 复用 @juchang/db 的 conversations 和 conversationMessages 表
  */
 
-import { 
-  db, 
-  conversations, 
-  conversationMessages, 
-  eq, 
-  desc, 
+import {
+  db,
+  conversations,
+  conversationMessages,
+  eq,
+  desc,
   sql,
   type Conversation,
   type Message,
 } from '@juchang/db';
+import { getEmbedding } from '../models/router';
+import { createLogger } from '../observability/logger';
 import type { SaveMessageParams, SessionWindowConfig } from './types';
 import { DEFAULT_SESSION_WINDOW } from './types';
+
+const logger = createLogger('MemoryStore');
 
 /**
  * 获取或创建用户的当前会话（24h 窗口）
@@ -100,7 +104,7 @@ export async function getMessages(
 export async function saveMessage(params: SaveMessageParams): Promise<{ id: string }> {
   const { conversationId, userId, role, messageType, content, activityId } = params;
 
-  // 插入消息
+  // 1. 插入消息
   const [msg] = await db
     .insert(conversationMessages)
     .values({
@@ -126,7 +130,40 @@ export async function saveMessage(params: SaveMessageParams): Promise<{ id: stri
     })
     .where(eq(conversations.id, conversationId));
 
+  // 2. 异步生成 embedding (如果是文本消息且来自用户或助手)
+  // 只对 text 类型的文本内容生成，忽略 JSON 卡片数据
+  if (messageType === 'text' && typeof content === 'string' && content.length > 0 && content.length < 8000) {
+    // 不阻塞主流程
+    generateAndSaveEmbedding(msg.id, content).catch(err => {
+      logger.error('Embedding generation failed silently', { error: err });
+    });
+  } else if (typeof content === 'object' && content && 'text' in content) {
+    // 兼容部分 content 为对象的场景 (如 { text: "..." })
+    const textContent = (content as { text: string }).text;
+    if (textContent && textContent.length > 0) {
+      generateAndSaveEmbedding(msg.id, textContent).catch(err => {
+        logger.error('Embedding generation failed silently', { error: err });
+      });
+    }
+  }
+
   return { id: msg.id };
+}
+
+/**
+ * 异步生成并更新消息的 embedding
+ * @internal 用于 saveMessage 后台处理
+ */
+async function generateAndSaveEmbedding(messageId: string, content: string) {
+  try {
+    const embedding = await getEmbedding(content);
+    await db
+      .update(conversationMessages)
+      .set({ embedding })
+      .where(eq(conversationMessages.id, messageId));
+  } catch (error) {
+    logger.error('Failed to generate embedding for message', { messageId, error });
+  }
 }
 
 /**

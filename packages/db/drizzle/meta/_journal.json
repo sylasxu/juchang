@@ -71,6 +71,13 @@
       "when": 1768661347836,
       "tag": "0009_flawless_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1768893062597,
+      "tag": "0010_lean_obadiah_stane",
+      "breakpoints": true
     }
   ]
 }

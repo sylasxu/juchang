@@ -1,6 +1,7 @@
 import { pgTable, uuid, jsonb, timestamp, index, pgEnum, text, integer, boolean } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { activities } from "./activities";
+import { vector } from "./custom-types";
 import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
 
 /**
@@ -51,34 +52,34 @@ export const evaluationStatusEnum = pgEnum("evaluation_status", [
 
 export const conversations = pgTable("conversations", {
   id: uuid("id").primaryKey().defaultRandom(),
-  
+
   // 所属用户
   userId: uuid("user_id").notNull().references(() => users.id),
-  
+
   // 会话标题（从第一条用户消息自动提取，可选）
   title: text("title"),
-  
+
   // 消息数量（冗余字段，方便查询）
   messageCount: integer("message_count").default(0).notNull(),
-  
+
   // 时间戳
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
-  
+
   // ==========================================
   // v4.6: Admin Command Center - 评估字段
   // ==========================================
-  
+
   // 评估状态：unreviewed(默认) / good / bad
   evaluationStatus: evaluationStatusEnum("evaluation_status").default("unreviewed").notNull(),
-  
+
   // 评估标签 (JSON 数组)
   // 可选值: ['wrong_intent', 'hallucination', 'tool_error', 'bad_tone', 'incomplete']
   evaluationTags: jsonb("evaluation_tags").$type<string[]>().default([]),
-  
+
   // 人工备注
   evaluationNote: text("evaluation_note"),
-  
+
   // 是否包含错误 (widget_error)，方便筛选
   hasError: boolean("has_error").default(false).notNull(),
 }, (t) => [
@@ -95,25 +96,28 @@ export const conversations = pgTable("conversations", {
 
 export const conversationMessages = pgTable("conversation_messages", {
   id: uuid("id").primaryKey().defaultRandom(),
-  
+
   // 所属会话
   conversationId: uuid("conversation_id").notNull().references(() => conversations.id, { onDelete: 'cascade' }),
-  
+
   // 所属用户（冗余，方便查询）
   userId: uuid("user_id").notNull().references(() => users.id),
-  
+
   // 角色：用户说的 or AI 回复的
   role: conversationRoleEnum("role").notNull(),
-  
+
   // 消息类型：决定前端渲染哪种 Widget
   messageType: conversationMessageTypeEnum("message_type").notNull(),
-  
+
   // 内容：JSONB 存储灵活的卡片数据
   content: jsonb("content").notNull(),
-  
+
   // 关联：如果消息对应真实活动
   activityId: uuid("activity_id").references(() => activities.id),
-  
+
+  // v4.7 语义搜索：向量字段 (智谱 embedding-3, 1024 维)
+  embedding: vector('embedding', { dimensions: 1024 }),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("conversation_messages_conversation_idx").on(t.conversationId),

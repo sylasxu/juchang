@@ -87,3 +87,8 @@ export {
   extractPreferencesSimple,
   extractPreferences,
 } from './extractor';
+
+// Semantic Search - 语义召回
+export {
+  semanticRecall
+} from './semantic';
