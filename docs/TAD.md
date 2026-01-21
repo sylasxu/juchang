@@ -23,6 +23,7 @@
 2. **原生极致性能**：小程序端使用微信开发者工具直接构建原生 WXML/LESS/TS，零运行时开销
 3. **Spec-Coding 契约驱动**：Elysia TypeBox 定义路由契约，Orval 自动生成客户端 SDK
 4. **服务每个人**：不只服务群主（Creator），也服务参与者（Joiner）
+5. **Flow-Driven**：每一行代码都服务于 [PRD: 核心业务流程] 的痛点消除 (详见 6.13)
 
 ---
 
@@ -1292,6 +1293,118 @@ flowchart TD
 - XML 结构化（清晰的角色/上下文/规则分离）
 - Few-shot 示例（典型对话样例）
 - Chain-of-Thought（复杂场景引导推理）
+
+---
+
+### 6.13 技术支撑业务：找搭子匹配 (Mapping Flow 1.2.1)
+
+为了实现 PRD 1.2.1 中"异步匹配"与"双向确认"的业务需求，技术实现必须解决以下难点：
+1. **意向结构化**：如何把 "周末剧本杀" 变成可计算的数据？
+2. **实时/定时匹配**：如何高效扫描数据库？
+3. **隐私安全**：如何在双方确认前保护联系方式？
+
+#### 6.13.1 数据流转设计
+
+```mermaid
+sequenceDiagram
+    participant LLM as Qwen-Max
+    participant API as PartnerIntentService
+    participant DB as PGVector (partner_intents)
+    participant Cron as Matcher Job
+    participant Match as intent_matches 表
+
+    Note over LLM, API: Phase 1: 结构化存储
+    LLM->>API: 提取意向 JSON (Type, Time, Tags)
+    API->>API: 计算 Embedding (v4.5)
+    API->>DB: INSERT into partner_intents (Status=Active)
+    
+    Note over Cron, DB: Phase 2: 匹配计算
+    loop 每 5 分钟
+        Cron->>DB: 扫描 Active Intents
+        Cron->>DB: 向量相似度搜索 (HNSW Index)
+        Cron->>Cron: 业务规则过滤 (Geo < 3km, Time Overlap)
+        Cron->>Match: 创建 Pending Match (Status=Pending)
+    end
+    
+    Note over Match, API: Phase 3: 状态流转
+    Match->>API: 触发 Notification
+    API-->>UserA: 推送匹配卡片
+    API-->>UserB: 推送匹配卡片
+```
+
+#### 6.13.2 匹配算法核心逻辑
+
+位置：`apps/api/src/modules/workflow/partner-matching.ts`
+
+1.  **粗筛 (Recall)**：
+    - `type` 必须相同
+    - `location` 距离 < 5km (PostGIS `ST_DWithin`)
+    - `status` 必须为 `active`
+
+2.  **精排 (Rank)**：
+    - **时间重叠度**：计算两个意向的时间窗口交集
+    - **Tag 相似度**：使用 Embedding Cosine Similarity
+    - **信用分过滤**：排除信用分过低的用户
+
+3.  **握手协议 (Handshake Protocol)**：
+    - 状态机：`Pending` -> `Confirmed_A` -> `Matched` (双方都确认)
+    - 隐私保护：在 `Matched` 状态之前，API **绝对不返回** 对方的 `phoneNumber` 或 `wxId`。
+
+#### 6.13.3 对应 CP (Correctness Properties)
+- **CP-23 (One Active Intent)**: 这里的逻辑保证同一用户同一类型下只能有一个 Active 意向，防止恶意刷屏。
+- **CP-24 (24h Expiry)**: 定时任务自动将超过 24h 的 Intent 标记为 `expired`，保证匹配的时效性。
+
+---
+
+### 6.14 技术支撑业务：极速组局 (Mapping Flow 1.2.2)
+
+这是 PRD 1.2.2 "一句话生成" 背后的技术链路，核心在于将自然语言无损转化为结构化活动数据。
+
+#### 6.14.1 数据流转设计
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant LLM as Intent Processor
+    participant Tool as ActivityTool
+    participant DB as PostGIS (activities)
+    participant Bus as EventBus
+
+    User->>LLM: 输入 "明晚观音桥火锅"
+    LLM->>LLM: 意图分类 (Intent: create)
+    LLM->>LLM: 实体提取 (Time: 2026-0X-XX 19:00, Loc: 观音桥, Type: Hotpot)
+    LLM->>Tool: 调用 createActivityDraft(title, time, location)
+    Tool->>DB: INSERT into activities (Status: draft)
+    DB-->>Tool: 返回 activity_id
+    Tool-->>User: 返回 Widget_Draft (含预览图)
+
+    User->>User: 点击 [确认发布]
+    User->>DB: UPDATE activities SET status = 'active'
+    DB->>Bus: 触发 'activity.created' 事件
+    Bus->>User: 异步生成分享卡片 (Widget_Share)
+```
+
+#### 6.14.2 核心逻辑实现
+
+位置：`apps/api/src/modules/ai/tools/activity.ts`
+
+1.  **意图解析 (Intent Parsing)**：
+    - 优先使用正则 `/(约|组|我想去).+/` 快速命中
+    - 兜底使用 Qwen-Max 进行语义理解
+    - **时间归一化**：将 "明晚" 解析为具体 ISO 时间戳
+
+2.  **草稿机制 (Draft Mechanism)**：
+    - `draft` 状态的活动仅对自己可见，不进入广场/推荐流
+    - 允许 `null` 字段（如尚未确定的地点），但在转并在 `active` 前必须校验完整性
+
+3.  **状态机 (Lifecycle FSM)**：
+    - `draft` → `active`: 用户确认发布，触发各种通知
+    - `active` → `completed`: 时间结束或发起人手动结束
+    - `active` → `cancelled`: 发起人取消
+
+#### 6.14.3 对应 CP (Correctness Properties)
+- **CP-12 (Valid Geolocation)**: 活动必须包含有效的 PostGIS `POINT(lon, lat)`，否则无法进行基于距离的推荐。
+- **CP-15 (Author Modification)**: 只有 `creator_id` 匹配的用户才有权修改或发布该活动草稿。
 
 ---
 
