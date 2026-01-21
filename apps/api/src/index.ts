@@ -68,7 +68,7 @@ const app = new Elysia()
       hideModels: false,
       documentDownloadType: 'both',
       hideTestRequestButton: false,
-      showDeveloperTools:"never",
+      showDeveloperTools: "never",
       hideSearch: false,
       showOperationId: false,
       hideDarkModeToggle: false,
@@ -78,19 +78,21 @@ const app = new Elysia()
       orderRequiredPropertiesFirst: true,
     },
   }))
-  // 核心业务模块
-  .use(authController)
-  .use(userController)
-  .use(activityController)
-  .use(aiController)
-  .use(participantController)
-  .use(chatController)
-  .use(dashboardController)
-  .use(notificationController)
-  .use(reportController)
-  .use(moderationController)
-  .use(anomalyController)
-  .use(growthController)
+  // 核心业务模块 - v1 版本前缀
+  .group('/api/v1', (app) => app
+    .use(authController)
+    .use(userController)
+    .use(activityController)
+    .use(aiController)
+    .use(participantController)
+    .use(chatController)
+    .use(dashboardController)
+    .use(notificationController)
+    .use(reportController)
+    .use(moderationController)
+    .use(anomalyController)
+    .use(growthController)
+  )
   // 健康检查
   .get('/', () => 'Hello Juchang API')
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }))
@@ -107,10 +109,10 @@ const host = process.env.API_HOST || '0.0.0.0'; // 默认监听所有网卡，�
 app.listen({ port, hostname: host }, () => {
   // 打印路由列表
   printRoutes(app);
-  
+
   // 打印启动信息
   printStartupInfo(port, '/openapi');
-  
+
   // 启动定时任务调度器
   startScheduler();
 });

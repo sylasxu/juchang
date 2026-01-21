@@ -1,31 +1,33 @@
 /**
- * RAG Search - 语义检索核心函数
+ * RAG Search - 语义检索核心函数 (v4.6 升级)
  * 
  * 纯函数式模块：
  * - indexActivity() - 索引单个活动
  * - indexActivities() - 批量索引
  * - deleteIndex() - 删除索引
- * - search() - 混合检索 (Hard Filter + Soft Rank)
+ * - search() - 混合检索 (Hard Filter + Vector Rank + Rerank + MaxSim)
  * - generateMatchReason() - 推荐理由生成
  * 
  * v4.5: 支持 MaxSim 个性化推荐
+ * v4.6: 新增 qwen3-rerank 重排序步骤
  */
 
 import { db, eq, sql, isNotNull } from '@juchang/db';
 import { activities } from '@juchang/db';
 import type { Activity } from '@juchang/db';
-import type { 
-  HybridSearchParams, 
-  ScoredActivity, 
+import type {
+  HybridSearchParams,
+  ScoredActivity,
   BatchIndexResult,
 } from './types';
 import { DEFAULT_RAG_CONFIG } from './types';
-import { 
+import {
   generateEmbeddingWithRetry,
   generateActivityEmbedding,
 } from './utils';
 import { createLogger } from '../observability/logger';
 import { getInterestVectors, calculateMaxSim } from '../memory';
+import { rerank } from '../models/router';
 
 const logger = createLogger('rag');
 
@@ -43,15 +45,15 @@ const MAXSIM_BOOST_RATIO = 0.2;
 export async function indexActivity(activity: Activity): Promise<void> {
   try {
     const embedding = await generateActivityEmbedding(activity);
-    
+
     await db.update(activities)
       .set({ embedding })
       .where(eq(activities.id, activity.id));
-    
+
     logger.debug('Activity indexed', { activityId: activity.id });
   } catch (error) {
-    logger.error('Failed to index activity', { 
-      activityId: activity.id, 
+    logger.error('Failed to index activity', {
+      activityId: activity.id,
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
@@ -66,23 +68,23 @@ export async function indexActivities(
   activityList: Activity[],
   options?: { batchSize?: number; delayMs?: number }
 ): Promise<BatchIndexResult> {
-  const { 
-    batchSize = DEFAULT_RAG_CONFIG.batchSize, 
+  const {
+    batchSize = DEFAULT_RAG_CONFIG.batchSize,
     delayMs = DEFAULT_RAG_CONFIG.batchDelayMs,
   } = options || {};
-  
+
   let success = 0;
   let failed = 0;
   const errors: Array<{ id: string; error: string }> = [];
 
-  logger.info('Starting batch indexing', { 
-    total: activityList.length, 
+  logger.info('Starting batch indexing', {
+    total: activityList.length,
     batchSize,
   });
 
   for (let i = 0; i < activityList.length; i += batchSize) {
     const batch = activityList.slice(i, i + batchSize);
-    
+
     for (const activity of batch) {
       try {
         await indexActivity(activity);
@@ -100,11 +102,11 @@ export async function indexActivities(
     if (i + batchSize < activityList.length) {
       await new Promise(resolve => setTimeout(resolve, delayMs));
     }
-    
+
     // 进度日志
     const processed = Math.min(i + batchSize, activityList.length);
-    logger.info('Batch progress', { 
-      processed, 
+    logger.info('Batch progress', {
+      processed,
       total: activityList.length,
       success,
       failed,
@@ -123,7 +125,7 @@ export async function deleteIndex(activityId: string): Promise<void> {
   await db.update(activities)
     .set({ embedding: null })
     .where(eq(activities.id, activityId));
-  
+
   logger.debug('Activity index deleted', { activityId });
 }
 
@@ -147,7 +149,7 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     userId = null,
   } = params;
 
-  logger.debug('Starting hybrid search', { 
+  logger.debug('Starting hybrid search', {
     query: semanticQuery.slice(0, 50),
     filters,
     limit,
@@ -156,13 +158,13 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
 
   // 1. 生成查询向量（带重试）
   const queryVector = await generateEmbeddingWithRetry(semanticQuery);
-  
+
   // 2. 如果向量生成失败，降级到 location-only 搜索
   if (!queryVector) {
     logger.warn('Query embedding failed, falling back to location-only search');
     return searchByLocationOnly(filters, limit);
   }
-  
+
   const vectorStr = `[${queryVector.join(',')}]`;
 
   // 3. 获取用户兴趣向量（用于 MaxSim）
@@ -170,8 +172,8 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
   if (userId) {
     try {
       interestVectors = await getInterestVectors(userId);
-      logger.debug('User interest vectors loaded', { 
-        userId, 
+      logger.debug('User interest vectors loaded', {
+        userId,
         vectorCount: interestVectors.length,
       });
     } catch (error) {
@@ -249,47 +251,79 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     LIMIT ${limit * 2}
   `);
 
-  // 6. 应用 MaxSim 个性化提升（如果有兴趣向量）
-  let scoredResults = results.map(r => {
-    let finalScore = r.similarity;
-    
+  // 6. Rerank 重排序 (v4.6 新增)
+  // 使用 qwen3-rerank 对 Vector Rank 结果进行语义重排序
+  let rerankedResults = [...results];
+  if (results.length > 3) {
+    try {
+      // 准备文档列表
+      const documents = results.map(r =>
+        `${r.title} | ${r.type} | ${r.location_name}`
+      );
+
+      // 调用 Rerank API
+      const rerankResponse = await rerank(semanticQuery, documents, Math.min(results.length, 20));
+
+      // 根据 Rerank 结果重新排序
+      const rerankedIndices = rerankResponse.results.map(r => r.index);
+      rerankedResults = rerankedIndices.map(idx => [...results][idx]);
+
+      logger.debug('Rerank completed', {
+        originalCount: results.length,
+        rerankedCount: rerankedResults.length,
+        topScore: rerankResponse.results[0]?.score,
+      });
+    } catch (error) {
+      // Rerank 失败时静默降级，继续使用 Vector Rank 结果
+      logger.warn('Rerank failed, using vector rank results', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // 7. 应用 MaxSim 个性化提升（如果有兴趣向量）
+  let scoredResults = rerankedResults.map((r, idx) => {
+    // 基础分数：Rerank 后的位置越靠前分数越高
+    let finalScore = r.similarity * (1 - idx * 0.02);  // 位置衰减
+
     // 如果有用户兴趣向量，计算 MaxSim 提升
     if (interestVectors.length > 0 && r.embedding) {
       const maxSim = calculateMaxSim(queryVector, interestVectors);
       if (maxSim > 0.5) {
-        // 提升 20% 排名分数
-        finalScore = r.similarity * (1 + MAXSIM_BOOST_RATIO * maxSim);
-        logger.debug('MaxSim boost applied', { 
-          activityId: r.id, 
+        // 提升20% 排名分数
+        finalScore = finalScore * (1 + MAXSIM_BOOST_RATIO * maxSim);
+        logger.debug('MaxSim boost applied', {
+          activityId: r.id,
           originalScore: r.similarity,
           maxSim,
           boostedScore: finalScore,
         });
       }
     }
-    
+
     return {
       ...r,
       finalScore,
     };
   });
 
-  // 7. 按最终分数重新排序
+  // 8. 按最终分数重新排序
   scoredResults.sort((a, b) => b.finalScore - a.finalScore);
 
-  // 8. 过滤低于阈值的结果并限制数量
+  // 9. 过滤低于阈值的结果并限制数量
   const filtered = scoredResults
     .filter(r => r.similarity >= threshold)
     .slice(0, limit);
 
-  logger.debug('Search results', { 
+  logger.debug('Search results', {
     total: results.length,
+    afterRerank: rerankedResults.length,
     filtered: filtered.length,
     threshold,
     hasMaxSimBoost: interestVectors.length > 0,
   });
 
-  // 9. 如果结果太少 (≤3)，直接返回（节省 Token）
+  // 10. 如果结果太少 (≤3)，直接返回（节省 Token）
   if (filtered.length <= 3) {
     return filtered.map(r => ({
       activity: mapRowToActivity(r),
@@ -298,7 +332,7 @@ export async function search(params: HybridSearchParams): Promise<ScoredActivity
     }));
   }
 
-  // 10. 可选：生成推荐理由
+  // 11. 可选：生成推荐理由
   if (includeMatchReason) {
     const scoredResultsWithReason = await Promise.all(
       filtered.map(async r => {
@@ -335,15 +369,15 @@ async function searchByLocationOnly(
   limit: number = DEFAULT_RAG_CONFIG.defaultLimit
 ): Promise<ScoredActivity[]> {
   logger.info('Executing location-only fallback search');
-  
+
   // 如果没有位置信息，返回空结果
   if (!filters.location) {
     logger.warn('No location provided for fallback search, returning empty results');
     return [];
   }
-  
+
   const { lat, lng, radiusInKm } = filters.location;
-  
+
   // 构建基础条件
   const baseConditions = [
     sql`${activities.status} = 'active'`,
@@ -355,12 +389,12 @@ async function searchByLocationOnly(
       ${radiusInKm * 1000}
     )`,
   ];
-  
+
   // 类型过滤
   if (filters.type) {
     baseConditions.push(sql`${activities.type} = ${filters.type}`);
   }
-  
+
   // 时间范围过滤
   if (filters.timeRange?.start) {
     baseConditions.push(sql`${activities.startAt} >= ${filters.timeRange.start}`);
@@ -368,7 +402,7 @@ async function searchByLocationOnly(
   if (filters.timeRange?.end) {
     baseConditions.push(sql`${activities.startAt} <= ${filters.timeRange.end}`);
   }
-  
+
   // 执行查询，按距离排序
   const results = await db.execute<{
     id: string;
@@ -400,13 +434,13 @@ async function searchByLocationOnly(
     ORDER BY distance ASC
     LIMIT ${limit}
   `);
-  
+
   logger.debug('Location-only search results', { count: results.length });
-  
+
   // 将距离转换为 0-1 分数（距离越近分数越高）
   // 使用 radiusInKm * 1000 作为最大距离
   const maxDistance = radiusInKm * 1000;
-  
+
   return results.map(r => ({
     activity: mapRowToActivity(r),
     score: Math.max(0, 1 - (r.distance / maxDistance)),
@@ -435,6 +469,8 @@ function mapRowToActivity(row: any): Activity {
     embedding: row.embedding,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    groupOpenId: row.group_open_id ?? null,
+    dynamicMessageId: row.dynamic_message_id ?? null,
   };
 }
 
@@ -453,7 +489,7 @@ export async function generateMatchReason(
     // 简化实现：基于相似度和活动信息生成理由
     // 后续可以接入 LLM 生成更自然的理由
     const scorePercent = Math.round(score * 100);
-    
+
     if (score >= 0.8) {
       return `非常匹配你的需求「${query.slice(0, 20)}」，这个「${activity.title}」活动和你想要的高度吻合`;
     } else if (score >= 0.6) {

@@ -48,8 +48,8 @@ inclusion: always
 ## 🏗️ Monorepo 结构
 
 ### @juchang/db (数据源)
-- **Tech**: Drizzle ORM (PostgreSQL + PostGIS) + `drizzle-typebox`
-- **10 张核心表**: users, activities, participants, conversations, conversation_messages, activity_messages, notifications, partner_intents, intent_matches, match_messages
+- **Tech**: Drizzle ORM (PostgreSQL + PostGIS + pgvector) + `drizzle-typebox`
+- **13 张核心表**: users, activities, participants, conversations, conversation_messages, activity_messages, notifications, partner_intents, intent_matches, match_messages, ai_requests, ai_tool_calls, ai_eval_samples
 - **Schema 规范**:
   ```typescript
   export const users = pgTable("users", { ... });
@@ -60,7 +60,12 @@ inclusion: always
 
 ### apps/api (业务网关)
 - **Tech**: ElysiaJS + TypeBox
-- **5 个模块**: auth, users, activities, chat, ai
+- **15 个模块**: auth, users, activities, chat, ai, participants, notifications, reports, content-security, feedbacks, transactions, upload, wechat, ...
+- **AI 模块结构 (v4.6)**:
+  - `ai.service.ts` - 核心入口
+  - `processors/` - Processor 纯函数 (input-guard, user-profile, semantic-recall, token-limit, save-history, extract-preferences)
+  - `models/` - 模型路由 (Qwen3 主力 + DeepSeek 备选)
+  - `rag/` - 语义检索 + Rerank
 - **文件结构**: `*.controller.ts` / `*.service.ts` (纯函数) / `*.model.ts`
 - **禁止**: `export namespace`、class Service、手动定义 DB 表 Schema
 
@@ -164,11 +169,11 @@ bunx <package>       # 执行包命令
 - `partnerIntentStatusEnum`: active, matched, expired, cancelled (v4.0)
 - `intentMatchOutcomeEnum`: pending, confirmed, expired, cancelled (v4.0)
 
-**核心表** (v4.1 - 10 张):
+**核心表** (v4.6 - 13 张):
 | 表 | 核心字段 |
 |---|---------|
 | users | id, wxOpenId, phoneNumber, nickname, avatarUrl, aiCreateQuotaToday, workingMemory |
-| activities | id, creatorId, title, location, locationHint, startAt, type, status |
+| activities | id, creatorId, title, location, locationHint, startAt, type, status, groupOpenId, dynamicMessageId |
 | participants | id, activityId, userId, status |
 | conversations | id, userId, title, messageCount, lastMessageAt (会话) |
 | conversation_messages | id, conversationId, userId, role, messageType, content, activityId (消息) |
@@ -177,11 +182,20 @@ bunx <package>       # 执行包命令
 | partner_intents | id, userId, type, tags, location, expiresAt, status (v4.0) |
 | intent_matches | id, intentAId, intentBId, tempOrganizerId, outcome (v4.0) |
 | match_messages | id, matchId, senderId, content (v4.0) |
+| ai_requests | id, userId, modelId, inputTokens, outputTokens, latencyMs (v4.6) |
+| ai_tool_calls | id, requestId, toolName, durationMs, success (v4.6) |
+| ai_eval_samples | id, input, output, intent, score (v4.6) |
 
 **AI 对话持久化 (v3.9)**:
 - 有登录用户的 AI 对话自动保存到 `conversation_messages` 表
 - Tool 返回的 `activityId` 自动关联到消息
 - 支持按 `activityId` 查询关联的对话历史
+
+**AI 模型配置 (v4.6)**:
+- **主力**: Qwen3 (qwen-flash 闲聊 / qwen-plus 推理 / qwen-max Agent)
+- **备选**: DeepSeek (deepseek-chat)
+- **Embedding**: Qwen text-embedding-v4 (1536 维)
+- **Rerank**: qwen3-rerank
 
 ---
 

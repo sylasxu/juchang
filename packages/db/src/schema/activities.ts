@@ -22,19 +22,19 @@ import { createInsertSchema, createSelectSchema } from "drizzle-typebox";
  */
 export const activities = pgTable("activities", {
   id: uuid("id").primaryKey().defaultRandom(),
-  
+
   creatorId: uuid("creator_id").notNull().references(() => users.id),
 
   // --- 基础信息 ---
   title: varchar("title", { length: 100 }).notNull(),
   description: text("description"),
-  
+
   // --- 位置 (保留 PostGIS) ---
   location: geometry("location", { type: "point", mode: "xy", srid: 4326 }).notNull(),
   locationName: varchar("location_name", { length: 100 }).notNull(),
   address: varchar("address", { length: 255 }),
   locationHint: varchar("location_hint", { length: 100 }).notNull(), // 重庆地形必填
-  
+
   // --- 时间 ---
   startAt: timestamp("start_at").notNull(),
 
@@ -42,12 +42,16 @@ export const activities = pgTable("activities", {
   type: activityTypeEnum("type").notNull(),
   maxParticipants: integer("max_participants").default(4).notNull(),
   currentParticipants: integer("current_participants").default(1).notNull(),
-  
+
   // --- 状态 (v3.3 默认 draft，符合 AI 解析 → 用户确认的工作流) ---
   status: activityStatusEnum("status").default("draft").notNull(),
 
   // --- v4.5 语义搜索：向量字段 (Qwen text-embedding-v4, 1536 维) ---
   embedding: vector('embedding', { dimensions: 1536 }),
+
+  // --- v4.x 微信聊天工具模式 (Phase 2 预留) ---
+  groupOpenId: varchar('group_open_id', { length: 64 }),   // 关联的微信群 opengid
+  dynamicMessageId: varchar('dynamic_message_id', { length: 64 }), // 微信动态消息 activityId
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -17,6 +17,15 @@ fileMatchPattern: "apps/api/**/*.ts"
 
 **检验标准**：换一个前端框架，API 需要改吗？需要改 = 设计有问题
 
+### API 版本控制
+
+所有业务 API 使用 `/api/v1` 前缀：
+
+```
+✅ 正确：/api/v1/auth/login, /api/v1/activities/nearby
+❌ 错误：/auth/login, /activities/nearby (无版本前缀)
+```
+
 ### 显式参数设计
 
 ```typescript
@@ -39,7 +48,15 @@ GET /notifications?userId=xxx    // 查指定用户（需 Admin 权限）
 | users | 用户 CRUD、额度、统计 | - |
 | activities | 活动 CRUD、报名、附近搜索 | 群聊消息 |
 | chat | 活动群聊消息 | AI 对话历史 |
-| ai | AI 解析、对话历史、额度管理 | - |
+| ai | AI 解析、对话历史、工具调用、语义检索 | - |
+| participants | 报名管理 | - |
+| notifications | 通知推送 | - |
+| reports | 举报处理 | - |
+| content-security | 内容安全检测 | - |
+| feedbacks | 用户反馈 | - |
+| transactions | 额度交易记录 | - |
+| upload | 文件上传 | - |
+| wechat | 微信回调 | - |
 
 ---
 

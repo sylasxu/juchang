@@ -857,7 +857,7 @@ Bad Case 标签可选值：
 
   // 批量删除会话（Admin 用）
   .post(
-    '/sessions/batch-delete',
+    '/sessions/batchDelete',
     async ({ body, set, jwt, headers }) => {
       const user = await verifyAuth(jwt, headers);
       if (!user) {

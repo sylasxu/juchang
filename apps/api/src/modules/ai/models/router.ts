@@ -1,25 +1,27 @@
 /**
- * Model Router - 模型路由器
+ * Model Router - 模型路由器 (v4.6 升级)
  * 
- * 提供统一的模型访问接口，支持降级
+ * 提供统一的模型访问接口，支持降级和意图路由
  * 
- * 策略：
- * - 主力：DeepSeek（性价比高）
- * - 备选：智谱（Embedding）
+ * 策略 (v4.6):
+ * - 主力 Chat: Qwen (qwen-flash 闲聊 / qwen-plus 推理 / qwen-max Agent)
+ * - 备选 Chat: DeepSeek (deepseek-chat)
+ * - Embedding: Qwen text-embedding-v4
+ * - Rerank: qwen3-rerank
  */
 
 import type { LanguageModel } from 'ai';
 import { deepseekProvider } from './adapters/deepseek';
-import { zhipuProvider, getZhipuEmbeddings } from './adapters/zhipu';
-import type { ModelProvider, ModelProviderName, FallbackConfig } from './types';
-import { DEFAULT_FALLBACK_CONFIG, MODEL_IDS } from './types';
+import { qwenProvider, getQwenEmbeddings, qwenRerank, getQwenModelByIntent } from './adapters/qwen';
+import type { ModelProvider, ModelProviderName, FallbackConfig, RerankResponse } from './types';
+import { DEFAULT_FALLBACK_CONFIG, ACTIVE_MODELS } from './types';
 
 /**
  * 提供商映射
  */
 const providers: Partial<Record<ModelProviderName, ModelProvider>> = {
   deepseek: deepseekProvider,
-  zhipu: zhipuProvider,
+  qwen: qwenProvider,
 };
 
 /**
@@ -52,7 +54,7 @@ export function getChatModel(
   preferredProvider?: ModelProviderName
 ): LanguageModel {
   const primary = preferredProvider || fallbackConfig.primary;
-  
+
   try {
     const provider = providers[primary];
     if (!provider) {
@@ -63,7 +65,7 @@ export function getChatModel(
     if (!fallbackConfig.enableFallback) {
       throw error;
     }
-    
+
     console.warn(`[ModelRouter] ${primary} failed, falling back to ${fallbackConfig.fallback}`, error);
     const fallbackProvider = providers[fallbackConfig.fallback];
     if (!fallbackProvider) {
@@ -74,12 +76,12 @@ export function getChatModel(
 }
 
 /**
- * 获取 Embedding（使用智谱）
+ * 获取 Embedding（使用 Qwen text-embedding-v4）
  * 
- * 注意：DeepSeek 暂不支持 Embedding，直接使用智谱 fetch API
+ * v4.6: 切换主力为 Qwen
  */
 export async function getEmbeddings(texts: string[]): Promise<number[][]> {
-  return getZhipuEmbeddings(texts);
+  return getQwenEmbeddings(texts);
 }
 
 /**
@@ -91,10 +93,36 @@ export async function getEmbedding(text: string): Promise<number[]> {
 }
 
 /**
- * 获取默认 Chat 模型
+ * 获取默认 Chat 模型 (v4.6: 使用 Qwen Flash)
  */
 export function getDefaultChatModel(): LanguageModel {
-  return getChatModel(MODEL_IDS.DEEPSEEK_CHAT);
+  return qwenProvider.getChatModel(ACTIVE_MODELS.CHAT_PRIMARY);
+}
+
+/**
+ * 按意图获取模型 (v4.6 新增)
+ * 
+ * 根据业务意图选择最合适的模型：
+ * - chat: qwen-flash (极速闲聊)
+ * - reasoning: qwen-plus (深度思考，找搭子/复杂匹配)
+ * - agent: qwen3-max (精准 Tool Calling)
+ * - vision: qwen3-vl-plus (视觉理解)
+ */
+export function getModelByIntent(intent: 'chat' | 'reasoning' | 'agent' | 'vision'): LanguageModel {
+  return getQwenModelByIntent(intent);
+}
+
+/**
+ * Rerank 检索重排 (v4.6 新增)
+ * 
+ * 使用 qwen3-rerank 对检索结果进行语义重排序
+ */
+export async function rerank(
+  query: string,
+  documents: string[],
+  topK: number = 10
+): Promise<RerankResponse> {
+  return qwenRerank(query, documents, topK);
 }
 
 /**
@@ -110,15 +138,15 @@ export async function withRetry<T>(
 ): Promise<T> {
   const maxRetries = options?.maxRetries ?? fallbackConfig.maxRetries;
   const retryDelay = options?.retryDelay ?? fallbackConfig.retryDelay;
-  
+
   let lastError: unknown;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await operation();
     } catch (error) {
       lastError = error;
-      
+
       if (attempt < maxRetries) {
         options?.onRetry?.(attempt + 1, error);
         // 指数退避 + 随机抖动
@@ -127,7 +155,7 @@ export async function withRetry<T>(
       }
     }
   }
-  
+
   throw lastError;
 }
 
@@ -144,7 +172,7 @@ export async function withFallback<T>(
   if (!fallbackConfig.enableFallback) {
     return primaryOp();
   }
-  
+
   try {
     return await primaryOp();
   } catch (error) {
@@ -175,7 +203,7 @@ export async function checkAllProvidersHealth(): Promise<Partial<Record<ModelPro
     checkProviderHealth('deepseek'),
     checkProviderHealth('zhipu'),
   ]);
-  
+
   return {
     deepseek: results[0],
     zhipu: results[1],

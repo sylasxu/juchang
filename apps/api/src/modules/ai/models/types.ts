@@ -194,11 +194,11 @@ export interface FallbackConfig {
 }
 
 /**
- * 默认降级配置
+ * 默认降级配置 (v4.6: Qwen 主力 + DeepSeek 备选)
  */
 export const DEFAULT_FALLBACK_CONFIG: FallbackConfig = {
-  primary: 'deepseek',
-  fallback: 'zhipu',
+  primary: 'qwen',
+  fallback: 'deepseek',
   maxRetries: 2,
   retryDelay: 1000,
   enableFallback: true,
@@ -211,52 +211,57 @@ export const MODEL_IDS = {
   // ==========================================
   // Chat 模型 (对话/Agent)
   // ==========================================
-  
+
   // DeepSeek - 主力 Chat
   DEEPSEEK_CHAT: 'deepseek-chat',
   DEEPSEEK_REASONER: 'deepseek-reasoner',
-  
+
   // 智谱 - 备选 Chat
   ZHIPU_GLM4: 'glm-4-flash',
   ZHIPU_GLM4_PLUS: 'glm-4-plus',
-  
-  // Qwen - 备选 Chat (未启用)
-  QWEN_PLUS: 'qwen-plus',
-  QWEN_TURBO: 'qwen-turbo',
-  
+
+  // Qwen3 - 分层 Chat (v4.6 新增，使用 OpenAI 兼容接口)
+  // 官方文档: https://help.aliyun.com/zh/model-studio/getting-started/models
+  QWEN_FLASH: 'qwen-flash',                   // 极速闲聊 (最便宜)
+  QWEN_PLUS: 'qwen-plus',                     // 深度思考 (推荐)
+  QWEN_MAX: 'qwen-max',                       // 精准 Tool Calling (最强)
+  QWEN_VL_MAX: 'qwen-vl-max',                 // 视觉理解
+
   // ==========================================
   // Embedding 模型 (向量化)
   // ==========================================
-  
+
   // Qwen - 主力 Embedding
   QWEN_EMBEDDING: 'text-embedding-v4',
-  
+
   // 智谱 - 备选 Embedding (已弃用)
   ZHIPU_EMBEDDING: 'embedding-3',
-  
+
   // ==========================================
-  // 未来扩展
+  // Rerank 模型 (v4.6 新增)
   // ==========================================
-  
-  // Doubao (火山引擎)
-  // DOUBAO_PRO: 'doubao-pro-32k',
-  // DOUBAO_EMBEDDING: 'doubao-embedding-large',
-  
-  // OpenAI (海外)
-  // GPT4O: 'gpt-4o',
-  // GPT4O_MINI: 'gpt-4o-mini',
+  QWEN_RERANK: 'qwen3-rerank',
+
 } as const;
 
 /**
  * 当前使用的模型配置
  */
 export const ACTIVE_MODELS = {
-  /** Chat 主力模型 */
-  CHAT_PRIMARY: MODEL_IDS.DEEPSEEK_CHAT,
+  /** Chat 主力模型 (日常对话) */
+  CHAT_PRIMARY: MODEL_IDS.QWEN_FLASH,
   /** Chat 备选模型 */
   CHAT_FALLBACK: MODEL_IDS.ZHIPU_GLM4,
+  /** 深度思考模型 (找搭子/复杂匹配) */
+  REASONING: MODEL_IDS.QWEN_PLUS,
+  /** Agent 模型 (Tool Calling/Generative UI) */
+  AGENT: MODEL_IDS.QWEN_MAX,
+  /** 视觉模型 (识图) */
+  VISION: MODEL_IDS.QWEN_VL_MAX,
   /** Embedding 主力模型 */
   EMBEDDING_PRIMARY: MODEL_IDS.QWEN_EMBEDDING,
+  /** Rerank 模型 */
+  RERANK: MODEL_IDS.QWEN_RERANK,
 } as const;
 
 /**

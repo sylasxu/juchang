@@ -1,7 +1,7 @@
 # 聚场 (JuChang) 产品需求文档
 
-> **版本**：v4.4 (Agent-First + 找搭子能力 + Welcome 页)
-> **更新日期**：2026-01
+> **版本**：v4.6 (Agent-First + 找搭子能力 + Welcome 页 + AI Ops 持久化)
+> **更新日期**：2026-01-21
 > **App 名称**：聚场 (JuChang)
 > **产品定位**：Personal Social Agent (个人社交代理人)
 > **核心 Slogan**：想怎么玩？跟小聚说说。

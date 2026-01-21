@@ -19,8 +19,8 @@
 // ==========================================
 // v4.5 Agent 模块 Re-export
 // ==========================================
-export { 
-  streamChat as agentStreamChat, 
+export {
+  streamChat as agentStreamChat,
   generateChat as agentGenerateChat,
   toDataStreamResponse,
   type StreamChatResult,
@@ -28,9 +28,9 @@ export {
 } from './agent';
 
 import { db, users, conversations, conversationMessages, eq, desc, sql, inArray, and } from '@juchang/db';
-import { 
-  streamText, 
-  createUIMessageStream, 
+import {
+  streamText,
+  createUIMessageStream,
   createUIMessageStreamResponse,
   convertToModelMessages,
   stepCountIs,
@@ -44,35 +44,40 @@ import { classifyIntent, type ClassifyResult } from './intent';
 import { getOrCreateThread, saveMessage, clearUserThreads, deleteThread } from './memory';
 import { getToolsByIntent, getToolWidgetType, getToolDisplayName } from './tools';
 import { buildXmlSystemPrompt, type PromptContext, type ActivityDraftForPrompt } from './prompts/xiaoju-v39';
-import { getModel } from './models/router';
+import { getModel, getDefaultChatModel, getModelByIntent } from './models/router';
 // Guardrails
-import { checkInput, sanitizeInput } from './guardrails/input-guard';
 import { checkRateLimit } from './guardrails/rate-limiter';
 // Observability
 import { createLogger } from './observability/logger';
-import { 
-  countAIRequest, 
-  recordAILatency, 
+import {
+  countAIRequest,
+  recordAILatency,
   recordTokenUsage as recordMetricsTokenUsage,
   recordTokenUsageWithLog,
 } from './observability/metrics';
-import { 
-  recordConversationMetrics, 
+import {
+  recordConversationMetrics,
   extractConversionInfo,
 } from './observability/quality-metrics';
 // WorkingMemory (Enhanced)
-import { 
+import {
   getEnhancedUserProfile,
-  updateEnhancedUserProfile,
   buildProfilePrompt,
 } from './memory/working';
-// AI Pipeline (from agent module)
-import { processAIContext } from './agent/processors';
-import { extractPreferences } from './memory/extractor';
+// Processors (v4.6 纯函数)
+import {
+  sanitizeAndGuard,
+  injectUserProfile,
+  injectSemanticRecall,
+  truncateByTokenLimit,
+  saveConversationHistory,
+  extractAndUpdatePreferences,
+  type ToolCallTrace,
+} from './processors';
 // Partner Matching - 找搭子追问流程
-import { 
-  shouldStartPartnerMatching, 
-  recoverPartnerMatchingState, 
+import {
+  shouldStartPartnerMatching,
+  recoverPartnerMatchingState,
   createPartnerMatchingState,
   updatePartnerMatchingState,
   getNextQuestion,
@@ -143,12 +148,12 @@ export async function consumeAIQuota(userId: string): Promise<boolean> {
 export async function streamChat(request: ChatRequest): Promise<Response> {
   const { messages, userId, location, source, draftContext, trace, modelParams } = request;
   const startTime = Date.now();
-  
+
   // 0. 提取最后一条用户消息（用于护栏检查）
   const conversationHistory = messages.map(m => ({
     role: m.role,
     content: (m.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text)
-      || (m as unknown as { content?: string })?.content 
+      || (m as unknown as { content?: string })?.content
       || '',
   }));
   const lastUserMessage = conversationHistory.filter(m => m.role === 'user').pop()?.content || '';
@@ -160,21 +165,21 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
     return createQuickResponse('请求太频繁了，休息一下再来吧～', trace);
   }
 
-  // 2. 输入护栏检查
-  const sanitizedMessage = sanitizeInput(lastUserMessage);
-  const guardResult = checkInput(sanitizedMessage, {}, { userId: userId || undefined });
+  // 2. 输入护栏检查 (Processor)
+  const guardResult = sanitizeAndGuard(lastUserMessage, userId);
   if (guardResult.blocked) {
-    logger.warn('Input blocked', { userId, reason: guardResult.reason, rules: guardResult.triggeredRules });
+    logger.warn('Input blocked', { userId, reason: guardResult.blockReason, rules: guardResult.triggeredRules });
     return createQuickResponse(guardResult.suggestedResponse || '这个话题我帮不了你 😅', trace);
   }
-  
+  const sanitizedMessage = guardResult.sanitized;
+
   // 3. 构建上下文
   const locationName = location ? await reverseGeocode(location[1], location[0]) : undefined;
   const userNickname = userId ? await getUserNickname(userId) : undefined;
-  
+
   // 4. 获取用户工作记忆（增强版用户画像）
   const userProfile = userId ? await getEnhancedUserProfile(userId) : null;
-  
+
   const promptContext: PromptContext = {
     currentTime: new Date(),
     userLocation: location ? { lat: location[1], lng: location[0], name: locationName } : undefined,
@@ -195,7 +200,7 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
   if (intentResult.intent === 'partner' && userId) {
     const thread = await getOrCreateThread(userId);
     const partnerMatchingState = await recoverPartnerMatchingState(thread.id);
-    
+
     if (shouldStartPartnerMatching('partner', partnerMatchingState)) {
       return handlePartnerMatchingFlow(request, partnerMatchingState, thread.id, sanitizedMessage, intentResult);
     }
@@ -211,7 +216,7 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
   const tools = getToolsByIntent(userId, intentResult.intent, !!draftContext, userLocation);
   logger.debug('Tools selected', { tools: Object.keys(tools) });
 
-  // 8. 构建 System Prompt（使用 Pipeline 处理）
+  // 8. 构建 System Prompt + Processors 处理
   const uiMessages: UIMessage[] = messages.map((m, i) => ({
     id: `msg-${i}`,
     role: m.role,
@@ -219,17 +224,18 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
     parts: (m as any).parts || [{ type: 'text', text: (m as any).content || '' }],
   }));
   const aiMessages = await convertToModelMessages(uiMessages);
-  
+
   // 构建基础 System Prompt
   let systemPrompt = buildXmlSystemPrompt(promptContext);
-  
-  // 使用 Pipeline 处理上下文（注入用户画像、召回历史等）
-  systemPrompt = await processAIContext({
-    userId,
-    message: sanitizedMessage,
-    systemPrompt,
-    history: conversationHistory,
-  });
+
+  // [Processor 1] 注入用户画像
+  systemPrompt = await injectUserProfile(systemPrompt, userId);
+
+  // [Processor 2] 注入语义召回历史
+  systemPrompt = await injectSemanticRecall(systemPrompt, sanitizedMessage, userId);
+
+  // [Processor 3] Token 限制截断
+  systemPrompt = truncateByTokenLimit(systemPrompt, 12000);
 
   // 9. 执行 LLM 推理
   const traceSteps: TraceStep[] = [];
@@ -237,7 +243,7 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
   let aiResponseText = '';
 
   const result = streamText({
-    model: getModel('deepseek-chat'),
+    model: getDefaultChatModel(),  // v4.6: Qwen 主力
     system: systemPrompt,
     messages: aiMessages,
     tools,
@@ -248,7 +254,7 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
       // 记录每一步的详细信息
       const stepNumber = traceSteps.length + 1;
       const stepType = (step as any).stepType; // 'initial' | 'continue' | 'tool-result'
-      
+
       logger.debug('AI step finished', {
         stepNumber,
         stepType,
@@ -257,16 +263,16 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
         hasText: !!step.text,
         finishReason: step.finishReason,
       });
-      
+
       // 收集 Tool Calls
       for (const tc of step.toolCalls || []) {
         if (!traceSteps.find(s => s.toolCallId === tc.toolCallId)) {
-          traceSteps.push({ 
-            toolName: tc.toolName, 
-            toolCallId: tc.toolCallId, 
+          traceSteps.push({
+            toolName: tc.toolName,
+            toolCallId: tc.toolCallId,
             args: (tc as any).args,
           });
-          
+
           // 记录 Tool 调用日志
           logger.info('Tool called', {
             stepNumber,
@@ -275,13 +281,13 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
           });
         }
       }
-      
+
       // 收集 Tool Results
       for (const tr of step.toolResults || []) {
         const existing = traceSteps.find(s => s.toolCallId === tr.toolCallId);
         if (existing) {
           existing.result = (tr as any).result;
-          
+
           // 记录 Tool 结果日志
           logger.info('Tool result received', {
             stepNumber,
@@ -291,7 +297,7 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
           });
         }
       }
-      
+
       // 如果达到最大步数，记录警告
       if (stepNumber >= 5) {
         logger.warn('Max steps reached', {
@@ -308,20 +314,21 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
         completionTokens: rawUsage.outputTokens ?? 0,
         totalTokens: rawUsage.totalTokens ?? 0,
       };
-      
+
       const duration = Date.now() - startTime;
-      logger.info('AI request completed', { 
-        source, userId: userId || 'anon', 
-        tokens: totalUsage.totalTokens, 
+      logger.info('AI request completed', {
+        source, userId: userId || 'anon',
+        tokens: totalUsage.totalTokens,
         duration,
         intent: intentResult.intent,
       });
-      
-      // 记录指标
-      countAIRequest('deepseek-chat', 'success');
-      recordAILatency('deepseek-chat', duration);
-      recordMetricsTokenUsage('deepseek-chat', totalUsage.promptTokens, totalUsage.completionTokens);
-      
+
+      // 记录指标 (v4.6: 动态模型 ID)
+      const modelId = 'qwen-flash';  // TODO: 从 streamText result 获取实际使用的模型
+      countAIRequest(modelId, 'success');
+      recordAILatency(modelId, duration);
+      recordMetricsTokenUsage(modelId, totalUsage.promptTokens, totalUsage.completionTokens);
+
       // 记录 Token 使用量（日志）
       recordTokenUsageWithLog(userId, {
         inputTokens: totalUsage.promptTokens,
@@ -330,27 +337,21 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
         cacheHitTokens: rawUsage.promptCacheHitTokens,
         cacheMissTokens: rawUsage.promptCacheMissTokens,
       }, traceSteps.map(s => ({ toolName: s.toolName })), {
-        model: 'deepseek-chat',
+        model: modelId,
         source,
         intent: intentResult.intent,
       });
 
-      // 保存对话历史
+      // [Processor 4] 保存对话历史
       if (userId) {
-        await persistConversation(userId, lastUserMessage, text || '', traceSteps);
-        
-        // 异步使用 LLM 提取用户偏好并更新画像
-        extractPreferences(conversationHistory, { useLLM: true })
-          .then(extraction => {
-            if (extraction.preferences.length > 0 || extraction.frequentLocations.length > 0) {
-              return updateEnhancedUserProfile(userId, extraction);
-            }
-          })
-          .catch(err => 
-            logger.warn('Failed to update user profile', { error: err.message })
-          );
+        await saveConversationHistory(userId, lastUserMessage, text || '', traceSteps as ToolCallTrace[]);
+
+        // [Processor 5] 异步提取用户偏好并更新画像
+        extractAndUpdatePreferences(userId, conversationHistory).catch((err: Error) =>
+          logger.warn('Failed to update user profile', { error: err.message })
+        );
       }
-      
+
       // 异步评估响应质量（不阻塞响应）
       evaluateResponseQuality({
         input: lastUserMessage,
@@ -359,19 +360,19 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
         actualToolCalls: traceSteps.map(s => s.toolName),
       }).then(evalResult => {
         if (evalResult.score < 0.6) {
-          logger.warn('Low quality response detected', { 
+          logger.warn('Low quality response detected', {
             score: evalResult.score,
             details: evalResult.details,
             input: lastUserMessage.slice(0, 50),
           });
         }
-      }).catch(() => {});
-      
+      }).catch(() => { });
+
       // 记录对话质量指标到数据库（异步，不阻塞响应）
       const conversionInfo = extractConversionInfo(traceSteps.map(s => ({ toolName: s.toolName, result: s.result })));
       const toolsSucceeded = traceSteps.filter(s => s.result && !(s.result as any)?.error).length;
       const toolsFailed = traceSteps.length - toolsSucceeded;
-      
+
       recordConversationMetrics({
         userId: userId || undefined,
         intent: intentResult.intent,
@@ -388,7 +389,7 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
         activityJoined: conversionInfo.activityJoined,
         activityId: conversionInfo.activityId,
         source,
-      }).catch(() => {});
+      }).catch(() => { });
     },
   });
 
@@ -460,31 +461,31 @@ async function handlePartnerMatchingFlow(
   _intentResult: ClassifyResult
 ): Promise<Response> {
   const { userId, trace } = request;
-  
+
   // 创建或恢复状态
   let state = existingState || createPartnerMatchingState();
-  
+
   // 如果有现有状态，尝试解析用户回答
   if (existingState) {
     const currentQuestion = getNextQuestion(existingState);
     const answer = parseUserAnswer(userMessage, currentQuestion);
-    
+
     if (answer) {
       state = updatePartnerMatchingState(state, answer.field, answer.value);
       logger.debug('Partner matching state updated', { field: answer.field, value: answer.value });
     }
   }
-  
+
   // 获取下一个问题
   const nextQuestion = getNextQuestion(state);
-  
+
   // 如果没有更多问题，信息收集完成
   if (!nextQuestion) {
     // 持久化完成状态
     if (userId) {
       await persistPartnerMatchingState(threadId, userId, { ...state, status: 'completed' });
     }
-    
+
     // 返回确认消息，让 LLM 调用 createPartnerIntent
     const confirmText = `📋 需求确认：
 - 🎯 活动类型：${state.collectedPreferences.activityType || '待定'}
@@ -492,14 +493,14 @@ async function handlePartnerMatchingFlow(
 ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPreferences.location}` : ''}
 
 正在帮你寻找匹配的搭子... 有消息第一时间叫你 🔔`;
-    
+
     const stream = createUIMessageStream({
       execute: ({ writer }) => {
         writer.write({ type: 'text-delta', delta: confirmText, id: randomUUID() });
         // 返回 Widget 数据让前端显示
-        writer.write({ 
-          type: 'data' as any, 
-          data: { 
+        writer.write({
+          type: 'data' as any,
+          data: {
             type: 'widget_ask_preference',
             payload: {
               status: 'completed',
@@ -516,21 +517,21 @@ ${state.collectedPreferences.location ? `- 📍 地点：${state.collectedPrefer
     });
     return createUIMessageStreamResponse({ stream });
   }
-  
+
   // 持久化当前状态
   if (userId) {
     await persistPartnerMatchingState(threadId, userId, state);
   }
-  
+
   // 返回追问
   const questionText = nextQuestion.question;
   const stream = createUIMessageStream({
     execute: ({ writer }) => {
       writer.write({ type: 'text-delta', delta: questionText, id: randomUUID() });
       // 返回 Widget 数据让前端渲染选项按钮
-      writer.write({ 
-        type: 'data' as any, 
-        data: { 
+      writer.write({
+        type: 'data' as any,
+        data: {
           type: 'widget_ask_preference',
           payload: {
             questionType: nextQuestion.field,
@@ -562,7 +563,7 @@ async function persistConversation(
 ) {
   try {
     const { id: threadId } = await getOrCreateThread(userId);
-    
+
     if (userMessage) {
       await saveMessage({ conversationId: threadId, userId, role: 'user', messageType: 'text', content: { text: userMessage } });
     }
@@ -626,7 +627,7 @@ function wrapWithTrace(result: ReturnType<typeof streamText>, ctx: {
 
       writer.write({
         type: 'data-trace-step',
-        data: { id: llmStepId, type: 'llm', name: 'LLM 推理', startedAt: llmStartedAt, status: 'running', data: { model: 'deepseek', inputTokens: 0, outputTokens: 0, totalTokens: 0 } },
+        data: { id: llmStepId, type: 'llm', name: 'LLM 推理', startedAt: llmStartedAt, status: 'running', data: { model: 'qwen', inputTokens: 0, outputTokens: 0, totalTokens: 0 } },
         transient: true,
       });
 
@@ -637,7 +638,7 @@ function wrapWithTrace(result: ReturnType<typeof streamText>, ctx: {
 
           writer.write({
             type: 'data-trace-step-update',
-            data: { stepId: llmStepId, completedAt: llmCompletedAt, status: 'success', duration: llmDuration, data: { model: 'deepseek', inputTokens: ctx.totalUsage.promptTokens, outputTokens: ctx.totalUsage.completionTokens, totalTokens: ctx.totalUsage.totalTokens } },
+            data: { stepId: llmStepId, completedAt: llmCompletedAt, status: 'success', duration: llmDuration, data: { model: 'qwen', inputTokens: ctx.totalUsage.promptTokens, outputTokens: ctx.totalUsage.completionTokens, totalTokens: ctx.totalUsage.totalTokens } },
             transient: true,
           });
 
@@ -686,9 +687,9 @@ async function reverseGeocode(lat: number, lng: number): Promise<string> {
 // 会话管理 API
 // ==========================================
 
-export async function listConversations(params: { 
-  userId?: string; 
-  page?: number; 
+export async function listConversations(params: {
+  userId?: string;
+  page?: number;
   limit?: number;
   // v4.6: 评估筛选
   evaluationStatus?: 'unreviewed' | 'good' | 'bad';
@@ -702,7 +703,7 @@ export async function listConversations(params: {
   if (userId) conditions.push(eq(conversations.userId, userId));
   if (evaluationStatus) conditions.push(eq(conversations.evaluationStatus, evaluationStatus));
   if (hasError !== undefined) conditions.push(eq(conversations.hasError, hasError));
-  
+
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
   const [items, countResult] = await Promise.all([
@@ -808,7 +809,7 @@ export async function evaluateConversation(params: {
   note?: string;
 }) {
   const { conversationId, status, tags = [], note } = params;
-  
+
   const [updated] = await db
     .update(conversations)
     .set({
@@ -818,16 +819,16 @@ export async function evaluateConversation(params: {
     })
     .where(eq(conversations.id, conversationId))
     .returning();
-  
+
   if (!updated) return null;
-  
+
   // 获取用户昵称
   const [user] = await db
     .select({ nickname: users.nickname })
     .from(users)
     .where(eq(users.id, updated.userId))
     .limit(1);
-  
+
   return {
     id: updated.id,
     userId: updated.userId,
@@ -849,7 +850,7 @@ export async function deleteConversation(conversationId: string): Promise<boolea
 
 export async function deleteConversationsBatch(ids: string[]): Promise<{ deletedCount: number }> {
   if (ids.length === 0) return { deletedCount: 0 };
-  
+
   const result = await db
     .delete(conversations)
     .where(inArray(conversations.id, ids))
@@ -954,7 +955,7 @@ export interface WelcomeResponse {
 export function generateGreeting(nickname: string | null): string {
   const hour = new Date().getHours();
   const name = nickname || '朋友';
-  
+
   if (hour < 6) return `夜深了，${name}～`;
   if (hour < 9) return `早上好，${name}！`;
   if (hour < 12) return `上午好，${name}！`;
@@ -974,7 +975,7 @@ export async function getWelcomeCard(
 
   // 社交档案（已登录用户）
   let socialProfile: { participationCount: number; activitiesCreatedCount: number; preferenceCompleteness: number } | undefined;
-  
+
   if (userId) {
     const [user] = await db
       .select({
@@ -985,7 +986,7 @@ export async function getWelcomeCard(
       .from(users)
       .where(eq(users.id, userId))
       .limit(1);
-    
+
     if (user) {
       // 计算偏好完善度
       let preferenceCompleteness = 0;
@@ -996,7 +997,7 @@ export async function getWelcomeCard(
         // 偏好完善度：偏好数量 * 15 + 常去地点 * 10，最高 100
         preferenceCompleteness = Math.min(100, preferencesCount * 15 + locationsCount * 10);
       }
-      
+
       socialProfile = {
         participationCount: user.participationCount,
         activitiesCreatedCount: user.activitiesCreatedCount,
@@ -1027,10 +1028,10 @@ export async function getWelcomeCard(
       icon: '📍',
       title: '探索附近',
       items: [
-        { 
-          type: 'explore', 
-          icon: '🔍', 
-          label: `看看${locationName}有什么局`, 
+        {
+          type: 'explore',
+          icon: '🔍',
+          label: `看看${locationName}有什么局`,
           prompt: `看看${locationName}附近有什么活动`,
           context: { locationName, lat: location.lat, lng: location.lng },
         },

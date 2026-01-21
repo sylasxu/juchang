@@ -1,7 +1,7 @@
 # 聚场 (JuChang) 技术架构文档
 
-> **版本**：v4.5.1 (Admin Cockpit Redesign + Agent-First + Generative UI + Partner Matching + AI Ops + RAG Semantic Search)
-> **更新日期**：2026-01-19
+> **版本**：v4.6 (Admin Cockpit Redesign + Agent-First + Generative UI + Partner Matching + AI Ops Persistence + RAG Semantic Search)
+> **更新日期**：2026-01-21
 > **架构**：原生小程序 + Zustand Vanilla + Elysia API + Drizzle ORM
 
 ---
@@ -69,7 +69,7 @@
 │   │   │   ├── login/        # 登录页
 │   │   │   └── setting/      # 设置页
 │   │   │       └── preference/ # 偏好设置页 (v4.4 新增)
-│   │   ├── components/       # 公共组件 (34 个)
+│   │   ├── components/       # 公共组件 (36 个)
 │   │   │   ├── custom-navbar/    # 自定义导航栏
 │   │   │   ├── ai-dock/          # 超级输入坞
 │   │   │   ├── chat-stream/      # 对话流容器
@@ -127,7 +127,7 @@
 │       └── src/
 │           ├── index.ts      # 应用入口
 │           ├── setup.ts      # 全局插件
-│           └── modules/      # 功能模块 (10 个)
+│           └── modules/      # 功能模块 (15 个)
 │               ├── auth/         # 微信登录、手机号绑定
 │               ├── users/        # 用户 CRUD、额度
 │               ├── activities/   # 活动 CRUD、报名、附近搜索
@@ -137,11 +137,16 @@
 │               ├── dashboard/    # 首页数据聚合、God View
 │               ├── growth/       # 增长工具（海报工厂、热门洞察）
 │               ├── notifications/ # 通知管理
-│               └── reports/      # 举报管理
+│               ├── reports/      # 举报管理
+│               ├── content-security/ # 内容安全检测 (v4.6)
+│               ├── feedbacks/    # 用户反馈 (v4.6)
+│               ├── transactions/ # 交易记录 (v4.6)
+│               ├── upload/       # 文件上传 (v4.6)
+│               └── wechat/       # 微信能力封装 (v4.6)
 │
 ├── packages/
 │   ├── db/                   # Drizzle ORM
-│   │   └── src/schema/       # 7 张核心表 + reports
+│   │   └── src/schema/       # 13 张核心表 (含 AI Ops)
 │   ├── utils/                # 通用工具
 │   └── ts-config/            # TypeScript 配置
 │
@@ -150,7 +155,7 @@
 
 ---
 
-## 4. 数据库 Schema (v4.2 - 10 表)
+## 4. 数据库 Schema (v4.6 - 13 表)
 
 ### 4.1 表结构概览
 
@@ -166,6 +171,9 @@
 | `partner_intents` | **搭子意向表 (v4.0)** | userId, type, tags, location, expiresAt, status |
 | `intent_matches` | **意向匹配表 (v4.0)** | intentAId, intentBId, tempOrganizerId, outcome |
 | `match_messages` | **匹配消息表 (v4.0)** | matchId, senderId, content |
+| `ai_conversation_metrics` | **AI 对话质量指标 (v4.6)** | conversationId, intentAccuracy, toolCallSuccess, latency |
+| `ai_sensitive_words` | **AI 敏感词表 (v4.6)** | word, level, category, isActive |
+| `ai_security_events` | **AI 安全事件表 (v4.6)** | userId, eventType, content, severity |
 
 ### 4.2 conversations 表 (两层会话结构)
 
@@ -367,10 +375,18 @@ export const matchMessages = pgTable('match_messages', {
 | `auth` | `/auth` | 微信登录、手机号绑定 |
 | `users` | `/users` | 用户资料管理 |
 | `activities` | `/activities` | 活动 CRUD、报名退出、**附近搜索** |
+| `participants` | `/participants` | 参与者管理 |
 | `chat` | `/chat` | 活动群聊消息 (activity_messages 表) |
 | `ai` | `/ai` | AI 解析 (SSE)，**意图分类**，**对话历史管理** (conversations 表) |
 | `dashboard` | `/dashboard` | 首页数据聚合、God View 实时概览 |
 | `growth` | `/growth` | 增长工具：海报工厂、热门洞察 |
+| `notifications` | `/notifications` | 通知管理 |
+| `reports` | `/reports` | 举报管理 |
+| `content-security` | `/content-security` | 内容安全检测 (v4.6) |
+| `feedbacks` | `/feedbacks` | 用户反馈 (v4.6) |
+| `transactions` | `/transactions` | 交易记录 (v4.6) |
+| `upload` | `/upload` | 文件上传 (v4.6) |
+| `wechat` | `/wechat` | 微信能力封装 (v4.6) |
 
 **设计原则**：API 模块按功能领域划分，而非按页面划分。对话历史 (conversations) 属于 AI 功能领域，归入 `ai` 模块。
 
@@ -552,7 +568,7 @@ type SSEEvent =
 │                         │                                        │
 │  ┌──────────────────────▼────────────────────────┐              │
 │  │           Model Router (模型路由)              │              │
-│  │      (DeepSeek 主力 + 智谱 Fallback 备选)       │              │
+│  │      (Qwen3 主力 + DeepSeek Fallback 备选)       │              │
 │  └──────────────────────┬────────────────────────┘              │
 │                         │                                        │
 │  ┌─────────────┐  ┌─────▼─────┐  ┌─────────────┐              │
@@ -578,14 +594,17 @@ apps/api/src/modules/ai/
 ├── ai.model.ts           # TypeBox Schema 定义
 ├── ai.service.ts         # 核心服务（streamChat, 会话管理）
 │
-├── agent/                # v4.5 Agent 封装层 (Mastra 风格)
-│   ├── index.ts          # 模块导出
-│   ├── types.ts          # AgentConfig, RuntimeContext, Processor
-│   ├── agents.ts         # 预定义 Agent (explorer, creator, partner, manager, chat)
-│   ├── chat.ts           # streamChat, generateChat 入口
-│   ├── context.ts        # buildContext 上下文构建
-│   ├── router.ts         # classifyIntent 意图路由
-│   └── processors.ts     # Input/Output Processors Pipeline
+├── processors/           # v4.6 Processor 纯函数 (新增)
+│   ├── index.ts          # 统一导出
+│   ├── input-guard.ts    # 输入安全检查
+│   ├── user-profile.ts   # 用户画像注入
+│   ├── semantic-recall.ts # 语义召回历史
+│   ├── token-limit.ts    # Token 限制
+│   ├── save-history.ts   # 保存对话历史
+│   └── extract-preferences.ts # 偏好提取
+│
+├── agent/                # @deprecated v4.5 Agent 封装（已废弃，保留备份）
+│   ├── ...
 │
 ├── rag/                  # v4.5 RAG 语义检索模块
 │   ├── index.ts          # 模块导出
@@ -621,13 +640,13 @@ apps/api/src/modules/ai/
 │   └── helpers/          # 工具辅助函数
 │       └── match.ts      # 匹配算法辅助
 │
-├── models/               # 模型路由模块
+├── models/               # 模型路由模块 (v4.6 升级)
 │   ├── index.ts          # 模块导出
 │   ├── types.ts          # ModelConfig, ChatParams
-│   ├── router.ts         # 模型选择、降级、重试
+│   ├── router.ts         # 模型选择、降级、重试、意图路由
 │   └── adapters/         # 提供商适配器
-│       ├── deepseek.ts   # DeepSeek 适配
-│       └── zhipu.ts      # 智谱适配
+│       ├── qwen.ts       # Qwen3 适配 (v4.6 主力: flash/plus/max/rerank)
+│       └── deepseek.ts   # DeepSeek 适配 (备选)
 │
 ├── prompts/              # 提示词模块
 │   ├── index.ts          # 模块导出
@@ -935,22 +954,39 @@ if (maxSim > 0.5) {
 }
 ```
 
-### 6.7 模型路由 (Model Router)
+### 6.7 模型路由 (Model Router) - v4.6 升级
 
-**支持的模型**：
+**支持的模型 (v4.6 Qwen3 全家桶)**：
 
 | 提供商 | 模型 | 用途 |
 |--------|------|------|
-| DeepSeek | `deepseek-chat` | 主力 Chat 模型 |
-| DeepSeek | `deepseek-reasoner` | 复杂推理 |
-| 智谱 | `glm-4-flash` | 备选 Chat |
-| Qwen | `text-embedding-v4` | 文本向量化 (1536 维) |
+| **Qwen** | `qwen-flash` | **主力 Chat** (极速闲聊) |
+| **Qwen** | `qwen-plus` | **深度思考** (找搭子/复杂匹配) |
+| **Qwen** | `qwen-max` | **Agent** (Tool Calling/Generative UI) |
+| **Qwen** | `qwen-vl-max` | 视觉理解 |
+| **Qwen** | `text-embedding-v4` | 文本向量化 (1536 维) |
+| **Qwen** | `qwen3-rerank` | 检索重排序 |
+| DeepSeek | `deepseek-chat` | 备选 Chat |
+
+**意图路由 (v4.6 新增)**：
+
+```typescript
+// 根据业务意图选择最合适的模型
+export function getModelByIntent(intent: 'chat' | 'reasoning' | 'agent' | 'vision'): LanguageModel {
+  switch (intent) {
+    case 'chat':      return qwen('qwen-flash');     // 极速闲聊
+    case 'reasoning': return qwen('qwen-plus');      // 深度思考
+    case 'agent':     return qwen('qwen-max');       // Tool Calling
+    case 'vision':    return qwen('qwen-vl-max');    // 视觉理解
+  }
+}
+```
 
 **降级策略**：
 
 ```typescript
 const DEFAULT_FALLBACK_CONFIG = {
-  primary: 'deepseek',
+  primary: 'qwen',      // v4.6: 主力切换为 Qwen
   fallback: 'zhipu',
   maxRetries: 2,
   retryDelay: 1000,
@@ -1148,7 +1184,7 @@ flowchart TD
     N --> END
 ```
 
-### 6.12 AI 请求流程 (详细)
+### 6.12 AI 请求流程 (v4.6 Processor 架构)
 
 ```
 用户消息
@@ -1165,7 +1201,7 @@ flowchart TD
          │ (超限返回快速响应)
          ▼
 ┌─────────────────┐
-│ 2. 输入护栏检查 │ ← sanitizeInput() + checkInput()
+│ 2. 输入护栏     │ ← [Processor] sanitizeAndGuard()
 └────────┬────────┘
          │ (敏感词/注入攻击拦截)
          ▼
@@ -1175,38 +1211,34 @@ flowchart TD
          │
          ▼
 ┌─────────────────┐
-│ 4. 获取工作记忆 │ ← getEnhancedUserProfile()
-│   (用户画像)    │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ 5. 意图分类     │ ← classifyIntent(Regex优先/LLM兜底)
+│ 4. 意图分类     │ ← classifyIntent(Regex优先/LLM兜底)
 └────────┬────────┘
          │
          ├──────────────────┐
          │ (partner 意图)   │
          ▼                  ▼
 ┌─────────────────┐  ┌─────────────────┐
-│ 5.5 找搭子追问  │  │ 6. 闲聊快速响应 │
+│ 4.5 找搭子追问  │  │ 5. 闲聊快速响应 │
 │ (Partner Flow)  │  │ (chitchat)      │
 └────────┬────────┘  └─────────────────┘
          │
          ▼
 ┌─────────────────┐
-│ 7. 工具选择     │ ← getToolsByIntent(按意图加载)
+│ 6. 工具选择     │ ← getToolsByIntent(按意图加载)
 └────────┬────────┘
          │
          ▼
-┌─────────────────┐
-│ 8. 构建 Prompt  │ ← buildXmlSystemPrompt()
-│   + Pipeline    │ ← processAIContext(注入画像)
-└────────┬────────┘
+┌─────────────────────────────────────┐
+│ 7. Prompt + Processors (v4.6)      │
+│   [1] injectUserProfile()          │ ← 注入用户画像
+│   [2] injectSemanticRecall()       │ ← 语义召回历史
+│   [3] truncateByTokenLimit()       │ ← Token 限制
+└────────┬────────────────────────────┘
          │
          ▼
 ┌─────────────────┐
-│ 9. LLM 推理     │ ← streamText(DeepSeek)
-│   (流式输出)    │
+│ 8. LLM 推理     │ ← streamText(Qwen: flash/plus/max)
+│   (流式输出)    │   tools 直接传入，无抽象层
 └────────┬────────┘
          │
          ├─── onStepFinish ───┐
@@ -1216,15 +1248,15 @@ flowchart TD
          │            │ (最多 5 步)     │
          │            └─────────────────┘
          │
-         ├─── onFinish ───────┐
-         │                    ▼
-         │            ┌─────────────────┐
-         │            │ 10. 响应后处理  │
-         │            │ - 保存对话历史  │
-         │            │ - LLM提取偏好   │
-         │            │ - 质量评估      │
-         │            │ - 记录指标      │
-         │            └─────────────────┘
+         ├─── onFinish (Output Processors) ───┐
+         │                                    ▼
+         │            ┌─────────────────────────────────┐
+         │            │ 9. 响应后处理 (v4.6 Processors) │
+         │            │ [4] saveConversationHistory()   │
+         │            │ [5] extractAndUpdatePreferences()│
+         │            │ [6] evaluateResponseQuality()   │
+         │            │ [7] recordConversationMetrics() │
+         │            └─────────────────────────────────┘
          │
          ▼
     流式响应 (SSE)

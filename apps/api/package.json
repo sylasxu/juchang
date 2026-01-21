@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^2.0.2",
+    "@ai-sdk/openai": "^3.0.13",
     "@elysiajs/cors": "^1.1.1",
     "@elysiajs/eden": "^1.4.5",
     "@elysiajs/jwt": "^1.1.0",

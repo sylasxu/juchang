@@ -88,7 +88,7 @@ export function useSessionsStats() {
 
       // 计算今日新增
       const today = new Date().toISOString().split('T')[0]
-      const todayNew = items.filter(item => 
+      const todayNew = items.filter(item =>
         item.createdAt.split('T')[0] === today
       ).length
 
@@ -154,7 +154,7 @@ export function useDeleteSessionsBatch() {
   return useMutation({
     mutationFn: async (ids: string[]) => {
       return await unwrap(
-        api.ai.sessions['batch-delete'].post({ ids })
+        api.ai.sessions.batchDelete.post({ ids })
       )
     },
     onSuccess: (data) => {

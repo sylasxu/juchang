@@ -81,6 +81,7 @@
       "name": "@juchang/api",
       "dependencies": {
         "@ai-sdk/deepseek": "^2.0.2",
+        "@ai-sdk/openai": "^3.0.13",
         "@elysiajs/cors": "^1.1.1",
         "@elysiajs/eden": "^1.4.5",
         "@elysiajs/jwt": "^1.1.0",
@@ -167,6 +168,8 @@
     "@ai-sdk/deepseek": ["@ai-sdk/deepseek@2.0.2", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/deepseek/-/deepseek-2.0.2.tgz", { "dependencies": { "@ai-sdk/provider": "3.0.1", "@ai-sdk/provider-utils": "4.0.2" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-HznAFPbhOw/RUknLhSnYz3Ng78KBfouXlFRBL7WBw/jDbDKQIRl0vCux/DjjikbRBIl8EYewuPW7GnIEYMX5qA=="],
 
     "@ai-sdk/gateway": ["@ai-sdk/gateway@3.0.4", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/gateway/-/gateway-3.0.4.tgz", { "dependencies": { "@ai-sdk/provider": "3.0.1", "@ai-sdk/provider-utils": "4.0.2", "@vercel/oidc": "3.0.5" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-OlccjNYZ5+4FaNyvs0kb3N5H6U/QCKlKPTGsgUo8IZkqfMQu8ALI1XD6l/BCuTKto+OO9xUPObT/W7JhbqJ5nA=="],
+
+    "@ai-sdk/openai": ["@ai-sdk/openai@3.0.13", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/openai/-/openai-3.0.13.tgz", { "dependencies": { "@ai-sdk/provider": "3.0.4", "@ai-sdk/provider-utils": "4.0.8" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-H+iqcmtND5dLsKpuMKjGdSRbU0OQwDdpJZbVBueASmCxsEL52FEWDjwTStDpSyZuvv68Xbs6tej8xcbQXFRCaw=="],
 
     "@ai-sdk/provider": ["@ai-sdk/provider@3.0.1", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/provider/-/provider-3.0.1.tgz", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-2lR4w7mr9XrydzxBSjir4N6YMGdXD+Np1Sh0RXABh7tWdNFFwIeRI1Q+SaYZMbfL8Pg8RRLcrxQm51yxTLhokg=="],
 
@@ -1791,6 +1794,10 @@
     "@ai-sdk/deepseek/@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.2", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/provider-utils/-/provider-utils-4.0.2.tgz", { "dependencies": { "@ai-sdk/provider": "3.0.1", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.6" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-KaykkuRBdF/ffpI5bwpL4aSCmO/99p8/ci+VeHwJO8tmvXtiVAb99QeyvvvXmL61e9Zrvv4GBGoajW19xdjkVQ=="],
 
     "@ai-sdk/gateway/@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.2", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/provider-utils/-/provider-utils-4.0.2.tgz", { "dependencies": { "@ai-sdk/provider": "3.0.1", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.6" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-KaykkuRBdF/ffpI5bwpL4aSCmO/99p8/ci+VeHwJO8tmvXtiVAb99QeyvvvXmL61e9Zrvv4GBGoajW19xdjkVQ=="],
+
+    "@ai-sdk/openai/@ai-sdk/provider": ["@ai-sdk/provider@3.0.4", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/provider/-/provider-3.0.4.tgz", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-5KXyBOSEX+l67elrEa+wqo/LSsSTtrPj9Uoh3zMbe/ceQX4ucHI3b9nUEfNkGF3Ry1svv90widAt+aiKdIJasQ=="],
+
+    "@ai-sdk/openai/@ai-sdk/provider-utils": ["@ai-sdk/provider-utils@4.0.8", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/provider-utils/-/provider-utils-4.0.8.tgz", { "dependencies": { "@ai-sdk/provider": "3.0.4", "@standard-schema/spec": "^1.1.0", "eventsource-parser": "^3.0.6" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-ns9gN7MmpI8vTRandzgz+KK/zNMLzhrriiKECMt4euLtQFSBgNfydtagPOX4j4pS1/3KvHF6RivhT3gNQgBZsg=="],
 
     "@ai-sdk/provider-utils/@ai-sdk/provider": ["@ai-sdk/provider@3.0.0", "https://tencent-ssv-npm.pkg.coding.net/tanlive/web/@ai-sdk/provider/-/provider-3.0.0.tgz", { "dependencies": { "json-schema": "^0.4.0" } }, "sha512-m9ka3ptkPQbaHHZHqDXDF9C9B5/Mav0KTdky1k2HZ3/nrW2t1AgObxIVPyGDWQNS9FXT/FS6PIoSjpcP/No8rQ=="],
 
