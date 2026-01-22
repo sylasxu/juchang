@@ -7,7 +7,13 @@
  * - 渲染选项按钮供用户快速选择
  * - 支持"随便/都可以"跳过按钮
  * - 点击后触发事件通知父组件
+ * 
+ * v4.7: A2UI 结构化 Action
+ * - 点击选项发送 select_preference action
+ * - 点击跳过发送 skip_preference action
  */
+
+import { useChatStore } from '../../src/stores/chat';
 
 /** 选项结构 */
 interface PreferenceOption {
@@ -74,7 +80,8 @@ Component({
 
   methods: {
     /**
-     * 点击选项
+     * 点击选项 (A2UI)
+     * v4.7: 发送结构化 action
      */
     onSelectOption(e: WechatMiniprogram.TouchEvent) {
       if (this.properties.disabled) return;
@@ -85,16 +92,31 @@ Component({
       // 触感反馈
       wx.vibrateShort({ type: 'light' });
       
-      // 触发选择事件
+      // 触发选择事件（保持向后兼容）
       this.triggerEvent('select', {
         questionType: this.properties.questionType,
         selectedOption: option,
         collectedInfo: this.properties.collectedInfo,
       });
+      
+      // 发送结构化 action
+      const chatStore = useChatStore.getState();
+      chatStore.sendAction({
+        action: 'select_preference',
+        payload: {
+          questionType: this.properties.questionType,
+          selectedValue: option.value,
+          selectedLabel: option.label,
+          collectedInfo: this.properties.collectedInfo,
+        },
+        source: 'widget_ask_preference',
+        originalText: option.label,
+      });
     },
 
     /**
-     * 点击跳过按钮
+     * 点击跳过按钮 (A2UI)
+     * v4.7: 发送结构化 action
      */
     onSkip() {
       if (this.properties.disabled) return;
@@ -102,10 +124,22 @@ Component({
       // 触感反馈
       wx.vibrateShort({ type: 'light' });
       
-      // 触发跳过事件
+      // 触发跳过事件（保持向后兼容）
       this.triggerEvent('skip', {
         questionType: this.properties.questionType,
         collectedInfo: this.properties.collectedInfo,
+      });
+      
+      // 发送结构化 action
+      const chatStore = useChatStore.getState();
+      chatStore.sendAction({
+        action: 'skip_preference',
+        payload: {
+          questionType: this.properties.questionType,
+          collectedInfo: this.properties.collectedInfo,
+        },
+        source: 'widget_ask_preference',
+        originalText: '随便，你推荐吧',
       });
     },
   },

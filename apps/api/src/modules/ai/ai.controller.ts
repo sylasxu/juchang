@@ -236,7 +236,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
       }
 
       try {
-        // 获取 Data Stream Response (v3.7 支持模型参数)
+        // 获取 Data Stream Response (v3.7 支持模型参数, v4.7 支持 userAction)
         const response = await streamChat({
           messages: messages as any, // AI SDK UIMessage 格式
           userId: effectiveUserId,
@@ -245,6 +245,7 @@ export const aiController = new Elysia({ prefix: '/ai' })
           draftContext: body.draftContext,
           trace: trace ?? false,
           modelParams: body.modelParams,
+          userAction: body.userAction as any,
         });
 
         return response;
@@ -308,6 +309,13 @@ Data Stream 格式：
           temperature: t.Optional(t.Number({ minimum: 0, maximum: 2, description: '温度参数，0-2' })),
           maxTokens: t.Optional(t.Number({ minimum: 1, maximum: 8192, description: '最大输出 Token 数' })),
         })),
+        // v4.7 新增：A2UI 结构化用户操作
+        userAction: t.Optional(t.Object({
+          action: t.String({ description: 'Action 类型，如 join_activity, explore_nearby' }),
+          payload: t.Record(t.String(), t.Any(), { description: 'Action 参数' }),
+          source: t.Optional(t.String({ description: '来源 Widget 类型' })),
+          originalText: t.Optional(t.String({ description: '原始文本（用于回退）' })),
+        }, { description: '结构化用户操作，跳过 LLM 意图识别直接执行' })),
       }, { additionalProperties: true }), // AI SDK useChat 会添加 id, trigger 等字段
     }
   )

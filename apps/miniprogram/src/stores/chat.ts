@@ -48,6 +48,21 @@ export interface WidgetPart {
   data: unknown
 }
 
+/**
+ * User Action - A2UI 风格的结构化用户操作
+ * 用户点击 Widget 按钮时发送，跳过 LLM 意图识别
+ */
+export interface UserAction {
+  /** Action 类型 */
+  action: string
+  /** Action 参数 */
+  payload: Record<string, unknown>
+  /** 来源 Widget 类型 */
+  source?: string
+  /** 原始文本（用于回退） */
+  originalText?: string
+}
+
 /** 
  * UI Message - 与 AI SDK v6 格式一致，扩展 Widget 支持
  * @see https://sdk.vercel.ai/docs/ai-sdk-ui/stream-protocol
@@ -137,6 +152,8 @@ interface ChatState {
   setLocation: (location: { lat: number; lng: number } | null) => void
   /** 添加 Widget 消息（用于 Dashboard、Share 等） */
   addWidgetMessage: (widgetType: WidgetPart['widgetType'], data: unknown) => string
+  /** 发送结构化 Action (A2UI 风格) */
+  sendAction: (action: UserAction) => void
   
   // ========== Internal ==========
   /** SSE 控制器（内部使用） */
@@ -444,6 +461,142 @@ export const useChatStore = create<ChatState>()(
         })
         
         return id
+      },
+      
+      /**
+       * 发送结构化 Action (A2UI 风格)
+       * 跳过 LLM 意图识别，直接执行对应操作
+       */
+      sendAction: (action: UserAction) => {
+        const state = get()
+        
+        // 如果正在请求中，先停止
+        if (state.status !== 'idle') {
+          state.stop()
+        }
+        
+        // 1. 添加用户消息（显示 action 的原始文本或描述）
+        const userMessageId = generateId()
+        const displayText = action.originalText || `执行 ${action.action}`
+        const userMessage: UIMessage = {
+          id: userMessageId,
+          role: 'user',
+          parts: [{ type: 'text', text: displayText }],
+          createdAt: new Date(),
+        }
+        
+        // 2. 创建 AI 消息占位
+        const aiMessageId = generateId()
+        const aiMessage: UIMessage = {
+          id: aiMessageId,
+          role: 'assistant',
+          parts: [],
+          createdAt: new Date(),
+        }
+        
+        set((draft) => {
+          draft.messages.push(userMessage)
+          draft.messages.push(aiMessage)
+          draft.status = 'submitted'
+          draft.error = null
+          draft.streamingMessageId = aiMessageId
+        })
+        
+        // 3. 发起 SSE 请求，带上 userAction 参数
+        let accumulatedText = ''
+        
+        const controller = sseRequest(
+          '/ai/chat',
+          {
+            body: {
+              messages: [], // action 模式不需要历史消息
+              source: 'miniprogram',
+              ...(state.location ? { location: [state.location.lng, state.location.lat] } : {}),
+              userAction: action,
+            },
+          },
+          {
+            onStart: () => {
+              set((draft) => {
+                draft.status = 'streaming'
+              })
+            },
+            
+            onText: (chunk) => {
+              accumulatedText += chunk
+              set((draft) => {
+                const msgIndex = draft.messages.findIndex(m => m.id === aiMessageId)
+                if (msgIndex !== -1) {
+                  const textPartIndex = draft.messages[msgIndex].parts.findIndex(p => p.type === 'text')
+                  if (textPartIndex !== -1) {
+                    (draft.messages[msgIndex].parts[textPartIndex] as UIMessagePart).text = accumulatedText
+                  } else {
+                    draft.messages[msgIndex].parts.unshift({ type: 'text', text: accumulatedText })
+                  }
+                }
+              })
+            },
+            
+            onData: (data) => {
+              // 处理 action_result 数据
+              if (data?.type === 'action_result') {
+                set((draft) => {
+                  const msgIndex = draft.messages.findIndex(m => m.id === aiMessageId)
+                  if (msgIndex !== -1) {
+                    // 如果有导航指令，触发导航
+                    const resultData = data.data as Record<string, unknown> | undefined
+                    if (resultData?.action === 'navigate' && resultData?.url) {
+                      // 导航由前端处理
+                      wx.navigateTo({ url: resultData.url as string })
+                    }
+                  }
+                })
+              }
+            },
+            
+            onDone: () => {
+              set((draft) => {
+                draft.status = 'idle'
+                draft.streamingMessageId = null
+                draft._controller = null
+              })
+            },
+            
+            onError: (errorMsg) => {
+              set((draft) => {
+                draft.status = 'idle'
+                draft.streamingMessageId = null
+                draft.error = new Error(errorMsg)
+                draft._controller = null
+                
+                // 添加错误 Widget
+                const msgIndex = draft.messages.findIndex(m => m.id === aiMessageId)
+                if (msgIndex !== -1) {
+                  const errorWidget: WidgetPart = {
+                    type: 'widget',
+                    widgetType: 'error',
+                    data: {
+                      message: errorMsg || '操作失败，请重试',
+                      showRetry: true,
+                      originalText: action.originalText,
+                    },
+                  }
+                  draft.messages[msgIndex].parts = [errorWidget]
+                }
+              })
+            },
+            
+            onFinish: () => {
+              set((draft) => {
+                draft._controller = null
+              })
+            },
+          }
+        )
+        
+        set((draft) => {
+          draft._controller = controller
+        })
       },
       
       // ========== Internal ==========

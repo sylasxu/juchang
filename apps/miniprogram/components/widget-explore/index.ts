@@ -7,7 +7,13 @@
  * - 使用位置文字卡片替代静态地图（零成本）
  * - 显示活动列表（最多 3 个）
  * - 实现 [🗺️ 展开地图查看更多] 按钮
+ * 
+ * v4.7: A2UI 结构化 Action
+ * - 点击报名按钮发送 join_activity action
+ * - 跳过 LLM 意图识别，直接执行
  */
+
+import { useChatStore } from '../../src/stores/chat';
 
 // 探索结果类型
 interface ExploreResult {
@@ -130,6 +136,27 @@ Component({
       // 跳转到活动详情页
       wx.navigateTo({
         url: `/subpackages/activity/detail/index?id=${id}`,
+      });
+    },
+
+    /**
+     * 点击报名按钮 (A2UI)
+     * v4.7: 发送结构化 action，跳过 LLM
+     */
+    onJoinTap(e: WechatMiniprogram.TouchEvent) {
+      const { id, title } = e.currentTarget.dataset;
+      if (!id) return;
+      
+      // 触感反馈
+      wx.vibrateShort({ type: 'light' });
+      
+      // 发送结构化 action
+      const chatStore = useChatStore.getState();
+      chatStore.sendAction({
+        action: 'join_activity',
+        payload: { activityId: id },
+        source: 'widget_explore',
+        originalText: `报名「${title}」`,
       });
     },
 

@@ -43,6 +43,7 @@ const BAD_CASE_TAGS = [
 // 消息类型映射
 const MESSAGE_TYPES: Record<string, string> = {
   text: '文本',
+  user_action: '用户操作',
   widget_dashboard: '欢迎卡片',
   widget_launcher: '发射台',
   widget_action: '快捷操作',
@@ -56,6 +57,7 @@ const MESSAGE_TYPES: Record<string, string> = {
 // 消息类型颜色
 const messageTypeColors: Record<string, string> = {
   text: 'bg-gray-100 text-gray-800',
+  user_action: 'bg-teal-100 text-teal-800',
   widget_dashboard: 'bg-blue-100 text-blue-800',
   widget_launcher: 'bg-purple-100 text-purple-800',
   widget_action: 'bg-cyan-100 text-cyan-800',
@@ -316,8 +318,10 @@ export function ConversationDetail() {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [note, setNote] = useState('')
 
-  const conversation = data?.conversation
-  const messages = data?.messages || []
+  // 从 API 响应中提取数据
+  const apiData = data as { conversation?: Record<string, unknown>; messages?: Record<string, unknown>[] } | null
+  const conversation = apiData?.conversation
+  const messages = apiData?.messages || []
   
   // v4.6: 评估操作
   const handleGood = () => {
@@ -396,33 +400,33 @@ export function ConversationDetail() {
             <div className='flex flex-wrap items-center gap-6 text-sm'>
               <div>
                 <span className='text-muted-foreground'>用户</span>
-                <span className='ml-2 font-medium'>{conversation.userNickname || '匿名用户'}</span>
+                <span className='ml-2 font-medium'>{String(conversation.userNickname || '匿名用户')}</span>
               </div>
               <div>
                 <span className='text-muted-foreground'>创建时间</span>
-                <span className='ml-2'>{format(new Date(conversation.createdAt), 'yyyy-MM-dd HH:mm', { locale: zhCN })}</span>
+                <span className='ml-2'>{format(new Date(String(conversation.createdAt)), 'yyyy-MM-dd HH:mm', { locale: zhCN })}</span>
               </div>
               <div>
                 <span className='text-muted-foreground'>消息数</span>
-                <span className='ml-2 font-medium'>{conversation.messageCount}</span>
+                <span className='ml-2 font-medium'>{String(conversation.messageCount)}</span>
               </div>
-              {conversation.title && (
+              {conversation.title ? (
                 <div>
                   <span className='text-muted-foreground'>标题</span>
-                  <span className='ml-2'>{conversation.title}</span>
+                  <span className='ml-2'>{String(conversation.title)}</span>
                 </div>
-              )}
+              ) : null}
               {/* v4.6: 显示评估标签 */}
-              {conversation.evaluationTags && conversation.evaluationTags.length > 0 && (
+              {Array.isArray(conversation.evaluationTags) && conversation.evaluationTags.length > 0 ? (
                 <div className='flex items-center gap-1'>
                   <span className='text-muted-foreground'>标签</span>
-                  {conversation.evaluationTags.map(tag => (
+                  {(conversation.evaluationTags as string[]).map((tag: string) => (
                     <Badge key={tag} variant='outline' className='text-xs'>
                       {BAD_CASE_TAGS.find(t => t.value === tag)?.label || tag}
                     </Badge>
                   ))}
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* 消息列表 */}

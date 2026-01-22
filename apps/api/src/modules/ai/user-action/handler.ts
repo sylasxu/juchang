@@ -1,0 +1,480 @@
+/**
+ * User Action Handler - 处理结构化用户操作
+ * 
+ * 跳过 LLM 意图识别，直接路由到对应 Tool 执行
+ */
+
+import type { UserAction, UserActionType, ActionResult } from './types';
+import { createLogger } from '../observability/logger';
+
+// Tool 执行器（延迟导入避免循环依赖）
+import { joinActivityTool } from '../tools/activity-tools';
+import { exploreNearbyTool } from '../tools/explore-nearby';
+
+const logger = createLogger('user-action');
+
+/**
+ * Action 到 Tool 的映射表
+ */
+const ACTION_HANDLERS: Record<UserActionType, {
+  handler: (payload: Record<string, unknown>, userId: string | null) => Promise<ActionResult>;
+  requiresAuth: boolean;
+  description: string;
+}> = {
+  // 活动相关
+  join_activity: {
+    handler: handleJoinActivity,
+    requiresAuth: true,
+    description: '报名活动',
+  },
+  view_activity: {
+    handler: handleViewActivity,
+    requiresAuth: false,
+    description: '查看活动详情',
+  },
+  cancel_join: {
+    handler: handleCancelJoin,
+    requiresAuth: true,
+    description: '取消报名',
+  },
+  share_activity: {
+    handler: handleShareActivity,
+    requiresAuth: false,
+    description: '分享活动',
+  },
+  
+  // 创建相关
+  create_activity: {
+    handler: handleCreateActivity,
+    requiresAuth: true,
+    description: '创建活动',
+  },
+  edit_draft: {
+    handler: handleEditDraft,
+    requiresAuth: true,
+    description: '编辑草稿',
+  },
+  publish_draft: {
+    handler: handlePublishDraft,
+    requiresAuth: true,
+    description: '发布草稿',
+  },
+  
+  // 探索相关
+  explore_nearby: {
+    handler: handleExploreNearby,
+    requiresAuth: false,
+    description: '探索附近',
+  },
+  expand_map: {
+    handler: handleExpandMap,
+    requiresAuth: false,
+    description: '展开地图',
+  },
+  filter_activities: {
+    handler: handleFilterActivities,
+    requiresAuth: false,
+    description: '筛选活动',
+  },
+  
+  // 找搭子相关
+  find_partner: {
+    handler: handleFindPartner,
+    requiresAuth: true,
+    description: '找搭子',
+  },
+  select_preference: {
+    handler: handleSelectPreference,
+    requiresAuth: false,
+    description: '选择偏好',
+  },
+  skip_preference: {
+    handler: handleSkipPreference,
+    requiresAuth: false,
+    description: '跳过偏好',
+  },
+  
+  // 通用
+  retry: {
+    handler: handleRetry,
+    requiresAuth: false,
+    description: '重试',
+  },
+  cancel: {
+    handler: handleCancel,
+    requiresAuth: false,
+    description: '取消',
+  },
+  quick_prompt: {
+    handler: handleQuickPrompt,
+    requiresAuth: false,
+    description: '快捷提示词',
+  },
+};
+
+/**
+ * 处理 UserAction
+ * 
+ * @returns ActionResult，如果 fallbackToLLM=true 则需要回退到 LLM 处理
+ */
+export async function handleUserAction(
+  action: UserAction,
+  userId: string | null,
+  location?: { lat: number; lng: number }
+): Promise<ActionResult> {
+  const startTime = Date.now();
+  const { action: actionType, payload, source } = action;
+  
+  logger.info('Processing user action', { 
+    actionType, 
+    source, 
+    userId: userId || 'anon',
+    hasLocation: !!location,
+  });
+  
+  // 查找处理器
+  const handlerConfig = ACTION_HANDLERS[actionType];
+  if (!handlerConfig) {
+    logger.warn('Unknown action type', { actionType });
+    return {
+      success: false,
+      fallbackToLLM: true,
+      fallbackText: action.originalText || `执行 ${actionType}`,
+    };
+  }
+  
+  // 检查认证
+  if (handlerConfig.requiresAuth && !userId) {
+    logger.warn('Action requires auth', { actionType });
+    return {
+      success: false,
+      error: '请先登录',
+      data: { requiresAuth: true },
+    };
+  }
+  
+  try {
+    // 注入位置信息到 payload
+    const enrichedPayload = location 
+      ? { ...payload, _location: location }
+      : payload;
+    
+    const result = await handlerConfig.handler(enrichedPayload, userId);
+    
+    const duration = Date.now() - startTime;
+    logger.info('User action completed', { 
+      actionType, 
+      success: result.success,
+      duration,
+      fallbackToLLM: result.fallbackToLLM,
+    });
+    
+    return result;
+  } catch (error: any) {
+    logger.error('User action failed', { 
+      actionType, 
+      error: error.message,
+    });
+    
+    return {
+      success: false,
+      error: error.message || '操作失败',
+      fallbackToLLM: true,
+      fallbackText: action.originalText,
+    };
+  }
+}
+
+// ============================================================================
+// Action Handlers
+// ============================================================================
+
+async function handleJoinActivity(
+  payload: Record<string, unknown>,
+  userId: string | null
+): Promise<ActionResult> {
+  const activityId = payload.activityId as string;
+  if (!activityId) {
+    return { success: false, error: '缺少活动 ID' };
+  }
+  
+  if (!userId) {
+    return { success: false, error: '请先登录', data: { requiresAuth: true } };
+  }
+  
+  try {
+    // 直接调用 Tool 的 execute 函数
+    const tool = joinActivityTool(userId);
+    const result = await tool.execute({ activityId });
+    
+    return {
+      success: !result.error,
+      data: result,
+      error: result.error,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function handleViewActivity(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  const activityId = payload.activityId as string;
+  if (!activityId) {
+    return { success: false, error: '缺少活动 ID' };
+  }
+  
+  // 查看详情由前端处理跳转，这里只返回成功
+  return {
+    success: true,
+    data: { 
+      action: 'navigate',
+      url: `/subpackages/activity/detail/index?id=${activityId}`,
+    },
+  };
+}
+
+async function handleCancelJoin(
+  payload: Record<string, unknown>,
+  userId: string | null
+): Promise<ActionResult> {
+  if (!userId) {
+    return { success: false, error: '请先登录', data: { requiresAuth: true } };
+  }
+  
+  const activityId = payload.activityId as string;
+  if (!activityId) {
+    return { success: false, error: '缺少活动 ID' };
+  }
+  
+  // TODO: 实现取消报名逻辑
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: `取消报名活动 ${activityId}`,
+  };
+}
+
+async function handleShareActivity(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  const activityId = payload.activityId as string;
+  if (!activityId) {
+    return { success: false, error: '缺少活动 ID' };
+  }
+  
+  // 分享由前端处理，这里返回分享数据
+  return {
+    success: true,
+    data: {
+      action: 'share',
+      activityId,
+      title: payload.title as string,
+    },
+  };
+}
+
+async function handleCreateActivity(
+  payload: Record<string, unknown>,
+  userId: string | null
+): Promise<ActionResult> {
+  if (!userId) {
+    return { success: false, error: '请先登录', data: { requiresAuth: true } };
+  }
+  
+  // 创建活动需要完整的草稿数据，回退到 LLM
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: payload.description as string || '创建活动',
+  };
+}
+
+async function handleEditDraft(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  const activityId = payload.activityId as string;
+  const field = payload.field as string;
+  
+  // 编辑草稿需要 LLM 理解修改意图
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: field 
+      ? `修改活动的${field}` 
+      : `编辑活动 ${activityId}`,
+  };
+}
+
+async function handlePublishDraft(
+  payload: Record<string, unknown>,
+  userId: string | null
+): Promise<ActionResult> {
+  if (!userId) {
+    return { success: false, error: '请先登录', data: { requiresAuth: true } };
+  }
+  
+  const activityId = payload.activityId as string;
+  if (!activityId) {
+    return { success: false, error: '缺少活动 ID' };
+  }
+  
+  // 发布由前端调用 API，这里返回确认
+  return {
+    success: true,
+    data: {
+      action: 'publish',
+      activityId,
+    },
+  };
+}
+
+async function handleExploreNearby(
+  payload: Record<string, unknown>,
+  userId: string | null
+): Promise<ActionResult> {
+  const location = payload._location as { lat: number; lng: number } | undefined;
+  
+  if (!location) {
+    return { 
+      success: false, 
+      fallbackToLLM: true,
+      fallbackText: '探索附近的活动',
+    };
+  }
+  
+  try {
+    const tool = exploreNearbyTool(userId, location);
+    const result = await tool.execute({
+      lat: location.lat,
+      lng: location.lng,
+      radiusKm: (payload.radiusKm as number) || 5,
+      type: payload.type as string,
+    });
+    
+    return {
+      success: true,
+      data: result,
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function handleExpandMap(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  // 展开地图由前端处理
+  return {
+    success: true,
+    data: {
+      action: 'navigate',
+      url: '/subpackages/activity/explore/index',
+      params: payload,
+    },
+  };
+}
+
+async function handleFilterActivities(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  // 筛选需要 LLM 理解筛选条件
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: `筛选${payload.type || ''}活动`,
+  };
+}
+
+async function handleFindPartner(
+  payload: Record<string, unknown>,
+  userId: string | null
+): Promise<ActionResult> {
+  if (!userId) {
+    return { success: false, error: '请先登录', data: { requiresAuth: true } };
+  }
+  
+  // 找搭子需要进入多轮对话流程
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: payload.type 
+      ? `找${payload.type}搭子`
+      : '找搭子',
+  };
+}
+
+async function handleSelectPreference(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  const questionType = payload.questionType as string;
+  const selectedValue = payload.selectedValue as string;
+  const selectedLabel = payload.selectedLabel as string;
+  
+  // 选择偏好后，用选中的标签作为用户输入继续对话
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: selectedLabel || selectedValue || '继续',
+  };
+}
+
+async function handleSkipPreference(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  // 跳过偏好，用默认文本继续
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: '随便，你推荐吧',
+  };
+}
+
+async function handleRetry(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  const originalText = payload.originalText as string;
+  
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: originalText || '重试',
+  };
+}
+
+async function handleCancel(
+  _payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  return {
+    success: true,
+    data: { action: 'cancelled' },
+  };
+}
+
+async function handleQuickPrompt(
+  payload: Record<string, unknown>,
+  _userId: string | null
+): Promise<ActionResult> {
+  const prompt = payload.prompt as string;
+  
+  if (!prompt) {
+    return { success: false, error: '缺少提示词' };
+  }
+  
+  // 快捷提示词直接作为用户输入
+  return {
+    success: false,
+    fallbackToLLM: true,
+    fallbackText: prompt,
+  };
+}

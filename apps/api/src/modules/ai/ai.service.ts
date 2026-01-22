@@ -87,6 +87,8 @@ import {
 } from './workflow/partner-matching';
 // Evals
 import { evaluateResponseQuality } from './evals/runner';
+// User Action (A2UI 风格)
+import { extractUserAction, handleUserAction, type UserAction } from './user-action';
 
 const logger = createLogger('ai.service');
 
@@ -102,6 +104,8 @@ export interface ChatRequest {
   draftContext?: { activityId: string; currentDraft: ActivityDraftForPrompt };
   trace?: boolean;
   modelParams?: { temperature?: number; maxTokens?: number };
+  /** A2UI 风格：结构化用户操作，跳过 LLM 意图识别 */
+  userAction?: UserAction;
 }
 
 export interface TraceStep {
@@ -146,10 +150,51 @@ export async function consumeAIQuota(userId: string): Promise<boolean> {
 // ==========================================
 
 export async function streamChat(request: ChatRequest): Promise<Response> {
-  const { messages, userId, location, source, draftContext, trace, modelParams } = request;
+  const { messages, userId, location, source, draftContext, trace, modelParams, userAction } = request;
   const startTime = Date.now();
 
-  // 0. 提取最后一条用户消息（用于护栏检查）
+  // 0. A2UI: 检查是否为结构化 userAction
+  if (userAction) {
+    logger.info('Processing user action (A2UI)', { 
+      action: userAction.action, 
+      source: userAction.source,
+      userId: userId || 'anon',
+    });
+    
+    const actionResult = await handleUserAction(
+      userAction,
+      userId,
+      location ? { lat: location[1], lng: location[0] } : undefined
+    );
+    
+    // 如果 action 处理成功且不需要回退到 LLM
+    if (actionResult.success && !actionResult.fallbackToLLM) {
+      return createActionResponse(actionResult, trace);
+    }
+    
+    // 如果需要回退到 LLM，使用 fallbackText 作为用户消息
+    if (actionResult.fallbackToLLM && actionResult.fallbackText) {
+      // 修改最后一条消息为 fallbackText
+      const modifiedMessages = [...messages];
+      if (modifiedMessages.length > 0) {
+        const lastMsg = modifiedMessages[modifiedMessages.length - 1];
+        if (lastMsg.role === 'user') {
+          (lastMsg as any).content = actionResult.fallbackText;
+          if (lastMsg.parts) {
+            lastMsg.parts = [{ type: 'text', text: actionResult.fallbackText }];
+          }
+        }
+      }
+      // 继续正常的 LLM 流程
+    }
+    
+    // 如果 action 失败且不回退，返回错误
+    if (!actionResult.success && !actionResult.fallbackToLLM) {
+      return createQuickResponse(actionResult.error || '操作失败', trace);
+    }
+  }
+
+  // 0.1 提取最后一条用户消息（用于护栏检查）
   const conversationHistory = messages.map(m => ({
     role: m.role,
     content: (m.parts?.find((p): p is { type: 'text'; text: string } => p.type === 'text')?.text)
@@ -423,6 +468,61 @@ function createQuickResponse(text: string, trace?: boolean): Response {
         const now = new Date().toISOString();
         writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'blocked', intentMethod: 'guardrail' }, transient: true });
         writer.write({ type: 'data-trace-end' as any, data: { completedAt: now, status: 'blocked', output: { text, toolCalls: [] } }, transient: true });
+      }
+    },
+  });
+  return createUIMessageStreamResponse({ stream });
+}
+
+/**
+ * 创建 UserAction 响应 (A2UI)
+ * 直接返回 action 执行结果，不经过 LLM
+ */
+function createActionResponse(result: import('./user-action').ActionResult, trace?: boolean): Response {
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      // 返回 action 结果作为 data
+      writer.write({
+        type: 'data' as any,
+        data: {
+          type: 'action_result',
+          success: result.success,
+          data: result.data,
+          error: result.error,
+        },
+      });
+      
+      // 如果有导航指令，返回文本提示
+      const data = result.data as Record<string, unknown> | undefined;
+      if (data?.action === 'navigate') {
+        writer.write({ type: 'text-delta', delta: '正在跳转...', id: randomUUID() });
+      } else if (data?.action === 'share') {
+        writer.write({ type: 'text-delta', delta: '准备分享...', id: randomUUID() });
+      } else if (result.success) {
+        writer.write({ type: 'text-delta', delta: '操作成功！', id: randomUUID() });
+      }
+      
+      if (trace) {
+        const now = new Date().toISOString();
+        writer.write({ 
+          type: 'data-trace-start' as any, 
+          data: { 
+            requestId: randomUUID(), 
+            startedAt: now, 
+            intent: 'user_action', 
+            intentMethod: 'a2ui' 
+          }, 
+          transient: true 
+        });
+        writer.write({ 
+          type: 'data-trace-end' as any, 
+          data: { 
+            completedAt: now, 
+            status: result.success ? 'completed' : 'failed', 
+            output: { actionResult: result } 
+          }, 
+          transient: true 
+        });
       }
     },
   });
