@@ -165,7 +165,7 @@ bunx <package>       # 执行包命令
 **枚举**:
 - `activityStatusEnum`: draft, active, completed, cancelled
 - `conversationRoleEnum`: user, assistant
-- `conversationMessageTypeEnum`: text, widget_dashboard, widget_launcher, widget_action, widget_draft, widget_share, widget_explore, widget_error, widget_ask_preference
+- `conversationMessageTypeEnum`: text, user_action, widget_dashboard, widget_launcher, widget_action, widget_draft, widget_share, widget_explore, widget_error, widget_ask_preference
 - `partnerIntentStatusEnum`: active, matched, expired, cancelled (v4.0)
 - `intentMatchOutcomeEnum`: pending, confirmed, expired, cancelled (v4.0)
 

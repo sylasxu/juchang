@@ -3,8 +3,8 @@ import { treaty } from '@elysiajs/eden'
 import type { App } from '@juchang/api'
 import { toast } from 'sonner'
 
-// 使用根目录 .env 中的 API_BASE_URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+// API 基础 URL - 统一导出，禁止其他文件自行定义
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:1996'
 
 // 创建 Eden Treaty 客户端实例
 export const api = treaty<App>(API_BASE_URL, {

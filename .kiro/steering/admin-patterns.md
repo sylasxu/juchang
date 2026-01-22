@@ -7,6 +7,18 @@ fileMatchPattern: "apps/admin/**/*"
 
 ## 🌐 API 调用
 
+### 🚨 API_BASE_URL 统一管理
+
+**禁止在组件中自行定义 API URL**，必须从 `@/lib/eden` 导入：
+
+```typescript
+// ❌ 禁止：自行定义 API URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:1996'
+
+// ✅ 正确：从 eden 统一导入
+import { API_BASE_URL } from '@/lib/eden'
+```
+
 ### 🚨 必须使用 unwrap() 包装所有 API 调用
 
 Eden Treaty 返回 `{ data, error, status }` 格式，**禁止直接访问 response.data**：
@@ -244,6 +256,7 @@ const form = useForm<UserForm>({
 ## ✅ Checklist
 
 - [ ] API 调用使用 `unwrap(api.xxx.get(...))`
+- [ ] API_BASE_URL 从 `@/lib/eden` 导入，禁止自行定义
 - [ ] Toast 使用 `sonner`
 - [ ] 表格使用 TanStack Table + `manualPagination: true`
 - [ ] 分页使用 `DataTablePagination`

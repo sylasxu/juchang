@@ -33,8 +33,7 @@ import { cn } from '@/lib/utils'
 import { StreamingText } from '../shared/streaming-text'
 import type { TraceStep, TraceStatus, ModelParams, IntentType } from '../../types/trace'
 import { getToolDisplayName, DEFAULT_MODEL_PARAMS } from '../../types/trace'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+import { API_BASE_URL } from '@/lib/eden'
 
 /** 暴露给父组件的方法 */
 export interface PlaygroundChatRef {

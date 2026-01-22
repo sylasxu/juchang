@@ -6,7 +6,7 @@
 
 import { generateObject } from 'ai';
 import { t } from 'elysia';
-import { getModel } from '../models/router';
+import { getDefaultChatModel } from '../models/router';
 import { toJsonSchema } from '@juchang/utils';
 import { createLogger } from '../observability/logger';
 
@@ -15,7 +15,7 @@ const logger = createLogger('extractor');
 /**
  * 偏好类别
  */
-export type PreferenceCategory = 
+export type PreferenceCategory =
   | 'activity_type'   // 活动类型偏好（火锅、桌游、运动等）
   | 'time'            // 时间偏好（周末、晚上等）
   | 'location'        // 地点偏好（观音桥、解放碑等）
@@ -90,7 +90,7 @@ export async function extractPreferencesWithLLM(
 
   try {
     const result = await generateObject({
-      model: getModel('deepseek-chat'),
+      model: getDefaultChatModel(),
       schema: toJsonSchema(PreferenceExtractionSchema) as any,
       prompt: `分析以下用户对话，提取用户的偏好信息。
 
@@ -111,15 +111,15 @@ ${userMessages}
     });
 
     const extraction = result.object as PreferenceExtraction;
-    
-    logger.debug('Preferences extracted', { 
+
+    logger.debug('Preferences extracted', {
       preferencesCount: extraction.preferences.length,
       locationsCount: extraction.frequentLocations.length,
     });
 
     return extraction;
   } catch (error) {
-    logger.warn('LLM extraction failed, falling back to empty', { 
+    logger.warn('LLM extraction failed, falling back to empty', {
       error: error instanceof Error ? error.message : 'Unknown error',
     });
     return { preferences: [], frequentLocations: [] };
@@ -140,7 +140,7 @@ export function extractPreferencesSimple(
 
   // 地点关键词
   const locationKeywords = ['观音桥', '解放碑', '南坪', '沙坪坝', '江北', '杨家坪', '大坪', '北碚', '渝北', '九龙坡'];
-  
+
   // 喜好关键词
   const likePatterns = [
     { pattern: /喜欢(.{1,10})/, category: 'activity_type' as const },
@@ -148,7 +148,7 @@ export function extractPreferencesSimple(
     { pattern: /想玩(.{1,10})/, category: 'activity_type' as const },
     { pattern: /爱(.{1,6})/, category: 'activity_type' as const },
   ];
-  
+
   // 不喜欢关键词
   const dislikePatterns = [
     { pattern: /不吃(.{1,6})/, category: 'food' as const },

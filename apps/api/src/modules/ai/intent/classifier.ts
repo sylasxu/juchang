@@ -5,7 +5,7 @@
  */
 
 import { generateText } from 'ai';
-import { getModel } from '../models/router';
+import { getDefaultChatModel } from '../models/router';
 import type { IntentType, ClassifyResult, ClassifyContext } from './types';
 import { intentPatterns, intentPriority, draftModifyPatterns } from './definitions';
 
@@ -110,7 +110,7 @@ async function classifyByLLM(
 
   try {
     const result = await generateText({
-      model: getModel('deepseek-chat'),
+      model: getDefaultChatModel(),
       prompt: `你是一个意图分类器。根据对话历史，判断用户当前的意图。${contextHint}
 
 意图类型：
@@ -142,16 +142,16 @@ ${conversationText}
       const parsed = JSON.parse(jsonMatch[0]);
       const intent = parsed.intent as IntentType;
       const confidence = typeof parsed.confidence === 'number' ? parsed.confidence : 0.7;
-      
+
       console.log(`[Intent LLM] ${intent} (confidence: ${confidence})`);
-      
+
       // 验证意图类型
       const validIntents: IntentType[] = ['create', 'explore', 'manage', 'partner', 'chitchat', 'idle', 'unknown'];
       if (validIntents.includes(intent)) {
         return { intent, confidence, method: 'llm' };
       }
     }
-    
+
     // 解析失败，降级到 explore
     console.warn('[Intent LLM] Failed to parse response:', text);
     return { intent: 'explore', confidence: 0.5, method: 'llm' };
@@ -174,7 +174,7 @@ export function classifyIntentSync(
   hasDraftContext: boolean
 ): ClassifyResult {
   const regexResult = classifyByRegex(message);
-  
+
   if (regexResult.intent !== 'unknown') {
     return regexResult;
   }

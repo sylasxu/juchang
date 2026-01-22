@@ -1,15 +1,15 @@
 /**
  * User Action Handler - 处理结构化用户操作
  * 
- * 跳过 LLM 意图识别，直接路由到对应 Tool 执行
+ * 跳过 LLM 意图识别，直接路由到对应 Service 执行
  */
 
 import type { UserAction, UserActionType, ActionResult } from './types';
 import { createLogger } from '../observability/logger';
 
-// Tool 执行器（延迟导入避免循环依赖）
-import { joinActivityTool } from '../tools/activity-tools';
-import { exploreNearbyTool } from '../tools/explore-nearby';
+// 复用现有 Service 函数
+import { joinActivity, quitActivity, getActivityById } from '../../activities/activity.service';
+import { search } from '../rag';
 
 const logger = createLogger('user-action');
 
@@ -203,14 +203,19 @@ async function handleJoinActivity(
   }
   
   try {
-    // 直接调用 Tool 的 execute 函数
-    const tool = joinActivityTool(userId);
-    const result = await tool.execute({ activityId });
+    // 调用现有的 activity.service 函数
+    await joinActivity(activityId, userId);
+    
+    // 获取活动标题用于返回消息
+    const activity = await getActivityById(activityId);
     
     return {
-      success: !result.error,
-      data: result,
-      error: result.error,
+      success: true,
+      data: {
+        activityId,
+        activityTitle: activity?.title,
+        message: `报名成功！「${activity?.title || '活动'}」等你来～`,
+      },
     };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -249,12 +254,20 @@ async function handleCancelJoin(
     return { success: false, error: '缺少活动 ID' };
   }
   
-  // TODO: 实现取消报名逻辑
-  return {
-    success: false,
-    fallbackToLLM: true,
-    fallbackText: `取消报名活动 ${activityId}`,
-  };
+  try {
+    // 调用现有的 activity.service 函数
+    await quitActivity(activityId, userId);
+    
+    return {
+      success: true,
+      data: {
+        activityId,
+        message: '已取消报名',
+      },
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
 }
 
 async function handleShareActivity(
@@ -348,17 +361,57 @@ async function handleExploreNearby(
   }
   
   try {
-    const tool = exploreNearbyTool(userId, location);
-    const result = await tool.execute({
-      lat: location.lat,
-      lng: location.lng,
-      radiusKm: (payload.radiusKm as number) || 5,
-      type: payload.type as string,
+    // 调用现有的 RAG search 函数
+    const locationName = (payload.locationName as string) || '附近';
+    const radius = (payload.radiusKm as number) || 5;
+    const type = payload.type as string | undefined;
+    
+    const scoredResults = await search({
+      semanticQuery: `${locationName}附近的活动`,
+      filters: {
+        location: {
+          lat: location.lat,
+          lng: location.lng,
+          radiusInKm: radius,
+        },
+        type: type ?? undefined,
+      },
+      limit: 10,
+      includeMatchReason: false,
+      userId: userId ?? undefined,
+    });
+    
+    // 转换结果格式
+    const results = scoredResults.map(scored => {
+      const { activity, score, distance } = scored;
+      const loc = activity.location as unknown as { x: number; y: number } | null;
+      
+      return {
+        id: activity.id,
+        title: activity.title,
+        type: activity.type,
+        lat: loc?.y ?? 0,
+        lng: loc?.x ?? 0,
+        locationName: activity.locationName,
+        distance: distance ? Math.round(distance) : 0,
+        startAt: new Date(activity.startAt).toISOString(),
+        currentParticipants: activity.currentParticipants,
+        maxParticipants: activity.maxParticipants,
+        score,
+      };
     });
     
     return {
       success: true,
-      data: result,
+      data: {
+        explore: {
+          center: { lat: location.lat, lng: location.lng, name: locationName },
+          results,
+          title: results.length > 0 
+            ? `为你找到${locationName}附近的 ${results.length} 个活动`
+            : `${locationName}附近暂时没有活动`,
+        },
+      },
     };
   } catch (error: any) {
     return { success: false, error: error.message };
@@ -414,7 +467,6 @@ async function handleSelectPreference(
   payload: Record<string, unknown>,
   _userId: string | null
 ): Promise<ActionResult> {
-  const questionType = payload.questionType as string;
   const selectedValue = payload.selectedValue as string;
   const selectedLabel = payload.selectedLabel as string;
   
@@ -427,7 +479,7 @@ async function handleSelectPreference(
 }
 
 async function handleSkipPreference(
-  payload: Record<string, unknown>,
+  _payload: Record<string, unknown>,
   _userId: string | null
 ): Promise<ActionResult> {
   // 跳过偏好，用默认文本继续

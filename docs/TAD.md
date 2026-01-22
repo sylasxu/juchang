@@ -210,9 +210,10 @@ export const conversationMessages = pgTable("conversation_messages", {
 // 对话角色枚举 (使用 assistant 符合 OpenAI 标准)
 export const conversationRoleEnum = pgEnum('conversation_role', ['user', 'assistant']);
 
-// 对话消息类型枚举 (v3.9 含 widget_ask_preference)
+// 对话消息类型枚举 (v4.7 含 user_action)
 export const conversationMessageTypeEnum = pgEnum('conversation_message_type', [
   'text',              // 普通文本
+  'user_action',       // 结构化用户操作 (跳过 LLM 意图识别)
   'widget_dashboard',  // 进场欢迎卡片
   'widget_launcher',   // 组局发射台 (复合型卡片)
   'widget_action',     // 快捷操作按钮 (简单跳转)
@@ -603,6 +604,11 @@ apps/api/src/modules/ai/
 │   ├── token-limit.ts    # Token 限制
 │   ├── save-history.ts   # 保存对话历史
 │   └── extract-preferences.ts # 偏好提取
+│
+├── user-action/          # v4.7 结构化用户操作模块 (新增)
+│   ├── index.ts          # 模块导出
+│   ├── types.ts          # UserAction, UserActionType, ActionResult
+│   └── handler.ts        # Action 处理器 (跳过 LLM，直接调用 Service)
 │
 ├── agent/                # @deprecated v4.5 Agent 封装（已废弃，保留备份）
 │   ├── ...
@@ -1263,7 +1269,99 @@ flowchart TD
     流式响应 (SSE)
 ```
 
-### 6.12 Prompt 工程
+### 6.12 结构化用户操作 (User Action) - v4.7
+
+**设计理念**：
+参考 Google A2UI 和 Vercel json-render 的设计，当用户点击 Widget 按钮时，发送结构化的 Action 数据而非文本消息，跳过 LLM 意图识别，直接路由到对应的 Service 函数执行。
+
+**核心类型**：
+
+```typescript
+// UserAction - 前端发送的结构化操作
+interface UserAction {
+  action: UserActionType;           // 操作类型
+  payload: Record<string, unknown>; // 操作参数
+  source: 'widget' | 'quick_action' | 'keyboard';
+  originalText?: string;            // 原始文本（用于 fallback）
+}
+
+// UserActionType - 支持的操作类型
+type UserActionType = 
+  | 'join_activity'      // 报名活动
+  | 'view_activity'      // 查看详情
+  | 'cancel_join'        // 取消报名
+  | 'share_activity'     // 分享活动
+  | 'create_activity'    // 创建活动
+  | 'edit_draft'         // 编辑草稿
+  | 'publish_draft'      // 发布草稿
+  | 'explore_nearby'     // 探索附近
+  | 'expand_map'         // 展开地图
+  | 'filter_activities'  // 筛选活动
+  | 'find_partner'       // 找搭子
+  | 'select_preference'  // 选择偏好
+  | 'skip_preference'    // 跳过偏好
+  | 'retry'              // 重试
+  | 'cancel'             // 取消
+  | 'quick_prompt';      // 快捷提示词
+
+// ActionResult - 处理结果
+interface ActionResult {
+  success: boolean;
+  data?: Record<string, unknown>;
+  error?: string;
+  fallbackToLLM?: boolean;  // 是否需要回退到 LLM 处理
+  fallbackText?: string;    // 回退时使用的文本
+}
+```
+
+**处理流程**：
+
+```
+Widget 按钮点击
+       │
+       ▼
+┌─────────────────┐
+│ sendAction()    │  小程序 chat.ts
+│ 发送 userAction │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ /ai/chat        │  API Controller
+│ 检测 userAction │
+└────────┬────────┘
+         │
+    有 userAction?
+    ┌────┴────┐
+    │ Yes     │ No
+    ▼         ▼
+┌─────────┐  ┌─────────┐
+│ handler │  │ LLM     │
+│ 直接执行│  │ 意图识别│
+└────┬────┘  └─────────┘
+     │
+     ▼
+┌─────────────────┐
+│ 调用 Service    │  activity.service / rag/search
+│ 函数执行操作    │
+└────────┬────────┘
+         │
+    fallbackToLLM?
+    ┌────┴────┐
+    │ Yes     │ No
+    ▼         ▼
+┌─────────┐  ┌─────────┐
+│ 继续 LLM│  │ 直接返回│
+│ 处理    │  │ 结果    │
+└─────────┘  └─────────┘
+```
+
+**关键设计**：
+- Handler 调用现有 Service 函数（如 `joinActivity`, `quitActivity`），不直接调用 AI SDK Tool
+- 部分操作（如 `create_activity`, `find_partner`）需要 LLM 理解上下文，设置 `fallbackToLLM: true`
+- 前端通过 `sendAction()` 方法发送结构化操作，而非 `sendMessage()`
+
+### 6.13 Prompt 工程
 
 **小橘人设 (v3.9)**：
 
@@ -1296,14 +1394,14 @@ flowchart TD
 
 ---
 
-### 6.13 技术支撑业务：找搭子匹配 (Mapping Flow 1.2.1)
+### 6.14 技术支撑业务：找搭子匹配 (Mapping Flow 1.2.1)
 
 为了实现 PRD 1.2.1 中"异步匹配"与"双向确认"的业务需求，技术实现必须解决以下难点：
 1. **意向结构化**：如何把 "周末剧本杀" 变成可计算的数据？
 2. **实时/定时匹配**：如何高效扫描数据库？
 3. **隐私安全**：如何在双方确认前保护联系方式？
 
-#### 6.13.1 数据流转设计
+#### 6.14.1 数据流转设计
 
 ```mermaid
 sequenceDiagram
@@ -1332,7 +1430,7 @@ sequenceDiagram
     API-->>UserB: 推送匹配卡片
 ```
 
-#### 6.13.2 匹配算法核心逻辑
+#### 6.14.2 匹配算法核心逻辑
 
 位置：`apps/api/src/modules/workflow/partner-matching.ts`
 
@@ -1350,17 +1448,17 @@ sequenceDiagram
     - 状态机：`Pending` -> `Confirmed_A` -> `Matched` (双方都确认)
     - 隐私保护：在 `Matched` 状态之前，API **绝对不返回** 对方的 `phoneNumber` 或 `wxId`。
 
-#### 6.13.3 对应 CP (Correctness Properties)
+#### 6.14.3 对应 CP (Correctness Properties)
 - **CP-23 (One Active Intent)**: 这里的逻辑保证同一用户同一类型下只能有一个 Active 意向，防止恶意刷屏。
 - **CP-24 (24h Expiry)**: 定时任务自动将超过 24h 的 Intent 标记为 `expired`，保证匹配的时效性。
 
 ---
 
-### 6.14 技术支撑业务：极速组局 (Mapping Flow 1.2.2)
+### 6.15 技术支撑业务：极速组局 (Mapping Flow 1.2.2)
 
 这是 PRD 1.2.2 "一句话生成" 背后的技术链路，核心在于将自然语言无损转化为结构化活动数据。
 
-#### 6.14.1 数据流转设计
+#### 6.15.1 数据流转设计
 
 ```mermaid
 sequenceDiagram
@@ -1384,7 +1482,7 @@ sequenceDiagram
     Bus->>User: 异步生成分享卡片 (Widget_Share)
 ```
 
-#### 6.14.2 核心逻辑实现
+#### 6.15.2 核心逻辑实现
 
 位置：`apps/api/src/modules/ai/tools/activity.ts`
 
@@ -1402,7 +1500,7 @@ sequenceDiagram
     - `active` → `completed`: 时间结束或发起人手动结束
     - `active` → `cancelled`: 发起人取消
 
-#### 6.14.3 对应 CP (Correctness Properties)
+#### 6.15.3 对应 CP (Correctness Properties)
 - **CP-12 (Valid Geolocation)**: 活动必须包含有效的 PostGIS `POINT(lon, lat)`，否则无法进行基于距离的推荐。
 - **CP-15 (Author Modification)**: 只有 `creator_id` 匹配的用户才有权修改或发布该活动草稿。
 

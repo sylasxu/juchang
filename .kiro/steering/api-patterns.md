@@ -17,15 +17,6 @@ fileMatchPattern: "apps/api/**/*.ts"
 
 **检验标准**：换一个前端框架，API 需要改吗？需要改 = 设计有问题
 
-### API 版本控制
-
-所有业务 API 使用 `/api/v1` 前缀：
-
-```
-✅ 正确：/api/v1/auth/login, /api/v1/activities/nearby
-❌ 错误：/auth/login, /activities/nearby (无版本前缀)
-```
-
 ### 显式参数设计
 
 ```typescript

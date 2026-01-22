@@ -17,8 +17,7 @@ import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { ProfileDropdown } from '@/components/profile-dropdown'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+import { API_BASE_URL } from '@/lib/eden'
 
 export function PlaygroundLayout() {
   const [tracePanelVisible, setTracePanelVisible] = useState(true)
