@@ -254,18 +254,18 @@ export const saveHistoryProcessor: Processor = {
     if (!ctx.userId || !ctx.conversationId) return result;
 
     try {
-      // 保存用户消息
+      // 保存用户消息（统一使用 { text } 对象格式）
       if (ctx.lastUserMessage) {
         await saveMessage({
           conversationId: ctx.conversationId,
           userId: ctx.userId,
           role: 'user',
           messageType: 'text',
-          content: ctx.lastUserMessage,
+          content: { text: ctx.lastUserMessage },
         });
       }
 
-      // 保存 AI 响应
+      // 保存 AI 响应（统一使用 { text } 对象格式）
       if (result?.text) {
         // 检查是否有 Tool 调用返回的 activityId
         const activityId = extractActivityIdFromToolResults(result.toolResults);
@@ -275,7 +275,7 @@ export const saveHistoryProcessor: Processor = {
           userId: ctx.userId,
           role: 'assistant',
           messageType: result.toolCalls?.length ? 'widget_action' : 'text',
-          content: result.text,
+          content: { text: result.text },
           activityId,
         });
       }

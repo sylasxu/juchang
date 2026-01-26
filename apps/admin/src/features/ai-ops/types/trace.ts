@@ -14,6 +14,9 @@ export type StepStatus = 'pending' | 'running' | 'success' | 'error'
 /** 步骤类型 */
 export type StepType = 'input' | 'prompt' | 'llm' | 'tool' | 'output'
 
+/** 扩展步骤类型（包含 Processor 和 P0/P1） */
+export type ExtendedStepType = StepType | 'processor' | 'p0-match' | 'p1-intent'
+
 /** 执行追踪 */
 export interface ExecutionTrace {
   /** 请求唯一标识 */
@@ -143,6 +146,13 @@ export type TraceStepData =
   | ToolStepData
   | OutputStepData
 
+/** 扩展步骤数据联合类型 */
+export type ExtendedTraceStepData =
+  | TraceStepData
+  | ProcessorStepData
+  | P0MatchStepData
+  | P1IntentStepData
+
 /** 用户输入步骤数据 */
 export interface InputStepData {
   /** 原始输入文本 */
@@ -262,6 +272,58 @@ export const CONTEXT_SCORE_LABELS: Record<number, string> = {
 export interface OutputStepData {
   /** AI 回复文本 */
   text: string
+}
+
+// ============ Extended Step Data Types (for Flow Visualization) ============
+
+/** Processor 类型 */
+export type ProcessorType =
+  | 'input-guard'
+  | 'user-profile'
+  | 'working-memory'
+  | 'semantic-recall'
+  | 'token-limit'
+  | 'save-history'
+  | 'extract-preferences';
+
+/** Processor 步骤数据 */
+export interface ProcessorStepData {
+  processorType: ProcessorType;
+  input?: unknown;
+  output?: unknown;
+  config?: Record<string, unknown>;
+  metrics?: Record<string, number>;
+}
+
+/** P0 Match 步骤数据 */
+export interface P0MatchStepData {
+  matched: boolean;
+  keyword?: string;
+  matchType?: 'exact' | 'prefix' | 'fuzzy';
+  priority?: number;
+  responseType?: string;
+  responseContent?: Record<string, unknown>;
+  statistics?: {
+    hitCount: number;
+    conversionCount: number;
+    conversionRate: number;
+  };
+  cacheHit?: boolean;
+}
+
+/** P1 Intent 步骤数据 */
+export interface P1IntentStepData {
+  intent: string;
+  method: 'regex' | 'llm';
+  confidence?: number;
+  regexRules?: Array<{ pattern: string; intent: string }>;
+  llmDetails?: {
+    model: string;
+    prompt: string;
+    inputTokens: number;
+    outputTokens: number;
+    duration: number;
+  };
 }
 
 // ============ Type Guards ============

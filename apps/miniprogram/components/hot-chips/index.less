@@ -1,0 +1,50 @@
+/**
+ * Hot Chips 样式
+ * Requirements: 3.3, 3.4
+ * 
+ * 渐变背景、圆角、阴影效果
+ */
+@import '/styles/tokens.less';
+
+.hot-chips-container {
+  width: 100%;
+  padding: @spacing-3 0;
+}
+
+.hot-chips-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.hot-chips-list {
+  display: flex;
+  flex-direction: row;
+  padding: 0 @spacing-4;
+  gap: @spacing-2;
+}
+
+.hot-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: @spacing-2 @spacing-4;
+  min-width: 120rpx;
+  height: 64rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: @rounded-full;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.95);
+    box-shadow: 0 1px 4px rgba(102, 126, 234, 0.2);
+  }
+}
+
+.hot-chip-text {
+  font-size: @text-sm;
+  font-weight: 500;
+  color: #ffffff;
+  white-space: nowrap;
+}

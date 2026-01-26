@@ -16,6 +16,13 @@ const intentToolMap: Record<IntentType, string[]> = {
   partner: ['createPartnerIntent', 'getMyIntents', 'confirmMatch', 'cancelIntent'],
   chitchat: [], // 模板响应，不调用 Tool
   idle: ['askPreference'],
+  modify: ['refineDraft', 'publishActivity'], // 修改草稿
+  confirm: ['publishActivity', 'confirmMatch'], // 确认操作
+  deny: [], // 拒绝操作，通常不需要工具
+  cancel: ['cancelActivity', 'cancelIntent'], // 取消操作
+  share: ['getActivityDetail', 'getMyActivities'], // 分享活动
+  join: ['exploreNearby', 'getActivityDetail', 'joinActivity'], // 报名活动
+  show_activity: ['getMyActivities', 'getActivityDetail'], // 展示活动
   unknown: ['askPreference', 'exploreNearby'], // 兜底工具
 };
 

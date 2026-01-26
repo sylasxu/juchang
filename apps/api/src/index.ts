@@ -25,6 +25,7 @@ import { reportController } from './modules/reports/report.controller';
 import { moderationController } from './modules/ai/moderation/moderation.controller';
 import { anomalyController } from './modules/ai/anomaly/anomaly.controller';
 import { growthController } from './modules/growth/growth.controller';
+import { hotKeywordsController } from './modules/hot-keywords/hot-keywords.controller';
 
 // 导入定时任务调度器
 import { startScheduler, stopScheduler, getJobStatuses } from './jobs';
@@ -53,6 +54,8 @@ const app = new Elysia()
         { name: 'Dashboard', description: '仪表板数据' },
         { name: 'Notifications', description: '通知系统' },
         { name: 'Reports', description: '内容审核' },
+        { name: 'Hot Keywords', description: '全局关键词' },
+        { name: 'Hot Keywords - Admin', description: '全局关键词管理' },
       ],
     },
     scalar: {
@@ -91,6 +94,7 @@ const app = new Elysia()
   .use(moderationController)
   .use(anomalyController)
   .use(growthController)
+  .use(hotKeywordsController)
   // 健康检查
   .get('/', () => 'Hello Juchang API')
   .get('/health', () => ({ status: 'ok', timestamp: new Date().toISOString() }))

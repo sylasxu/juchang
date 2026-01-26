@@ -31,6 +31,12 @@
     enhanced
     show-scrollbar="{{false}}"
   >
+    <!-- Hot Chips 热词快捷入口 (v4.7) -->
+    <hot-chips 
+      keywords="{{hotKeywords}}"
+      bind:chipclick="onHotChipClick"
+    />
+    
     <!-- 消息列表 -->
     <view class="message-list">
       <block wx:for="{{messages}}" wx:key="id">

@@ -115,36 +115,8 @@ import {
   confirmMatchTool,
 } from './partner-tools';
 
-/** 意图类型 */
-export type IntentType = 'create' | 'explore' | 'manage' | 'partner' | 'idle' | 'chitchat' | 'unknown';
-
-/**
- * 简单规则预分类意图（不需要 LLM）
- */
-export function classifyIntent(message: string, hasDraftContext: boolean, previousIntent?: IntentType): IntentType {
-  const text = message.toLowerCase();
-  
-  // 管理意图（优先级最高）
-  if (/我的活动|我发布的|我参与的|取消活动|不办了/.test(text)) return 'manage';
-  
-  // 找搭子意图
-  if (/找搭子|谁组我就去|懒得组局|等人约|我的意向|取消意向|确认匹配|确认发布/.test(text)) return 'partner';
-  
-  // 修改意图（需要草稿上下文）
-  if (hasDraftContext && /改|换|加|减|调|发布/.test(text)) return 'create';
-  
-  // 明确创建意图
-  if (/帮我组|帮我创建|自己组|我来组|我要组|我想组/.test(text)) return 'create';
-  
-  // 探索意图
-  if (/想找|找人|一起|有什么|附近|推荐|看看|想.*打|想.*吃|想.*玩/.test(text)) return 'explore';
-  if (/想|约/.test(text)) return 'explore';
-  
-  // 继承上一轮意图
-  if (previousIntent && previousIntent !== 'unknown') return previousIntent;
-  
-  return 'unknown';
-}
+// IntentType 已移至 ../intent/types.ts，这里导入使用
+import type { IntentType } from '../intent/types';
 
 /**
  * 获取所有 AI Tools（完整版）
@@ -207,12 +179,60 @@ export function getToolsByIntent(
       tools.confirmMatch = confirmMatchTool(userId);
       tools.askPreference = askPreferenceTool(userId);
       break;
+    
+    // 新增的意图类型处理
+    case 'modify':
+      // 修改意图 - 类似 create，但更侧重修改现有草稿
+      if (hasDraftContext) {
+        tools.refineDraft = refineDraftTool(userId);
+        tools.publishActivity = publishActivityTool(userId);
+      }
+      tools.getDraft = getDraftTool(userId);
+      tools.createActivityDraft = createActivityDraftTool(userId);
+      break;
+    
+    case 'confirm':
+      // 确认意图 - 发布活动或确认匹配
+      if (hasDraftContext) {
+        tools.publishActivity = publishActivityTool(userId);
+      }
+      tools.confirmMatch = confirmMatchTool(userId);
+      break;
+    
+    case 'deny':
+    case 'cancel':
+      // 拒绝/取消意图
+      tools.cancelActivity = cancelActivityTool(userId);
+      tools.cancelIntent = cancelIntentTool(userId);
+      break;
+    
+    case 'share':
+      // 分享意图 - 获取活动详情用于分享
+      tools.getActivityDetail = getActivityDetailTool(userId);
+      tools.getMyActivities = getMyActivitiesTool(userId);
+      break;
+    
+    case 'join':
+      // 报名意图
+      tools.exploreNearby = exploreNearbyTool(userId);
+      tools.getActivityDetail = getActivityDetailTool(userId);
+      tools.joinActivity = joinActivityTool(userId);
+      break;
+    
+    case 'show_activity':
+      // 展示活动意图
+      tools.getMyActivities = getMyActivitiesTool(userId);
+      tools.getActivityDetail = getActivityDetailTool(userId);
+      break;
       
     case 'idle':
     case 'chitchat':
+      // 闲聊/空闲 - 不提供工具
       break;
       
+    case 'unknown':
     default:
+      // 未知意图 - 提供基础工具集
       tools.createActivityDraft = createActivityDraftTool(userId);
       tools.exploreNearby = exploreNearbyTool(userId);
       tools.askPreference = askPreferenceTool(userId);

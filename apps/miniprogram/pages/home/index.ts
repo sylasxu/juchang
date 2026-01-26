@@ -15,6 +15,8 @@ import { useUserStore } from '../../src/stores/user'
 import { postActivitiesByIdPublish } from '../../src/api/endpoints/activities/activities'
 import { getWelcomeCard, getUserLocation, type WelcomeResponse, type QuickItem } from '../../src/services/welcome'
 import type { ShareActivityData, SendEventDetail, SendMessageEventDetail, DraftContext } from '../../src/types/global'
+import { getHotKeywords } from '../../src/api/endpoints/hot-keywords/hot-keywords'
+import type { HotKeywordsListResponseDataItem } from '../../src/api/model'
 
 // 页面数据类型
 interface PageData {
@@ -33,6 +35,9 @@ interface PageData {
   // 欢迎卡片 (v3.10 新结构)
   welcomeData: WelcomeResponse | null
   isWelcomeLoading: boolean
+  
+  // 热词列表 (v4.7 全局关键词系统)
+  hotKeywords: HotKeywordsListResponseDataItem[]
 }
 
 Page<PageData, WechatMiniprogram.Page.CustomOption>({
@@ -47,6 +52,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     scrollToView: '',
     welcomeData: null,
     isWelcomeLoading: false,
+    hotKeywords: [],
   },
 
   unsubscribeChat: null as (() => void) | null,
@@ -60,6 +66,7 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     this.subscribeUserStore()
     this.initChat()
     this.loadUserInfo()
+    this.loadHotKeywords()
   },
 
   onShow() {
@@ -157,6 +164,30 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
     const userStore = useUserStore.getState()
     if (userStore.user) {
       this.setData({ userNickname: userStore.user.nickname || '搭子' })
+    }
+  },
+
+  /**
+   * 加载热词列表 - Requirements: 3.7, 3.8, 3.9
+   */
+  async loadHotKeywords() {
+    try {
+      const response = await getHotKeywords({ limit: 5 })
+      
+      if (response.status === 200) {
+        this.setData({ hotKeywords: response.data.data })
+        
+        // 埋点：记录热词曝光事件 - Requirements: 3.9
+        if (response.data.data.length > 0) {
+          wx.reportEvent('hot_chip_show', {
+            keyword_count: response.data.data.length,
+            keywords: response.data.data.map(k => k.keyword).join(','),
+          })
+        }
+      }
+    } catch (error) {
+      console.error('[Home] Failed to load hot keywords:', error)
+      // 静默失败，不影响主流程
     }
   },
 
@@ -429,5 +460,16 @@ Page<PageData, WechatMiniprogram.Page.CustomOption>({
 
   onNetworkRetry() {
     this.initChat()
+  },
+
+  /**
+   * 处理热词点击 - Requirements: 3.5, 3.6, 3.11
+   */
+  onHotChipClick(e: WechatMiniprogram.CustomEvent<{ id: string; keyword: string }>) {
+    const { id, keyword } = e.detail
+    
+    // 发送消息到 AI，并传递 keywordId 到 metadata
+    const chatStore = useChatStore.getState()
+    chatStore.sendMessage(keyword, { keywordId: id })
   },
 })

@@ -211,12 +211,51 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
   }
 
   // 2. 输入护栏检查 (Processor)
+  const guardStartTime = Date.now();
   const guardResult = sanitizeAndGuard(lastUserMessage, userId);
+  const guardDuration = Date.now() - guardStartTime;
+  
   if (guardResult.blocked) {
     logger.warn('Input blocked', { userId, reason: guardResult.blockReason, rules: guardResult.triggeredRules });
     return createQuickResponse(guardResult.suggestedResponse || '这个话题我帮不了你 😅', trace);
   }
   const sanitizedMessage = guardResult.sanitized;
+
+  // 2.5 P0 层：全局关键词匹配（v4.8 Digital Ascension）
+  const p0StartTime = Date.now();
+  const { matchKeyword, incrementHitCount } = await import('../hot-keywords/hot-keywords.service');
+  const matchedKeyword = await matchKeyword(sanitizedMessage);
+  const p0Duration = Date.now() - p0StartTime;
+  
+  // 保存 P0 匹配数据用于 trace
+  const p0MatchData = matchedKeyword ? {
+    matched: true as const,
+    keyword: matchedKeyword.keyword,
+    matchType: matchedKeyword.matchType,
+    priority: matchedKeyword.priority,
+    responseType: matchedKeyword.responseType,
+    duration: p0Duration,
+  } : {
+    matched: false as const,
+    duration: p0Duration,
+  };
+  
+  if (matchedKeyword) {
+    logger.info('P0 keyword matched', { 
+      keywordId: matchedKeyword.id, 
+      keyword: matchedKeyword.keyword,
+      matchType: matchedKeyword.matchType,
+      userId: userId || 'anon',
+    });
+    
+    // 增加命中次数（异步，不阻塞）
+    incrementHitCount(matchedKeyword.id).catch(err => {
+      logger.error('Failed to increment hit count', { error: err });
+    });
+    
+    // 返回预设响应（包含 widget 和 keywordContext）
+    return createKeywordResponse(matchedKeyword, trace, userId, sanitizedMessage);
+  }
 
   // 3. 构建上下文
   const locationName = location ? await reverseGeocode(location[1], location[0]) : undefined;
@@ -234,11 +273,13 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
   };
 
   // 5. 意图分类
+  const intentStartTime = Date.now();
   const intentResult = await classifyIntent(sanitizedMessage, {
     hasDraftContext: !!draftContext,
     conversationHistory,
     userId: userId || undefined,
   });
+  const intentDuration = Date.now() - intentStartTime;
   logger.info('Intent classified', { intent: intentResult.intent, method: intentResult.method });
 
   // 5.5 Partner Matching 检查（找搭子追问流程）
@@ -274,13 +315,21 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
   let systemPrompt = buildXmlSystemPrompt(promptContext);
 
   // [Processor 1] 注入用户画像
+  const userProfileStartTime = Date.now();
   systemPrompt = await injectUserProfile(systemPrompt, userId);
+  const userProfileDuration = Date.now() - userProfileStartTime;
 
   // [Processor 2] 注入语义召回历史
+  const semanticRecallStartTime = Date.now();
   systemPrompt = await injectSemanticRecall(systemPrompt, sanitizedMessage, userId);
+  const semanticRecallDuration = Date.now() - semanticRecallStartTime;
 
   // [Processor 3] Token 限制截断
+  const tokenLimitStartTime = Date.now();
+  const originalPromptLength = systemPrompt.length;
   systemPrompt = truncateByTokenLimit(systemPrompt, 12000);
+  const tokenLimitDuration = Date.now() - tokenLimitStartTime;
+  const truncated = systemPrompt.length < originalPromptLength;
 
   // 9. 执行 LLM 推理
   const traceSteps: TraceStep[] = [];
@@ -453,6 +502,39 @@ export async function streamChat(request: ChatRequest): Promise<Response> {
     totalUsage,
     aiResponseText,
     lastUserMessage,
+    // Processor 数据
+    inputGuard: {
+      duration: guardDuration,
+      blocked: false,
+      sanitized: sanitizedMessage,
+    },
+    p0Match: p0MatchData as {
+      matched: boolean;
+      keyword?: string;
+      matchType?: string;
+      priority?: number;
+      responseType?: string;
+      duration: number;
+    },
+    p1Intent: {
+      intent: intentResult.intent,
+      method: intentResult.method,
+      confidence: intentResult.confidence,
+      duration: intentDuration,
+    },
+    userProfile: {
+      duration: userProfileDuration,
+      profile: userProfile,
+    },
+    semanticRecall: {
+      duration: semanticRecallDuration,
+    },
+    tokenLimit: {
+      duration: tokenLimitDuration,
+      truncated,
+      originalLength: originalPromptLength,
+      finalLength: systemPrompt.length,
+    },
   });
 }
 
@@ -468,6 +550,102 @@ function createQuickResponse(text: string, trace?: boolean): Response {
         const now = new Date().toISOString();
         writer.write({ type: 'data-trace-start' as any, data: { requestId: randomUUID(), startedAt: now, intent: 'blocked', intentMethod: 'guardrail' }, transient: true });
         writer.write({ type: 'data-trace-end' as any, data: { completedAt: now, status: 'blocked', output: { text, toolCalls: [] } }, transient: true });
+      }
+    },
+  });
+  return createUIMessageStreamResponse({ stream });
+}
+
+/**
+ * 创建关键词匹配响应 (P0 层)
+ * 直接返回预设响应，无需 LLM 处理
+ */
+async function createKeywordResponse(
+  keyword: import('../hot-keywords/hot-keywords.model').GlobalKeywordResponse, 
+  trace: boolean | undefined,
+  userId: string | null,
+  userMessage: string
+): Promise<Response> {
+  const keywordContext = {
+    keywordId: keyword.id,
+    matchedAt: new Date().toISOString(),
+  };
+  
+  // 异步保存对话历史（不阻塞响应）
+  if (userId) {
+    (async () => {
+      try {
+        const thread = await getOrCreateThread(userId);
+        
+        // 保存用户消息
+        await saveMessage({
+          conversationId: thread.id,
+          userId,
+          role: 'user',
+          messageType: 'text',
+          content: { text: userMessage },
+        });
+        
+        // 保存 AI 响应（包含 keywordContext）
+        await saveMessage({
+          conversationId: thread.id,
+          userId,
+          role: 'assistant',
+          messageType: keyword.responseType as any,
+          content: {
+            ...keyword.responseContent,
+            keywordContext,
+          },
+        });
+      } catch (err) {
+        logger.error('Failed to save keyword match conversation', { error: err });
+      }
+    })();
+  }
+  
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      // 返回 widget 数据
+      writer.write({
+        type: 'data' as any,
+        data: {
+          type: keyword.responseType,
+          data: keyword.responseContent,
+          keywordContext,
+        },
+      });
+      
+      // 如果是文本类型，返回文本内容
+      if (keyword.responseType === 'text' && typeof keyword.responseContent === 'string') {
+        writer.write({ type: 'text-delta', delta: keyword.responseContent, id: randomUUID() });
+      }
+      
+      if (trace) {
+        const now = new Date().toISOString();
+        writer.write({ 
+          type: 'data-trace-start' as any, 
+          data: { 
+            requestId: randomUUID(), 
+            startedAt: now, 
+            intent: 'keyword_match', 
+            intentMethod: 'p0_layer',
+            keyword: keyword.keyword,
+            matchType: keyword.matchType,
+          }, 
+          transient: true 
+        });
+        writer.write({ 
+          type: 'data-trace-end' as any, 
+          data: { 
+            completedAt: now, 
+            status: 'completed', 
+            output: { 
+              keywordId: keyword.id,
+              responseType: keyword.responseType,
+            } 
+          }, 
+          transient: true 
+        });
       }
     },
   });
@@ -698,6 +876,39 @@ function wrapWithTrace(result: ReturnType<typeof streamText>, ctx: {
   totalUsage: { promptTokens: number; completionTokens: number; totalTokens: number };
   aiResponseText: string;
   lastUserMessage: string;
+  // Processor 数据
+  inputGuard?: {
+    duration: number;
+    blocked: boolean;
+    sanitized: string;
+  };
+  p0Match?: {
+    matched: boolean;
+    keyword?: string;
+    matchType?: string;
+    priority?: number;
+    responseType?: string;
+    duration: number;
+  };
+  p1Intent?: {
+    intent: string;
+    method: string;
+    confidence?: number;
+    duration: number;
+  };
+  userProfile?: {
+    duration: number;
+    profile: any;
+  };
+  semanticRecall?: {
+    duration: number;
+  };
+  tokenLimit?: {
+    duration: number;
+    truncated: boolean;
+    originalLength: number;
+    finalLength: number;
+  };
 }): Response {
   const llmStartedAt = new Date().toISOString();
   const llmStepId = `step-llm`;
@@ -724,6 +935,169 @@ function wrapWithTrace(result: ReturnType<typeof streamText>, ctx: {
         data: { id: `${ctx.requestId}-input`, type: 'input', name: '用户输入', startedAt: ctx.startedAt, completedAt: ctx.startedAt, status: 'success', duration: 0, data: { text: ctx.lastUserMessage } },
         transient: true,
       });
+
+      // Input Guard Processor trace
+      if (ctx.inputGuard) {
+        const guardCompletedAt = new Date(new Date(ctx.startedAt).getTime() + ctx.inputGuard.duration).toISOString();
+        writer.write({
+          type: 'data-trace-step',
+          data: {
+            id: `${ctx.requestId}-input-guard`,
+            type: 'processor',
+            name: 'Input Guard',
+            startedAt: ctx.startedAt,
+            completedAt: guardCompletedAt,
+            status: 'success',
+            duration: ctx.inputGuard.duration,
+            data: {
+              processorType: 'input-guard',
+              output: {
+                blocked: ctx.inputGuard.blocked,
+                sanitized: ctx.inputGuard.sanitized,
+              },
+              config: {
+                maxLength: 500,
+                enabled: true,
+              },
+            },
+          },
+          transient: true,
+        });
+      }
+
+      // P0 Match trace
+      if (ctx.p0Match) {
+        const p0CompletedAt = new Date(new Date(ctx.startedAt).getTime() + (ctx.inputGuard?.duration || 0) + ctx.p0Match.duration).toISOString();
+        writer.write({
+          type: 'data-trace-step',
+          data: {
+            id: `${ctx.requestId}-p0-match`,
+            type: 'p0-match',
+            name: 'P0: 关键词匹配',
+            startedAt: new Date(new Date(ctx.startedAt).getTime() + (ctx.inputGuard?.duration || 0)).toISOString(),
+            completedAt: p0CompletedAt,
+            status: 'success',
+            duration: ctx.p0Match.duration,
+            data: {
+              matched: ctx.p0Match.matched,
+              keyword: ctx.p0Match.keyword,
+              matchType: ctx.p0Match.matchType,
+              priority: ctx.p0Match.priority,
+              responseType: ctx.p0Match.responseType,
+            },
+          },
+          transient: true,
+        });
+      }
+
+      // P1 Intent trace
+      if (ctx.p1Intent) {
+        const p1StartTime = new Date(ctx.startedAt).getTime() + (ctx.inputGuard?.duration || 0) + (ctx.p0Match?.duration || 0);
+        const p1CompletedAt = new Date(p1StartTime + ctx.p1Intent.duration).toISOString();
+        writer.write({
+          type: 'data-trace-step',
+          data: {
+            id: `${ctx.requestId}-p1-intent`,
+            type: 'p1-intent',
+            name: 'P1: 意图识别',
+            startedAt: new Date(p1StartTime).toISOString(),
+            completedAt: p1CompletedAt,
+            status: 'success',
+            duration: ctx.p1Intent.duration,
+            data: {
+              intent: ctx.p1Intent.intent,
+              method: ctx.p1Intent.method,
+              confidence: ctx.p1Intent.confidence,
+            },
+          },
+          transient: true,
+        });
+      }
+
+      // User Profile Processor trace
+      if (ctx.userProfile) {
+        const profileStartTime = new Date(ctx.startedAt).getTime() + (ctx.inputGuard?.duration || 0) + (ctx.p0Match?.duration || 0) + (ctx.p1Intent?.duration || 0);
+        const profileCompletedAt = new Date(profileStartTime + ctx.userProfile.duration).toISOString();
+        writer.write({
+          type: 'data-trace-step',
+          data: {
+            id: `${ctx.requestId}-user-profile`,
+            type: 'processor',
+            name: 'User Profile',
+            startedAt: new Date(profileStartTime).toISOString(),
+            completedAt: profileCompletedAt,
+            status: 'success',
+            duration: ctx.userProfile.duration,
+            data: {
+              processorType: 'user-profile',
+              output: ctx.userProfile.profile ? {
+                preferencesCount: ctx.userProfile.profile.preferences?.length || 0,
+                locationsCount: ctx.userProfile.profile.frequentLocations?.length || 0,
+              } : {},
+              config: {
+                enabled: true,
+              },
+            },
+          },
+          transient: true,
+        });
+      }
+
+      // Semantic Recall Processor trace
+      if (ctx.semanticRecall) {
+        const recallStartTime = new Date(ctx.startedAt).getTime() + (ctx.inputGuard?.duration || 0) + (ctx.p0Match?.duration || 0) + (ctx.p1Intent?.duration || 0) + (ctx.userProfile?.duration || 0);
+        const recallCompletedAt = new Date(recallStartTime + ctx.semanticRecall.duration).toISOString();
+        writer.write({
+          type: 'data-trace-step',
+          data: {
+            id: `${ctx.requestId}-semantic-recall`,
+            type: 'processor',
+            name: 'Semantic Recall',
+            startedAt: new Date(recallStartTime).toISOString(),
+            completedAt: recallCompletedAt,
+            status: 'success',
+            duration: ctx.semanticRecall.duration,
+            data: {
+              processorType: 'semantic-recall',
+              config: {
+                enabled: true,
+              },
+            },
+          },
+          transient: true,
+        });
+      }
+
+      // Token Limit Processor trace
+      if (ctx.tokenLimit) {
+        const tokenStartTime = new Date(ctx.startedAt).getTime() + (ctx.inputGuard?.duration || 0) + (ctx.p0Match?.duration || 0) + (ctx.p1Intent?.duration || 0) + (ctx.userProfile?.duration || 0) + (ctx.semanticRecall?.duration || 0);
+        const tokenCompletedAt = new Date(tokenStartTime + ctx.tokenLimit.duration).toISOString();
+        writer.write({
+          type: 'data-trace-step',
+          data: {
+            id: `${ctx.requestId}-token-limit`,
+            type: 'processor',
+            name: 'Token Limit',
+            startedAt: new Date(tokenStartTime).toISOString(),
+            completedAt: tokenCompletedAt,
+            status: 'success',
+            duration: ctx.tokenLimit.duration,
+            data: {
+              processorType: 'token-limit',
+              output: {
+                truncated: ctx.tokenLimit.truncated,
+                originalLength: ctx.tokenLimit.originalLength,
+                finalLength: ctx.tokenLimit.finalLength,
+              },
+              config: {
+                maxTokens: 12000,
+                enabled: true,
+              },
+            },
+          },
+          transient: true,
+        });
+      }
 
       writer.write({
         type: 'data-trace-step',

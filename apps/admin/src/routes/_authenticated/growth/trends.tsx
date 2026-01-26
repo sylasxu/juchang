@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Sparkles, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { Sparkles, TrendingUp, TrendingDown, Minus, ArrowDown, Target } from 'lucide-react'
 import { useTrendInsights } from '@/hooks/use-growth'
+import { useBusinessMetrics } from '@/hooks/use-dashboard'
 import { useState } from 'react'
 
 export const Route = createFileRoute('/_authenticated/growth/trends')({
@@ -18,6 +19,7 @@ export const Route = createFileRoute('/_authenticated/growth/trends')({
 function TrendsPage() {
   const [period, setPeriod] = useState<'7d' | '30d'>('7d')
   const { data, isLoading, error } = useTrendInsights(period)
+  const { data: metricsData, isLoading: metricsLoading } = useBusinessMetrics()
 
   return (
     <>
@@ -57,6 +59,93 @@ function TrendsPage() {
             加载失败，请刷新重试
           </div>
         )}
+
+        {/* 转化漏斗 */}
+        <Card className='mb-6'>
+          <CardHeader>
+            <CardTitle className='flex items-center gap-2'>
+              <Target className='h-5 w-5' />
+              转化漏斗
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {metricsLoading ? (
+              <div className='flex items-center justify-center gap-4 py-4'>
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-20 w-32" />
+                ))}
+              </div>
+            ) : metricsData ? (
+              <div className='flex items-center justify-between'>
+                {/* 草稿发布率 */}
+                <div className='flex-1 text-center'>
+                  <div className='text-3xl font-bold'>
+                    {metricsData.draftPublishRate?.value?.toFixed(1) || 0}%
+                  </div>
+                  <div className='text-sm text-muted-foreground mb-1'>草稿 → 发布</div>
+                  <Badge variant={
+                    metricsData.draftPublishRate?.benchmark === 'green' ? 'default' :
+                      metricsData.draftPublishRate?.benchmark === 'yellow' ? 'secondary' : 'destructive'
+                  }>
+                    目标 ≥60%
+                  </Badge>
+                </div>
+
+                <ArrowDown className='h-6 w-6 text-muted-foreground rotate-[-90deg]' />
+
+                {/* 活动成局率 */}
+                <div className='flex-1 text-center'>
+                  <div className='text-3xl font-bold'>
+                    {metricsData.activitySuccessRate?.value?.toFixed(1) || 0}%
+                  </div>
+                  <div className='text-sm text-muted-foreground mb-1'>发布 → 成局</div>
+                  <Badge variant={
+                    metricsData.activitySuccessRate?.benchmark === 'green' ? 'default' :
+                      metricsData.activitySuccessRate?.benchmark === 'yellow' ? 'secondary' : 'destructive'
+                  }>
+                    目标 ≥50%
+                  </Badge>
+                </div>
+
+                <ArrowDown className='h-6 w-6 text-muted-foreground rotate-[-90deg]' />
+
+                {/* 周留存率 */}
+                <div className='flex-1 text-center'>
+                  <div className='text-3xl font-bold'>
+                    {metricsData.weeklyRetention?.value?.toFixed(1) || 0}%
+                  </div>
+                  <div className='text-sm text-muted-foreground mb-1'>周留存</div>
+                  <Badge variant={
+                    metricsData.weeklyRetention?.benchmark === 'green' ? 'default' :
+                      metricsData.weeklyRetention?.benchmark === 'yellow' ? 'secondary' : 'destructive'
+                  }>
+                    目标 ≥15%
+                  </Badge>
+                </div>
+
+                <ArrowDown className='h-6 w-6 text-muted-foreground rotate-[-90deg]' />
+
+                {/* J2C 转化率 */}
+                <div className='flex-1 text-center'>
+                  <div className='text-3xl font-bold text-primary'>
+                    {metricsData.j2cRate?.value?.toFixed(1) || 0}%
+                  </div>
+                  <div className='text-sm text-muted-foreground mb-1'>J2C 转化</div>
+                  <Badge variant={
+                    metricsData.j2cRate?.benchmark === 'green' ? 'default' :
+                      metricsData.j2cRate?.benchmark === 'yellow' ? 'secondary' : 'destructive'
+                  }>
+                    目标 ≥3%
+                  </Badge>
+                </div>
+              </div>
+            ) : (
+              <div className='py-8 text-center text-muted-foreground'>
+                暂无数据
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         <div className='grid gap-6 lg:grid-cols-2'>
           {/* 高频词 */}
@@ -121,7 +210,7 @@ function TrendsPage() {
                         </span>
                       </div>
                       <div className='h-2 bg-muted rounded-full overflow-hidden'>
-                        <div 
+                        <div
                           className='h-full bg-primary rounded-full transition-all'
                           style={{ width: `${item.percentage}%` }}
                         />
@@ -153,3 +242,4 @@ function TrendsPage() {
     </>
   )
 }
+

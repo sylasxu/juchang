@@ -74,3 +74,24 @@ export const intentMatchOutcomeEnum = pgEnum("intent_match_outcome", [
   "expired",    // 超时未确认
   "cancelled"   // 取消
 ]);
+
+// ==========================================
+// 6. 🔥 全局关键词 (Global Keywords Domain)
+// ==========================================
+
+// 关键词匹配类型
+export const matchTypeEnum = pgEnum("match_type", [
+  "exact",   // 完全匹配
+  "prefix",  // 前缀匹配
+  "fuzzy"    // 模糊匹配
+]);
+
+// 关键词响应类型 (复用现有 widget 类型)
+export const keywordResponseTypeEnum = pgEnum("keyword_response_type", [
+  "widget_explore",        // 探索附近活动
+  "widget_draft",          // 草稿活动
+  "widget_launcher",       // 快速发起
+  "widget_action",         // 操作面板
+  "widget_ask_preference", // 询问偏好
+  "text"                   // 纯文本响应
+]);

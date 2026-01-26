@@ -406,6 +406,16 @@ export async function createActivity(
     });
   }
 
+  // v4.8: 异步追踪关键词转化 (不阻塞主流程)
+  (async () => {
+    try {
+      const { trackConversion } = await import('../hot-keywords/hot-keywords.service');
+      await trackConversion(creatorId);
+    } catch (err) {
+      console.error('Failed to track keyword conversion:', err);
+    }
+  })();
+
   return { id: newActivity.id };
 }
 
@@ -500,6 +510,16 @@ export async function publishDraftActivity(
       console.error('Failed to index activity:', err);
     });
   }
+
+  // v4.8: 异步追踪关键词转化 (不阻塞主流程)
+  (async () => {
+    try {
+      const { trackConversion } = await import('../hot-keywords/hot-keywords.service');
+      await trackConversion(creatorId);
+    } catch (err) {
+      console.error('Failed to track keyword conversion:', err);
+    }
+  })();
 
   return { id: activityId };
 }
@@ -698,7 +718,15 @@ export async function joinActivity(activityId: string, userId: string): Promise<
     console.error('Failed to update interest vector:', err);
   });
 
-  // TODO: 发送通知给活动创建者
+  // v4.8: 异步追踪关键词转化 (不阻塞主流程)
+  (async () => {
+    try {
+      const { trackConversion } = await import('../hot-keywords/hot-keywords.service');
+      await trackConversion(userId);
+    } catch (err) {
+      console.error('Failed to track keyword conversion:', err);
+    }
+  })();
 
   return { id: participant.id };
 }

@@ -12,16 +12,13 @@
     "setup": "bun run env:init && bun install && bun run docker:up && echo '等待数据库启动...' && sleep 5 && bun run db:push",
     "build": "turbo run build",
     "clean": "turbo run clean && rm -rf node_modules **/*/node_modules",
-
     "--- ENV ---": "echo '环境变量管理'",
-     "env:init": "node scripts/init-env.js",
-
+    "env:init": "node scripts/init-env.js",
     "--- dockerSTRUCTURE ---": "echo '基础设施控制'",
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f docker/docker-compose.yml down",
     "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
     "docker:restart": "bun run docker:down && bun run docker:up",
-
     "--- DATABASE ---": "echo '数据库管理 (Drizzle)'",
     "db:generate": "turbo run db:generate",
     "db:migrate": "turbo run db:migrate",
@@ -29,7 +26,6 @@
     "db:studio": "turbo run db:studio",
     "db:reset": "bun run docker:down && bun run docker:up && sleep 3 && bun run db:push",
     "db:seed": "turbo run seed --filter=@juchang/db",
-
     "--- DEVELOPMENT ---": "echo '开发启动'",
     "dev": "turbo run dev --filter=@juchang/api --filter=@juchang/admin",
     "dev:core": "turbo run dev --filter=@juchang/api --filter=@juchang/admin",
@@ -39,12 +35,10 @@
     "dev:mp": "turbo run dev --filter=@juchang/miniprogram",
     "dev:api:clean": "node scripts/dev-api-clean.js",
     "dev:full": "node scripts/dev-with-api-watch.js",
-
     "--- API GENERATION ---": "echo 'API 代码生成'",
     "gen:api": "turbo run gen:api",
     "gen:api:mp": "turbo run gen:api --filter=@juchang/miniprogram",
     "gen:api:watch": "node scripts/watch-api-changes.js",
-
     "--- QUALITY ---": "echo '代码质量检查'",
     "lint": "turbo run lint",
     "format": "turbo run format",
@@ -72,5 +66,9 @@
     "@sinclair/typebox": "^0.34.8",
     "typescript": "^5.9.3",
     "@types/node": "^24.10.1"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^2.0.3",
+    "@xyflow/react": "^12.10.0"
   }
 }

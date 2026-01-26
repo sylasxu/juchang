@@ -40,6 +40,13 @@ const INTENT_TOOL_MAP: Record<IntentType, string[]> = {
   partner: ['createPartnerIntent', 'getMyIntents', 'cancelIntent', 'confirmMatch', 'askPreference'],
   idle: [], // 空闲意图不需要 Tool
   chitchat: [], // 闲聊意图不需要 Tool
+  modify: ['getDraft', 'refineDraft', 'publishActivity'], // 修改草稿
+  confirm: ['publishActivity', 'confirmMatch'], // 确认操作
+  deny: [], // 拒绝操作
+  cancel: ['cancelActivity', 'cancelIntent'], // 取消操作
+  share: ['getActivityDetail', 'getMyActivities'], // 分享活动
+  join: ['exploreNearby', 'getActivityDetail', 'joinActivity'], // 报名活动
+  show_activity: ['getMyActivities', 'getActivityDetail'], // 展示活动
   unknown: ['createActivityDraft', 'exploreNearby', 'askPreference', 'createPartnerIntent'],
 };
 

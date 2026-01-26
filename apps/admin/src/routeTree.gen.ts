@@ -24,6 +24,7 @@ import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-p
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
+import { Route as AuthenticatedHotKeywordsIndexRouteImport } from './routes/_authenticated/hot-keywords/index'
 import { Route as AuthenticatedAiOpsIndexRouteImport } from './routes/_authenticated/ai-ops/index'
 import { Route as AuthenticatedActivitiesIndexRouteImport } from './routes/_authenticated/activities/index'
 import { Route as AuthenticatedUsersIdRouteImport } from './routes/_authenticated/users/$id'
@@ -31,6 +32,8 @@ import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_a
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedSafetyModerationRouteImport } from './routes/_authenticated/safety/moderation'
 import { Route as AuthenticatedSafetyActivitiesRouteImport } from './routes/_authenticated/safety/activities'
+import { Route as AuthenticatedHotKeywordsCreateRouteImport } from './routes/_authenticated/hot-keywords/create'
+import { Route as AuthenticatedHotKeywordsAnalyticsRouteImport } from './routes/_authenticated/hot-keywords/analytics'
 import { Route as AuthenticatedGrowthTrendsRouteImport } from './routes/_authenticated/growth/trends'
 import { Route as AuthenticatedGrowthPosterRouteImport } from './routes/_authenticated/growth/poster'
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
@@ -38,6 +41,7 @@ import { Route as AuthenticatedAiOpsUsageRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAiOpsPlaygroundRouteImport } from './routes/_authenticated/ai-ops/playground'
 import { Route as AuthenticatedAiOpsConversationsRouteImport } from './routes/_authenticated/ai-ops/conversations'
 import { Route as AuthenticatedActivitiesIdRouteImport } from './routes/_authenticated/activities/$id'
+import { Route as AuthenticatedHotKeywordsIdEditRouteImport } from './routes/_authenticated/hot-keywords/$id.edit'
 import { Route as AuthenticatedAiOpsSecurityModerationRouteImport } from './routes/_authenticated/ai-ops/security/moderation'
 import { Route as AuthenticatedAiOpsConversationsIdRouteImport } from './routes/_authenticated/ai-ops/conversations.$id'
 
@@ -117,6 +121,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedHotKeywordsIndexRoute =
+  AuthenticatedHotKeywordsIndexRouteImport.update({
+    id: '/hot-keywords/',
+    path: '/hot-keywords/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAiOpsIndexRoute = AuthenticatedAiOpsIndexRouteImport.update({
   id: '/ai-ops/',
   path: '/ai-ops/',
@@ -155,6 +165,18 @@ const AuthenticatedSafetyActivitiesRoute =
   AuthenticatedSafetyActivitiesRouteImport.update({
     id: '/safety/activities',
     path: '/safety/activities',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedHotKeywordsCreateRoute =
+  AuthenticatedHotKeywordsCreateRouteImport.update({
+    id: '/hot-keywords/create',
+    path: '/hot-keywords/create',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedHotKeywordsAnalyticsRoute =
+  AuthenticatedHotKeywordsAnalyticsRouteImport.update({
+    id: '/hot-keywords/analytics',
+    path: '/hot-keywords/analytics',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedGrowthTrendsRoute =
@@ -198,6 +220,12 @@ const AuthenticatedActivitiesIdRoute =
     path: '/activities/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedHotKeywordsIdEditRoute =
+  AuthenticatedHotKeywordsIdEditRouteImport.update({
+    id: '/hot-keywords/$id/edit',
+    path: '/hot-keywords/$id/edit',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAiOpsSecurityModerationRoute =
   AuthenticatedAiOpsSecurityModerationRouteImport.update({
     id: '/ai-ops/security/moderation',
@@ -231,6 +259,8 @@ export interface FileRoutesByFullPath {
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/growth/poster': typeof AuthenticatedGrowthPosterRoute
   '/growth/trends': typeof AuthenticatedGrowthTrendsRoute
+  '/hot-keywords/analytics': typeof AuthenticatedHotKeywordsAnalyticsRoute
+  '/hot-keywords/create': typeof AuthenticatedHotKeywordsCreateRoute
   '/safety/activities': typeof AuthenticatedSafetyActivitiesRoute
   '/safety/moderation': typeof AuthenticatedSafetyModerationRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -238,10 +268,12 @@ export interface FileRoutesByFullPath {
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
   '/ai-ops': typeof AuthenticatedAiOpsIndexRoute
+  '/hot-keywords': typeof AuthenticatedHotKeywordsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/ai-ops/conversations/$id': typeof AuthenticatedAiOpsConversationsIdRoute
   '/ai-ops/security/moderation': typeof AuthenticatedAiOpsSecurityModerationRoute
+  '/hot-keywords/$id/edit': typeof AuthenticatedHotKeywordsIdEditRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof authForgotPasswordRoute
@@ -262,6 +294,8 @@ export interface FileRoutesByTo {
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/growth/poster': typeof AuthenticatedGrowthPosterRoute
   '/growth/trends': typeof AuthenticatedGrowthTrendsRoute
+  '/hot-keywords/analytics': typeof AuthenticatedHotKeywordsAnalyticsRoute
+  '/hot-keywords/create': typeof AuthenticatedHotKeywordsCreateRoute
   '/safety/activities': typeof AuthenticatedSafetyActivitiesRoute
   '/safety/moderation': typeof AuthenticatedSafetyModerationRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -269,10 +303,12 @@ export interface FileRoutesByTo {
   '/users/$id': typeof AuthenticatedUsersIdRoute
   '/activities': typeof AuthenticatedActivitiesIndexRoute
   '/ai-ops': typeof AuthenticatedAiOpsIndexRoute
+  '/hot-keywords': typeof AuthenticatedHotKeywordsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/ai-ops/conversations/$id': typeof AuthenticatedAiOpsConversationsIdRoute
   '/ai-ops/security/moderation': typeof AuthenticatedAiOpsSecurityModerationRoute
+  '/hot-keywords/$id/edit': typeof AuthenticatedHotKeywordsIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -296,6 +332,8 @@ export interface FileRoutesById {
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
   '/_authenticated/growth/poster': typeof AuthenticatedGrowthPosterRoute
   '/_authenticated/growth/trends': typeof AuthenticatedGrowthTrendsRoute
+  '/_authenticated/hot-keywords/analytics': typeof AuthenticatedHotKeywordsAnalyticsRoute
+  '/_authenticated/hot-keywords/create': typeof AuthenticatedHotKeywordsCreateRoute
   '/_authenticated/safety/activities': typeof AuthenticatedSafetyActivitiesRoute
   '/_authenticated/safety/moderation': typeof AuthenticatedSafetyModerationRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -303,10 +341,12 @@ export interface FileRoutesById {
   '/_authenticated/users/$id': typeof AuthenticatedUsersIdRoute
   '/_authenticated/activities/': typeof AuthenticatedActivitiesIndexRoute
   '/_authenticated/ai-ops/': typeof AuthenticatedAiOpsIndexRoute
+  '/_authenticated/hot-keywords/': typeof AuthenticatedHotKeywordsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/ai-ops/conversations/$id': typeof AuthenticatedAiOpsConversationsIdRoute
   '/_authenticated/ai-ops/security/moderation': typeof AuthenticatedAiOpsSecurityModerationRoute
+  '/_authenticated/hot-keywords/$id/edit': typeof AuthenticatedHotKeywordsIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -330,6 +370,8 @@ export interface FileRouteTypes {
     | '/errors/$error'
     | '/growth/poster'
     | '/growth/trends'
+    | '/hot-keywords/analytics'
+    | '/hot-keywords/create'
     | '/safety/activities'
     | '/safety/moderation'
     | '/settings/account'
@@ -337,10 +379,12 @@ export interface FileRouteTypes {
     | '/users/$id'
     | '/activities'
     | '/ai-ops'
+    | '/hot-keywords'
     | '/settings/'
     | '/users'
     | '/ai-ops/conversations/$id'
     | '/ai-ops/security/moderation'
+    | '/hot-keywords/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
@@ -361,6 +405,8 @@ export interface FileRouteTypes {
     | '/errors/$error'
     | '/growth/poster'
     | '/growth/trends'
+    | '/hot-keywords/analytics'
+    | '/hot-keywords/create'
     | '/safety/activities'
     | '/safety/moderation'
     | '/settings/account'
@@ -368,10 +414,12 @@ export interface FileRouteTypes {
     | '/users/$id'
     | '/activities'
     | '/ai-ops'
+    | '/hot-keywords'
     | '/settings'
     | '/users'
     | '/ai-ops/conversations/$id'
     | '/ai-ops/security/moderation'
+    | '/hot-keywords/$id/edit'
   id:
     | '__root__'
     | '/_authenticated'
@@ -394,6 +442,8 @@ export interface FileRouteTypes {
     | '/_authenticated/errors/$error'
     | '/_authenticated/growth/poster'
     | '/_authenticated/growth/trends'
+    | '/_authenticated/hot-keywords/analytics'
+    | '/_authenticated/hot-keywords/create'
     | '/_authenticated/safety/activities'
     | '/_authenticated/safety/moderation'
     | '/_authenticated/settings/account'
@@ -401,10 +451,12 @@ export interface FileRouteTypes {
     | '/_authenticated/users/$id'
     | '/_authenticated/activities/'
     | '/_authenticated/ai-ops/'
+    | '/_authenticated/hot-keywords/'
     | '/_authenticated/settings/'
     | '/_authenticated/users/'
     | '/_authenticated/ai-ops/conversations/$id'
     | '/_authenticated/ai-ops/security/moderation'
+    | '/_authenticated/hot-keywords/$id/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -528,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/hot-keywords/': {
+      id: '/_authenticated/hot-keywords/'
+      path: '/hot-keywords'
+      fullPath: '/hot-keywords'
+      preLoaderRoute: typeof AuthenticatedHotKeywordsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/ai-ops/': {
       id: '/_authenticated/ai-ops/'
       path: '/ai-ops'
@@ -577,6 +636,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSafetyActivitiesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/hot-keywords/create': {
+      id: '/_authenticated/hot-keywords/create'
+      path: '/hot-keywords/create'
+      fullPath: '/hot-keywords/create'
+      preLoaderRoute: typeof AuthenticatedHotKeywordsCreateRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/hot-keywords/analytics': {
+      id: '/_authenticated/hot-keywords/analytics'
+      path: '/hot-keywords/analytics'
+      fullPath: '/hot-keywords/analytics'
+      preLoaderRoute: typeof AuthenticatedHotKeywordsAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/growth/trends': {
       id: '/_authenticated/growth/trends'
       path: '/growth/trends'
@@ -624,6 +697,13 @@ declare module '@tanstack/react-router' {
       path: '/activities/$id'
       fullPath: '/activities/$id'
       preLoaderRoute: typeof AuthenticatedActivitiesIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/hot-keywords/$id/edit': {
+      id: '/_authenticated/hot-keywords/$id/edit'
+      path: '/hot-keywords/$id/edit'
+      fullPath: '/hot-keywords/$id/edit'
+      preLoaderRoute: typeof AuthenticatedHotKeywordsIdEditRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/ai-ops/security/moderation': {
@@ -686,13 +766,17 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
   AuthenticatedGrowthPosterRoute: typeof AuthenticatedGrowthPosterRoute
   AuthenticatedGrowthTrendsRoute: typeof AuthenticatedGrowthTrendsRoute
+  AuthenticatedHotKeywordsAnalyticsRoute: typeof AuthenticatedHotKeywordsAnalyticsRoute
+  AuthenticatedHotKeywordsCreateRoute: typeof AuthenticatedHotKeywordsCreateRoute
   AuthenticatedSafetyActivitiesRoute: typeof AuthenticatedSafetyActivitiesRoute
   AuthenticatedSafetyModerationRoute: typeof AuthenticatedSafetyModerationRoute
   AuthenticatedUsersIdRoute: typeof AuthenticatedUsersIdRoute
   AuthenticatedActivitiesIndexRoute: typeof AuthenticatedActivitiesIndexRoute
   AuthenticatedAiOpsIndexRoute: typeof AuthenticatedAiOpsIndexRoute
+  AuthenticatedHotKeywordsIndexRoute: typeof AuthenticatedHotKeywordsIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
   AuthenticatedAiOpsSecurityModerationRoute: typeof AuthenticatedAiOpsSecurityModerationRoute
+  AuthenticatedHotKeywordsIdEditRoute: typeof AuthenticatedHotKeywordsIdEditRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -706,14 +790,19 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
   AuthenticatedGrowthPosterRoute: AuthenticatedGrowthPosterRoute,
   AuthenticatedGrowthTrendsRoute: AuthenticatedGrowthTrendsRoute,
+  AuthenticatedHotKeywordsAnalyticsRoute:
+    AuthenticatedHotKeywordsAnalyticsRoute,
+  AuthenticatedHotKeywordsCreateRoute: AuthenticatedHotKeywordsCreateRoute,
   AuthenticatedSafetyActivitiesRoute: AuthenticatedSafetyActivitiesRoute,
   AuthenticatedSafetyModerationRoute: AuthenticatedSafetyModerationRoute,
   AuthenticatedUsersIdRoute: AuthenticatedUsersIdRoute,
   AuthenticatedActivitiesIndexRoute: AuthenticatedActivitiesIndexRoute,
   AuthenticatedAiOpsIndexRoute: AuthenticatedAiOpsIndexRoute,
+  AuthenticatedHotKeywordsIndexRoute: AuthenticatedHotKeywordsIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
   AuthenticatedAiOpsSecurityModerationRoute:
     AuthenticatedAiOpsSecurityModerationRoute,
+  AuthenticatedHotKeywordsIdEditRoute: AuthenticatedHotKeywordsIdEditRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

@@ -7,7 +7,7 @@
 
 import { useEffect, useCallback, useRef, useState } from 'react'
 import { useExecutionTrace } from '../../hooks/use-execution-trace'
-import { ExecutionTracePanel } from '../execution-trace/trace-panel'
+import { FlowTracePanel } from '../flow/flow-trace-panel'
 import { PlaygroundChat, type PlaygroundChatRef } from './playground-chat'
 import { MockSettingsPanel, type MockSettings } from './mock-settings-panel'
 import { StatsPanel, type ConversationStats } from './stats-panel'
@@ -17,14 +17,11 @@ import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { ProfileDropdown } from '@/components/profile-dropdown'
-import { API_BASE_URL } from '@/lib/eden'
 
 export function PlaygroundLayout() {
   const [tracePanelVisible, setTracePanelVisible] = useState(true)
   const [tracePanelWidth, setTracePanelWidth] = useState(420)
   const [isDragging, setIsDragging] = useState(false)
-  const [balance, setBalance] = useState<{ total: number; isAvailable: boolean } | null>(null)
-  const [balanceLoading, setBalanceLoading] = useState(false)
   const [traceEnabled, setTraceEnabled] = useState(true)
   
   // 模拟设置
@@ -39,7 +36,6 @@ export function PlaygroundLayout() {
   const { 
     traces, 
     modelParams,
-    setModelParams,
     clearTrace, 
     handleTraceStart, 
     handleTraceStep, 
@@ -51,41 +47,9 @@ export function PlaygroundLayout() {
   const containerRef = useRef<HTMLDivElement>(null)
   const chatRef = useRef<PlaygroundChatRef>(null)
 
-  // 获取余额
-  const fetchBalance = useCallback(async () => {
-    setBalanceLoading(true)
-    try {
-      const response = await fetch(`${API_BASE_URL}/ai/balance`)
-      if (response.ok) {
-        const data = await response.json()
-        setBalance({
-          total: parseFloat(data.balance_infos?.[0]?.total_balance || '0'),
-          isAvailable: data.is_available,
-        })
-      }
-    } catch (err) {
-      console.error('获取余额失败:', err)
-    } finally {
-      setBalanceLoading(false)
-    }
-  }, [])
-
-  // 初始加载余额
-  useEffect(() => {
-    fetchBalance()
-  }, [fetchBalance])
-
   const toggleTracePanel = useCallback(() => {
     setTracePanelVisible(prev => !prev)
   }, [])
-
-  // 重跑功能
-  const handleRerun = useCallback(() => {
-    chatRef.current?.rerun()
-  }, [])
-
-  // 是否可以重跑（有历史消息且不在执行中）
-  const canRerun = traces.length > 0 && !isStreaming
 
   // 处理拖拽
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -189,18 +153,9 @@ export function PlaygroundLayout() {
                 onMouseDown={() => setIsDragging(true)}
               />
 
-              <ExecutionTracePanel
+              <FlowTracePanel
                 traces={traces}
                 isStreaming={isStreaming}
-                modelParams={modelParams}
-                onModelParamsChange={setModelParams}
-                onRerun={handleRerun}
-                canRerun={canRerun}
-                balance={balance}
-                balanceLoading={balanceLoading}
-                onRefreshBalance={fetchBalance}
-                traceEnabled={traceEnabled}
-                onTraceEnabledChange={setTraceEnabled}
               />
             </div>
           )}

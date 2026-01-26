@@ -4,7 +4,12 @@
  * 增长工具业务逻辑
  */
 
-import { db, conversationMessages, sql, desc, and, gte } from '@juchang/db'
+import { db, conversationMessages, aiConversationMetrics, sql, desc, and, gte, isNotNull } from '@juchang/db'
+import { generateObject } from 'ai'
+import { z } from 'zod'
+import { intentDisplayNames } from '../ai/intent/definitions'
+import type { IntentType } from '../ai/intent/types'
+import { getDeepSeekChat } from '../ai/models/adapters/deepseek'
 
 interface PosterResult {
   headline: string
@@ -61,7 +66,7 @@ export async function generatePoster(
   }
 
   const template = templates[style]
-  
+
   // 提取关键词作为标签
   const keywords = extractKeywords(text)
   const hashtags = keywords.map(k => `#${k}`)
@@ -86,18 +91,42 @@ function extractKeywords(text: string): string[] {
 /**
  * 获取热门洞察
  * 
- * 统计用户消息中的高频词和意图分布
+ * - 意图分布：从 aiConversationMetrics 表查询真实意图数据
+ * - 高频词：用 LLM 分析用户消息内容
  */
 export async function getTrendInsights(period: '7d' | '30d'): Promise<TrendInsight> {
   const days = period === '7d' ? 7 : 30
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - days)
 
-  // 查询用户消息（role = 'user'）
+  // 1. 从 aiConversationMetrics 查询意图分布（复用 chat 流程的真实数据）
+  const intentResults = await db
+    .select({
+      intent: aiConversationMetrics.intent,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(aiConversationMetrics)
+    .where(
+      and(
+        gte(aiConversationMetrics.createdAt, startDate),
+        isNotNull(aiConversationMetrics.intent)
+      )
+    )
+    .groupBy(aiConversationMetrics.intent)
+
+  const totalIntents = intentResults.reduce((sum, i) => sum + Number(i.count), 0)
+  const intentDistribution = intentResults
+    .map(i => ({
+      intent: intentDisplayNames[i.intent as IntentType] || i.intent || '未知',
+      count: Number(i.count),
+      percentage: totalIntents > 0 ? (Number(i.count) / totalIntents) * 100 : 0,
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  // 2. 查询用户消息用于 LLM 关键词提取
   const userMessages = await db
     .select({
       content: conversationMessages.content,
-      createdAt: conversationMessages.createdAt,
     })
     .from(conversationMessages)
     .where(
@@ -107,80 +136,53 @@ export async function getTrendInsights(period: '7d' | '30d'): Promise<TrendInsig
       )
     )
     .orderBy(desc(conversationMessages.createdAt))
+    .limit(100) // 限制数量避免 token 过多
 
   // 提取文本内容
   const texts: string[] = []
   for (const msg of userMessages) {
     const content = msg.content as any
-    if (content && typeof content === 'object' && content.text) {
+    if (typeof content === 'string') {
+      texts.push(content)
+    } else if (content?.text) {
       texts.push(content.text)
     }
   }
 
-  // 统计高频词
-  const wordCounts = new Map<string, number>()
-  const keywords = [
-    '火锅', '周末', '约饭', '重庆', '美食', '运动', '电影', '咖啡', '聚会',
-    '打球', '篮球', '足球', '羽毛球', '游泳', '健身', '跑步', '爬山',
-    '唱歌', 'KTV', '桌游', '剧本杀', '密室', '展览', '音乐会',
-    '奶茶', '烧烤', '串串', '小龙虾', '日料', '西餐', '川菜',
-    '周六', '周日', '今晚', '明天', '下午', '晚上',
-  ]
+  // 3. 用 LLM 提取高频词
+  let topWords: TrendWord[] = []
+  if (texts.length > 0) {
+    try {
+      const result = await generateObject({
+        model: getDeepSeekChat(),
+        schema: z.object({
+          keywords: z.array(z.object({
+            word: z.string().describe('关键词'),
+            count: z.number().describe('出现次数'),
+          })).max(20).describe('高频关键词列表，按出现次数降序排列')
+        }),
+        prompt: `分析以下用户消息，提取高频关键词 Top 20（按出现次数排序）。
+只提取有意义的词，如：活动类型（火锅、篮球、麻将）、地点（观音桥、南坪）、时间（周末、明晚）。
+不要提取太通用的词如"的"、"了"、"是"。
 
-  for (const text of texts) {
-    for (const keyword of keywords) {
-      if (text.includes(keyword)) {
-        wordCounts.set(keyword, (wordCounts.get(keyword) || 0) + 1)
-      }
+用户消息：
+${texts.join('\n')}`
+      })
+      topWords = result.object.keywords.map(k => ({
+        word: k.word,
+        count: k.count,
+        trend: 'stable' as const,
+      }))
+    } catch (error) {
+      console.error('LLM keyword extraction failed:', error)
+      // 降级：返回空数组
     }
   }
-
-  // 排序并取 Top 20
-  const sortedWords = Array.from(wordCounts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 20)
-    .map(([word, count]) => ({
-      word,
-      count,
-      trend: 'stable' as const, // 简化处理，后续可对比上周数据
-    }))
-
-  // 统计意图分布（简化版，基于关键词分类）
-  const intentCounts = {
-    '美食': 0,
-    '运动': 0,
-    '娱乐': 0,
-    '社交': 0,
-    '其他': 0,
-  }
-
-  for (const text of texts) {
-    if (/火锅|烧烤|串串|美食|约饭|奶茶|日料|西餐|川菜/.test(text)) {
-      intentCounts['美食']++
-    } else if (/运动|打球|篮球|足球|羽毛球|游泳|健身|跑步|爬山/.test(text)) {
-      intentCounts['运动']++
-    } else if (/电影|唱歌|KTV|桌游|剧本杀|密室|展览|音乐会/.test(text)) {
-      intentCounts['娱乐']++
-    } else if (/聚会|咖啡|社交/.test(text)) {
-      intentCounts['社交']++
-    } else {
-      intentCounts['其他']++
-    }
-  }
-
-  const totalIntents = Object.values(intentCounts).reduce((a, b) => a + b, 0)
-  const intentDistribution = Object.entries(intentCounts)
-    .map(([intent, count]) => ({
-      intent,
-      count,
-      percentage: totalIntents > 0 ? (count / totalIntents) * 100 : 0,
-    }))
-    .filter(item => item.count > 0)
-    .sort((a, b) => b.count - a.count)
 
   return {
-    topWords: sortedWords,
+    topWords,
     intentDistribution,
     period,
   }
 }
+

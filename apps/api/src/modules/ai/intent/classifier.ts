@@ -116,16 +116,24 @@ async function classifyByLLM(
 意图类型：
 - create: 用户想创建/组织/发布活动（如"帮我组一个"、"我要发布"、"创建活动"）
 - explore: 用户想找活动/探索附近/询问推荐（如"想找人一起"、"附近有什么"、"推荐一下"）
-- manage: 用户想管理自己的活动（如"我的活动"、"取消活动"、"查看报名"）
-- partner: 用户想找搭子/等人约（如"找搭子"、"谁组我就去"、"等人约"）
-- idle: 用户暂时没有明确需求，闲聊或暂停（如"改天再说"、"先这样"、"不用了"、"谢谢"）
-- chitchat: 用户在闲聊（如"你是谁"、"讲个笑话"）
+- partner: 用户想找搭子/等人约/被动加入（如"找搭子"、"谁组我就去"、"等人约"）
+- manage: 用户想管理活动（如"取消活动"、"撤回"）
+- show_activity: 用户想查询自己的活动历史（如"我的活动"、"我发过哪些"、"历史记录"）
+- modify: 用户想修改/纠正刚才的信息（如"不是明天"、"改成后天"、"不对"、"换个地方"）
+- confirm: 用户确认 AI 的提问或建议（如"对"、"是的"、"没问题"、"就是这个"）
+- deny: 用户拒绝 AI 的提问或建议（如"不"、"不行"、"不是"、"换一个"）
+- cancel: 用户想取消当前操作或结束对话（如"算了"、"不找了"、"取消"）
+- share: 用户想分享活动或生成邀请函（如"分享"、"发给好友"、"生成海报"）
+- join: 用户想报名或加入活动（如"我也去"、"算我一个"、"报名"）
+- chitchat: 用户在闲聊（如"你是谁"、"讲个笑话"、"无关话题"）
+- idle: 用户仅是礼貌回复或暂无明确需求（如"谢谢"、"改天再说"、"先这样"）
 - unknown: 无法判断
 
 注意：
-1. 如果用户在回答 AI 的问题（如选择地点、时间），应继承之前的意图
-2. "解放碑"、"明天"这类短回答通常是在回答问题，不是新意图
-3. 用户表示暂停、拒绝、告别时，应分类为 idle
+1. **优先识别流程控制意图**：如果 AI 刚问了一个问题（如时间、地点），用户的回答（“对”、“不是”、“明天”）通常属于 confirm/deny/modify，而不是新意图。
+2. **区分 Modify 和 Create**：用户说 "帮我改成明天" 是 modify，说 "再组一个明天的" 是 create。
+3. "解放碑"、"明天"这类短回答通常是在回答问题（Slot Filling），如果看起来是回答刚才的问题，优先 modify（或根据语境判断）。
+4. 用户表示结束、告别时，分类为 cancel 或 idle。
 
 对话历史：
 ${conversationText}
@@ -146,7 +154,13 @@ ${conversationText}
       console.log(`[Intent LLM] ${intent} (confidence: ${confidence})`);
 
       // 验证意图类型
-      const validIntents: IntentType[] = ['create', 'explore', 'manage', 'partner', 'chitchat', 'idle', 'unknown'];
+      const validIntents: IntentType[] = [
+        'create', 'explore', 'manage', 'partner', 'chitchat',
+        'idle', 'unknown',
+        // New features
+        'modify', 'confirm', 'deny', 'cancel',
+        'share', 'join', 'show_activity'
+      ];
       if (validIntents.includes(intent)) {
         return { intent, confidence, method: 'llm' };
       }

@@ -33,7 +33,10 @@ export * from "./ai-conversation-metrics";
 export * from "./ai-sensitive-words";
 export * from "./ai-security-events";
 
-// 8. Relations (must be last to avoid circular imports)
+// 8. Global Keywords System (v4.8 Digital Ascension)
+export * from "./global_keywords";
+
+// 9. Relations (must be last to avoid circular imports)
 export * from "./relations";
 
 // ==========================================

@@ -1883,6 +1883,53 @@ Admin 后台的 AI Playground 支持两种模式：
 | **Trace 模式** | `trace: true` | 调试用，返回完整执行追踪数据 |
 | **生产模式** | `trace: false` | 模拟小程序真实调用，验证最终返回值 |
 
+#### 9.5.1 流程图可视化 (v4.6+)
+
+AI Playground 使用流程图（Flow Graph）替代传统文本日志，可视化展示 AI 执行链路的每一个步骤。
+
+**核心功能**：
+- **可视化调试**：从用户输入到最终输出的完整执行链路一目了然
+- **节点级配置**：点击节点查看详细数据和配置项
+- **性能分析**：每个节点显示耗时、Token 消耗、费用等关键指标
+- **降级路径追踪**：清晰展示 P0 → P1 → P2 的降级逻辑
+
+**执行链路节点**：
+1. **Input** → 用户输入
+2. **Input Guard** → 输入验证 (Processor)
+3. **P0 Match** → 全局关键词匹配
+   - 如果命中 → 直接跳到 Output
+   - 如果未命中 → 继续到 P1
+4. **P1 Intent** → 意图识别 (Regex/LLM)
+5. **User Profile** → 用户画像注入 (Processor)
+6. **Semantic Recall** → 语义召回 (Processor)
+7. **Token Limit** → Token 限制 (Processor)
+8. **LLM** → LLM 推理
+9. **Tool Calls** → 工具调用 (可能多个)
+10. **Output** → 最终输出
+
+**节点详情 Drawer**：
+- 点击任意节点，右侧打开抽屉显示详细信息
+- P0 节点：匹配详情、统计数据、缓存状态
+- P1 节点：意图类型、识别方法、置信度
+- Processor 节点：输入输出数据、配置项、性能指标
+- LLM 节点：模型配置、System Prompt、Token 统计、费用
+- Tool 节点：输入参数、输出结果、执行日志、评估结果
+
+**实时更新**：
+- 流式接收 trace 数据，实时更新节点状态
+- 节点状态指示器：灰色 (pending)、蓝色 (running)、绿色 (success)、红色 (error)
+
+**技术实现**：
+- 前端：@xyflow/react + Dagre 自动布局
+- 后端：SSE (Server-Sent Events) 流式发送 trace 事件
+- 节点宽度：240px，高度自适应
+- 布局方向：LR (从左到右)
+
+**已知限制**：
+- Save History 和 Extract Preferences Processor 因架构限制暂不显示（在 onFinish 中异步执行）
+
+#### 9.5.2 Trace 模式显示内容
+
 **Trace 模式显示内容**：
 - LLM 推理信息（模型、tokens、耗时）
 - 意图分类（explore/create/manage/idle）

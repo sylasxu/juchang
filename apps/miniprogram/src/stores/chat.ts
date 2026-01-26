@@ -141,7 +141,7 @@ interface ChatState {
   
   // ========== Actions ==========
   /** 发送消息 */
-  sendMessage: (text: string, options?: { draftContext?: DraftContext }) => void
+  sendMessage: (text: string, options?: { draftContext?: DraftContext; keywordId?: string }) => void
   /** 停止生成 */
   stop: () => void
   /** 清空消息 */
@@ -179,7 +179,7 @@ export const useChatStore = create<ChatState>()(
        * 发送消息
        * 类似 useChat 的 sendMessage
        */
-      sendMessage: (text: string, options?: { draftContext?: DraftContext }) => {
+      sendMessage: (text: string, options?: { draftContext?: DraftContext; keywordId?: string }) => {
         const state = get()
         
         // 如果正在请求中，先停止
@@ -232,6 +232,7 @@ export const useChatStore = create<ChatState>()(
               source: 'miniprogram',
               ...(state.location ? { location: state.location } : {}),
               ...(options?.draftContext ? { draftContext: options.draftContext } : {}),
+              ...(options?.keywordId ? { keywordId: options.keywordId } : {}),
             },
           },
           {

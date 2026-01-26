@@ -12,6 +12,13 @@ export type IntentType =
   | 'partner'   // 找搭子
   | 'chitchat'  // 闲聊
   | 'idle'      // 空闲/暂停
+  | 'modify'    // 修改/纠正
+  | 'confirm'   // 确认
+  | 'deny'      // 拒绝/否定
+  | 'cancel'    // 取消/终止
+  | 'share'     // 分享/邀请
+  | 'join'      // 报名/参加
+  | 'show_activity' // 展示活动/历史
   | 'unknown';  // 未知
 
 /**
