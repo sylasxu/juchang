@@ -57,7 +57,7 @@ export function FlowGraph({ data, onNodeClick }: FlowGraphProps) {
   );
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full [&_.react-flow__node.selected]:!shadow-none [&_.react-flow__node.selected]:!outline-none [&_.react-flow__node.selected]:!border-transparent [&_.react-flow__node.selected_.react-flow__node-default]:!border-transparent">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -69,8 +69,17 @@ export function FlowGraph({ data, onNodeClick }: FlowGraphProps) {
         minZoom={0.5}
         maxZoom={1.5}
         defaultEdgeOptions={{
-          style: { stroke: 'hsl(var(--border))' },
+          type: 'smoothstep',
+          style: { 
+            stroke: 'hsl(var(--primary))',
+            strokeWidth: 2,
+          },
+          animated: false,
         }}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={true}
+        selectNodesOnDrag={false}
       >
         <Background />
         <Controls />

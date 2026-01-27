@@ -29,6 +29,15 @@ export interface BaseFlowNodeData {
   startedAt?: string;
   completedAt?: string;
   error?: string;
+  downstreamNodes?: string[]; // 关联的下游节点 ID 列表（用于快速跳转）
+  metadata?: {
+    // 执行详情元数据
+    inputTokens?: number;
+    outputTokens?: number;
+    cost?: number;
+    cacheHit?: boolean;
+    [key: string]: unknown;
+  };
   [key: string]: unknown; // 添加索引签名以兼容 ReactFlow
 }
 

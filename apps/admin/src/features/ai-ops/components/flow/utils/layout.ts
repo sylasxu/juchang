@@ -4,7 +4,7 @@
  * 使用 Dagre 算法自动布局流程图节点
  */
 
-import Dagre from '@dagrejs/dagre';
+import dagre from 'dagre';
 import type { Node, Edge } from '@xyflow/react';
 
 const NODE_WIDTH = 240;
@@ -22,7 +22,7 @@ export function getLayoutedElements<T extends Node>(
   edges: Edge[],
   direction: 'LR' | 'TB' = 'LR'
 ): { nodes: T[]; edges: Edge[] } {
-  const dagreGraph = new Dagre.graphlib.Graph();
+  const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
   
   // 配置布局参数
@@ -43,7 +43,7 @@ export function getLayoutedElements<T extends Node>(
   });
 
   // 执行布局
-  Dagre.layout(dagreGraph);
+  dagre.layout(dagreGraph);
 
   // 应用布局结果
   const layoutedNodes = nodes.map((node) => {

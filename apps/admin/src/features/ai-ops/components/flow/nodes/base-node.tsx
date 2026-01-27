@@ -31,8 +31,8 @@ export const BaseNode = memo(({ data, selected, children }: BaseNodeProps) => {
   return (
     <div
       className={cn(
-        'rounded-lg border bg-background p-3 shadow-sm transition-all',
-        selected && 'ring-2 ring-ring ring-offset-2',
+        'rounded-lg border border-border/50 bg-background p-3 shadow-sm transition-all cursor-pointer hover:shadow-md',
+        selected && 'ring-2 ring-primary',
         data.status === 'skipped' && 'opacity-50'
       )}
       style={{ width: 240 }}

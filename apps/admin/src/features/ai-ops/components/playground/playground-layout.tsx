@@ -1,166 +1,193 @@
 /**
- * PlaygroundLayout Component (v3.11)
+ * PlaygroundLayout Component (v4.0 - Fullscreen Canvas)
  * 
- * Split View 布局容器，管理左右面板的显示和尺寸。
- * 状态提升：traces 和 modelParams 在此管理。
+ * 全屏画布模式，流程图占据整个屏幕，控制项移至右侧 Drawer
  */
 
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useCallback, useState, useMemo } from 'react'
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport } from 'ai'
 import { useExecutionTrace } from '../../hooks/use-execution-trace'
 import { FlowTracePanel } from '../flow/flow-trace-panel'
-import { PlaygroundChat, type PlaygroundChatRef } from './playground-chat'
-import { MockSettingsPanel, type MockSettings } from './mock-settings-panel'
-import { StatsPanel, type ConversationStats } from './stats-panel'
+import { UnifiedDrawer } from './unified-drawer'
+import type { MockSettings } from './mock-settings-panel'
+import type { ConversationStats } from './stats-panel'
+import type { FlowNode } from '../../types/flow'
+import type { TraceStep, TraceStatus, IntentType } from '../../types/trace'
+import { API_BASE_URL } from '@/lib/eden'
 import { Header } from '@/components/layout/header'
-import { Main } from '@/components/layout/main'
 import { Search } from '@/components/search'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { ConfigDrawer } from '@/components/config-drawer'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 
 export function PlaygroundLayout() {
-  const [tracePanelVisible, setTracePanelVisible] = useState(true)
-  const [tracePanelWidth, setTracePanelWidth] = useState(420)
-  const [isDragging, setIsDragging] = useState(false)
-  const [traceEnabled, setTraceEnabled] = useState(true)
+  // Drawer 状态 - 默认关闭，点击 node 才打开
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [drawerView, setDrawerView] = useState<'control' | 'node'>('control')
+  const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null)
   
-  // 模拟设置
+  // 控制面板状态
+  const [traceEnabled, setTraceEnabled] = useState(true)
   const [mockSettings, setMockSettings] = useState<MockSettings>({
     userType: 'with_phone',
     location: 'guanyinqiao',
   })
-  
-  // 统计信息
   const [stats] = useState<ConversationStats | null>(null)
 
-  const { 
-    traces, 
+  // Trace 管理
+  const {
+    traces,
     modelParams,
-    clearTrace, 
-    handleTraceStart, 
-    handleTraceStep, 
-    handleTraceEnd, 
+    clearTrace,
+    handleTraceStart,
+    handleTraceStep,
+    handleTraceEnd,
     updateTraceStep,
     isStreaming,
   } = useExecutionTrace()
-  
-  const containerRef = useRef<HTMLDivElement>(null)
-  const chatRef = useRef<PlaygroundChatRef>(null)
 
-  const toggleTracePanel = useCallback(() => {
-    setTracePanelVisible(prev => !prev)
-  }, [])
+  // 创建 transport
+  const transport = useMemo(() => {
+    const token = localStorage.getItem('admin_token')
+    return new DefaultChatTransport({
+      api: `${API_BASE_URL}/ai/chat`,
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: {
+        source: 'admin',
+        trace: traceEnabled,
+        modelParams: {
+          model: modelParams.model,
+          temperature: modelParams.temperature,
+          maxTokens: modelParams.maxTokens,
+        },
+      },
+    })
+  }, [modelParams, traceEnabled])
 
-  // 处理拖拽
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging || !containerRef.current) return
-    
-    const containerRect = containerRef.current.getBoundingClientRect()
-    const newWidth = Math.max(320, Math.min(600, containerRect.right - e.clientX))
-    setTracePanelWidth(newWidth)
-  }, [isDragging])
+  // 使用 useChat hook
+  const { sendMessage, status } = useChat({
+    transport,
+    onData: (dataPart) => {
+      if (dataPart && typeof dataPart === 'object' && 'type' in dataPart) {
+        const part = dataPart as { type: string; data?: unknown }
 
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false)
-  }, [])
-
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = 'col-resize'
-      document.body.style.userSelect = 'none'
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-  }, [isDragging, handleMouseMove, handleMouseUp])
-
-  // 键盘快捷键: ⌘+E 切换追踪面板
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
-        e.preventDefault()
-        toggleTracePanel()
+        if (part.type === 'data-trace-start') {
+          const data = part.data as {
+            requestId: string
+            startedAt: string
+            systemPrompt?: string
+            tools?: Array<{ name: string; description: string; schema: Record<string, unknown> }>
+            intent?: IntentType
+            intentMethod?: 'regex' | 'llm'
+          }
+          handleTraceStart(data.requestId, data.startedAt, data.systemPrompt, data.tools, data.intent, data.intentMethod)
+        } else if (part.type === 'data-trace-step') {
+          handleTraceStep(part.data as TraceStep)
+        } else if (part.type === 'data-trace-step-update') {
+          const data = part.data as { stepId: string; [key: string]: unknown }
+          updateTraceStep(data.stepId, data as Partial<TraceStep>)
+        } else if (part.type === 'data-trace-end') {
+          const data = part.data as {
+            completedAt: string
+            status: TraceStatus
+            totalCost?: number
+            output?: {
+              text: string | null
+              toolCalls: Array<{ name: string; displayName: string; input: unknown; output: unknown }>
+            }
+          }
+          handleTraceEnd(data.completedAt, data.status, data.totalCost, data.output)
+        }
       }
-    }
+    },
+    onError: (err) => {
+      console.error('AI Chat 错误:', err)
+      handleTraceEnd(new Date().toISOString(), 'error')
+    },
+  })
 
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [toggleTracePanel])
+  const isLoading = status === 'submitted' || status === 'streaming'
+
+  // 发送消息
+  const handleSendMessage = useCallback(
+    (text: string) => {
+      if (!text.trim() || isLoading) return
+      sendMessage({ text: text.trim() })
+    },
+    [isLoading, sendMessage]
+  )
+
+  // 打开控制面板
+  const handleOpenControl = useCallback(() => {
+    setDrawerView('control')
+    setDrawerOpen(true)
+  }, [])
+
+  // 节点点击处理 - 如果是初始 node，显示控制面板；否则显示节点详情
+  const handleNodeClick = useCallback((node: FlowNode) => {
+    setSelectedNode(node)
+    // 如果是初始的发送消息 node，显示控制面板
+    if (node.id === 'initial-input') {
+      setDrawerView('control')
+    } else {
+      setDrawerView('node')
+    }
+    setDrawerOpen(true)
+  }, [])
+
+  // 关联节点跳转
+  const handleNodeJump = useCallback(
+    (nodeId: string) => {
+      // TODO: 实现真正的节点跳转逻辑
+      console.log('Jump to node:', nodeId)
+    },
+    []
+  )
+
+  // 获取所有节点（用于关联节点跳转）
+  const allNodes = useMemo(() => {
+    const latestTrace = traces[traces.length - 1]
+    if (!latestTrace) return []
+    // 这里应该从 buildFlowGraph 返回的 nodes 中获取
+    // 简化处理：返回空数组
+    return []
+  }, [traces])
 
   return (
-    <>
-      {/* 标准 Header */}
-      <Header fixed>
-        <Search />
-        <div className='ms-auto flex items-center space-x-4'>
-          <ThemeSwitch />
-          <ConfigDrawer />
-          <ProfileDropdown />
+    <div className='relative h-screen w-screen overflow-hidden'>
+      {/* 透明 Header - 绝对定位浮在画布上方 */}
+      <Header className='pointer-events-none absolute left-0 right-0 top-0 z-40 bg-transparent border-b-0'>
+        <div className='pointer-events-auto flex items-center gap-3'>
+          <Search className='bg-background/80 backdrop-blur-md' />
+          <div className='ms-auto flex items-center gap-2'>
+            <ThemeSwitch />
+            <ConfigDrawer />
+            <ProfileDropdown />
+          </div>
         </div>
       </Header>
 
-      {/* 页面内容 - 使用 fixed 布局确保高度正确 */}
-      <Main fixed className='flex flex-1 flex-col gap-0 p-0 overflow-hidden'>
-        {/* 顶部设置区 */}
-        <div className='border-b bg-muted/30 p-4'>
-          <div className='flex gap-4 max-w-7xl mx-auto'>
-            <div className='w-80'>
-              <MockSettingsPanel 
-                settings={mockSettings} 
-                onChange={setMockSettings} 
-              />
-            </div>
-            <div className='w-64'>
-              <StatsPanel stats={stats} />
-            </div>
-          </div>
-        </div>
+      {/* 全屏流程图 */}
+      <FlowTracePanel traces={traces} isStreaming={isStreaming} onNodeClick={handleNodeClick} />
 
-        {/* Split View */}
-        <div ref={containerRef} className='flex flex-1 min-h-0'>
-          {/* Chat Panel */}
-          <div className='flex-1 min-w-0 overflow-hidden'>
-            <PlaygroundChat
-              ref={chatRef}
-              modelParams={modelParams}
-              traceEnabled={traceEnabled}
-              onTraceEnabledChange={setTraceEnabled}
-              onTraceStart={handleTraceStart}
-              onTraceStep={handleTraceStep}
-              onTraceEnd={handleTraceEnd}
-              onUpdateTraceStep={updateTraceStep}
-              onClearTrace={clearTrace}
-              tracePanelVisible={tracePanelVisible}
-              onToggleTracePanel={toggleTracePanel}
-            />
-          </div>
-
-          {/* Trace Panel */}
-          {tracePanelVisible && (
-            <div
-              className='relative flex-shrink-0 border-l bg-background overflow-hidden'
-              style={{ width: tracePanelWidth }}
-            >
-              {/* 拖拽手柄 */}
-              <div
-                className='absolute left-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30 z-10'
-                onMouseDown={() => setIsDragging(true)}
-              />
-
-              <FlowTracePanel
-                traces={traces}
-                isStreaming={isStreaming}
-              />
-            </div>
-          )}
-        </div>
-      </Main>
-    </>
+      {/* 统一的右侧 Drawer - 默认打开 */}
+      <UnifiedDrawer
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+        view={drawerView}
+        onViewChange={setDrawerView}
+        mockSettings={mockSettings}
+        onMockSettingsChange={setMockSettings}
+        traceEnabled={traceEnabled}
+        onTraceEnabledChange={setTraceEnabled}
+        onSendMessage={handleSendMessage}
+        onClear={clearTrace}
+        stats={stats}
+        selectedNode={selectedNode}
+        allNodes={allNodes}
+        onNodeClick={handleNodeJump}
+      />
+    </div>
   )
 }

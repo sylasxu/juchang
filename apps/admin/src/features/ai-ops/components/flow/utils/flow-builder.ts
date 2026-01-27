@@ -32,11 +32,13 @@ export function buildFlowGraph(trace: ExecutionTrace | null): FlowGraphData {
   const nodes: FlowNode[] = [];
   const edges: FlowEdge[] = [];
   let nodeIndex = 0;
+  let prevNodeId: string | null = null;
 
   // 1. Input 节点
   const inputStep = trace.steps.find(s => s.type === 'input');
   if (inputStep) {
     nodes.push(createInputNode(nodeIndex++, inputStep));
+    prevNodeId = nodes[nodes.length - 1].id;
   }
 
   // 2. Input Guard 节点
@@ -46,18 +48,20 @@ export function buildFlowGraph(trace: ExecutionTrace | null): FlowGraphData {
   );
   if (inputGuardStep) {
     nodes.push(createProcessorNode(nodeIndex++, inputGuardStep, 'input-guard'));
-    if (nodes.length >= 2) {
-      edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id));
+    if (prevNodeId) {
+      edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id));
     }
+    prevNodeId = nodes[nodes.length - 1].id;
   }
 
   // 3. P0 Match 节点
   const p0Step = trace.steps.find(s => (s.type as ExtendedStepType) === 'p0-match');
   if (p0Step) {
     nodes.push(createP0MatchNode(nodeIndex++, p0Step));
-    if (nodes.length >= 2) {
-      edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id));
+    if (prevNodeId) {
+      edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id));
     }
+    prevNodeId = nodes[nodes.length - 1].id;
 
     // 如果 P0 命中，直接连接到 Output
     const p0Data = p0Step.data as any;
@@ -66,10 +70,12 @@ export function buildFlowGraph(trace: ExecutionTrace | null): FlowGraphData {
       const outputStep = trace.steps.find(s => s.type === 'output');
       if (outputStep) {
         nodes.push(createOutputNode(nodeIndex++, outputStep, trace));
-        edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id, true));
+        if (prevNodeId) {
+          edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id, true));
+        }
       }
-      // 跳过后续节点
-      return applyLayout({ nodes, edges });
+      // 计算 downstreamNodes 并应用布局
+      return applyLayout(addDownstreamNodes({ nodes, edges }));
     }
   }
 
@@ -77,9 +83,10 @@ export function buildFlowGraph(trace: ExecutionTrace | null): FlowGraphData {
   const p1Step = trace.steps.find(s => (s.type as ExtendedStepType) === 'p1-intent');
   if (p1Step) {
     nodes.push(createP1IntentNode(nodeIndex++, p1Step));
-    if (nodes.length >= 2) {
-      edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id));
+    if (prevNodeId) {
+      edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id));
     }
+    prevNodeId = nodes[nodes.length - 1].id;
   }
 
   // 5. Processor 节点（User Profile, Working Memory, Semantic Recall, Token Limit）
@@ -97,9 +104,10 @@ export function buildFlowGraph(trace: ExecutionTrace | null): FlowGraphData {
     );
     if (processorStep) {
       nodes.push(createProcessorNode(nodeIndex++, processorStep, processorType));
-      if (nodes.length >= 2) {
-        edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id));
+      if (prevNodeId) {
+        edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id));
       }
+      prevNodeId = nodes[nodes.length - 1].id;
     }
   }
 
@@ -107,18 +115,20 @@ export function buildFlowGraph(trace: ExecutionTrace | null): FlowGraphData {
   const llmStep = trace.steps.find(s => s.type === 'llm');
   if (llmStep) {
     nodes.push(createLLMNode(nodeIndex++, llmStep));
-    if (nodes.length >= 2) {
-      edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id));
+    if (prevNodeId) {
+      edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id));
     }
+    prevNodeId = nodes[nodes.length - 1].id;
   }
 
   // 7. Tool 节点
   const toolSteps = trace.steps.filter(s => s.type === 'tool');
   for (const toolStep of toolSteps) {
     nodes.push(createToolNode(nodeIndex++, toolStep));
-    if (nodes.length >= 2) {
-      edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id));
+    if (prevNodeId) {
+      edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id));
     }
+    prevNodeId = nodes[nodes.length - 1].id;
   }
 
   // 8. 后处理 Processor 节点
@@ -130,9 +140,10 @@ export function buildFlowGraph(trace: ExecutionTrace | null): FlowGraphData {
     );
     if (processorStep) {
       nodes.push(createProcessorNode(nodeIndex++, processorStep, processorType));
-      if (nodes.length >= 2) {
-        edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id));
+      if (prevNodeId) {
+        edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id));
       }
+      prevNodeId = nodes[nodes.length - 1].id;
     }
   }
 
@@ -140,12 +151,13 @@ export function buildFlowGraph(trace: ExecutionTrace | null): FlowGraphData {
   const outputStep = trace.steps.find(s => s.type === 'output');
   if (outputStep) {
     nodes.push(createOutputNode(nodeIndex++, outputStep, trace));
-    if (nodes.length >= 2) {
-      edges.push(createEdge(nodes[nodes.length - 2].id, nodes[nodes.length - 1].id));
+    if (prevNodeId) {
+      edges.push(createEdge(prevNodeId, nodes[nodes.length - 1].id));
     }
   }
 
-  return applyLayout({ nodes, edges });
+  // 计算 downstreamNodes 并应用布局
+  return applyLayout(addDownstreamNodes({ nodes, edges }));
 }
 
 // ============ Node Creation Functions ============
@@ -335,13 +347,51 @@ function createOutputNode(index: number, step: TraceStep, trace: ExecutionTrace)
 
 // ============ Helper Functions ============
 
+/**
+ * 为每个节点添加 downstreamNodes 字段
+ */
+function addDownstreamNodes(graph: FlowGraphData): FlowGraphData {
+  const { nodes, edges } = graph;
+  
+  // 为每个节点计算下游节点
+  nodes.forEach(node => {
+    const downstreamEdges = edges.filter(edge => edge.source === node.id);
+    const downstreamNodeIds = downstreamEdges.map(edge => edge.target);
+    
+    if (downstreamNodeIds.length > 0) {
+      node.data.downstreamNodes = downstreamNodeIds;
+    }
+    
+    // 提取 metadata
+    if (node.data.type === 'llm') {
+      const llmData = node.data as LLMNodeData;
+      node.data.metadata = {
+        inputTokens: llmData.inputTokens,
+        outputTokens: llmData.outputTokens,
+        cost: llmData.cost,
+      };
+    } else if (node.data.type === 'p0-match') {
+      const p0Data = node.data as P0MatchNodeData;
+      node.data.metadata = {
+        cacheHit: p0Data.cacheHit,
+      };
+    }
+  });
+  
+  return { nodes, edges };
+}
+
 function createEdge(source: string, target: string, animated = false): FlowEdge {
   return {
     id: `edge-${source}-${target}`,
     source,
     target,
     animated,
-    style: { stroke: 'hsl(var(--border))' },
+    type: 'smoothstep',
+    style: { 
+      stroke: 'hsl(var(--primary))',
+      strokeWidth: 2,
+    },
   };
 }
 
