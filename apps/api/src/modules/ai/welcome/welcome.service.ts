@@ -14,6 +14,7 @@ import {
   eq,
   and,
   gt,
+  lt,
   desc,
   inArray,
 } from '@xu/db';
@@ -96,9 +97,35 @@ export interface WelcomeFocus {
   context?: unknown;
 }
 
+export interface WelcomeActivitySummary {
+  id: string;
+  title: string;
+  type: string;
+  startAt: string;
+  locationName: string;
+  locationHint: string;
+  currentParticipants: number;
+  maxParticipants: number;
+  imageUrl?: string;
+  distance?: number;
+  creatorNickname?: string;
+}
+
+export interface WelcomeRecommendation {
+  title: string;
+  subtitle?: string;
+  activities: WelcomeActivitySummary[];
+  morePrompt: string;
+  moreAction?: {
+    action: string;
+    params?: Record<string, unknown>;
+  };
+}
+
 export interface WelcomeResponse {
   greeting: string;
   subGreeting?: string;
+  recommendations?: WelcomeRecommendation[];
   sections: WelcomeSection[];
   pendingActivities?: WelcomePendingActivity[] | undefined;
   welcomeFocus?: WelcomeFocus | undefined;
@@ -784,6 +811,131 @@ async function selectWelcomeFocus(userId: string, now: Date): Promise<WelcomeFoc
   };
 }
 
+// ==========================================
+// v5.4: Welcome 活动推荐查询
+// ==========================================
+
+interface RecommendedActivity {
+  id: string;
+  title: string;
+  type: string;
+  startAt: string;
+  locationName: string;
+  locationHint: string;
+  currentParticipants: number;
+  maxParticipants: number;
+  distance?: number;
+  creatorNickname?: string;
+}
+
+async function queryRecommendedActivities(params: {
+  userId: string | null;
+  lat: number | null;
+  lng: number | null;
+  now: Date;
+  limit?: number;
+}): Promise<RecommendedActivity[]> {
+  const { userId, lat, lng, now, limit = 5 } = params;
+
+  // 排除条件：已过期、已满员、draft、cancelled
+  // 排除用户已报名的活动
+  const baseWhere = and(
+    eq(activities.status, 'active'),
+    gt(activities.startAt, now),
+    lt(activities.currentParticipants, activities.maxParticipants),
+  );
+
+  // 如果用户已登录，查询已报名的活动 ID 列表用于排除
+  let excludedActivityIds: string[] = [];
+  if (userId) {
+    const joinedRows = await db
+      .select({ activityId: participants.activityId })
+      .from(participants)
+      .where(and(
+        eq(participants.userId, userId),
+        eq(participants.status, 'joined'),
+      ));
+    excludedActivityIds = joinedRows.map(r => r.activityId);
+  }
+
+  const finalWhere = excludedActivityIds.length > 0
+    ? and(baseWhere, sql`${activities.id} NOT IN (${sql.join(excludedActivityIds.map(id => sql`${id}`))})`)
+    : baseWhere;
+
+  // 有位置时：按距离排序
+  if (lat != null && lng != null) {
+    const distanceExpr = sql<number>`
+      ST_DistanceSphere(
+        ${activities.location}::geometry,
+        ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geometry
+      )::int
+    `;
+
+    const rows = await db
+      .select({
+        id: activities.id,
+        title: activities.title,
+        type: activities.type,
+        startAt: activities.startAt,
+        locationName: activities.locationName,
+        locationHint: activities.locationHint,
+        currentParticipants: activities.currentParticipants,
+        maxParticipants: activities.maxParticipants,
+        distance: distanceExpr,
+        creatorNickname: users.nickname,
+      })
+      .from(activities)
+      .leftJoin(users, eq(activities.creatorId, users.id))
+      .where(finalWhere)
+      .orderBy(distanceExpr, desc(activities.createdAt))
+      .limit(limit);
+
+    return rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      type: row.type,
+      startAt: row.startAt.toISOString(),
+      locationName: row.locationName,
+      locationHint: row.locationHint,
+      currentParticipants: row.currentParticipants,
+      maxParticipants: row.maxParticipants,
+      distance: row.distance ?? undefined,
+      creatorNickname: row.creatorNickname || undefined,
+    }));
+  }
+
+  // 无位置时：按创建时间（热度代理）排序
+  const rows = await db
+    .select({
+      id: activities.id,
+      title: activities.title,
+      type: activities.type,
+      startAt: activities.startAt,
+      locationName: activities.locationName,
+      locationHint: activities.locationHint,
+      currentParticipants: activities.currentParticipants,
+      maxParticipants: activities.maxParticipants,
+      creatorNickname: users.nickname,
+    })
+    .from(activities)
+    .leftJoin(users, eq(activities.creatorId, users.id))
+    .where(finalWhere)
+    .orderBy(desc(activities.createdAt), desc(activities.currentParticipants))
+    .limit(limit);
+
+  return rows.map(row => ({
+    id: row.id,
+    title: row.title,
+    type: row.type,
+    startAt: row.startAt.toISOString(),
+    locationName: row.locationName,
+    locationHint: row.locationHint,
+    currentParticipants: row.currentParticipants,
+    maxParticipants: row.maxParticipants,
+    creatorNickname: row.creatorNickname ?? undefined,
+  }));
+}
+
 export function generateGreeting(
   nickname: string | null,
   config: WelcomeCopyConfig = DEFAULT_WELCOME_COPY_CONFIG,
@@ -964,9 +1116,34 @@ export async function getWelcomeCard(
         })
     : hasDraftActivity ? [] : welcomeUi.quickPrompts;
 
+  // v5.4: 查询推荐活动
+  const recommendedActivities = await queryRecommendedActivities({
+    userId,
+    lat: location?.lat ?? null,
+    lng: location?.lng ?? null,
+    now,
+    limit: 5,
+  });
+
+  const recommendations = recommendedActivities.length > 0
+    ? [{
+        title: location ? '附近热门' : '为你推荐',
+        subtitle: `${recommendedActivities.length} 个活动正在招募`,
+        activities: recommendedActivities,
+        morePrompt: location
+          ? `看看附近有什么活动`
+          : `最近有什么热门活动`,
+        moreAction: {
+          action: 'explore_nearby',
+          params: location ? { lat: location.lat, lng: location.lng } : {},
+        },
+      }]
+    : undefined;
+
   return {
     greeting,
     subGreeting,
+    recommendations,
     sections,
     pendingActivities,
     welcomeFocus,

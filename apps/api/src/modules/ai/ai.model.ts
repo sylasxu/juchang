@@ -41,6 +41,7 @@ const GenUIBlockTypeSchema = t.Union([
   t.Literal('choice'),
   t.Literal('entity-card'),
   t.Literal('list'),
+  t.Literal('carousel'),
   t.Literal('form'),
   t.Literal('cta-group'),
   t.Literal('alert'),
@@ -301,6 +302,33 @@ const GenUIListBlockSchema = t.Object({
   meta: t.Optional(GenericObjectSchema),
 }, { additionalProperties: true });
 
+const GenUICarouselBlockSchema = t.Object({
+  blockId: t.String({ minLength: 1 }),
+  type: t.Literal('carousel'),
+  title: t.Optional(t.String()),
+  subtitle: t.Optional(t.String()),
+  items: t.Array(GenericObjectSchema),
+  variant: t.Optional(t.Union([
+    t.Literal('peek'),
+    t.Literal('full'),
+    t.Literal('compact'),
+  ])),
+  autoplay: t.Optional(t.Boolean()),
+  interval: t.Optional(t.Number()),
+  indicator: t.Optional(t.Boolean()),
+  loop: t.Optional(t.Boolean()),
+  interaction: t.Optional(t.Object({
+    actions: t.Optional(t.Array(t.Object({
+      type: t.String(),
+      label: t.String(),
+      params: t.Optional(GenericObjectSchema),
+    }))),
+  })),
+  dedupeKey: t.Optional(t.String()),
+  replacePolicy: t.Optional(GenUIReplacePolicySchema),
+  meta: t.Optional(GenericObjectSchema),
+}, { additionalProperties: true });
+
 const GenUIFormBlockSchema = t.Object({
   blockId: t.String({ minLength: 1 }),
   type: t.Literal('form'),
@@ -341,6 +369,7 @@ const GenUIBlockSchema = t.Union([
   GenUIChoiceBlockSchema,
   GenUIEntityCardBlockSchema,
   GenUIListBlockSchema,
+  GenUICarouselBlockSchema,
   GenUIFormBlockSchema,
   GenUICtaGroupBlockSchema,
   GenUIAlertBlockSchema,
@@ -523,9 +552,36 @@ const WelcomeFocus = t.Object({
   context: t.Optional(t.Any({ description: '附加上下文数据' })),
 });
 
+// v5.4: Welcome 推荐活动摘要（与 carousel block 共享结构）
+const WelcomeActivitySummarySchema = t.Object({
+  id: t.String({ format: 'uuid', description: '活动 ID' }),
+  title: t.String({ description: '活动标题' }),
+  type: t.String({ description: '活动类型' }),
+  startAt: t.String({ description: '开始时间 ISO' }),
+  locationName: t.String({ description: '地点名称' }),
+  locationHint: t.String({ description: '地点提示' }),
+  currentParticipants: t.Number({ description: '当前参与人数' }),
+  maxParticipants: t.Number({ description: '人数上限' }),
+  imageUrl: t.Optional(t.String({ description: '封面图 URL' })),
+  distance: t.Optional(t.Number({ description: '距离（米），有位置时' })),
+  creatorNickname: t.Optional(t.String({ description: '发起者昵称' })),
+});
+
+const WelcomeRecommendationSchema = t.Object({
+  title: t.String({ description: '推荐标题，如"附近热门"' }),
+  subtitle: t.Optional(t.String({ description: '副标题，如"3 个活动正在招募"' })),
+  activities: t.Array(WelcomeActivitySummarySchema, { maxItems: 5, description: '推荐活动列表' }),
+  morePrompt: t.String({ description: '点击"查看更多"时发送的 prompt' }),
+  moreAction: t.Optional(t.Object({
+    action: t.String({ description: '结构化动作名称' }),
+    params: t.Optional(GenericObjectSchema),
+  })),
+});
+
 const WelcomeResponse = t.Object({
   greeting: t.String({ description: '问候语' }),
   subGreeting: t.Optional(t.String({ description: '副标题' })),
+  recommendations: t.Optional(t.Array(WelcomeRecommendationSchema, { description: '活动推荐列表（v5.4）' })),
   sections: t.Array(WelcomeSection, { description: '分组列表' }),
   pendingActivities: t.Optional(t.Array(WelcomePendingActivity, { description: '待参加活动列表（最多 3 个）' })),
   welcomeFocus: t.Optional(WelcomeFocus),

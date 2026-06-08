@@ -22,6 +22,7 @@ import {
 import {
   createTextBlock,
   createListBlock,
+  createCarouselBlock,
   createChoiceBlock,
   createEntityCardBlock,
   createCtaGroupBlock,
@@ -2163,6 +2164,25 @@ function mapExplorePayloadToList(
   }
 
   const title = toStringValue(container.title, toStringValue(payload.message, '附近活动'));
+
+  // v5.4: 推荐场景（item 少 + 无懒加载 + 非语义搜索）用 carousel，否则用 list
+  const isRecommendation = items.length <= 5 && !fetchConfig && !semanticQuery;
+
+  if (isRecommendation) {
+    return createCarouselBlock({
+      title,
+      items,
+      dedupeKey,
+      traceRef,
+      variant: 'peek',
+      loop: items.length >= 3,
+      indicator: true,
+      meta: {
+        traceRef,
+        ...(memoryHints.length > 0 ? { memoryHints } : {}),
+      },
+    });
+  }
 
   return createListBlock({
     title,

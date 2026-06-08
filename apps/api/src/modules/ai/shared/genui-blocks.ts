@@ -138,6 +138,47 @@ export function createListBlock(params: {
   };
 }
 
+export function createCarouselBlock(params: {
+  title?: string;
+  subtitle?: string;
+  items: Record<string, unknown>[];
+  dedupeKey: string;
+  traceRef: string;
+  variant?: 'peek' | 'full' | 'compact';
+  autoplay?: boolean;
+  interval?: number;
+  indicator?: boolean;
+  loop?: boolean;
+  interaction?: {
+    actions?: Array<{
+      type: string;
+      label: string;
+      params?: Record<string, unknown>;
+    }>;
+  };
+  meta?: Record<string, unknown>;
+}): GenUIBlock {
+  return {
+    blockId: createBlockId(),
+    type: 'carousel',
+    ...(params.title ? { title: params.title } : {}),
+    ...(params.subtitle ? { subtitle: params.subtitle } : {}),
+    items: params.items,
+    ...(params.variant ? { variant: params.variant } : {}),
+    ...(params.autoplay ? { autoplay: params.autoplay } : {}),
+    ...(params.interval ? { interval: params.interval } : {}),
+    ...(params.indicator !== undefined ? { indicator: params.indicator } : {}),
+    ...(params.loop !== undefined ? { loop: params.loop } : {}),
+    ...(params.interaction ? { interaction: params.interaction } : {}),
+    dedupeKey: params.dedupeKey,
+    replacePolicy: 'replace',
+    meta: {
+      ...(params.meta ?? {}),
+      traceRef: params.traceRef,
+    },
+  };
+}
+
 export function createAlertBlock(params: {
   level: GenUIAlertBlock['level'];
   message: string;

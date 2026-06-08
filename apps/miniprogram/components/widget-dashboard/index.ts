@@ -21,6 +21,20 @@ import type {
 type Activity = WelcomePendingActivity;
 type WelcomeUi = WelcomeResponse['ui'];
 
+interface RecommendationActivity {
+  id: string;
+  title: string;
+  type: string;
+  startAt: string;
+  locationName: string;
+  locationHint: string;
+  currentParticipants: number;
+  maxParticipants: number;
+  imageUrl?: string;
+  distance?: number;
+  creatorNickname?: string;
+}
+
 interface WidgetDashboardData {
   displayGreeting: string;
   displaySubGreeting: string;
@@ -31,6 +45,8 @@ interface WidgetDashboardData {
   displayQuickPrompts: QuickPrompt[];
   hasQuickPrompts: boolean;
   displayUi: WelcomeUi | null;
+  displayRecommendations: RecommendationActivity[];
+  hasRecommendations: boolean;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -124,6 +140,49 @@ function readWelcomeUi(value: unknown): WelcomeUi | null {
   };
 }
 
+function readRecommendations(value: unknown): RecommendationActivity[] {
+  if (!isRecord(value) || !Array.isArray(value.activities)) {
+    return [];
+  }
+
+  return value.activities
+    .map((item: unknown) => {
+      if (!isRecord(item)) return null;
+
+      const id = readString(item.id);
+      const title = readString(item.title);
+      const type = readString(item.type);
+      const startAt = readString(item.startAt);
+      const locationName = readString(item.locationName);
+      const locationHint = readString(item.locationHint);
+
+      if (!id || !title || !type || !startAt || !locationName || !locationHint) {
+        return null;
+      }
+
+      const currentParticipants = typeof item.currentParticipants === 'number' ? item.currentParticipants : 0;
+      const maxParticipants = typeof item.maxParticipants === 'number' ? item.maxParticipants : 0;
+      const distance = typeof item.distance === 'number' ? item.distance : undefined;
+      const imageUrl = readString(item.imageUrl) ?? undefined;
+      const creatorNickname = readString(item.creatorNickname) ?? undefined;
+
+      return {
+        id,
+        title,
+        type,
+        startAt,
+        locationName,
+        locationHint,
+        currentParticipants,
+        maxParticipants,
+        ...(distance !== undefined ? { distance } : {}),
+        ...(imageUrl ? { imageUrl } : {}),
+        ...(creatorNickname ? { creatorNickname } : {}),
+      };
+    })
+    .filter((item): item is RecommendationActivity => item !== null);
+}
+
 const WIDGET_DASHBOARD_DATA: WidgetDashboardData = {
   displayGreeting: '',
   displaySubGreeting: '',
@@ -134,6 +193,8 @@ const WIDGET_DASHBOARD_DATA: WidgetDashboardData = {
   displayQuickPrompts: [],
   hasQuickPrompts: false,
   displayUi: null,
+  displayRecommendations: [],
+  hasRecommendations: false,
 };
 
 Component({
@@ -172,6 +233,11 @@ Component({
       type: Array,
       value: [],
     },
+    // v5.4: 推荐活动
+    recommendations: {
+      type: Array,
+      value: [],
+    },
     ui: {
       type: Object,
       value: {},
@@ -206,6 +272,13 @@ Component({
       this.setData({
         displayQuickPrompts: resolvedPrompts,
         hasQuickPrompts: resolvedPrompts.length > 0,
+      });
+    },
+    'recommendations': function(recommendations: unknown) {
+      const recs = readRecommendations(recommendations);
+      this.setData({
+        displayRecommendations: recs,
+        hasRecommendations: recs.length > 0,
       });
     },
     'ui': function(ui: unknown) {
@@ -254,6 +327,15 @@ Component({
       if (!item) return;
 
       this.triggerEvent('quickitemtap', { item });
+    },
+
+    /**
+     * v5.4: 点击推荐活动卡片
+     */
+    onRecommendationTap(e: WechatMiniprogram.TouchEvent) {
+      const { id } = e.currentTarget.dataset;
+      if (!id) return;
+      this.triggerEvent('recommendationtap', { id });
     },
 
     /**

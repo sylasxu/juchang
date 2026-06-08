@@ -67,6 +67,7 @@ import {
 import { isWelcomeFocusCoveredByCurrentTasks } from "@/lib/runtime-task-focus";
 import { cn } from "@/lib/utils";
 import { HomeStateCard } from "@/components/chat/home-state-card";
+import { ActivitySwiper, type SwiperActivity } from "@/components/chat/activity-swiper";
 import type {
   GenUIAlertBlock,
   GenUIBlock,
@@ -628,6 +629,34 @@ function extractWelcomeFocus(payload: unknown): WelcomeFocusPayload | null {
   };
 }
 
+function extractWelcomeRecommendations(payload: unknown): SwiperActivity[] {
+  if (!isRecord(payload) || !Array.isArray(payload.recommendations)) {
+    return [];
+  }
+
+  const [firstRec] = payload.recommendations;
+  if (!isRecord(firstRec) || !Array.isArray(firstRec.activities)) {
+    return [];
+  }
+
+  return firstRec.activities
+    .filter((item: unknown): item is Record<string, unknown> => isRecord(item))
+    .map((item) => ({
+      id: typeof item.id === "string" ? item.id : "",
+      title: typeof item.title === "string" ? item.title : "",
+      type: typeof item.type === "string" ? item.type : "",
+      startAt: typeof item.startAt === "string" ? item.startAt : "",
+      locationName: typeof item.locationName === "string" ? item.locationName : "",
+      locationHint: typeof item.locationHint === "string" ? item.locationHint : "",
+      currentParticipants: typeof item.currentParticipants === "number" ? item.currentParticipants : 0,
+      maxParticipants: typeof item.maxParticipants === "number" ? item.maxParticipants : 0,
+      ...(typeof item.imageUrl === "string" ? { imageUrl: item.imageUrl } : {}),
+      ...(typeof item.distance === "number" ? { distance: item.distance } : {}),
+      ...(typeof item.creatorNickname === "string" ? { creatorNickname: item.creatorNickname } : {}),
+    }))
+    .filter((item) => item.id && item.title);
+}
+
 function extractWelcomeUi(payload: unknown): WelcomeUiPayload {
   if (!isRecord(payload) || !isRecord(payload.ui)) {
     return {
@@ -827,6 +856,7 @@ export default function ChatPage() {
   const [quickPrompts, setQuickPrompts] = useState<WelcomePromptEntry[]>(DEFAULT_PROMPT_ENTRIES);
   const [welcomeGreeting, setWelcomeGreeting] = useState(DEFAULT_WELCOME_GREETING);
   const [welcomeFocus, setWelcomeFocus] = useState<WelcomeFocusPayload | null>(null);
+  const [welcomeRecommendations, setWelcomeRecommendations] = useState<SwiperActivity[]>([]);
   const [isWelcomeLoading, setIsWelcomeLoading] = useState(true);
   const [currentTasks, setCurrentTasks] = useState<RuntimeTaskSnapshot[]>([]);
   const [homeState, setHomeState] = useState<RuntimeHomeState>("H0");
@@ -1062,6 +1092,7 @@ export default function ChatPage() {
       }
       setWelcomeGreeting(extractWelcomeGreeting(payload));
       setWelcomeFocus(extractWelcomeFocus(payload));
+      setWelcomeRecommendations(extractWelcomeRecommendations(payload));
       setWelcomeUi(extractWelcomeUi(payload));
     } catch {
       // keep current welcome snapshot
@@ -1709,7 +1740,19 @@ export default function ChatPage() {
                     </div>
                   ) : null}
 
-                  <div className={cn("relative z-10 space-y-3", homeState === "H0" ? "mt-12" : "mt-6")}>
+                  {welcomeRecommendations.length > 0 && !isWelcomeLoading ? (
+                    <div className="relative z-10 mt-6">
+                      <ActivitySwiper
+                        activities={welcomeRecommendations}
+                        isDarkMode={isDarkMode}
+                        onActivityClick={(activity) => {
+                          window.location.href = buildActivityDetailPath(activity.id, { entry: "welcome_recommendation" });
+                        }}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className={cn("relative z-10 space-y-3", homeState === "H0" ? "mt-6" : "mt-6")}>
                     {homeState === "H0" && authToken && (isCurrentTasksLoading || visibleCurrentTasks.length > 0) ? (
                       <section
                         className={cn(
@@ -2197,6 +2240,50 @@ function TurnBlockRenderer({
         disabled={disabled}
         onActionSelect={onActionSelect}
       />
+    );
+  }
+
+  if (block.type === "carousel") {
+    const items = (block.items || [])
+      .filter((item): item is Record<string, unknown> => isRecord(item))
+      .map((item) => ({
+        id: typeof item.id === "string" ? item.id : "",
+        title: typeof item.title === "string" ? item.title : "",
+        type: typeof item.type === "string" ? item.type : "",
+        startAt: typeof item.startAt === "string" ? item.startAt : "",
+        locationName: typeof item.locationName === "string" ? item.locationName : "",
+        locationHint: typeof item.locationHint === "string" ? item.locationHint : "",
+        currentParticipants: typeof item.currentParticipants === "number" ? item.currentParticipants : 0,
+        maxParticipants: typeof item.maxParticipants === "number" ? item.maxParticipants : 0,
+        ...(typeof item.imageUrl === "string" ? { imageUrl: item.imageUrl } : {}),
+        ...(typeof item.distance === "number" ? { distance: item.distance } : {}),
+        ...(typeof item.creatorNickname === "string" ? { creatorNickname: item.creatorNickname } : {}),
+      }))
+      .filter((item) => item.id && item.title);
+
+    if (items.length === 0) {
+      return (
+        <p className={cn("text-xs", isDarkMode ? "text-white/42" : "text-black/40")}>
+          暂无推荐内容
+        </p>
+      );
+    }
+
+    return (
+      <div className="w-full">
+        {block.title ? (
+          <p className={cn("mb-3 text-sm font-medium", isDarkMode ? "text-white/72" : "text-black/68")}>
+            {block.title}
+          </p>
+        ) : null}
+        <ActivitySwiper
+          activities={items}
+          isDarkMode={isDarkMode}
+          onActivityClick={(activity) => {
+            window.location.href = buildActivityDetailPath(activity.id, { entry: "carousel_block" });
+          }}
+        />
+      </div>
     );
   }
 

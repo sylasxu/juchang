@@ -19,7 +19,52 @@
       <text wx:if="{{displaySubGreeting}}" class="sub-greeting-text">{{displaySubGreeting}}</text>
     </view>
   </view>
-  
+
+  <!-- v5.4: 推荐活动 swiper -->
+  <block wx:if="{{hasRecommendations}}">
+    <view class="recommendations-section">
+      <swiper
+        class="rec-swiper"
+        previous-margin="60rpx"
+        next-margin="60rpx"
+        display-multiple-items="1"
+        circular="{{displayRecommendations.length >= 3}}"
+      >
+        <swiper-item
+          wx:for="{{displayRecommendations}}"
+          wx:key="id"
+        >
+          <view
+            class="rec-card"
+            data-id="{{item.id}}"
+            bindtap="onRecommendationTap"
+          >
+            <!-- 封面图 -->
+            <view class="rec-card-cover">
+              <image
+                wx:if="{{item.imageUrl}}"
+                class="rec-card-image"
+                src="{{item.imageUrl}}"
+                mode="aspectFill"
+                lazy-load
+              />
+              <text wx:else class="rec-card-image-placeholder">{{item.type}}</text>
+              <text class="rec-card-type">{{item.type}}</text>
+              <text wx:if="{{item.distance}}" class="rec-card-distance">{{item.distance < 1000 ? item.distance + 'm' : (item.distance/1000).toFixed(1) + 'km'}}</text>
+            </view>
+            <!-- 信息 -->
+            <view class="rec-card-info">
+              <text class="rec-card-title">{{item.title}}</text>
+              <text class="rec-card-meta">{{item.startAt}}</text>
+              <text class="rec-card-meta">{{item.locationName}}</text>
+              <text class="rec-card-meta">{{item.currentParticipants}}/{{item.maxParticipants}} 人</text>
+            </view>
+          </view>
+        </swiper-item>
+      </swiper>
+    </view>
+  </block>
+
   <!-- v4.4: 快捷入口 -->
   <block wx:if="{{hasQuickPrompts && !hasActivities}}">
     <view class="quick-prompts-section">

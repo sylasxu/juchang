@@ -3,11 +3,33 @@
 
 export const GENUI_CONTRACT_VERSION = "2026-04-04";
 
+// ==========================================
+// Shared Data Structures
+// ==========================================
+
+/**
+ * 活动摘要 — Welcome 推荐与 carousel block 共享的数据结构
+ */
+export interface ActivitySummary {
+  id: string;
+  title: string;
+  type: string;
+  startAt: string;
+  locationName: string;
+  locationHint: string;
+  currentParticipants: number;
+  maxParticipants: number;
+  imageUrl?: string;
+  distance?: number;
+  creatorNickname?: string;
+}
+
 export const GENUI_BLOCK_TYPES = [
   "text",
   "choice",
   "entity-card",
   "list",
+  "carousel",
   "form",
   "cta-group",
   "alert",
@@ -177,6 +199,25 @@ export interface GenUIListBlock extends GenUIBlockBase {
   preview?: Record<string, unknown>;
 }
 
+export interface GenUICarouselBlock extends GenUIBlockBase {
+  type: "carousel";
+  title?: string;
+  subtitle?: string;
+  items: Record<string, unknown>[];
+  variant?: "peek" | "full" | "compact";
+  autoplay?: boolean;
+  interval?: number;
+  indicator?: boolean;
+  loop?: boolean;
+  interaction?: {
+    actions?: Array<{
+      type: string;
+      label: string;
+      params?: Record<string, unknown>;
+    }>;
+  };
+}
+
 export interface GenUIFormBlock extends GenUIBlockBase {
   type: "form";
   title?: string;
@@ -206,6 +247,7 @@ export type GenUIBlock =
   | GenUIChoiceBlock
   | GenUIEntityCardBlock
   | GenUIListBlock
+  | GenUICarouselBlock
   | GenUIFormBlock
   | GenUICtaGroupBlock
   | GenUIAlertBlock;
